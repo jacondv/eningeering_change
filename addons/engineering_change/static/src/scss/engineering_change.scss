@@ -1,0 +1,10 @@
+.o_kanban_view .oe_kanban_card {
+    .badge {
+        text-transform: capitalize;
+    }
+}
+
+.o_list_view tr.o_data_row.text-bg-danger,
+.o_list_view tr.o_data_row.o_decoration_danger {
+    font-weight: 500;
+}

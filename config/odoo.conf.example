@@ -1,0 +1,8 @@
+[options]
+addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
+admin_passwd = changeme
+db_host = db
+db_port = 5432
+db_user = odoo
+db_password = changeme
+log_handler = odoo.tools.convert:DEBUG

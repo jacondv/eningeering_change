@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_engineering_change_reject_wizard_form" model="ir.ui.view">
+        <field name="name">engineering.change.reject.wizard.form</field>
+        <field name="model">engineering.change.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reject Request">
+                <field name="change_id" invisible="1"/>
+                <field name="reject_by" invisible="1"/>
+                <group>
+                    <field name="reject_reason" placeholder="Explain why this request is rejected..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm_reject" type="object" string="Confirm Reject" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

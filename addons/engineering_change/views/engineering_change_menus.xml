@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_engineering_change_sequence" model="ir.actions.act_window">
+        <field name="name">Sequences</field>
+        <field name="res_model">ir.sequence</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('code', 'in', ['engineering.change', 'engineering.change.dcr'])]</field>
+    </record>
+
+    <record id="action_engineering_change_groups" model="ir.actions.act_window">
+        <field name="name">Groups/Users</field>
+        <field name="res_model">res.groups</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain" eval="[('id', 'in', [
+            ref('engineering_change.group_ec_user'),
+            ref('engineering_change.group_ec_engineer'),
+            ref('engineering_change.group_ec_bod'),
+            ref('engineering_change.group_ec_manager'),
+            ref('engineering_change.group_ec_delete'),
+        ])]"/>
+    </record>
+
+    <menuitem id="menu_engineering_change_root" name="Engineering Change"
+          web_icon="engineering_change,static/description/icon.png"
+          groups="engineering_change.group_ec_user"/>
+
+    <menuitem id="menu_engineering_change_dashboard" name="Dashboard"
+          parent="menu_engineering_change_root"
+          action="action_engineering_change_dashboard"
+          sequence="5"/>
+
+    <menuitem id="menu_engineering_change_my" name="My Requests"
+          parent="menu_engineering_change_root"
+          action="action_engineering_change_my"
+          sequence="10"/>
+
+      <menuitem
+      id="menu_engineering_change_all"
+      name="All Requests"
+      parent="menu_engineering_change_root"
+      action="action_engineering_change_all"
+      sequence="20"/>
+      
+    <!-- <record id="menu_engineering_change_all" model="ir.ui.menu">
+        <field name="name">All Requests</field>
+        <field name="parent_id" ref="menu_engineering_change_root"/>
+        <field name="action" ref="action_engineering_change_all"/>
+        <field name="sequence">20</field>
+        <field name="group_ids" eval="[(6, 0, [])]"/>
+    </record> -->
+
+    <menuitem id="menu_engineering_change_waiting_approval" name="Waiting Approval"
+          parent="menu_engineering_change_root"
+          action="action_engineering_change_waiting_approval"
+          groups="engineering_change.group_ec_engineer,engineering_change.group_ec_bod,engineering_change.group_ec_manager"
+          sequence="30"/>
+
+    <menuitem id="menu_engineering_change_action" name="Actions / Tasks"
+          parent="menu_engineering_change_root"
+          action="action_engineering_change_action"
+          sequence="40"/>
+
+    <menuitem id="menu_engineering_change_configuration" name="Configuration"
+          parent="menu_engineering_change_root"
+          groups="engineering_change.group_ec_manager"
+          sequence="90"/>
+
+    <menuitem id="menu_engineering_change_configuration_sequence" name="Sequences"
+          parent="menu_engineering_change_configuration"
+          action="action_engineering_change_sequence"
+          groups="engineering_change.group_ec_manager"
+          sequence="10"/>
+
+    <menuitem id="menu_engineering_change_configuration_groups" name="Groups/Users"
+          parent="menu_engineering_change_configuration"
+          action="action_engineering_change_groups"
+          groups="engineering_change.group_ec_manager"
+          sequence="20"/>
+
+</odoo>

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <record id="module_category_engineering_change" model="ir.module.category">
+            <field name="name">Engineering Change</field>
+            <field name="sequence">30</field>
+        </record>
+
+        <!-- Each capability below sits on its OWN privilege (1 group per privilege),
+             so they render as independent checkboxes in Settings > Users > Access Rights
+             instead of a mutually-exclusive radio set. Any combination can be granted to
+             a single user: e.g. a user can be both "Request" and "BOD Approve" at once,
+             or hold "Delete" without being a full "Manager Approve". -->
+
+        <record id="privilege_ec_view" model="res.groups.privilege">
+            <field name="name">View</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="privilege_ec_request" model="res.groups.privilege">
+            <field name="name">Request</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">20</field>
+        </record>
+
+        <record id="privilege_ec_bod_approve" model="res.groups.privilege">
+            <field name="name">BOD Approve</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">30</field>
+        </record>
+
+        <record id="privilege_ec_manager_approve" model="res.groups.privilege">
+            <field name="name">Manager Approve</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">40</field>
+        </record>
+
+        <record id="privilege_ec_delete" model="res.groups.privilege">
+            <field name="name">Delete</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">50</field>
+        </record>
+
+        <record id="group_ec_user" model="res.groups">
+            <field name="name">View</field>
+            <field name="privilege_id" ref="privilege_ec_view"/>
+            <field name="comment">Can view every Engineering Change request (read-only). Granted automatically to every Internal User.</field>
+        </record>
+
+        <record id="group_ec_engineer" model="res.groups">
+            <field name="name">Request</field>
+            <field name="privilege_id" ref="privilege_ec_request"/>
+            <field name="implied_ids" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="comment">Can create, edit and submit Engineering Change requests.</field>
+        </record>
+
+        <record id="group_ec_bod" model="res.groups">
+            <field name="name">BOD Approve</field>
+            <field name="privilege_id" ref="privilege_ec_bod_approve"/>
+            <field name="implied_ids" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="comment">Can approve/reject DCR requests at the BOD Review stage.</field>
+        </record>
+
+        <record id="group_ec_manager" model="res.groups">
+            <field name="name">Manager Approve</field>
+            <field name="privilege_id" ref="privilege_ec_manager_approve"/>
+            <field name="implied_ids" eval="[(4, ref('group_ec_bod'))]"/>
+            <field name="comment">Can approve/reject at the first (Manager) approval stage, close/reopen requests, and manage sequences/groups. Includes BOD Approve.</field>
+        </record>
+
+        <record id="group_ec_delete" model="res.groups">
+            <field name="name">Delete</field>
+            <field name="privilege_id" ref="privilege_ec_delete"/>
+            <field name="comment">Can permanently delete Engineering Change requests (Draft only, unless overridden). Independent of the other roles - grant it to whoever should be allowed to clean up requests.</field>
+        </record>
+
+    </data>
+</odoo>

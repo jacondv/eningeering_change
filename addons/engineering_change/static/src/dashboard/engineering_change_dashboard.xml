@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="engineering_change.Dashboard">
+        <div class="o_ec_dashboard">
+            <div class="o_ec_dashboard_header">
+                <h2>Engineering Change Dashboard</h2>
+            </div>
+            <t t-if="!state.data">
+                <div class="text-center p-5">
+                    <i class="fa fa-spinner fa-spin fa-2x"/>
+                </div>
+            </t>
+            <t t-else="">
+                <div class="o_ec_kpi_row">
+                    <div class="o_ec_kpi_card" t-on-click="() => this.openRequests([], 'All Requests')">
+                        <div class="o_ec_kpi_value"><t t-esc="state.data.total_requests"/></div>
+                        <div class="o_ec_kpi_label">Total Requests</div>
+                    </div>
+                    <div class="o_ec_kpi_card o_ec_kpi_draft" t-on-click="() => this.openRequests([['state','=','draft']], 'Draft')">
+                        <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'draft')"/></div>
+                        <div class="o_ec_kpi_label">Draft</div>
+                    </div>
+                    <div class="o_ec_kpi_card o_ec_kpi_pending" t-on-click="() => this.openRequests([['state','in',['waiting_manager_approval','bod_review']]], 'Pending Approval')">
+                        <div class="o_ec_kpi_value">
+                            <t t-esc="countOf(state.data.state_counts, 'waiting_manager_approval') + countOf(state.data.state_counts, 'bod_review')"/>
+                        </div>
+                        <div class="o_ec_kpi_label">Pending Approval</div>
+                    </div>
+                    <div class="o_ec_kpi_card o_ec_kpi_implement" t-on-click="() => this.openRequests([['state','=','implement']], 'Implementing')">
+                        <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'implement')"/></div>
+                        <div class="o_ec_kpi_label">Implementing</div>
+                    </div>
+                    <div class="o_ec_kpi_card o_ec_kpi_done" t-on-click="() => this.openRequests([['state','=','done']], 'Done')">
+                        <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'done')"/></div>
+                        <div class="o_ec_kpi_label">Done</div>
+                    </div>
+                    <div class="o_ec_kpi_card o_ec_kpi_overdue" t-on-click="() => this.openRequests([['has_overdue_action','=',true]], 'Overdue Requests')">
+                        <div class="o_ec_kpi_value"><t t-esc="state.data.overdue_requests"/></div>
+                        <div class="o_ec_kpi_label">Overdue Requests</div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-lg-6">
+                        <div class="o_ec_panel">
+                            <h4>Requests by State</h4>
+                            <t t-foreach="state.data.state_counts" t-as="item" t-key="item.key">
+                                <div class="o_ec_bar_row" t-on-click="() => this.openRequests([['state','=',item.key]], item.label)">
+                                    <span class="o_ec_bar_label"><t t-esc="item.label"/></span>
+                                    <div class="o_ec_bar_track">
+                                        <div class="o_ec_bar_fill" t-attf-style="width: {{percentOf(item.count, state.data.total_requests)}}%"/>
+                                    </div>
+                                    <span class="o_ec_bar_count"><t t-esc="item.count"/></span>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="o_ec_panel">
+                            <h4>Request Type</h4>
+                            <t t-foreach="state.data.type_counts" t-as="item" t-key="item.key">
+                                <div class="o_ec_bar_row" t-on-click="() => this.openRequests([['request_type','=',item.key]], item.label)">
+                                    <span class="o_ec_bar_label"><t t-esc="item.label"/></span>
+                                    <div class="o_ec_bar_track">
+                                        <div class="o_ec_bar_fill o_ec_bar_fill_alt" t-attf-style="width: {{percentOf(item.count, state.data.total_requests)}}%"/>
+                                    </div>
+                                    <span class="o_ec_bar_count"><t t-esc="item.count"/></span>
+                                </div>
+                            </t>
+                            <h4 class="mt-3">RPN Level</h4>
+                            <t t-foreach="state.data.rpn_counts" t-as="item" t-key="item.key">
+                                <div class="o_ec_bar_row" t-on-click="() => this.openRequests([['rpn_level','=',item.key]], item.label)">
+                                    <span class="o_ec_bar_label"><t t-esc="item.label"/></span>
+                                    <div class="o_ec_bar_track">
+                                        <div t-attf-class="o_ec_bar_fill o_ec_bar_fill_rpn_{{item.key}}" t-attf-style="width: {{percentOf(item.count, state.data.total_requests)}}%"/>
+                                    </div>
+                                    <span class="o_ec_bar_count"><t t-esc="item.count"/></span>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-lg-6">
+                        <div class="o_ec_panel">
+                            <h4>Task Progress</h4>
+                            <div class="o_ec_progress_wrap">
+                                <div class="o_ec_progress_track">
+                                    <div class="o_ec_progress_fill" t-attf-style="width: {{state.data.task_progress}}%"/>
+                                </div>
+                                <span class="o_ec_progress_text">
+                                    <t t-esc="state.data.task_progress"/>% (<t t-esc="state.data.done_tasks"/> / <t t-esc="state.data.total_tasks"/>)
+                                </span>
+                            </div>
+                            <t t-foreach="state.data.task_state_counts" t-as="item" t-key="item.key">
+                                <div class="o_ec_bar_row" t-on-click="() => this.openTasksByState(item.key)">
+                                    <span class="o_ec_bar_label"><t t-esc="item.label"/></span>
+                                    <div class="o_ec_bar_track">
+                                        <div class="o_ec_bar_fill o_ec_bar_fill_task" t-attf-style="width: {{percentOf(item.count, state.data.total_tasks)}}%"/>
+                                    </div>
+                                    <span class="o_ec_bar_count"><t t-esc="item.count"/></span>
+                                </div>
+                            </t>
+                            <div class="o_ec_kpi_card o_ec_kpi_overdue mt-2" t-on-click="() => this.openOverdueTasks()">
+                                <div class="o_ec_kpi_value"><t t-esc="state.data.overdue_tasks"/></div>
+                                <div class="o_ec_kpi_label">Overdue Tasks</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-6">
+                        <div class="o_ec_panel">
+                            <h4>My Open Tasks</h4>
+                            <p class="text-muted" t-if="!state.data.my_open_tasks.length">
+                                No open tasks assigned to you.
+                            </p>
+                            <table class="table table-sm o_ec_table" t-else="">
+                                <tbody>
+                                    <tr t-foreach="state.data.my_open_tasks" t-as="task" t-key="task.id"
+                                        t-on-click="() => this.openTask(task.id)"
+                                        t-attf-class="{{task.is_overdue ? 'o_ec_row_overdue' : ''}}">
+                                        <td><t t-esc="task.name"/></td>
+                                        <td><t t-esc="task.change_id ? task.change_id[1] : ''"/></td>
+                                        <td><t t-esc="task.date_deadline"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3 mb-3">
+                    <div class="col-12">
+                        <div class="o_ec_panel">
+                            <h4>Recent Requests</h4>
+                            <table class="table table-sm o_ec_table">
+                                <tbody>
+                                    <tr t-foreach="state.data.recent_requests" t-as="req" t-key="req.id"
+                                        t-on-click="() => this.openRecord('engineering.change', req.id)">
+                                        <td><t t-esc="req.name"/></td>
+                                        <td><t t-esc="req.title"/></td>
+                                        <td><t t-esc="req.engineer_id ? req.engineer_id[1] : ''"/></td>
+                                        <td>
+                                            <span t-attf-class="badge o_ec_state_badge o_ec_state_{{req.state}}">
+                                                <t t-esc="labelOf(state.data.state_counts, req.state)"/>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

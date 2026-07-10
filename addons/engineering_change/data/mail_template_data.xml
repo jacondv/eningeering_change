@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="mail_template_submit" model="mail.template">
+        <field name="name">EC: Request Submitted</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] New request waiting for your approval</field>
+        <field name="email_from">{{ (object.engineer_id.email_formatted or user.email_formatted) }}</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear,</p>
+                <p>
+                    A new <t t-out="'DCR' if object.request_type == 'dcr' else 'Minor Change'"/> request
+                    <strong t-out="object.name"/> - <t t-out="object.title"/> has been submitted by
+                    <t t-out="object.engineer_id.name"/> and is waiting for your approval.
+                </p>
+                <p>RPN: <t t-out="object.rpn"/> (<t t-out="object.rpn_level"/>)</p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_manager_reject" model="mail.template">
+        <field name="name">EC: Rejected by Manager</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] Request rejected by Manager</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear <t t-out="object.engineer_id.name"/>,</p>
+                <p>
+                    Your request <strong t-out="object.name"/> - <t t-out="object.title"/> has been rejected
+                    by the Engineering Manager.
+                </p>
+                <p>Reason: <t t-out="object.reject_reason"/></p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_bod_review" model="mail.template">
+        <field name="name">EC: DCR Waiting for BOD Review</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] DCR request waiting for BOD review</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear,</p>
+                <p>
+                    DCR request <strong t-out="object.name"/> - <t t-out="object.title"/> has been approved
+                    by the Engineering Manager and is now waiting for BOD review.
+                </p>
+                <p>RPN: <t t-out="object.rpn"/> (<t t-out="object.rpn_level"/>)</p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_bod_reject" model="mail.template">
+        <field name="name">EC: Rejected by BOD</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] Request rejected by BOD</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear <t t-out="object.engineer_id.name"/>,</p>
+                <p>
+                    Your request <strong t-out="object.name"/> - <t t-out="object.title"/> has been rejected by BOD.
+                </p>
+                <p>Reason: <t t-out="object.reject_reason"/></p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_implement" model="mail.template">
+        <field name="name">EC: Request Approved - Implementation</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] Request approved - Implementation started</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear,</p>
+                <p>
+                    Request <strong t-out="object.name"/> - <t t-out="object.title"/> has been approved and moved
+                    to Implementation. You have been added to the Implement Team.
+                </p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_overdue" model="mail.template">
+        <field name="name">EC: Action Overdue Reminder</field>
+        <field name="model_id" ref="project.model_project_task"/>
+        <field name="subject">[{{ object.change_id.name }}] Action "{{ object.name }}" is overdue</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear <t t-out="', '.join(object.user_ids.mapped('name'))"/>,</p>
+                <p>
+                    The action <strong t-out="object.name"/> on request
+                    <t t-out="object.change_id.name"/> - <t t-out="object.change_id.title"/>
+                    was due on <t t-out="object.date_deadline"/> and is still not completed.
+                </p>
+                <p>Please update its status as soon as possible.</p>
+            </div>
+        </field>
+    </record>
+
+</odoo>

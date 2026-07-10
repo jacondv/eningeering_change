@@ -1,0 +1,21 @@
+# Secrets / local environment - copy from the .example files instead
+.env
+config/odoo.conf
+
+# Local Claude Code settings (not shared project config)
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Odoo runtime
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Scratch / to-be-deleted
+/willdelete/

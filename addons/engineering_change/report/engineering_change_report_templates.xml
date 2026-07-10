@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_engineering_change_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="row">
+                            <div class="col-6">
+                                <h2>
+                                    Request No: <span t-field="o.name"/>
+                                </h2>
+                                <h4 t-if="o.dcr_no">
+                                    DCR No: <span t-field="o.dcr_no"/>
+                                </h4>
+                            </div>
+                            <div class="col-6 text-end">
+                                <p>Printed on: <span t-out="context_timestamp(datetime.datetime.now()).strftime('%Y-%m-%d %H:%M')"/></p>
+                            </div>
+                        </div>
+
+                        <h3>General Information</h3>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong>Title</strong></td>
+                                <td><span t-field="o.title"/></td>
+                                <td><strong>Request Type</strong></td>
+                                <td><span t-field="o.request_type"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Engineer</strong></td>
+                                <td><span t-field="o.engineer_id.name"/></td>
+                                <td><strong>State</strong></td>
+                                <td><span t-field="o.state"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Created</strong></td>
+                                <td><span t-field="o.create_date"/></td>
+                                <td><strong>Closed</strong></td>
+                                <td><span t-field="o.close_date"/></td>
+                            </tr>
+                        </table>
+                        <h4>Description</h4>
+                        <div t-field="o.description"/>
+
+                        <h3>Risk Assessment</h3>
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong>RPN</strong></td>
+                                <td><span t-field="o.rpn"/> (<span t-field="o.rpn_level"/>)</td>
+                            </tr>
+                        </table>
+                        <p><strong>Lead Time Impact:</strong> <span t-field="o.impact_lead_time"/></p>
+                        <p><strong>Safety Impact:</strong> <span t-field="o.impact_safety"/></p>
+                        <p><strong>Compliance Impact:</strong> <span t-field="o.impact_compliance"/></p>
+
+                        <h3 t-if="o.image_ids">Images</h3>
+                        <div class="row" t-if="o.image_ids">
+                            <div class="col-3 text-center" t-foreach="o.image_ids" t-as="img">
+                                <img t-att-src="image_data_uri(img.image)" style="max-width:150px;max-height:150px;"/>
+                                <p t-field="img.caption"/>
+                            </div>
+                        </div>
+
+                        <h3 t-if="o.document_ids">Related Drawings</h3>
+                        <table class="table table-sm" t-if="o.document_ids">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Link</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.document_ids" t-as="doc">
+                                    <td><span t-field="doc.name"/></td>
+                                    <td><span t-field="doc.doc_type"/></td>
+                                    <td><span t-field="doc.link"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h3 t-if="o.task_ids">Actions</h3>
+                        <table class="table table-sm" t-if="o.task_ids">
+                            <thead>
+                                <tr>
+                                    <th>Task</th>
+                                    <th>Assignees</th>
+                                    <th>Deadline</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.task_ids" t-as="act">
+                                    <td><span t-field="act.name"/></td>
+                                    <td><span t-out="', '.join(act.user_ids.mapped('name'))"/></td>
+                                    <td><span t-field="act.date_deadline"/></td>
+                                    <td><span t-field="act.state"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="row mt-5">
+                            <div class="col-4 text-center">
+                                <p>____________________</p>
+                                <p>Engineer</p>
+                                <p t-field="o.engineer_id.name"/>
+                            </div>
+                            <div class="col-4 text-center">
+                                <p>____________________</p>
+                                <p>Engineering Manager</p>
+                            </div>
+                            <div class="col-4 text-center">
+                                <p>____________________</p>
+                                <p>BOD Approver</p>
+                                <p t-field="o.bod_approver_id.name"/>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

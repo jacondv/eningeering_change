@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= FORM VIEW ================= -->
+    <record id="view_engineering_change_form" model="ir.ui.view">
+        <field name="name">engineering.change.form</field>
+        <field name="model">engineering.change</field>
+        <field name="arch" type="xml">
+            <form string="Engineering Change Request">
+                <header>
+                    <button name="action_submit" string="Submit" type="object"
+                            class="oe_highlight" invisible="state != 'draft'"
+                            groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
+                    <button name="action_manager_approve" string="Approve" type="object"
+                            class="oe_highlight" invisible="state != 'waiting_manager_approval'"
+                            groups="engineering_change.group_ec_manager"/>
+                    <button name="action_manager_reject" string="Reject" type="object"
+                            invisible="state != 'waiting_manager_approval'"
+                            groups="engineering_change.group_ec_manager"/>
+                    <button name="action_bod_approve" string="Approve" type="object"
+                            class="oe_highlight" invisible="state != 'bod_review'"
+                            groups="engineering_change.group_ec_bod"/>
+                    <button name="action_bod_reject" string="Reject" type="object"
+                            invisible="state != 'bod_review'"
+                            groups="engineering_change.group_ec_bod"/>
+                    <button name="action_confirm_production" string="Confirm Production" type="object"
+                            class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"/>
+                    <button name="action_close_request" string="Close Request" type="object"
+                            class="oe_highlight" invisible="state != 'production'"
+                            groups="engineering_change.group_ec_manager"/>
+                    <button name="action_reopen" string="Reopen" type="object"
+                            invisible="state != 'done'"
+                            groups="engineering_change.group_ec_manager"/>
+                    <field name="can_confirm_production" invisible="1"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,waiting_manager_approval,bod_review,implement,production,done"/>
+                </header>
+                <sheet>
+                    <div name="button_box" class="oe_button_box">
+                        <button class="oe_stat_button" icon="fa-tasks" type="object" name="action_view_actions">
+                            <field name="action_count" widget="statinfo" string="Actions"/>
+                        </button>
+                        <button class="oe_stat_button" icon="fa-file-text-o" type="object" name="action_view_evidence">
+                            <field name="evidence_count" widget="statinfo" string="Evidence"/>
+                        </button>
+                        <button class="oe_stat_button" icon="fa-line-chart" type="object" name="action_view_actions">
+                            <field name="progress" widget="statinfo" string="Progress %"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <notebook>
+                        <page string="General Info" name="general_info">
+                            <group>
+                                <group>
+                                    <field name="title" required="1" placeholder="Short title of the change..."
+                                           readonly="not can_edit_engineer_fields"/>
+                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
+                                           readonly="not can_edit_request_type"/>
+                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
+                                </group>
+                                <group>
+                                    <field name="dcr_no"/>
+                                    <field name="create_date" string="Created"/>
+                                    <field name="close_date" invisible="not close_date"/>
+                                    <field name="rpn_level" widget="badge"
+                                           decoration-danger="rpn_level == 'high'"
+                                           decoration-warning="rpn_level == 'medium'"
+                                           decoration-success="rpn_level == 'low'"/>
+                                    <field name="can_edit_engineer_fields" invisible="1"/>
+                                    <field name="can_edit_manager_fields" invisible="1"/>
+                                    <field name="can_edit_request_type" invisible="1"/>
+                                </group>
+                            </group>
+                            <field name="description" required="1" placeholder="Describe the engineering change..."
+                                   readonly="not can_edit_engineer_fields"/>
+                            <group>
+                                <group>
+                                    <field name="company_id" groups="base.group_multi_company"/>
+                                    <field name="active" invisible="1"/>
+                                </group>
+                                <group>
+                                    <field name="bod_approver_id" invisible="not bod_approver_id"/>
+                                    <field name="reject_reason" invisible="not reject_reason"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Images" name="images">
+                            <field name="image_ids" readonly="not can_edit_engineer_fields">
+                                <kanban>
+                                    <field name="caption"/>
+                                    <field name="image"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="oe_kanban_global_click">
+                                                <field name="image" widget="image"
+                                                       options="{'size': [128, 128], 'preview_image': 'image'}"/>
+                                                <div class="text-center">
+                                                    <field name="caption"/>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                                <form>
+                                    <group>
+                                        <field name="image" widget="image"/>
+                                        <field name="caption"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="Related Drawings" name="documents">
+                            <field name="document_ids" readonly="not can_edit_engineer_fields">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="doc_type"/>
+                                    <field name="link" invisible="doc_type != 'link'"/>
+                                    <field name="attachment" filename="attachment_filename"
+                                           invisible="doc_type != 'file'"/>
+                                    <field name="attachment_filename" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Risk Assessment" name="risk">
+                            <group>
+                                <field name="rpn" readonly="not can_edit_engineer_fields"/>
+                                <field name="rpn_level" widget="badge"
+                                       decoration-danger="rpn_level == 'high'"
+                                       decoration-warning="rpn_level == 'medium'"
+                                       decoration-success="rpn_level == 'low'"/>
+                            </group>
+                            <group string="Impact Analysis">
+                                <field name="impact_lead_time" nolabel="1" readonly="not can_edit_engineer_fields"
+                                       placeholder="Lead time impact..."/>
+                                <field name="impact_safety" nolabel="1" readonly="not can_edit_engineer_fields"
+                                       placeholder="Safety impact..."/>
+                                <field name="impact_compliance" nolabel="1" readonly="not can_edit_engineer_fields"
+                                       placeholder="Compliance impact..."/>
+                            </group>
+                        </page>
+
+                        <page string="Implement Team" name="implement_team">
+                            <group>
+                                <field name="implement_team_ids" widget="many2many_tags"
+                                       readonly="not can_edit_manager_fields"/>
+                                <field name="implement_owner_id"
+                                       domain="[('id', 'in', implement_team_ids)]"
+                                       readonly="not can_edit_manager_fields"/>
+                            </group>
+                        </page>
+
+                        <page string="Actions" name="actions">
+                            <field name="task_ids" context="{'default_change_id': id}">
+                                <list editable="bottom" decoration-danger="is_overdue">
+                                    <button name="action_open_ec_task_form" type="object"
+                                            icon="fa-external-link" title="Open"/>
+                                    <field name="name"/>
+                                    <field name="user_ids" widget="many2many_tags"/>
+                                    <field name="manager_id"/>
+                                    <field name="date_deadline"/>
+                                    <field name="state"/>
+                                    <field name="is_overdue" column_invisible="1"/>
+                                    <field name="evidence_count"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ================= LIST VIEW ================= -->
+    <record id="view_engineering_change_list" model="ir.ui.view">
+        <field name="name">engineering.change.list</field>
+        <field name="model">engineering.change</field>
+        <field name="arch" type="xml">
+            <list string="Engineering Changes" decoration-danger="has_overdue_action">
+                <field name="name"/>
+                <field name="title"/>
+                <field name="request_type" widget="badge"/>
+                <field name="dcr_no"/>
+                <field name="create_date" string="Created"/>
+                <field name="engineer_id"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'done'"
+                       decoration-info="state in ('waiting_manager_approval', 'bod_review')"
+                       decoration-warning="state in ('implement', 'production')"/>
+                <field name="rpn_level" widget="badge"
+                       decoration-danger="rpn_level == 'high'"
+                       decoration-warning="rpn_level == 'medium'"
+                       decoration-success="rpn_level == 'low'"/>
+                <field name="next_action_deadline"/>
+                <field name="has_overdue_action" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================= KANBAN VIEW ================= -->
+    <record id="view_engineering_change_kanban" model="ir.ui.view">
+        <field name="name">engineering.change.kanban</field>
+        <field name="model">engineering.change</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column">
+                <field name="progress"/>
+                <field name="rpn_level"/>
+                <field name="request_type"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click">
+                            <div class="d-flex justify-content-between">
+                                <strong><field name="title"/></strong>
+                                <span class="badge" t-attf-class="text-bg-{{ record.rpn_level.raw_value == 'high' and 'danger' or record.rpn_level.raw_value == 'medium' and 'warning' or 'success' }}">
+                                    <field name="rpn_level"/>
+                                </span>
+                            </div>
+                            <div>
+                                <field name="name"/> - <field name="request_type"/>
+                            </div>
+                            <div class="d-flex align-items-center mt-1">
+                                <field name="engineer_id" widget="many2one_avatar_user"/>
+                            </div>
+                            <field name="progress" widget="progressbar"/>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ================= SEARCH VIEW ================= -->
+    <record id="view_engineering_change_search" model="ir.ui.view">
+        <field name="name">engineering.change.search</field>
+        <field name="model">engineering.change</field>
+        <field name="arch" type="xml">
+            <search string="Search Engineering Changes">
+                <field name="name"/>
+                <field name="dcr_no"/>
+                <field name="title"/>
+                <field name="engineer_id"/>
+                <field name="implement_team_ids"/>
+                <separator/>
+                <filter string="My Requests" name="my_requests" domain="[('engineer_id', '=', uid)]"/>
+                <filter string="DCR Only" name="dcr_only" domain="[('request_type', '=', 'dcr')]"/>
+                <filter string="Minor Only" name="minor_only" domain="[('request_type', '=', 'minor')]"/>
+                <filter string="Overdue Actions" name="overdue" domain="[('has_overdue_action', '=', True)]"/>
+                <filter string="Waiting Approval" name="waiting_my_approval"
+                        domain="['|', ('state', '=', 'waiting_manager_approval'), ('state', '=', 'bod_review')]"/>
+                <filter string="Closed" name="closed" domain="[('state', '=', 'done')]"/>
+                <separator/>
+                <filter string="Draft" name="state_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Manager Approval" name="state_waiting_manager"
+                        domain="[('state', '=', 'waiting_manager_approval')]"/>
+                <filter string="BOD Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
+                <filter string="Implement" name="state_implement" domain="[('state', '=', 'implement')]"/>
+                <filter string="Production" name="state_production" domain="[('state', '=', 'production')]"/>
+                <group>
+                    <filter string="State" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Request Type" name="group_type" context="{'group_by': 'request_type'}"/>
+                    <filter string="Engineer" name="group_engineer" context="{'group_by': 'engineer_id'}"/>
+                    <filter string="Month" name="group_month" context="{'group_by': 'create_date:month'}"/>
+                    <filter string="RPN Level" name="group_rpn_level" context="{'group_by': 'rpn_level'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================= ACTIONS ================= -->
+    <record id="action_engineering_change_my" model="ir.actions.act_window">
+        <field name="name">My Requests</field>
+        <field name="res_model">engineering.change</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="search_view_id" ref="view_engineering_change_search"/>
+        <field name="domain">[('engineer_id', '=', uid)]</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Engineering Change Request
+            </p>
+        </field>
+    </record>
+
+    <record id="action_engineering_change_all" model="ir.actions.act_window">
+        <field name="name">All Requests</field>
+        <field name="res_model">engineering.change</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="search_view_id" ref="view_engineering_change_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Engineering Change Request
+            </p>
+        </field>
+    </record>
+
+    <record id="action_engineering_change_waiting_approval" model="ir.actions.act_window">
+        <field name="name">Waiting Approval</field>
+        <field name="res_model">engineering.change</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_engineering_change_search"/>
+        <field name="domain">['|', ('state', '=', 'waiting_manager_approval'), ('state', '=', 'bod_review')]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No request is waiting for your approval
+            </p>
+        </field>
+    </record>
+
+</odoo>
