@@ -21,23 +21,21 @@ class ProjectTask(models.Model):
     evidence_count = fields.Integer(compute='_compute_evidence_count')
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
 
-    def action_open_ec_task_form(self):
-        """Open this task's own EC-specific form (with the Evidence tab and
-        chatter) as a dialog, for use as an "Open" button on rows of the
-        Actions tab's embedded task list - that list is editable="bottom",
-        so clicking a row otherwise just starts inline editing instead of
-        opening the full form.
-        """
-        self.ensure_one()
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'project.task',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'views': [(self.env.ref('engineering_change.view_engineering_change_action_form').id, 'form')],
-            'target': 'new',
-        }
+    # Fields an EC task's own assignee may touch without being Manager Approve
+    # or Implement Owner. Kept as a class constant (same style as ENGINEER_FIELDS
+    # / MANAGER_FIELDS on engineering.change) so the "what" is declared once and
+    # reused by both the write guard and its error message.
+    ASSIGNEE_EDITABLE_FIELDS = frozenset({
+        'state',
+        'evidence_ids',
+        # written automatically by project.task's own write() as a side effect
+        # of a state change - not something the user is choosing to set.
+        'date_last_stage_update',
+    })
 
+    # ------------------------------------------------------------
+    # Computed fields / defaults
+    # ------------------------------------------------------------
     def _default_ec_manager_id(self):
         change_id = self.env.context.get('default_change_id')
         if change_id:
@@ -59,18 +57,9 @@ class ProjectTask(models.Model):
             rec.is_overdue = bool(
                 rec.change_id and deadline and deadline < today and rec.state not in DONE_STATES)
 
-    # Fields an EC task's own assignee may touch without being Manager Approve
-    # or Implement Owner. Kept as a class constant (same style as ENGINEER_FIELDS
-    # / MANAGER_FIELDS on engineering.change) so the "what" is declared once and
-    # reused by both the write guard and its error message.
-    ASSIGNEE_EDITABLE_FIELDS = frozenset({
-        'state',
-        'evidence_ids',
-        # written automatically by project.task's own write() as a side effect
-        # of a state change - not something the user is choosing to set.
-        'date_last_stage_update',
-    })
-
+    # ------------------------------------------------------------
+    # Permission checks
+    # ------------------------------------------------------------
     @api.model
     def _is_ec_manager(self):
         """Manager Approve holders have unrestricted access to every EC task."""
@@ -119,6 +108,9 @@ class ProjectTask(models.Model):
             "Only the Manager or the request's Implement Owner can edit task "
             "details. You can only update the Status and Evidence."))
 
+    # ------------------------------------------------------------
+    # CRUD
+    # ------------------------------------------------------------
     @api.model_create_multi
     def create(self, vals_list):
         is_manager = self._is_ec_manager()
@@ -152,6 +144,9 @@ class ProjectTask(models.Model):
         tasks_being_completed._post_completion_message()
         return result
 
+    # ------------------------------------------------------------
+    # Chatter messaging
+    # ------------------------------------------------------------
     def _post_creation_message(self):
         """Log a new action/task on its parent request's chatter, so anyone
         watching the request sees it show up even without opening the task.
@@ -174,6 +169,29 @@ class ProjectTask(models.Model):
             task.change_id.sudo().message_post(
                 body=_("Action '%s' completed by %s.") % (task.name, self.env.user.name))
 
+    # ------------------------------------------------------------
+    # Navigation
+    # ------------------------------------------------------------
+    def action_open_ec_task_form(self):
+        """Open this task's own EC-specific form (with the Evidence tab and
+        chatter) as a dialog, for use as an "Open" button on rows of the
+        Actions tab's embedded task list - that list is editable="bottom",
+        so clicking a row otherwise just starts inline editing instead of
+        opening the full form.
+        """
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'project.task',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(self.env.ref('engineering_change.view_engineering_change_action_form').id, 'form')],
+            'target': 'new',
+        }
+
+    # ------------------------------------------------------------
+    # Overdue reminders
+    # ------------------------------------------------------------
     def _send_overdue_reminder(self):
         self.ensure_one()
         partners = (self.user_ids | self.manager_id).mapped('partner_id')

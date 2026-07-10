@@ -14,14 +14,19 @@ class EngineeringChangeActionEvidence(models.Model):
     upload_date = fields.Datetime(string='Upload Date', readonly=True, default=fields.Datetime.now)
 
     def action_open_attachment(self):
-        """Open/download the evidence file directly, for use as a button on
-        list rows (the `attachment` Binary field itself isn't a click target
-        for opening the file once the list is editable).
+        """Open the evidence file directly, for use as a button on list rows
+        (the `attachment` Binary field itself isn't a click target for
+        opening the file once the list is editable).
+
+        No `download=true`: /web/content then serves the file with a plain
+        (non-attachment) Content-Disposition, so the browser renders it
+        inline when it can (PDF, images...) instead of always forcing a
+        download dialog.
         """
         self.ensure_one()
         return {
             'type': 'ir.actions.act_url',
-            'url': '/web/content/%s/%s/attachment?download=true&filename=%s' % (
+            'url': '/web/content/%s/%s/attachment?filename=%s' % (
                 self._name, self.id, self.attachment_filename or ''),
             'target': 'new',
         }
