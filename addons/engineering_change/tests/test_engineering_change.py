@@ -440,3 +440,19 @@ class TestEngineeringChange(TransactionCase):
         restored = Change.get_dashboard_data()
         self.assertEqual(restored['total_requests'], before['total_requests'])
         self.assertEqual(restored['total_tasks'], before['total_tasks'])
+
+    def test_archive_permission_only_owner_or_manager(self):
+        change = self._create_request(request_type='minor')
+
+        # BOD Approve has broad base write access to engineering.change, but
+        # not the archive-specific permission on a request it doesn't own.
+        with self.assertRaises(AccessError):
+            change.with_user(self.user_bod).write({'active': False})
+
+        # The request's own Engineer (its creator/owner) can archive it.
+        change.with_user(self.user_engineer).write({'active': False})
+        self.assertFalse(change.active)
+
+        # Manager can always archive/unarchive, regardless of ownership.
+        change.with_user(self.user_manager).write({'active': True})
+        self.assertTrue(change.active)
