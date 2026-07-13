@@ -61,6 +61,11 @@
           action="action_engineering_change_action"
           sequence="40"/>
 
+    <menuitem id="menu_engineering_change_archived" name="Archived Requests"
+          parent="menu_engineering_change_root"
+          action="action_engineering_change_archived"
+          sequence="45"/>
+
     <menuitem id="menu_engineering_change_configuration" name="Configuration"
           parent="menu_engineering_change_root"
           groups="engineering_change.group_ec_manager"

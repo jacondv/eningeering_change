@@ -1,5 +1,13 @@
 from odoo import _, api, models
 
+# Tasks belonging to an archived request are excluded from every aggregate/
+# cross-request task view below (Dashboard stats, "Actions / Tasks" links) -
+# archiving a request should take it (and its tasks) out of sight everywhere
+# except a dedicated "Archived Requests" view. Tasks don't carry their own
+# archive state in step with the parent, so this is enforced via domain
+# rather than by also archiving the tasks themselves.
+EC_TASK_DOMAIN = [('change_id', '!=', False), ('change_id.active', '=', True)]
+
 
 class EngineeringChange(models.Model):
     """Read-only navigation and reporting: methods that build an act_window
@@ -72,7 +80,7 @@ class EngineeringChange(models.Model):
             if c['has_overdue_action']:
                 overdue_requests += 1
 
-        tasks = Task.search_read([('change_id', '!=', False)], ['state', 'is_overdue'])
+        tasks = Task.search_read(EC_TASK_DOMAIN, ['state', 'is_overdue'])
         task_state_selection = Task._fields['state'].selection
         task_state_counts = {key: 0 for key, _label in task_state_selection}
         overdue_tasks = 0
@@ -91,8 +99,7 @@ class EngineeringChange(models.Model):
             order='create_date desc', limit=8)
 
         my_open_tasks = Task.search_read(
-            [
-                ('change_id', '!=', False),
+            EC_TASK_DOMAIN + [
                 ('user_ids', 'in', [self.env.user.id]),
                 ('state', 'not in', ['1_done', '1_canceled']),
             ],
@@ -144,7 +151,7 @@ class EngineeringChange(models.Model):
                 (self.env.ref('engineering_change.view_engineering_change_action_list').id, 'list'),
                 (self.env.ref('engineering_change.view_engineering_change_action_form').id, 'form'),
             ],
-            'domain': domain or [('change_id', '!=', False)],
+            'domain': EC_TASK_DOMAIN + (domain or []),
         }
         if res_id:
             action['res_id'] = res_id

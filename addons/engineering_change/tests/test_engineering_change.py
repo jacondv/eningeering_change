@@ -404,3 +404,39 @@ class TestEngineeringChange(TransactionCase):
         # evidence on a task they are not assigned to.
         with self.assertRaises(AccessError):
             evidence.with_user(self.user_engineer).unlink()
+
+    def test_archived_request_excluded_from_dashboard_and_task_action(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager).action_manager_approve()
+        task = self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'name': 'Do the thing',
+            'user_ids': [(6, 0, [self.user_general.id])],
+        })
+
+        Change = self.env['engineering.change'].with_user(self.user_manager)
+        before = Change.get_dashboard_data()
+        self.assertIn(change.id, Change.search([]).ids)
+        self.assertIn(task.id, self.env['project.task'].with_user(
+            self.user_manager).search(Change.get_ec_task_action()['domain']).ids)
+
+        change.with_user(self.user_manager).write({'active': False})
+
+        # Gone from the default (active-only) search...
+        self.assertNotIn(change.id, Change.search([]).ids)
+        # ...but still reachable via the Archived Requests view.
+        self.assertIn(change.id, Change.with_context(active_test=False).search(
+            [('active', '=', False)]).ids)
+
+        after = Change.get_dashboard_data()
+        self.assertEqual(after['total_requests'], before['total_requests'] - 1)
+        self.assertEqual(after['total_tasks'], before['total_tasks'] - 1)
+        self.assertNotIn(task.id, self.env['project.task'].with_user(
+            self.user_manager).search(Change.get_ec_task_action()['domain']).ids)
+
+        # Unarchiving brings it back everywhere.
+        change.with_user(self.user_manager).write({'active': True})
+        restored = Change.get_dashboard_data()
+        self.assertEqual(restored['total_requests'], before['total_requests'])
+        self.assertEqual(restored['total_tasks'], before['total_tasks'])
