@@ -200,6 +200,9 @@ class EngineeringChange(models.Model):
                 "%s can only change via the workflow buttons (Submit / Approve / "
                 "Reject / Close / Reopen), not by editing the field directly."
             ) % ', '.join(sorted(workflow_keys)))
+        if 'active' in keys:
+            for rec in self:
+                rec._check_archive_permission()
         return super().write(vals)
 
     def _check_field_edit_permissions(self, keys):
@@ -233,3 +236,17 @@ class EngineeringChange(models.Model):
                 raise UserError(_("Request Type can only be changed before it reaches BOD Review / Implement."))
             if is_engineer and not is_approver and self.state != 'draft':
                 raise UserError(_("Request Type can only be changed by the Request role while in Draft."))
+
+    def _check_archive_permission(self):
+        """Only the request's own Engineer (its creator/owner) or Manager
+        Approve may archive/unarchive it - BOD Approve and other Engineers
+        otherwise have unconditional base write access to the model, which
+        would let them archive any request without this check.
+        """
+        self.ensure_one()
+        user = self.env.user
+        is_manager = user.has_group('engineering_change.group_ec_manager')
+        if is_manager or self.engineer_id == user:
+            return
+        raise AccessError(_(
+            "Only the request's Engineer or the Manager can archive/unarchive this request."))
