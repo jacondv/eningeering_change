@@ -10,6 +10,9 @@ class QcChecksheet(models.Model):
     _order = 'create_date desc'
 
     name = fields.Char(required=True)
+    header_title = fields.Char(
+        string='Check Sheet Header Title',
+        help="Printed as the second line of the report's header banner, below the Check Sheet Name.")
     reference = fields.Char(string='Number')
     checksheet_type = fields.Selection(CHECKSHEET_TYPES, required=True, default='standard')
     template_id = fields.Many2one(

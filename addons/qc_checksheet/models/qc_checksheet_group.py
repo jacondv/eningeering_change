@@ -32,8 +32,8 @@ class QcChecksheetItem(models.Model):
     group_id = fields.Many2one('qc.checksheet.group', required=True, ondelete='cascade')
     sequence = fields.Integer(default=10)
     item_number = fields.Integer(compute='_compute_item_number', store=True)
-    description = fields.Text()
-    acceptance = fields.Text()
+    description = fields.Html(sanitize_style=True)
+    acceptance = fields.Html(sanitize_style=True)
     note = fields.Char()
 
     @api.depends(

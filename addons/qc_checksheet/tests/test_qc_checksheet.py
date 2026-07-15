@@ -96,7 +96,7 @@ class TestQcChecksheet(TransactionCase):
 
         self.assertEqual(copy.copied_from_id, source)
         self.assertEqual(copy.group_ids.name, 'Hydraulic System')
-        self.assertEqual(copy.group_ids.item_ids.description, 'Check oil level')
+        self.assertIn('Check oil level', copy.group_ids.item_ids.description)
         # Independent copy: editing the copy must not affect the source.
         copy.group_ids.name = 'Renamed'
         self.assertEqual(source.group_ids.name, 'Hydraulic System')
@@ -124,7 +124,7 @@ class TestQcChecksheet(TransactionCase):
         wizard.action_copy()
 
         self.assertEqual(new_checksheet.copied_from_id, source)
-        self.assertEqual(new_checksheet.group_ids.item_ids.description, 'Question 1')
+        self.assertIn('Question 1', new_checksheet.group_ids.item_ids.description)
         # Approval was already seeded from the Template at creation time, not
         # touched by the copy wizard.
         self.assertEqual(new_checksheet.approval_ids.mapped('position'), ['Technician', 'QC Engineer'])

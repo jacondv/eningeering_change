@@ -4,106 +4,74 @@
     <template id="report_qc_checksheet_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <t t-call="web.external_layout">
-                    <div class="page">
-                        <div class="row">
-                            <div class="col-6">
-                                <h2><span t-field="o.name"/></h2>
-                                <h4 t-if="o.reference">No: <span t-field="o.reference"/></h4>
-                            </div>
-                            <div class="col-6 text-end">
-                                <p t-if="o.check_date">Check Date: <span t-field="o.check_date"/></p>
-                            </div>
-                        </div>
+                <div class="header" style="width:calc(100% + 52pt); margin-left:-31pt; margin-right:-31pt; background-color:#008080; display:flex; align-items:center; padding:11.25pt 0 0 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <table style="width:100%; border-collapse:separate; border-spacing:0;">
+                        <tr>
+                            <td style="width:23%; padding:7.5pt; vertical-align:middle;">
+                                <img src="/qc_checksheet/static/img/jacon_logo.png" style="max-height:75pt;width:auto; object-fit:contain;"/>
+                            </td>
+                            <td style="width:45%; text-align:center; vertical-align:middle; color:white; padding-left:12pt;">
+                                <div style="font-weight:bold; font-size:21pt;" t-esc="(o.name or '').upper()"/>
+                                <div t-if="o.header_title" style="font-size:15pt;" t-esc="o.header_title.upper()"/>
+                            </td>
+                            <td style="width:27%; vertical-align:middle;  padding:3pt 7.5pt 3pt 3pt;">
+                                <table style="width:100%; height:82.5pt;  border:2.25pt solid #ff0000; border-collapse:separate; border-spacing:0; background-color:white;">
+                                    <tr>
+                                        <td colspan="2" style="text-align:center; color:#c00000; font-weight:bold; font-size:15pt; padding:3pt 3pt 1.5pt 3pt;">JACON APPROVAL</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#c00000; padding:0 3pt 1.5pt 6pt; white-space:nowrap;">Date</td>
+                                        <td style="width:100%; padding:0 6pt 1.5pt 3pt;">&#160;</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#c00000; padding:0 3pt 3pt 6pt; white-space:nowrap;">Sign</td>
+                                        <td style="width:100%; padding:0 6pt 3pt 3pt;">&#160;</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
 
-                        <table class="table table-sm table-borderless">
+                <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin-left: 50pt; margin-right: 13.5pt; padding-top: 5pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <div class="page">
+                        <style>
+                            .qc-rich-text p { margin:0 0 3pt 0; }
+                            .qc-rich-text p:last-child { margin-bottom:0; }
+                        </style>
+
+                        <h5 style="text-align:left; font-weight:bold;" t-esc="(o.header_title or '').upper()"/>
+                        <h6 t-if="o.reference" style="text-align:left;font-weight:bold;" t-esc="o.reference"/>
+
+                        <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0;">
                             <tr>
-                                <td><strong>Machine Serial</strong></td>
-                                <td><span t-field="o.machine_serial"/></td>
-                                <td><strong>Model</strong></td>
-                                <td><span t-field="o.machine_model"/></td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;">Machine Serial Number:</td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.machine_serial"/></td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;">Check date:</td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.check_date"/></td>
                             </tr>
                             <tr>
-                                <td><strong>Engine Number</strong></td>
-                                <td><span t-field="o.engine_number"/></td>
-                                <td><strong>Job Number</strong></td>
-                                <td><span t-field="o.job_number.name"/></td>
+                                <td style="border: none !important; box-shadow: none !important;">Job Number:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.job_number.name"/></td>
+                                <td style="border: none !important; box-shadow: none !important;">Model:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.machine_model"/></td>
                             </tr>
                             <tr>
-                                <td><strong>Customer</strong></td>
-                                <td colspan="3"><span t-field="o.customer"/></td>
+                                <td style="border: none !important; box-shadow: none !important;">Engine Number:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.engine_number"/></td>
+                                <td style="border: none !important; box-shadow: none !important;">Customer:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.customer"/></td>
                             </tr>
                         </table>
 
-                        <t t-if="o.checksheet_type == 'standard'">
-                            <t t-foreach="o.group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="group">
-                                <h4><span t-field="group.name"/></h4>
-                                <table class="table table-sm table-bordered">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:5%">Item</th>
-                                            <th style="width:30%">Description</th>
-                                            <th style="width:25%">Acceptance</th>
-                                            <th style="width:12%">Tested</th>
-                                            <th style="width:8%">OK/NOK</th>
-                                            <th style="width:20%">Note</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr t-foreach="group.item_ids.sorted(lambda i: (i.sequence, i.id))" t-as="item">
-                                            <td><span t-field="item.item_number"/></td>
-                                            <td style="white-space:pre-wrap"><span t-field="item.description"/></td>
-                                            <td style="white-space:pre-wrap"><span t-field="item.acceptance"/></td>
-                                            <td>&#160;</td>
-                                            <td class="text-center">&#9744;</td>
-                                            <td><span t-field="item.note"/></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </t>
-                        </t>
-
-                        <t t-if="o.checksheet_type == 'panel_sticker'">
-                            <table class="table table-sm table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th style="width:5%">Item</th>
-                                        <th style="width:15%">Part Number</th>
-                                        <th style="width:30%">Description</th>
-                                        <th style="width:15%">Picture</th>
-                                        <th style="width:10%">Qty</th>
-                                        <th style="width:25%">Note</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
-                                        <td><span t-esc="line_index + 1"/></td>
-                                        <td><span t-field="line.part_number.default_code"/></td>
-                                        <td><span t-field="line.description"/></td>
-                                        <td>
-                                            <img t-if="line.image" t-att-src="image_data_uri(line.image)"
-                                                 style="max-width:100px;max-height:100px;"/>
-                                        </td>
-                                        <td><span t-field="line.qty"/></td>
-                                        <td><span t-field="line.note"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </t>
-
-                        <h4>Conclusion</h4>
-                        <p>&#9744; The machine meets all acceptance criteria and is released.</p>
-                        <p>&#9744; The machine does not meet acceptance criteria - see Remarks.</p>
-                        <p t-if="o.remarks"><strong>Remarks:</strong> <span t-field="o.remarks"/></p>
-
-                        <h4>Check Sheet Approval</h4>
+                        <p style="font-weight:bold; margin-top:10.5pt;">Check Sheet Approval</p>
                         <table class="table table-sm table-bordered">
                             <thead>
-                                <tr>
-                                    <th>Position</th>
-                                    <th>Full Name</th>
-                                    <th>Signature</th>
-                                    <th>Date</th>
+                                <tr style="background-color:#008080; color:white;">
+                                    <th style="color:white;font-weight:bold;">Position</th>
+                                    <th style="color:white;font-weight:bold;">Full Name</th>
+                                    <th style="color:white;font-weight:bold;">Signature</th>
+                                    <th style="color:white;font-weight:bold;">Date</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -116,15 +84,15 @@
                             </tbody>
                         </table>
 
-                        <h4 t-if="o.history_ids">Template History</h4>
-                        <table class="table table-sm table-bordered" t-if="o.history_ids">
+                        <p style="font-weight:bold; margin-top:10.5pt;">QC Check Sheet Template History</p>
+                        <table class="table table-sm table-bordered">
                             <thead>
-                                <tr>
-                                    <th>Rev</th>
-                                    <th>Description</th>
-                                    <th>Date</th>
-                                    <th>Created By</th>
-                                    <th>Approved By</th>
+                                <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                    <th style="color:white;font-weight:bold;width:8%">Rev.</th>
+                                    <th style="color:white;font-weight:bold;">Description</th>
+                                    <th style="color:white;font-weight:bold;width:15%">Date</th>
+                                    <th style="color:white;font-weight:bold;width:15%">Created by</th>
+                                    <th style="color:white;font-weight:bold;width:15%">Approved by</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -135,10 +103,122 @@
                                     <td><span t-field="history.created_by"/></td>
                                     <td><span t-field="history.approved_by"/></td>
                                 </tr>
+                                <tr t-foreach="range(6 - len(o.history_ids))" t-as="blank_history_row">
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                </tr>
                             </tbody>
                         </table>
+
+                        <div style="page-break-after:always;"/>
+
+                        <t t-if="o.checksheet_type == 'standard'">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                        <th style="color:white;font-weight:bold;width:5%">Item</th>
+                                        <th style="color:white;font-weight:bold;width:40%">Descriptions</th>
+                                        <th style="color:white;font-weight:bold;width:20%">Acceptance</th>
+                                        <th style="color:white;font-weight:bold;width:12%">Tested</th>
+                                        <th style="color:white;font-weight:bold;width:8%">OK&#9745;<br/>NOK&#9746;</th>
+                                        <th style="color:white;font-weight:bold;width:15%">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="o.group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="group">
+                                        <tr style="background-color:#dbe5f1;">
+                                            <td colspan="6" style="font-weight:bold;"><span t-field="group.name"/></td>
+                                        </tr>
+                                        <tr t-foreach="group.item_ids.sorted(lambda i: (i.sequence, i.id))" t-as="item">
+                                            <td><span t-field="item.item_number"/></td>
+                                            <td style="line-height:1.1;"><div class="qc-rich-text" t-field="item.description"/></td>
+                                            <td style="line-height:1.1;"><div class="qc-rich-text" t-field="item.acceptance"/></td>
+                                            <td>&#160;</td>
+                                            <td class="text-center">&#9744;</td>
+                                            <td><span t-field="item.note"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <t t-if="o.checksheet_type == 'panel_sticker'">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                        <th style="color:white;font-weight:bold;width:5%">Item</th>
+                                        <th style="color:white;font-weight:bold;width:15%">Part Number</th>
+                                        <th style="color:white;font-weight:bold;width:30%">Description</th>
+                                        <th style="color:white;font-weight:bold;width:15%">Picture</th>
+                                        <th style="color:white;font-weight:bold;width:10%">Qty</th>
+                                        <th style="color:white;font-weight:bold;width:25%">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
+                                        <td><span t-esc="line_index + 1"/></td>
+                                        <td><span t-field="line.part_number.default_code"/></td>
+                                        <td><span t-field="line.description"/></td>
+                                        <td>
+                                            <img t-if="line.image" t-att-src="image_data_uri(line.image)"
+                                                 style="max-width:75pt;max-height:75pt;"/>
+                                        </td>
+                                        <td><span t-field="line.qty"/></td>
+                                        <td><span t-field="line.note"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                        <div style="page-break-after:always;"/>
+                        <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0;">
+                            <tr>
+                                <td colspan="2" style="background-color:#008080;color:white;font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; box-shadow: none !important;">
+                                    Conclusion
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 5%; text-align: center; border: none !important; box-shadow: none !important;">&#9744;</td>
+                                <td style="box-shadow: none !important;">Test results are accepted</td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: center; border: none !important; box-shadow: none !important;">&#9744;</td>
+                                <td style="box-shadow: none !important;">Test results are not accepted. Re-testing is required.</td>
+                            </tr>
+                        </table>
+
+                        <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0; width: 100%;">
+                            <tr>
+                                <td colspan="2" style="background-color:#008080; color:white; font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; padding-left: 6pt; box-shadow: none !important;">
+                                    Remarks
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="height:300pt; box-shadow: none !important; vertical-align: top; padding: 6pt;">
+                                    <p t-field="o.remarks"/>
+                                </td>
+                            </tr>
+                        </table>
+
                     </div>
-                </t>
+                </div>
+
+                <div class="footer" style="border-top:0.75pt solid #999999; padding-top:3pt; font-size:10pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <div>
+                        <div>Document: <span t-field="o.reference"/></div>
+                        
+                        <t t-set="history_sorted" t-value="o.history_ids.sorted(lambda h: (h.sequence, h.id))"/>
+                        <t t-if="history_sorted">
+                            <div>
+                                Revision: <span t-esc="&quot;{:02d}&quot;.format(int(history_sorted[-1].rev))"/>
+                            </div>
+                        </t>
+                    </div>
+                    <div style="text-align:right;">Page <span class="page"/> of <span class="topage"/></div>
+                </div>
+
             </t>
         </t>
     </template>
