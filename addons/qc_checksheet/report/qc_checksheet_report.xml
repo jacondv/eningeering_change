@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_report_qc_checksheet" model="ir.actions.report">
+        <field name="name">QC Check Sheet</field>
+        <field name="model">qc.checksheet</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">qc_checksheet.report_qc_checksheet_document</field>
+        <field name="report_file">qc_checksheet.report_qc_checksheet_document</field>
+        <field name="print_report_name">'%s - %s' % (object.reference or object.name, object.name)</field>
+        <field name="binding_model_id" ref="model_qc_checksheet"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

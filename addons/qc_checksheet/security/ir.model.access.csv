@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_qc_checksheet_template_user,qc.checksheet.template.user,model_qc_checksheet_template,group_qc_user,1,1,1,1
+access_qc_checksheet_template_approval_user,qc.checksheet.template.approval.user,model_qc_checksheet_template_approval,group_qc_user,1,1,1,1
+access_qc_checksheet_user,qc.checksheet.user,model_qc_checksheet,group_qc_user,1,1,1,1
+access_qc_checksheet_group_user,qc.checksheet.group.user,model_qc_checksheet_group,group_qc_user,1,1,1,1
+access_qc_checksheet_item_user,qc.checksheet.item.user,model_qc_checksheet_item,group_qc_user,1,1,1,1
+access_qc_checksheet_approval_user,qc.checksheet.approval.user,model_qc_checksheet_approval,group_qc_user,1,1,1,1
+access_qc_checksheet_history_user,qc.checksheet.history.user,model_qc_checksheet_history,group_qc_user,1,1,1,1
+access_qc_checksheet_panel_line_user,qc.checksheet.panel.line.user,model_qc_checksheet_panel_line,group_qc_user,1,1,1,1
+access_qc_checksheet_copy_wizard_user,qc.checksheet.copy.wizard.user,model_qc_checksheet_copy_wizard,group_qc_user,1,1,1,1
+access_qc_checksheet_import_wizard_user,qc.checksheet.import.wizard.user,model_qc_checksheet_import_wizard,group_qc_user,1,1,1,1

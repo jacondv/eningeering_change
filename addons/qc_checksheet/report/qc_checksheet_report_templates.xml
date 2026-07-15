@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_qc_checksheet_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="row">
+                            <div class="col-6">
+                                <h2><span t-field="o.name"/></h2>
+                                <h4 t-if="o.reference">No: <span t-field="o.reference"/></h4>
+                            </div>
+                            <div class="col-6 text-end">
+                                <p t-if="o.check_date">Check Date: <span t-field="o.check_date"/></p>
+                            </div>
+                        </div>
+
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong>Machine Serial</strong></td>
+                                <td><span t-field="o.machine_serial"/></td>
+                                <td><strong>Model</strong></td>
+                                <td><span t-field="o.machine_model"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Engine Number</strong></td>
+                                <td><span t-field="o.engine_number"/></td>
+                                <td><strong>Job Number</strong></td>
+                                <td><span t-field="o.job_number.name"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Customer</strong></td>
+                                <td colspan="3"><span t-field="o.customer"/></td>
+                            </tr>
+                        </table>
+
+                        <t t-if="o.checksheet_type == 'standard'">
+                            <t t-foreach="o.group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="group">
+                                <h4><span t-field="group.name"/></h4>
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:5%">Item</th>
+                                            <th style="width:30%">Description</th>
+                                            <th style="width:25%">Acceptance</th>
+                                            <th style="width:12%">Tested</th>
+                                            <th style="width:8%">OK/NOK</th>
+                                            <th style="width:20%">Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="group.item_ids.sorted(lambda i: (i.sequence, i.id))" t-as="item">
+                                            <td><span t-field="item.item_number"/></td>
+                                            <td style="white-space:pre-wrap"><span t-field="item.description"/></td>
+                                            <td style="white-space:pre-wrap"><span t-field="item.acceptance"/></td>
+                                            <td>&#160;</td>
+                                            <td class="text-center">&#9744;</td>
+                                            <td><span t-field="item.note"/></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </t>
+                        </t>
+
+                        <t t-if="o.checksheet_type == 'panel_sticker'">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th style="width:5%">Item</th>
+                                        <th style="width:15%">Part Number</th>
+                                        <th style="width:30%">Description</th>
+                                        <th style="width:15%">Picture</th>
+                                        <th style="width:10%">Qty</th>
+                                        <th style="width:25%">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
+                                        <td><span t-esc="line_index + 1"/></td>
+                                        <td><span t-field="line.part_number.default_code"/></td>
+                                        <td><span t-field="line.description"/></td>
+                                        <td>
+                                            <img t-if="line.image" t-att-src="image_data_uri(line.image)"
+                                                 style="max-width:100px;max-height:100px;"/>
+                                        </td>
+                                        <td><span t-field="line.qty"/></td>
+                                        <td><span t-field="line.note"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <h4>Conclusion</h4>
+                        <p>&#9744; The machine meets all acceptance criteria and is released.</p>
+                        <p>&#9744; The machine does not meet acceptance criteria - see Remarks.</p>
+                        <p t-if="o.remarks"><strong>Remarks:</strong> <span t-field="o.remarks"/></p>
+
+                        <h4>Check Sheet Approval</h4>
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Position</th>
+                                    <th>Full Name</th>
+                                    <th>Signature</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.approval_ids.sorted(lambda a: (a.sequence, a.id))" t-as="approval">
+                                    <td><span t-field="approval.position"/></td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h4 t-if="o.history_ids">Template History</h4>
+                        <table class="table table-sm table-bordered" t-if="o.history_ids">
+                            <thead>
+                                <tr>
+                                    <th>Rev</th>
+                                    <th>Description</th>
+                                    <th>Date</th>
+                                    <th>Created By</th>
+                                    <th>Approved By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.history_ids.sorted(lambda h: (h.sequence, h.id))" t-as="history">
+                                    <td><span t-field="history.rev"/></td>
+                                    <td><span t-field="history.description"/></td>
+                                    <td><span t-field="history.date"/></td>
+                                    <td><span t-field="history.created_by"/></td>
+                                    <td><span t-field="history.approved_by"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>
