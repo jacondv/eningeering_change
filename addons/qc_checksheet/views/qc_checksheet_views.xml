@@ -25,6 +25,7 @@
                     <group>
                         <group>
                             <field name="reference"/>
+                            <field name="header_title" placeholder="e.g. Panel &amp; Sticker Check Sheet"/>
                             <field name="checksheet_type" widget="radio" options="{'horizontal': true}"/>
                             <field name="template_id"/>
                             <field name="company_id" groups="base.group_multi_company" readonly="1"/>
@@ -79,8 +80,8 @@
                                         <list editable="bottom">
                                             <field name="sequence" widget="handle"/>
                                             <field name="item_number" string="Item" readonly="1"/>
-                                            <field name="description"/>
-                                            <field name="acceptance"/>
+                                            <field name="description" widget="html" options="{'style-inline': true}"/>
+                                            <field name="acceptance" widget="html" options="{'style-inline': true}"/>
                                             <field name="note"/>
                                         </list>
                                     </field>
