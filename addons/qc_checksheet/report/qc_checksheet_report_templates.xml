@@ -4,7 +4,7 @@
     <template id="report_qc_checksheet_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <div class="header" style="width:calc(100% + 52pt); margin-left:-31pt; margin-right:-31pt; background-color:#008080; display:flex; align-items:center; padding:11.25pt 0 0 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
+                <div class="header" style="width:calc(100% + 52pt); margin-left:-31pt; margin-right:-31pt; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
                     <table style="width:100%; border-collapse:separate; border-spacing:0;">
                         <tr>
                             <td style="width:23%; padding:7.5pt; vertical-align:middle;">
@@ -48,7 +48,7 @@
                                 <td style="width:25%; border: none !important; box-shadow: none !important;">Machine Serial Number:</td>
                                 <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.machine_serial"/></td>
                                 <td style="width:25%; border: none !important; box-shadow: none !important;">Check date:</td>
-                                <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.check_date"/></td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.check_date" t-options='{"format": "dd-MMM-y"}'/></td>
                             </tr>
                             <tr>
                                 <td style="border: none !important; box-shadow: none !important;">Job Number:</td>
@@ -68,10 +68,10 @@
                         <table class="table table-sm table-bordered">
                             <thead>
                                 <tr style="background-color:#008080; color:white;">
-                                    <th style="color:white;font-weight:bold;">Position</th>
-                                    <th style="color:white;font-weight:bold;">Full Name</th>
-                                    <th style="color:white;font-weight:bold;">Signature</th>
-                                    <th style="color:white;font-weight:bold;">Date</th>
+                                    <th style="width:25%;color:white;font-weight:bold;text-align:center;">Position</th>
+                                    <th style="width:30%;color:white;font-weight:bold;text-align:center;">Full Name</th>
+                                    <th style="width:25%;color:white;font-weight:bold;text-align:center;">Signature</th>
+                                    <th style="width:20%;color:white;font-weight:bold;text-align:center;">Date</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -88,20 +88,20 @@
                         <table class="table table-sm table-bordered">
                             <thead>
                                 <tr style="background-color:#008080; color:white;font-weight:bold;">
-                                    <th style="color:white;font-weight:bold;width:8%">Rev.</th>
-                                    <th style="color:white;font-weight:bold;">Description</th>
-                                    <th style="color:white;font-weight:bold;width:15%">Date</th>
-                                    <th style="color:white;font-weight:bold;width:15%">Created by</th>
-                                    <th style="color:white;font-weight:bold;width:15%">Approved by</th>
+                                    <th style="color:white;font-weight:bold;width:6%;text-align:center;">Rev.</th>
+                                    <th style="color:white;font-weight:bold;text-align:center;">Description</th>
+                                    <th style="color:white;font-weight:bold;width:15%;text-align:center;">Date</th>
+                                    <th style="color:white;font-weight:bold;width:15%;text-align:center;">Created by</th>
+                                    <th style="color:white;font-weight:bold;width:15%;text-align:center;">Approved by</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr t-foreach="o.history_ids.sorted(lambda h: (h.sequence, h.id))" t-as="history">
-                                    <td><span t-field="history.rev"/></td>
+                                    <td style="text-align:center;"><span t-field="history.rev"/></td>
                                     <td><span t-field="history.description"/></td>
-                                    <td><span t-field="history.date"/></td>
-                                    <td><span t-field="history.created_by"/></td>
-                                    <td><span t-field="history.approved_by"/></td>
+                                    <td style="text-align:center;"><span t-field="history.date" t-options='{"format": "dd-MMM-y"}'/></td>
+                                    <td style="text-align:center;"><span t-field="history.created_by"/></td>
+                                    <td style="text-align:center;"><span t-field="history.approved_by"/></td>
                                 </tr>
                                 <tr t-foreach="range(6 - len(o.history_ids))" t-as="blank_history_row">
                                     <td>&#160;</td>
@@ -119,12 +119,12 @@
                             <table class="table table-sm table-bordered">
                                 <thead>
                                     <tr style="background-color:#008080; color:white;font-weight:bold;">
-                                        <th style="color:white;font-weight:bold;width:5%">Item</th>
-                                        <th style="color:white;font-weight:bold;width:40%">Descriptions</th>
-                                        <th style="color:white;font-weight:bold;width:20%">Acceptance</th>
-                                        <th style="color:white;font-weight:bold;width:12%">Tested</th>
-                                        <th style="color:white;font-weight:bold;width:8%">OK&#9745;<br/>NOK&#9746;</th>
-                                        <th style="color:white;font-weight:bold;width:15%">Note</th>
+                                        <th style="color:white;font-weight:bold;width:5%;text-align:center;">Item</th>
+                                        <th style="color:white;font-weight:bold;width:40%;text-align:center;">Descriptions</th>
+                                        <th style="color:white;font-weight:bold;width:20%;text-align:center;">Acceptance</th>
+                                        <th style="color:white;font-weight:bold;width:12%;text-align:center;">Tested</th>
+                                        <th style="color:white;font-weight:bold;width:8%;text-align:center;">OK&#9745;<br/>NOK&#9746;</th>
+                                        <th style="color:white;font-weight:bold;width:15%;text-align:center;">Note</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -133,11 +133,11 @@
                                             <td colspan="6" style="font-weight:bold;"><span t-field="group.name"/></td>
                                         </tr>
                                         <tr t-foreach="group.item_ids.sorted(lambda i: (i.sequence, i.id))" t-as="item">
-                                            <td><span t-field="item.item_number"/></td>
+                                            <td style="text-align:center;vertical-align:middle;"><span t-field="item.item_number"/></td>
                                             <td style="line-height:1.1;"><div class="qc-rich-text" t-field="item.description"/></td>
-                                            <td style="line-height:1.1;"><div class="qc-rich-text" t-field="item.acceptance"/></td>
-                                            <td>&#160;</td>
-                                            <td class="text-center">&#9744;</td>
+                                            <td style="line-height:1.1;vertical-align:middle;"><div class="qc-rich-text" t-field="item.acceptance"/></td>
+                                            <td style="text-align:center;vertical-align:middle;">&#160;</td>
+                                            <td style="line-height:1.1;vertical-align:middle;" class="text-center">&#9744;</td>
                                             <td><span t-field="item.note"/></td>
                                         </tr>
                                     </t>
@@ -149,54 +149,54 @@
                             <table class="table table-sm table-bordered">
                                 <thead>
                                     <tr style="background-color:#008080; color:white;font-weight:bold;">
-                                        <th style="color:white;font-weight:bold;width:5%">Item</th>
-                                        <th style="color:white;font-weight:bold;width:15%">Part Number</th>
-                                        <th style="color:white;font-weight:bold;width:30%">Description</th>
-                                        <th style="color:white;font-weight:bold;width:15%">Picture</th>
-                                        <th style="color:white;font-weight:bold;width:10%">Qty</th>
-                                        <th style="color:white;font-weight:bold;width:25%">Note</th>
+                                        <th style="color:white;font-weight:bold;width:5%;text-align:center;">Item</th>
+                                        <th style="color:white;font-weight:bold;width:15%;text-align:center;">Part Number</th>
+                                        <th style="color:white;font-weight:bold;width:30%;text-align:center;">Description</th>
+                                        <th style="color:white;font-weight:bold;width:15%;text-align:center;">Picture</th>
+                                        <th style="color:white;font-weight:bold;width:10%;text-align:center;">Qty</th>
+                                        <th style="color:white;font-weight:bold;width:25%;text-align:center;">Note</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
-                                        <td><span t-esc="line_index + 1"/></td>
-                                        <td><span t-field="line.part_number.default_code"/></td>
-                                        <td><span t-field="line.description"/></td>
-                                        <td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-esc="line_index + 1"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.part_number.default_code"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.description"/></td>
+                                        <td style="text-align:center;vertical-align:middle;">
                                             <img t-if="line.image" t-att-src="image_data_uri(line.image)"
                                                  style="max-width:75pt;max-height:75pt;"/>
                                         </td>
-                                        <td><span t-field="line.qty"/></td>
-                                        <td><span t-field="line.note"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.qty"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.note"/></td>
                                     </tr>
                                 </tbody>
                             </table>
                         </t>
                         <div style="page-break-after:always;"/>
-                        <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0;">
+                        <table class="table table-sm" style="border-collapse: collapse; width: 100%;">
                             <tr>
-                                <td colspan="2" style="background-color:#008080;color:white;font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; box-shadow: none !important;">
+                                <td colspan="2" style="border: 0.75pt solid #000000; background-color:#008080; color:white; font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; box-shadow: none !important;">
                                     Conclusion
                                 </td>
                             </tr>
                             <tr>
-                                <td style="width: 5%; text-align: center; border: none !important; box-shadow: none !important;">&#9744;</td>
-                                <td style="box-shadow: none !important;">Test results are accepted</td>
+                                <td style="border: 0.75pt solid #000000; width: 5%; text-align: center; box-shadow: none !important;">&#9744;</td>
+                                <td style="border: 0.75pt solid #000000; box-shadow: none !important;">Test results are accepted</td>
                             </tr>
                             <tr>
-                                <td style="text-align: center; border: none !important; box-shadow: none !important;">&#9744;</td>
-                                <td style="box-shadow: none !important;">Test results are not accepted. Re-testing is required.</td>
+                                <td style="border: 0.75pt solid #000000; text-align: center; box-shadow: none !important;">&#9744;</td>
+                                <td style="border: 0.75pt solid #000000; box-shadow: none !important;">Test results are not accepted. Re-testing is required.</td>
                             </tr>
                         </table>
 
-                        <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0; width: 100%;">
+                        <table class="table table-sm" style="border-collapse: collapse; width: 100%;">
                             <tr>
-                                <td colspan="2" style="background-color:#008080; color:white; font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; padding-left: 6pt; box-shadow: none !important;">
+                                <td colspan="2" style="border: 0.75pt solid #000000; background-color:#008080; color:white; font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; padding-left: 6pt; box-shadow: none !important;">
                                     Remarks
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2" style="height:300pt; box-shadow: none !important; vertical-align: top; padding: 6pt;">
+                                <td colspan="2" style="border: 0.75pt solid #000000; height:300pt; box-shadow: none !important; vertical-align: top; padding: 6pt;">
                                     <p t-field="o.remarks"/>
                                 </td>
                             </tr>
