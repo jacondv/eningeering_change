@@ -41,6 +41,11 @@ class TestQcChecksheet(TransactionCase):
 
     def test_copy_content_from_standard(self):
         source = self._create_checksheet()
+        source.write({
+            'machine_serial': 'SN-123', 'customer': 'ACME Co',
+            'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Technician'})],
+            'history_ids': [(0, 0, {'sequence': 10, 'rev': '1', 'description': 'Initial'})],
+        })
         self.env['qc.checksheet.group'].create({
             'checksheet_id': source.id, 'name': 'Hydraulic System',
             'item_ids': [(0, 0, {'description': 'Check oil level', 'acceptance': 'No leak'})],
@@ -52,6 +57,10 @@ class TestQcChecksheet(TransactionCase):
         self.assertEqual(copy.copied_from_id, source)
         self.assertIn('Hydraulic System', copy.group_ids.name)
         self.assertIn('Check oil level', copy.group_ids.item_ids.description)
+        self.assertEqual(copy.machine_serial, 'SN-123')
+        self.assertEqual(copy.customer, 'ACME Co')
+        self.assertEqual(copy.approval_ids.mapped('position'), ['Technician'])
+        self.assertEqual(copy.history_ids.mapped('rev'), ['1'])
         # Independent copy: editing the copy must not affect the source.
         copy.group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)
