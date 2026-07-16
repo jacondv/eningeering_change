@@ -12,11 +12,6 @@ class QcChecksheetApproval(models.Model):
     checksheet_id = fields.Many2one('qc.checksheet', required=True, ondelete='cascade')
     sequence = fields.Integer(default=10)
     position = fields.Char(required=True)
-    template_position_id = fields.Many2one(
-        'qc.checksheet.template.approval', readonly=True, copy=False,
-        help="Set when this row was seeded from the Template's default list - lets "
-             "'Update Common Info' tell seeded rows (even renamed) apart from custom ones, "
-             "without relying on a text match.")
 
 
 class QcChecksheetHistory(models.Model):

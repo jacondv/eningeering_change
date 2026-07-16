@@ -19,7 +19,7 @@
         <record id="group_qc_user" model="res.groups">
             <field name="name">User</field>
             <field name="privilege_id" ref="privilege_qc_checksheet_user"/>
-            <field name="comment">Can create, edit and print QC Check Sheets and Templates.</field>
+            <field name="comment">Can create, edit and print QC Check Sheets.</field>
         </record>
 
     </data>

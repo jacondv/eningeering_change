@@ -1,7 +1,10 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from .qc_checksheet_template import CHECKSHEET_TYPES
+CHECKSHEET_TYPES = [
+    ('standard', 'Standard'),
+    ('panel_sticker', 'Panel & Sticker'),
+]
 
 
 class QcChecksheet(models.Model):
@@ -15,10 +18,7 @@ class QcChecksheet(models.Model):
         help="Printed as the second line of the report's header banner, below the Check Sheet Name.")
     reference = fields.Char(string='Number')
     checksheet_type = fields.Selection(CHECKSHEET_TYPES, required=True, default='standard')
-    template_id = fields.Many2one(
-        'qc.checksheet.template', required=True,
-        domain="[('checksheet_type', '=', checksheet_type)]")
-    company_id = fields.Many2one(related='template_id.company_id', store=True)
+    company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
 
     machine_serial = fields.Char(string='Machine Serial')
     check_date = fields.Date(string='Check Date')
@@ -45,47 +45,6 @@ class QcChecksheet(models.Model):
             else:
                 rec.item_count = sum(len(g.item_ids) for g in rec.group_ids)
 
-    @api.onchange('checksheet_type')
-    def _onchange_checksheet_type(self):
-        if self.template_id and self.template_id.checksheet_type != self.checksheet_type:
-            self.template_id = False
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        records = super().create(vals_list)
-        for rec, vals in zip(records, vals_list):
-            if 'approval_ids' not in vals and rec.template_id:
-                rec._seed_approval_from_template()
-        return records
-
-    def _seed_approval_from_template(self):
-        """Seed the Approval tab from the Template's default position list.
-        Only called at creation time - the Approval tab is free-standing
-        afterwards (see techspec §2.1)."""
-        self.ensure_one()
-        self.approval_ids = [
-            (0, 0, {'sequence': line.sequence, 'position': line.position, 'template_position_id': line.id})
-            for line in self.template_id.default_approval_position_ids
-        ]
-
-    def action_sync_template_branding(self):
-        """"Update common info" button (techspec §2.1, feature 1): the
-        logo/company name are a live related field already, nothing to copy
-        there. What can go stale is the Approval seed list, if the Template's
-        default positions were edited/extended after this check sheet was
-        created - add any position missing here, without touching or
-        removing lines the user already customized.
-        """
-        for rec in self:
-            existing_ids = set(rec.approval_ids.template_position_id.ids)
-            missing = rec.template_id.default_approval_position_ids.filtered(
-                lambda line: line.id not in existing_ids)
-            if missing:
-                rec.approval_ids = [
-                    (0, 0, {'sequence': line.sequence, 'position': line.position, 'template_position_id': line.id})
-                    for line in missing
-                ]
-
     def action_update_all_panel_images(self):
         """"Update All" button, checksheet-level (techspec §3.4) - only
         meaningful for Panel & Sticker; Standard has no live-linked source to
@@ -96,8 +55,7 @@ class QcChecksheet(models.Model):
     def _copy_content_from(self, source):
         """Bring over Groups/Items or Panel Lines from `source` (techspec
         §3.0, option b). Approval/History are deliberately not copied - they
-        are already seeded from the Template and always need a fresh review
-        per machine.
+        always need a fresh review per machine.
         """
         self.ensure_one()
         if source.checksheet_type != self.checksheet_type:

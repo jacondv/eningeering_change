@@ -13,11 +13,8 @@ class TestQcChecksheetPanelLine(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.template = cls.env['qc.checksheet.template'].create({
-            'name': 'Panel Template', 'checksheet_type': 'panel_sticker',
-        })
         cls.checksheet = cls.env['qc.checksheet'].create({
-            'name': 'Panel Check Sheet', 'checksheet_type': 'panel_sticker', 'template_id': cls.template.id,
+            'name': 'Panel Check Sheet', 'checksheet_type': 'panel_sticker',
         })
         cls.product = cls.env['product.product'].create({'name': 'Bracket', 'default_code': 'PN-001'})
 
@@ -51,7 +48,7 @@ class TestQcChecksheetPanelLine(TransactionCase):
             'description': 'Bracket', 'qty': 2,
         })
         copy = self.env['qc.checksheet'].create({
-            'name': 'Panel Copy', 'checksheet_type': 'panel_sticker', 'template_id': self.template.id,
+            'name': 'Panel Copy', 'checksheet_type': 'panel_sticker',
         })
         copy._copy_content_from(self.checksheet)
 
@@ -66,11 +63,8 @@ class TestQcChecksheetImportWizard(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.template = cls.env['qc.checksheet.template'].create({
-            'name': 'Panel Template', 'checksheet_type': 'panel_sticker',
-        })
         cls.checksheet = cls.env['qc.checksheet'].create({
-            'name': 'Panel Check Sheet', 'checksheet_type': 'panel_sticker', 'template_id': cls.template.id,
+            'name': 'Panel Check Sheet', 'checksheet_type': 'panel_sticker',
         })
         cls.product = cls.env['product.product'].create({'name': 'Bracket', 'default_code': 'PN-001'})
 

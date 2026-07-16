@@ -11,8 +11,6 @@
                     <button string="Copy Content From..." name="%(action_qc_checksheet_copy_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
                             invisible="group_ids or panel_line_ids"/>
-                    <button string="Update Common Info" name="action_sync_template_branding"
-                            type="object" help="Re-sync branding and re-seed any Approval position added on the Template since this check sheet was created."/>
                     <button string="Update All Part Number Images" name="action_update_all_panel_images"
                             type="object" invisible="checksheet_type != 'panel_sticker'"/>
                     <button string="Print PDF" name="%(action_report_qc_checksheet)d"
@@ -27,8 +25,7 @@
                             <field name="reference"/>
                             <field name="header_title" placeholder="e.g. Panel &amp; Sticker Check Sheet"/>
                             <field name="checksheet_type" widget="radio" options="{'horizontal': true}"/>
-                            <field name="template_id"/>
-                            <field name="company_id" groups="base.group_multi_company" readonly="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group>
                             <field name="machine_serial"/>
