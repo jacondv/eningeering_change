@@ -2,7 +2,6 @@
 <odoo>
 
     <template id="report_qc_checksheet_document">
-        <t t-set="full_width" t-value="True"/>
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
                 <div class="header" style="width:100%; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
@@ -11,9 +10,9 @@
                             <td style="width:20%; padding:7.5pt; vertical-align:middle;">
                                 <img src="/qc_checksheet/static/img/jacon_logo.png" style="max-height:60pt;width:auto; object-fit:contain;"/>
                             </td>
-                            <td style="width:45%; text-align:center; vertical-align:middle; color:white; padding-left:12pt;">
-                                <div style="font-weight:bold; font-size:16pt;" t-esc="(o.name or '').upper()"/>
-                                <div t-if="o.header_title" style="font-size:15pt;" t-esc="o.header_title.upper()"/>
+                            <td style="width:50%; text-align:center; vertical-align:middle; color:white; padding-left:12pt;">
+                                <div style="font-weight:bold; font-size:15pt;" t-esc="(o.name or '').upper()"/>
+                                <div t-if="o.header_title" style="font-size:14pt;" t-esc="o.header_title.upper()"/>
                             </td>
                             <td style="width:30%; vertical-align:middle;  padding:3pt 7.5pt 3pt 3pt;">
                                 <table style="width:100%; height:60pt;  border:2.25pt solid #ff0000; border-collapse:separate; border-spacing:0; background-color:white;">
@@ -34,12 +33,13 @@
                     </table>
                 </div>
 
-                <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin-left: 50pt; margin-right: 13.5pt; padding-top: 5pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin-left: 50pt; margin-right: 10pt; padding-top: 5pt; font-family:'Liberation Sans', Arial, sans-serif;">
                     <div class="page">
                         <style>
+
                             .qc-rich-text p { margin:0 0 3pt 0; }
                             .qc-rich-text p:last-child { margin-bottom:0; }
-                            .article table { font-size: 11pt; }
+                            .article table { font-size: 9pt; }
                         </style>
 
                         <h5 style="text-align:left; font-weight:bold;" t-esc="(o.header_title or '').upper()"/>
