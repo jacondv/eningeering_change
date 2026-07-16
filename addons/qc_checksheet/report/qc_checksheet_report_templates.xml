@@ -38,6 +38,7 @@
                         <style>
                             .qc-rich-text p { margin:0 0 3pt 0; }
                             .qc-rich-text p:last-child { margin-bottom:0; }
+                            .article table { font-size: 13pt; }
                         </style>
 
                         <h5 style="text-align:left; font-weight:bold;" t-esc="(o.header_title or '').upper()"/>
@@ -130,7 +131,7 @@
                                 <tbody>
                                     <t t-foreach="o.group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="group">
                                         <tr style="background-color:#dbe5f1;">
-                                            <td colspan="6" style="font-weight:bold;"><span t-field="group.name"/></td>
+                                            <td colspan="6" style="font-weight:bold;"><div class="qc-rich-text" t-field="group.name"/></td>
                                         </tr>
                                         <tr t-foreach="group.item_ids.sorted(lambda i: (i.sequence, i.id))" t-as="item">
                                             <td style="text-align:center;vertical-align:middle;"><span t-field="item.item_number"/></td>
@@ -154,6 +155,7 @@
                                         <th style="color:white;font-weight:bold;width:30%;text-align:center;">Description</th>
                                         <th style="color:white;font-weight:bold;width:15%;text-align:center;">Picture</th>
                                         <th style="color:white;font-weight:bold;width:10%;text-align:center;">Qty</th>
+                                        <th style="color:white;font-weight:bold;width:8%;text-align:center;">OK&#9745;<br/>NOK&#9746;</th>
                                         <th style="color:white;font-weight:bold;width:25%;text-align:center;">Note</th>
                                     </tr>
                                 </thead>
@@ -161,12 +163,13 @@
                                     <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
                                         <td style="text-align:center;vertical-align:middle;"><span t-esc="line_index + 1"/></td>
                                         <td style="text-align:center;vertical-align:middle;"><span t-field="line.part_number.default_code"/></td>
-                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.description"/></td>
+                                        <td style="text-align:left;vertical-align:middle;"><span t-field="line.description"/></td>
                                         <td style="text-align:center;vertical-align:middle;">
                                             <img t-if="line.image" t-att-src="image_data_uri(line.image)"
-                                                 style="max-width:75pt;max-height:75pt;"/>
+                                                 style="max-width:100pt;max-height:100pt;"/>
                                         </td>
-                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.qty"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.qty" t-options="{'widget': 'integer'}"/></td>
+                                        <td style="line-height:1.1;vertical-align:middle;" class="text-center">&#9744;</td>
                                         <td style="text-align:center;vertical-align:middle;"><span t-field="line.note"/></td>
                                     </tr>
                                 </tbody>

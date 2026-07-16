@@ -95,11 +95,11 @@ class TestQcChecksheet(TransactionCase):
         copy._copy_content_from(source)
 
         self.assertEqual(copy.copied_from_id, source)
-        self.assertEqual(copy.group_ids.name, 'Hydraulic System')
+        self.assertIn('Hydraulic System', copy.group_ids.name)
         self.assertIn('Check oil level', copy.group_ids.item_ids.description)
         # Independent copy: editing the copy must not affect the source.
         copy.group_ids.name = 'Renamed'
-        self.assertEqual(source.group_ids.name, 'Hydraulic System')
+        self.assertIn('Hydraulic System', source.group_ids.name)
 
     def test_copy_content_type_mismatch_raises(self):
         source = self._create_checksheet()

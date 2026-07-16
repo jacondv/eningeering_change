@@ -69,12 +69,12 @@
                             <field name="group_ids">
                                 <list>
                                     <field name="sequence" widget="handle"/>
-                                    <field name="name"/>
+                                    <field name="name" widget="html" options="{'style-inline': true}"/>
                                     <field name="item_count" string="Items"/>
                                 </list>
                                 <form string="Inspection Group">
                                     <group>
-                                        <field name="name"/>
+                                        <field name="name" widget="html" options="{'style-inline': true}"/>
                                     </group>
                                     <field name="item_ids">
                                         <list editable="bottom">
