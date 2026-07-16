@@ -11,13 +11,4 @@
           action="action_qc_checksheet_all"
           sequence="10"/>
 
-    <menuitem id="menu_qc_checksheet_configuration" name="Configuration"
-          parent="menu_qc_checksheet_root"
-          sequence="90"/>
-
-    <menuitem id="menu_qc_checksheet_configuration_template" name="Templates"
-          parent="menu_qc_checksheet_configuration"
-          action="action_qc_checksheet_template"
-          sequence="10"/>
-
 </odoo>

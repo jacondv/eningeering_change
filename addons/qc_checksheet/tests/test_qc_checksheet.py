@@ -5,41 +5,11 @@ from odoo.tests.common import TransactionCase, tagged
 @tagged('post_install', '-at_install')
 class TestQcChecksheet(TransactionCase):
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.template = cls.env['qc.checksheet.template'].create({
-            'name': 'Standard Template',
-            'checksheet_type': 'standard',
-            'default_approval_position_ids': [
-                (0, 0, {'sequence': 10, 'position': 'Technician'}),
-                (0, 0, {'sequence': 20, 'position': 'QC Engineer'}),
-            ],
-        })
-        cls.panel_template = cls.env['qc.checksheet.template'].create({
-            'name': 'Panel Template',
-            'checksheet_type': 'panel_sticker',
-        })
-
-    def _create_checksheet(self, template=None):
+    def _create_checksheet(self):
         return self.env['qc.checksheet'].create({
             'name': 'Start Up Check Sheet',
             'checksheet_type': 'standard',
-            'template_id': (template or self.template).id,
         })
-
-    def test_seed_approval_from_template(self):
-        checksheet = self._create_checksheet()
-        self.assertEqual(checksheet.approval_ids.mapped('position'), ['Technician', 'QC Engineer'])
-
-    def test_creating_with_explicit_approval_skips_seeding(self):
-        checksheet = self.env['qc.checksheet'].create({
-            'name': 'Custom',
-            'checksheet_type': 'standard',
-            'template_id': self.template.id,
-            'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Custom Role'})],
-        })
-        self.assertEqual(checksheet.approval_ids.mapped('position'), ['Custom Role'])
 
     def test_item_number_is_continuous_across_groups(self):
         checksheet = self._create_checksheet()
@@ -69,21 +39,6 @@ class TestQcChecksheet(TransactionCase):
         self.env['qc.checksheet.item'].create({'group_id': group_a.id, 'sequence': 20})
         self.assertEqual(group_b.item_ids.item_number, 3)
 
-    def test_sync_template_branding_adds_only_missing_positions(self):
-        checksheet = self._create_checksheet()
-        checksheet.approval_ids[1].position = 'Renamed QC Engineer'
-
-        self.template.default_approval_position_ids = [
-            (0, 0, {'sequence': 30, 'position': 'New Manager Role'}),
-        ]
-        checksheet.action_sync_template_branding()
-
-        positions = checksheet.approval_ids.mapped('position')
-        self.assertIn('Technician', positions)
-        self.assertIn('Renamed QC Engineer', positions)
-        self.assertIn('New Manager Role', positions)
-        self.assertEqual(len(positions), 3)
-
     def test_copy_content_from_standard(self):
         source = self._create_checksheet()
         self.env['qc.checksheet.group'].create({
@@ -104,7 +59,7 @@ class TestQcChecksheet(TransactionCase):
     def test_copy_content_type_mismatch_raises(self):
         source = self._create_checksheet()
         panel_copy = self.env['qc.checksheet'].create({
-            'name': 'Panel Copy', 'checksheet_type': 'panel_sticker', 'template_id': self.panel_template.id,
+            'name': 'Panel Copy', 'checksheet_type': 'panel_sticker',
         })
         with self.assertRaises(UserError):
             panel_copy._copy_content_from(source)
@@ -125,15 +80,12 @@ class TestQcChecksheet(TransactionCase):
 
         self.assertEqual(new_checksheet.copied_from_id, source)
         self.assertIn('Question 1', new_checksheet.group_ids.item_ids.description)
-        # Approval was already seeded from the Template at creation time, not
-        # touched by the copy wizard.
-        self.assertEqual(new_checksheet.approval_ids.mapped('position'), ['Technician', 'QC Engineer'])
 
     def test_copy_wizard_rejects_type_mismatch(self):
         checksheet = self._create_checksheet()
         other_standard = self._create_checksheet()
         panel_source = self.env['qc.checksheet'].create({
-            'name': 'Panel Source', 'checksheet_type': 'panel_sticker', 'template_id': self.panel_template.id,
+            'name': 'Panel Source', 'checksheet_type': 'panel_sticker',
         })
         wizard = self.env['qc.checksheet.copy.wizard'].create({
             'checksheet_id': checksheet.id,

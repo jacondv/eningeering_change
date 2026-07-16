@@ -10,7 +10,6 @@ Replaces the Word-based QC check sheet with: author content on Odoo -> export a
 PDF that matches the original paper form -> print -> technician checks by hand.
 
 Features:
-- Templates hold only branding (logo/company) and a default Approval seed list
 - Check sheet content is authored from scratch or copied from a previous check sheet
 - Standard type: Inspection Groups containing Items, Tested/OK-NOK always printed blank
 - Panel & Sticker type: Panel Lines looked up against product.product, with manual image override and bulk Excel import
@@ -26,7 +25,6 @@ Features:
         'wizard/qc_checksheet_import_wizard_views.xml',
         'report/qc_checksheet_report.xml',
         'report/qc_checksheet_report_templates.xml',
-        'views/qc_checksheet_template_views.xml',
         'views/qc_checksheet_views.xml',
         'views/qc_checksheet_menus.xml',
     ],

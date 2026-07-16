@@ -1,6 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_qc_checksheet_template_user,qc.checksheet.template.user,model_qc_checksheet_template,group_qc_user,1,1,1,1
-access_qc_checksheet_template_approval_user,qc.checksheet.template.approval.user,model_qc_checksheet_template_approval,group_qc_user,1,1,1,1
 access_qc_checksheet_user,qc.checksheet.user,model_qc_checksheet,group_qc_user,1,1,1,1
 access_qc_checksheet_group_user,qc.checksheet.group.user,model_qc_checksheet_group,group_qc_user,1,1,1,1
 access_qc_checksheet_item_user,qc.checksheet.item.user,model_qc_checksheet_item,group_qc_user,1,1,1,1
