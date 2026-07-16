@@ -12,17 +12,16 @@ PDF that matches the original paper form -> print -> technician checks by hand.
 Features:
 - Check sheet content is authored from scratch or copied from a previous check sheet
 - Standard type: Inspection Groups containing Items, Tested/OK-NOK always printed blank
-- Panel & Sticker type: Panel Lines looked up against product.product, with manual image override and bulk Excel import
+- Panel & Sticker type: Panel Lines entered entirely by hand (Part Number, Description, Image, Qty, Note)
 - PDF report matching the original paper layout
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'web', 'project', 'product'],
+    'depends': ['base', 'web', 'project'],
     'data': [
         'security/qc_checksheet_groups.xml',
         'security/ir.model.access.csv',
         'wizard/qc_checksheet_copy_wizard_views.xml',
-        'wizard/qc_checksheet_import_wizard_views.xml',
         'report/qc_checksheet_report.xml',
         'report/qc_checksheet_report_templates.xml',
         'views/qc_checksheet_views.xml',
