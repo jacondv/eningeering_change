@@ -150,20 +150,21 @@
                             <p style="font-weight:bold; margin-top:10.5pt;">1. Panel &amp; Sticker Location</p>
                             <t t-foreach="o.image_group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="image_group">
                                 <p style="font-weight:bold; margin-top:6pt;">1.<t t-esc="image_group_index + 1"/>. <t t-esc="image_group.name"/></p>
+                                <t t-set="show_desc" t-value="any(l.description for l in image_group.image_line_ids)"/>
                                 <table class="table table-sm">
                                     <thead>
                                         <tr style="background-color:#008080; color:white;font-weight:bold;">
-                                            <th t-attf-style="color:white;font-weight:bold;text-align:center;width:{{'30%' if image_group.show_description else '100%'}};">Image</th>
-                                            <th t-if="image_group.show_description" style="color:white;font-weight:bold;text-align:center;width:70%;">Description</th>
+                                            <th t-attf-style="color:white;font-weight:bold;text-align:center;width:{{'30%' if show_desc else '100%'}};">Image</th>
+                                            <th t-if="show_desc" style="color:white;font-weight:bold;text-align:center;width:70%;">Description</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr t-foreach="image_group.image_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="image_line">
                                             <td style="text-align:center;vertical-align:middle;">
                                                 <img t-if="image_line.image" t-att-src="image_data_uri(image_line.image)"
-                                                     style="max-width:180pt;max-height:180pt;"/>
+                                                     t-attf-style="height:{{image_line.size_percent * 6}}pt; width:auto; max-width:100%;"/>
                                             </td>
-                                            <td t-if="image_group.show_description" style="vertical-align:middle;"><span t-field="image_line.description"/></td>
+                                            <td t-if="show_desc" style="vertical-align:middle;"><span t-field="image_line.description"/></td>
                                         </tr>
                                     </tbody>
                                 </table>

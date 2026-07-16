@@ -100,12 +100,12 @@ class QcChecksheet(models.Model):
                     'checksheet_id': self.id,
                     'sequence': image_group.sequence,
                     'name': image_group.name,
-                    'show_description': image_group.show_description,
                     'image_line_ids': [
                         (0, 0, {
                             'sequence': line.sequence,
                             'image': line.image,
                             'description': line.description,
+                            'size_percent': line.size_percent,
                         }) for line in image_group.image_line_ids
                     ],
                 })

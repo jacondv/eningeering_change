@@ -12,9 +12,6 @@ class QcChecksheetImageGroup(models.Model):
     checksheet_id = fields.Many2one('qc.checksheet', required=True, ondelete='cascade')
     sequence = fields.Integer(default=10)
     name = fields.Char(required=True)
-    show_description = fields.Boolean(
-        string='Show Description Column', default=True,
-        help="Uncheck to print this group's images full-width, without a Description column.")
     image_line_ids = fields.One2many('qc.checksheet.image.line', 'image_group_id', string='Images')
 
 
@@ -27,3 +24,7 @@ class QcChecksheetImageLine(models.Model):
     sequence = fields.Integer(default=10)
     image = fields.Image(max_width=1920, max_height=1920)
     description = fields.Char()
+    size_percent = fields.Integer(
+        string='Height (% of page)', default=30,
+        help="Printed image height as a percentage of the page's usable content height "
+             "(~600pt on A4, after header/footer margins). 100% = about a full page tall.")
