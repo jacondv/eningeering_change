@@ -41,17 +41,22 @@ class TestQcChecksheetPanelLine(TransactionCase):
         group = self.env['qc.checksheet.image.group'].create({
             'checksheet_id': checksheet.id,
             'name': 'Overview',
-            'image_line_ids': [(0, 0, {'description': 'Front view', 'size_percent': 50})],
+            'image_line_ids': [(0, 0, {
+                'description': 'Front view', 'size_percent': 50, 'width_percent': 60,
+            })],
         })
         self.assertEqual(group.image_line_ids.description, 'Front view')
         self.assertEqual(group.image_line_ids.size_percent, 50)
+        self.assertEqual(group.image_line_ids.width_percent, 60)
 
     def test_copy_content_from_copies_image_groups(self):
         source = self._create_checksheet()
         self.env['qc.checksheet.image.group'].create({
             'checksheet_id': source.id,
             'name': 'Overview',
-            'image_line_ids': [(0, 0, {'description': 'Front view', 'size_percent': 50})],
+            'image_line_ids': [(0, 0, {
+                'description': 'Front view', 'size_percent': 50, 'width_percent': 60,
+            })],
         })
 
         copy = self._create_checksheet()
@@ -60,3 +65,4 @@ class TestQcChecksheetPanelLine(TransactionCase):
         self.assertEqual(copy.image_group_ids.name, 'Overview')
         self.assertEqual(copy.image_group_ids.image_line_ids.description, 'Front view')
         self.assertEqual(copy.image_group_ids.image_line_ids.size_percent, 50)
+        self.assertEqual(copy.image_group_ids.image_line_ids.width_percent, 60)

@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- Same A4 geometry as base.paperformat_euro, but with smart-shrinking
+         disabled: wkhtmltopdf's default "shrink content to fit one page"
+         behavior otherwise silently rescales images (and everything else)
+         by an unpredictable, content-dependent factor, making size_percent/
+         width_percent meaningless. A dedicated paperformat keeps this off
+         without touching the paperformat other reports share. -->
+    <record id="paperformat_qc_checksheet" model="report.paperformat">
+        <field name="name">QC Check Sheet (A4, no smart-shrinking)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">52</field>
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="header_spacing">52</field>
+        <field name="header_line" eval="False"/>
+        <field name="dpi">90</field>
+        <field name="disable_shrinking" eval="True"/>
+    </record>
+
     <record id="action_report_qc_checksheet" model="ir.actions.report">
         <field name="name">QC Check Sheet</field>
         <field name="model">qc.checksheet</field>
@@ -8,6 +29,7 @@
         <field name="report_name">qc_checksheet.report_qc_checksheet_document</field>
         <field name="report_file">qc_checksheet.report_qc_checksheet_document</field>
         <field name="print_report_name">object.reference</field>
+        <field name="paperformat_id" ref="paperformat_qc_checksheet"/>
         <field name="binding_model_id" ref="model_qc_checksheet"/>
         <field name="binding_type">report</field>
     </record>

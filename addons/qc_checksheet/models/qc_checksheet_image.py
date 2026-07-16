@@ -28,3 +28,10 @@ class QcChecksheetImageLine(models.Model):
         string='Height (% of page)', default=30,
         help="Printed image height as a percentage of the page's usable content height "
              "(~600pt on A4, after header/footer margins). 100% = about a full page tall.")
+    width_percent = fields.Integer(
+        string='Width (% of row)', default=100,
+        help="Width of this image's own column as a percentage of the printed row - only "
+             "matters when the group shows a Description column, since it controls how far "
+             "the description text sits from the image. The image itself always keeps its "
+             "aspect ratio (Height is the primary size driver) and never stretches to fill "
+             "the column - a wider column just pushes the Description further right.")

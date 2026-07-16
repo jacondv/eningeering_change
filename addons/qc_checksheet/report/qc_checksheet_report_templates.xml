@@ -2,22 +2,23 @@
 <odoo>
 
     <template id="report_qc_checksheet_document">
+        <t t-set="full_width" t-value="True"/>
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <div class="header" style="width:calc(100% + 52pt); margin-left:-31pt; margin-right:-31pt; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
+                <div class="header" style="width:100%; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
                     <table style="width:100%; border-collapse:separate; border-spacing:0;">
                         <tr>
-                            <td style="width:23%; padding:7.5pt; vertical-align:middle;">
-                                <img src="/qc_checksheet/static/img/jacon_logo.png" style="max-height:75pt;width:auto; object-fit:contain;"/>
+                            <td style="width:20%; padding:7.5pt; vertical-align:middle;">
+                                <img src="/qc_checksheet/static/img/jacon_logo.png" style="max-height:60pt;width:auto; object-fit:contain;"/>
                             </td>
                             <td style="width:45%; text-align:center; vertical-align:middle; color:white; padding-left:12pt;">
-                                <div style="font-weight:bold; font-size:21pt;" t-esc="(o.name or '').upper()"/>
+                                <div style="font-weight:bold; font-size:16pt;" t-esc="(o.name or '').upper()"/>
                                 <div t-if="o.header_title" style="font-size:15pt;" t-esc="o.header_title.upper()"/>
                             </td>
-                            <td style="width:27%; vertical-align:middle;  padding:3pt 7.5pt 3pt 3pt;">
-                                <table style="width:100%; height:82.5pt;  border:2.25pt solid #ff0000; border-collapse:separate; border-spacing:0; background-color:white;">
+                            <td style="width:30%; vertical-align:middle;  padding:3pt 7.5pt 3pt 3pt;">
+                                <table style="width:100%; height:60pt;  border:2.25pt solid #ff0000; border-collapse:separate; border-spacing:0; background-color:white;">
                                     <tr>
-                                        <td colspan="2" style="text-align:center; color:#c00000; font-weight:bold; font-size:15pt; padding:3pt 3pt 1.5pt 3pt;">JACON APPROVAL</td>
+                                        <td colspan="2" style="text-align:center; color:#c00000; font-weight:bold; font-size:13pt; padding:3pt 3pt 1.5pt 3pt;">JACON APPROVAL</td>
                                     </tr>
                                     <tr>
                                         <td style="color:#c00000; padding:0 3pt 1.5pt 6pt; white-space:nowrap;">Date</td>
@@ -38,7 +39,7 @@
                         <style>
                             .qc-rich-text p { margin:0 0 3pt 0; }
                             .qc-rich-text p:last-child { margin-bottom:0; }
-                            .article table { font-size: 13pt; }
+                            .article table { font-size: 11pt; }
                         </style>
 
                         <h5 style="text-align:left; font-weight:bold;" t-esc="(o.header_title or '').upper()"/>
@@ -151,23 +152,26 @@
                             <t t-foreach="o.image_group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="image_group">
                                 <p style="font-weight:bold; margin-top:6pt;">1.<t t-esc="image_group_index + 1"/>. <t t-esc="image_group.name"/></p>
                                 <t t-set="show_desc" t-value="any(l.description for l in image_group.image_line_ids)"/>
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr style="background-color:#008080; color:white;font-weight:bold;">
-                                            <th t-attf-style="color:white;font-weight:bold;text-align:center;width:{{'30%' if show_desc else '100%'}};">Image</th>
-                                            <th t-if="show_desc" style="color:white;font-weight:bold;text-align:center;width:70%;">Description</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr t-foreach="image_group.image_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="image_line">
-                                            <td style="text-align:center;vertical-align:middle;">
-                                                <img t-if="image_line.image" t-att-src="image_data_uri(image_line.image)"
-                                                     t-attf-style="height:{{image_line.size_percent * 6}}pt; width:auto; max-width:100%;"/>
-                                            </td>
-                                            <td t-if="show_desc" style="vertical-align:middle;"><span t-field="image_line.description"/></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                <t t-foreach="image_group.image_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="image_line">
+                                    <table class="table table-sm" style="table-layout:fixed; width:100%; margin:0; page-break-inside:avoid;">
+                                        <colgroup>
+                                            <col t-attf-style="width:{{image_line.width_percent if show_desc else 100}}%;"/>
+                                            <col t-if="show_desc" t-attf-style="width:{{100 - image_line.width_percent}}%;"/>
+                                        </colgroup>
+                                        <tbody>
+                                            <tr>
+                                                <td style="text-align:center;vertical-align:middle;padding:2pt;">
+                                                    <!-- 5.625 (not 6) is calibrated against this paperformat's actual
+                                                         wkhtmltopdf output (disable_shrinking=True) so size_percent=50
+                                                         really prints at 300pt - see paperformat_qc_checksheet. -->
+                                                    <img t-if="image_line.image" t-att-src="image_data_uri(image_line.image)"
+                                                         t-attf-style="width:auto; height:auto; max-height:{{image_line.size_percent * 5.625}}pt; max-width:100%;"/>
+                                                </td>
+                                                <td t-if="show_desc" style="text-align:left;vertical-align:middle;padding:2pt;"><span t-field="image_line.description"/></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </t>
                             </t>
                             <div style="page-break-after:always;"/>
                             <p style="font-weight:bold; margin-top:10.5pt;">2. Panel &amp; Sticker Check List</p>
@@ -239,7 +243,7 @@
                         <t t-set="history_sorted" t-value="o.history_ids.sorted(lambda h: (h.sequence, h.id))"/>
                         <t t-if="history_sorted">
                             <div>
-                                Revision: <span t-esc="&quot;{:02d}&quot;.format(int(history_sorted[-1].rev))"/>
+                                Revision: <span t-esc="history_sorted[-1].rev"/>
                             </div>
                         </t>
                     </div>
