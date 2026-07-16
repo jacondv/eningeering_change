@@ -31,6 +31,7 @@ class QcChecksheet(models.Model):
 
     group_ids = fields.One2many('qc.checksheet.group', 'checksheet_id', string='Inspection Groups')
     panel_line_ids = fields.One2many('qc.checksheet.panel.line', 'checksheet_id', string='Panel Lines')
+    image_group_ids = fields.One2many('qc.checksheet.image.group', 'checksheet_id', string='Image Groups')
     approval_ids = fields.One2many('qc.checksheet.approval', 'checksheet_id', string='Approval')
     history_ids = fields.One2many('qc.checksheet.history', 'checksheet_id', string='Template History')
     remarks = fields.Text()
@@ -44,13 +45,6 @@ class QcChecksheet(models.Model):
                 rec.item_count = len(rec.panel_line_ids)
             else:
                 rec.item_count = sum(len(g.item_ids) for g in rec.group_ids)
-
-    def action_update_all_panel_images(self):
-        """"Update All" button, checksheet-level (techspec §3.4) - only
-        meaningful for Panel & Sticker; Standard has no live-linked source to
-        refresh from (see techspec §2.1)."""
-        for rec in self:
-            rec.panel_line_ids.action_update_from_product()
 
     def _copy_content_from(self, source):
         """Bring over every field from `source` (techspec §3.0, option b):
@@ -95,11 +89,25 @@ class QcChecksheet(models.Model):
                 self.env['qc.checksheet.panel.line'].create({
                     'checksheet_id': self.id,
                     'sequence': line.sequence,
-                    'part_number': line.part_number.id,
+                    'part_number': line.part_number,
                     'description': line.description,
                     'image': line.image,
                     'qty': line.qty,
                     'note': line.note,
+                })
+            for image_group in source.image_group_ids:
+                self.env['qc.checksheet.image.group'].create({
+                    'checksheet_id': self.id,
+                    'sequence': image_group.sequence,
+                    'name': image_group.name,
+                    'show_description': image_group.show_description,
+                    'image_line_ids': [
+                        (0, 0, {
+                            'sequence': line.sequence,
+                            'image': line.image,
+                            'description': line.description,
+                        }) for line in image_group.image_line_ids
+                    ],
                 })
         else:
             for group in source.group_ids:

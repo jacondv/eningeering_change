@@ -11,8 +11,6 @@
                     <button string="Copy Content From..." name="%(action_qc_checksheet_copy_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
                             invisible="group_ids or panel_line_ids"/>
-                    <button string="Update All Part Number Images" name="action_update_all_panel_images"
-                            type="object" invisible="checksheet_type != 'panel_sticker'"/>
                     <button string="Print PDF" name="%(action_report_qc_checksheet)d"
                             type="action" class="oe_highlight"/>
                 </header>
@@ -86,10 +84,31 @@
                             </field>
                         </page>
 
+                        <page string="Images" name="images"
+                              invisible="checksheet_type != 'panel_sticker'">
+                            <field name="image_group_ids">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                </list>
+                                <form string="Image Group">
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="show_description"/>
+                                    </group>
+                                    <field name="image_line_ids">
+                                        <list editable="bottom">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="image" widget="image" options="{'size': [64, 64]}"/>
+                                            <field name="description"/>
+                                        </list>
+                                    </field>
+                                </form>
+                            </field>
+                        </page>
+
                         <page string="Panel &amp; Sticker" name="panel_lines"
                               invisible="checksheet_type != 'panel_sticker'">
-                            <button string="Import Excel" name="%(action_qc_checksheet_import_wizard)d"
-                                    type="action" context="{'default_checksheet_id': id}"/>
                             <field name="panel_line_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
@@ -98,9 +117,6 @@
                                     <field name="image" widget="image" options="{'size': [64, 64]}"/>
                                     <field name="qty"/>
                                     <field name="note"/>
-                                    <field name="product_found" widget="boolean_toggle"/>
-                                    <button name="action_update_from_product" type="object"
-                                            icon="fa-refresh" title="Update this line from the product"/>
                                 </list>
                             </field>
                         </page>

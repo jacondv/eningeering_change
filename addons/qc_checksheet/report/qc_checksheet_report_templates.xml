@@ -55,7 +55,7 @@
                                 <td style="border: none !important; box-shadow: none !important;">Job Number:</td>
                                 <td style="border: none !important; box-shadow: none !important;"><span t-field="o.job_number.name"/></td>
                                 <td style="border: none !important; box-shadow: none !important;">Model:</td>
-                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.machine_model"/></td>
+                                <!-- <td style="border: none !important; box-shadow: none !important;"><span t-field="o.machine_model"/></td> -->
                             </tr>
                             <tr>
                                 <td style="border: none !important; box-shadow: none !important;">Engine Number:</td>
@@ -147,6 +147,29 @@
                         </t>
 
                         <t t-if="o.checksheet_type == 'panel_sticker'">
+                            <p style="font-weight:bold; margin-top:10.5pt;">1. Panel &amp; Sticker Location</p>
+                            <t t-foreach="o.image_group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="image_group">
+                                <p style="font-weight:bold; margin-top:6pt;">1.<t t-esc="image_group_index + 1"/>. <t t-esc="image_group.name"/></p>
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                            <th t-attf-style="color:white;font-weight:bold;text-align:center;width:{{'30%' if image_group.show_description else '100%'}};">Image</th>
+                                            <th t-if="image_group.show_description" style="color:white;font-weight:bold;text-align:center;width:70%;">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="image_group.image_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="image_line">
+                                            <td style="text-align:center;vertical-align:middle;">
+                                                <img t-if="image_line.image" t-att-src="image_data_uri(image_line.image)"
+                                                     style="max-width:180pt;max-height:180pt;"/>
+                                            </td>
+                                            <td t-if="image_group.show_description" style="vertical-align:middle;"><span t-field="image_line.description"/></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </t>
+                            <div style="page-break-after:always;"/>
+                            <p style="font-weight:bold; margin-top:10.5pt;">2. Panel &amp; Sticker Check List</p>
                             <table class="table table-sm table-bordered">
                                 <thead>
                                     <tr style="background-color:#008080; color:white;font-weight:bold;">
@@ -162,7 +185,7 @@
                                 <tbody>
                                     <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
                                         <td style="text-align:center;vertical-align:middle;"><span t-esc="line_index + 1"/></td>
-                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.part_number.default_code"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.part_number"/></td>
                                         <td style="text-align:left;vertical-align:middle;"><span t-field="line.description"/></td>
                                         <td style="text-align:center;vertical-align:middle;">
                                             <img t-if="line.image" t-att-src="image_data_uri(line.image)"
