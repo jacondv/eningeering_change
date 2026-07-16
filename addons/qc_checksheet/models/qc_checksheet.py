@@ -12,7 +12,7 @@ class QcChecksheet(models.Model):
     _description = 'QC Check Sheet'
     _order = 'create_date desc'
 
-    name = fields.Char(required=True)
+    name = fields.Char(required=True, default='New Check Sheet')
     header_title = fields.Char(
         string='Check Sheet Header Title',
         help="Printed as the second line of the report's header banner, below the Check Sheet Name.")
@@ -53,13 +53,43 @@ class QcChecksheet(models.Model):
             rec.panel_line_ids.action_update_from_product()
 
     def _copy_content_from(self, source):
-        """Bring over Groups/Items or Panel Lines from `source` (techspec
-        §3.0, option b). Approval/History are deliberately not copied - they
-        always need a fresh review per machine.
+        """Bring over every field from `source` (techspec §3.0, option b):
+        general info, Approval, Template History, and Groups/Items or Panel
+        Lines. `name`/`reference` are deliberately left untouched - each
+        check sheet is its own traceable issued document.
         """
         self.ensure_one()
         if source.checksheet_type != self.checksheet_type:
             raise UserError(_("Can only copy content from a check sheet of the same Type."))
+
+        self.write({
+            'header_title': source.header_title,
+            'machine_serial': source.machine_serial,
+            'check_date': source.check_date,
+            'machine_model': source.machine_model,
+            'engine_number': source.engine_number,
+            'customer': source.customer,
+            'job_number': source.job_number.id,
+            'remarks': source.remarks,
+        })
+
+        for approval in source.approval_ids:
+            self.env['qc.checksheet.approval'].create({
+                'checksheet_id': self.id,
+                'sequence': approval.sequence,
+                'position': approval.position,
+            })
+        for history in source.history_ids:
+            self.env['qc.checksheet.history'].create({
+                'checksheet_id': self.id,
+                'sequence': history.sequence,
+                'rev': history.rev,
+                'description': history.description,
+                'date': history.date,
+                'created_by': history.created_by,
+                'approved_by': history.approved_by,
+            })
+
         if self.checksheet_type == 'panel_sticker':
             for line in source.panel_line_ids:
                 self.env['qc.checksheet.panel.line'].create({
