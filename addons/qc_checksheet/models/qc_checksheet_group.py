@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.tools import html2plaintext
 
 
 class QcChecksheetGroup(models.Model):
@@ -8,12 +9,21 @@ class QcChecksheetGroup(models.Model):
     _name = 'qc.checksheet.group'
     _description = 'QC Check Sheet Inspection Group'
     _order = 'sequence, id'
+    # `name` is Html (needs rich formatting); display_name must stay plain
+    # text, so it uses this stripped field instead of `name` directly.
+    _rec_name = 'display_title'
 
     checksheet_id = fields.Many2one('qc.checksheet', required=True, ondelete='cascade')
     sequence = fields.Integer(default=10)
-    name = fields.Char(required=True)
+    name = fields.Html(required=True, sanitize_style=True)
+    display_title = fields.Char(compute='_compute_display_title', store=True)
     item_ids = fields.One2many('qc.checksheet.item', 'group_id', string='Items')
     item_count = fields.Integer(compute='_compute_item_count')
+
+    @api.depends('name')
+    def _compute_display_title(self):
+        for rec in self:
+            rec.display_title = html2plaintext(rec.name or '')
 
     @api.depends('item_ids')
     def _compute_item_count(self):
