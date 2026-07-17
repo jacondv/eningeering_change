@@ -107,6 +107,8 @@ class QcChecksheet(models.Model):
                             'description': line.description,
                             'size_percent': line.size_percent,
                             'width_percent': line.width_percent,
+                            'page_break_after': line.page_break_after,
+                            'keep_original_size': line.keep_original_size,
                         }) for line in image_group.image_line_ids
                     ],
                 })

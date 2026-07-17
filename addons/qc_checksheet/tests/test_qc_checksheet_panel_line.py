@@ -43,11 +43,14 @@ class TestQcChecksheetPanelLine(TransactionCase):
             'name': 'Overview',
             'image_line_ids': [(0, 0, {
                 'description': 'Front view', 'size_percent': 50, 'width_percent': 60,
+                'page_break_after': True, 'keep_original_size': True,
             })],
         })
         self.assertEqual(group.image_line_ids.description, 'Front view')
         self.assertEqual(group.image_line_ids.size_percent, 50)
         self.assertEqual(group.image_line_ids.width_percent, 60)
+        self.assertTrue(group.image_line_ids.page_break_after)
+        self.assertTrue(group.image_line_ids.keep_original_size)
 
     def test_copy_content_from_copies_image_groups(self):
         source = self._create_checksheet()
@@ -56,6 +59,7 @@ class TestQcChecksheetPanelLine(TransactionCase):
             'name': 'Overview',
             'image_line_ids': [(0, 0, {
                 'description': 'Front view', 'size_percent': 50, 'width_percent': 60,
+                'page_break_after': True, 'keep_original_size': True,
             })],
         })
 
@@ -66,3 +70,5 @@ class TestQcChecksheetPanelLine(TransactionCase):
         self.assertEqual(copy.image_group_ids.image_line_ids.description, 'Front view')
         self.assertEqual(copy.image_group_ids.image_line_ids.size_percent, 50)
         self.assertEqual(copy.image_group_ids.image_line_ids.width_percent, 60)
+        self.assertTrue(copy.image_group_ids.image_line_ids.page_break_after)
+        self.assertTrue(copy.image_group_ids.image_line_ids.keep_original_size)

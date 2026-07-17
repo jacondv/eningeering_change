@@ -35,3 +35,11 @@ class QcChecksheetImageLine(models.Model):
              "the description text sits from the image. The image itself always keeps its "
              "aspect ratio (Height is the primary size driver) and never stretches to fill "
              "the column - a wider column just pushes the Description further right.")
+    page_break_after = fields.Boolean(
+        string='Page Break After',
+        help="Force the next image to start on a new printed page, regardless of how much "
+             "room is left on the current page.")
+    keep_original_size = fields.Boolean(
+        string='Actual Size',
+        help="Print this image at its real pixel size instead of scaling it by Height (%). "
+             "It still shrinks to fit the column width if it's wider than the page.")
