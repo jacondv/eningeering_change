@@ -8,3 +8,6 @@ access_qc_checksheet_panel_line_user,qc.checksheet.panel.line.user,model_qc_chec
 access_qc_checksheet_image_group_user,qc.checksheet.image.group.user,model_qc_checksheet_image_group,group_qc_user,1,1,1,1
 access_qc_checksheet_image_line_user,qc.checksheet.image.line.user,model_qc_checksheet_image_line,group_qc_user,1,1,1,1
 access_qc_checksheet_copy_wizard_user,qc.checksheet.copy.wizard.user,model_qc_checksheet_copy_wizard,group_qc_user,1,1,1,1
+access_qc_checksheet_inventor_bom_line_user,qc.checksheet.inventor.bom.line.user,model_qc_checksheet_inventor_bom_line,group_qc_user,1,1,1,1
+access_qc_checksheet_inventor_import_wizard_user,qc.checksheet.inventor.import.wizard.user,model_qc_checksheet_inventor_import_wizard,group_qc_user,1,1,1,1
+access_qc_checksheet_inventor_import_wizard_line_user,qc.checksheet.inventor.import.wizard.line.user,model_qc_checksheet_inventor_import_wizard_line,group_qc_user,1,1,1,1

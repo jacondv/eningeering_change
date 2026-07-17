@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.inventor.connector</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='general_settings']" position="inside">
+                <block title="Inventor Connector" id="inventor_connector_setting"
+                       groups="base.group_system">
+                    <setting string="API Key"
+                             help="Shared secret Inventor scripts must send in the X-API-Key header when posting BOM data to /api/inventor/bom.">
+                        <field name="inventor_connector_api_key" readonly="1"/>
+                        <button name="action_regenerate_inventor_api_key" type="object"
+                                string="Regenerate" class="btn-secondary"/>
+                    </setting>
+                    <setting string="Max Payload Size (MB)"
+                             help="Reject incoming BOM requests larger than this size.">
+                        <field name="inventor_connector_max_payload_mb"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
