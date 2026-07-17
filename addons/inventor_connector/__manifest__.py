@@ -17,7 +17,7 @@ qc_checksheet for "panel_sticker") registers its own line model against a
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'base_setup'],
+    'depends': ['base'],
     'data': [
         'security/inventor_connector_groups.xml',
         'security/ir.model.access.csv',
