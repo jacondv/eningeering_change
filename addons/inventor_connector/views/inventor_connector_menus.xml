@@ -10,4 +10,7 @@
     <menuitem id="menu_inventor_bom_type" name="BOM Type Registry"
               parent="menu_inventor_connector_root" action="action_inventor_bom_type" sequence="20"/>
 
+    <menuitem id="menu_inventor_connector_settings" name="Settings"
+              parent="menu_inventor_connector_root" action="action_inventor_connector_settings" sequence="30"/>
+
 </odoo>

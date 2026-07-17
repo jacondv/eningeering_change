@@ -34,12 +34,16 @@ class InventorBom(models.Model):
     _order = 'model, bom_type'
 
     model = fields.Char(required=True, string='Machine Model')
-    bom_type = fields.Char(required=True)
+    bom_type = fields.Selection(selection='_selection_bom_type', required=True)
     name = fields.Char()
     last_synced = fields.Datetime()
 
     _model_bom_type_unique = models.Constraint(
         'unique(model, bom_type)', 'A BOM for this Model and Type already exists.')
+
+    @api.model
+    def _selection_bom_type(self):
+        return [(t.code, t.name) for t in self.env['inventor.bom.type'].search([])]
 
     def _compute_display_name(self):
         for rec in self:

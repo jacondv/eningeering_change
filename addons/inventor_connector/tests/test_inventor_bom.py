@@ -10,10 +10,13 @@ from odoo.tools import mute_logger
 @tagged('post_install', '-at_install')
 class TestInventorBom(TransactionCase):
 
-    def test_bom_type_unique_code(self):
+    def setUp(self):
+        super().setUp()
         self.env['inventor.bom.type'].create({
-            'code': 'test_bom_type', 'name': 'Panel & Sticker', 'line_model': 'res.partner',
+            'code': 'test_bom_type', 'name': 'Test BOM Type', 'line_model': 'res.partner',
         })
+
+    def test_bom_type_unique_code(self):
         with self.assertRaises(IntegrityError), mute_logger('odoo.sql_db'):
             self.env['inventor.bom.type'].create({
                 'code': 'test_bom_type', 'name': 'Duplicate', 'line_model': 'res.partner',
