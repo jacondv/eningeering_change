@@ -91,19 +91,19 @@
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                 </list>
-                                <form string="Image Group">
+                                <form string="Image Group" class="o_qc_image_line_dialog">
                                     <group>
                                         <field name="name"/>
                                     </group>
                                     <field name="image_line_ids">
                                         <list editable="bottom">
                                             <field name="sequence" widget="handle"/>
-                                            <field name="image" widget="image" options="{'size': [128, 128]}"/>
+                                            <field name="image" widget="image" options="{'size': [96, 96]}" width="110px"/>
                                             <field name="description"/>
-                                            <field name="size_percent"/>
-                                            <field name="width_percent"/>
-                                            <field name="keep_original_size"/>
-                                            <field name="page_break_after"/>
+                                            <field name="size_percent" string="Height %" width="70px"/>
+                                            <field name="width_percent" string="Width %" width="70px"/>
+                                            <field name="keep_original_size" string="Actual Size" width="80px"/>
+                                            <field name="page_break_after" string="Break After" width="80px"/>
                                         </list>
                                     </field>
                                 </form>

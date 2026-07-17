@@ -27,6 +27,11 @@ Features:
         'views/qc_checksheet_views.xml',
         'views/qc_checksheet_menus.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'qc_checksheet/static/src/css/qc_checksheet.css',
+        ],
+    },
     'installable': True,
     'application': True,
     'post_init_hook': 'post_init_hook',
