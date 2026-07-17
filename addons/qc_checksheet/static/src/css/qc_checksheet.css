@@ -1,0 +1,8 @@
+/* The "Image Group" popup (Images tab) has 7 columns including an image
+   preview - Odoo's default dialog width (Bootstrap's modal-lg) is too
+   narrow for that, causing the checkbox columns to get squeezed until
+   their header text overlaps the neighboring column. Widen just this
+   dialog via the marker class set on its <form> arch. */
+.modal-dialog:has(.o_qc_image_line_dialog) {
+    max-width: 900px;
+}

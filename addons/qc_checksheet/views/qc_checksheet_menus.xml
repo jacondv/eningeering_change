@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_qc_checksheet_root" name="QC Check Sheet"
+          groups="qc_checksheet.group_qc_user"/>
+
+    <!-- Single entry point: browse/manage check sheets, with the standard
+         Odoo "New" button on the list for creation - no separate wizard menu. -->
+    <menuitem id="menu_qc_checksheet_all" name="Check Sheets"
+          parent="menu_qc_checksheet_root"
+          action="action_qc_checksheet_all"
+          sequence="10"/>
+
+</odoo>
