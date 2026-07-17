@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_qc_checksheet_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <div class="header" style="width:100%; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <!-- The header is rendered by wkhtmltopdf in its own document, wrapped by
+                         Odoo's minimal_layout in a Bootstrap ".container" body (fixed max-width
+                         and side padding) - that, not this div's own width:100%, is what was
+                         keeping the teal bar off the true page edges. Neutralize it here so
+                         the header can bleed edge-to-edge. -->
+                    <style>
+                        body.container { max-width:none !important; width:100% !important; margin:0 !important; padding:0 !important; }
+                    </style>
+                    <table style="width:100%; border-collapse:separate; border-spacing:0;">
+                        <tr>
+                            <td style="width:20%; padding:7.5pt; vertical-align:middle;">
+                                <img src="/qc_checksheet/static/img/jacon_logo.png" style="max-height:60pt;width:auto; object-fit:contain;"/>
+                            </td>
+                            <td style="width:50%; text-align:center; vertical-align:middle; color:white; padding-left:0pt;">
+                                <div style="font-weight:bold; font-size:15pt;" t-esc="(o.name or '').upper()"/>
+                                <div t-if="o.header_title" style="font-size:14pt;" t-esc="o.header_title.upper()"/>
+                            </td>
+                            <td style="width:30%; vertical-align:middle;  padding:3pt 7.5pt 3pt 3pt;">
+                                <table style="width:100%; height:60pt;  border:2.25pt solid #ff0000; border-collapse:separate; border-spacing:0; background-color:white;">
+                                    <tr>
+                                        <td colspan="2" style="text-align:center; color:#c00000; font-weight:bold; font-size:13pt; padding:3pt 3pt 1.5pt 3pt;">JACON APPROVAL</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#c00000; padding:0 3pt 1.5pt 6pt; white-space:nowrap;">Date</td>
+                                        <td style="width:100%; padding:0 6pt 1.5pt 3pt;">&#160;</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="color:#c00000; padding:0 3pt 3pt 6pt; white-space:nowrap;">Sign</td>
+                                        <td style="width:100%; padding:0 6pt 3pt 3pt;">&#160;</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin-left: 50pt; margin-right: 10pt; padding-top: 5pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <div class="page">
+                        <style>
+
+                            .qc-rich-text p { margin:0 0 3pt 0; }
+                            .qc-rich-text p:last-child { margin-bottom:0; }
+                            .article table { font-size: 10pt; }
+                        </style>
+
+                        <h5 style="text-align:left; font-weight:bold;" t-esc="(o.header_title or '').upper()"/>
+                        <h6 t-if="o.reference" style="text-align:left;font-weight:bold;" t-esc="o.reference"/>
+
+                        <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0;">
+                            <tr>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;">Machine Serial Number:</td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.machine_serial"/></td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;">Check date:</td>
+                                <td style="width:25%; border: none !important; box-shadow: none !important;"><span t-field="o.check_date" t-options='{"format": "dd-MMM-y"}'/></td>
+                            </tr>
+                            <tr>
+                                <td style="border: none !important; box-shadow: none !important;">Job Number:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.job_number.name"/></td>
+                                <td style="border: none !important; box-shadow: none !important;">Model:</td>
+                                <!-- <td style="border: none !important; box-shadow: none !important;"><span t-field="o.machine_model"/></td> -->
+                            </tr>
+                            <tr>
+                                <td style="border: none !important; box-shadow: none !important;">Engine Number:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.engine_number"/></td>
+                                <td style="border: none !important; box-shadow: none !important;">Customer:</td>
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.customer"/></td>
+                            </tr>
+                        </table>
+
+                        <p style="font-weight:bold; margin-top:10.5pt;">Check Sheet Approval</p>
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr style="background-color:#008080; color:white;">
+                                    <th style="width:25%;color:white;font-weight:bold;text-align:center;">Position</th>
+                                    <th style="width:30%;color:white;font-weight:bold;text-align:center;">Full Name</th>
+                                    <th style="width:25%;color:white;font-weight:bold;text-align:center;">Signature</th>
+                                    <th style="width:20%;color:white;font-weight:bold;text-align:center;">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.approval_ids.sorted(lambda a: (a.sequence, a.id))" t-as="approval">
+                                    <td><span t-field="approval.position"/></td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <p style="font-weight:bold; margin-top:10.5pt;">QC Check Sheet Template History</p>
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                    <th style="color:white;font-weight:bold;width:6%;text-align:center;">Rev.</th>
+                                    <th style="color:white;font-weight:bold;text-align:center;">Description</th>
+                                    <th style="color:white;font-weight:bold;width:15%;text-align:center;">Date</th>
+                                    <th style="color:white;font-weight:bold;width:15%;text-align:center;">Created by</th>
+                                    <th style="color:white;font-weight:bold;width:15%;text-align:center;">Approved by</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.history_ids.sorted(lambda h: (h.sequence, h.id))" t-as="history">
+                                    <td style="text-align:center;"><span t-field="history.rev"/></td>
+                                    <td><span t-field="history.description"/></td>
+                                    <td style="text-align:center;"><span t-field="history.date" t-options='{"format": "dd-MMM-y"}'/></td>
+                                    <td style="text-align:center;"><span t-field="history.created_by"/></td>
+                                    <td style="text-align:center;"><span t-field="history.approved_by"/></td>
+                                </tr>
+                                <tr t-foreach="range(6 - len(o.history_ids))" t-as="blank_history_row">
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                    <td>&#160;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="page-break-after:always;"/>
+
+                        <t t-if="o.checksheet_type == 'standard'">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                        <th style="color:white;font-weight:bold;width:5%;text-align:center;">Item</th>
+                                        <th style="color:white;font-weight:bold;width:40%;text-align:center;">Descriptions</th>
+                                        <th style="color:white;font-weight:bold;width:20%;text-align:center;">Acceptance</th>
+                                        <th style="color:white;font-weight:bold;width:12%;text-align:center;">Tested</th>
+                                        <th style="color:white;font-weight:bold;width:8%;text-align:center;">OK&#9745;<br/>NOK&#9746;</th>
+                                        <th style="color:white;font-weight:bold;width:15%;text-align:center;">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="o.group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="group">
+                                        <tr style="background-color:#dbe5f1;">
+                                            <td colspan="6" style="font-weight:bold;"><div class="qc-rich-text" t-field="group.name"/></td>
+                                        </tr>
+                                        <tr t-foreach="group.item_ids.sorted(lambda i: (i.sequence, i.id))" t-as="item">
+                                            <td style="text-align:center;vertical-align:middle;"><span t-field="item.item_number"/></td>
+                                            <td style="line-height:1.1;"><div class="qc-rich-text" t-field="item.description"/></td>
+                                            <td style="line-height:1.1;vertical-align:middle;"><div class="qc-rich-text" t-field="item.acceptance"/></td>
+                                            <td style="text-align:center;vertical-align:middle;">&#160;</td>
+                                            <td style="line-height:1.1;vertical-align:middle;" class="text-center">&#9744;</td>
+                                            <td><span t-field="item.note"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </t>
+
+                        <t t-if="o.checksheet_type == 'panel_sticker'">
+                            <p style="font-weight:bold; margin-top:10.5pt;">1. Panel &amp; Sticker Location</p>
+                            <t t-foreach="o.image_group_ids.sorted(lambda g: (g.sequence, g.id))" t-as="image_group">
+                                <p style="font-weight:bold; margin-top:6pt;">1.<t t-esc="image_group_index + 1"/>. <t t-esc="image_group.name"/></p>
+                                <t t-set="show_desc" t-value="any(l.description for l in image_group.image_line_ids)"/>
+                                <t t-foreach="image_group.image_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="image_line">
+                                    <table class="table table-sm" style="table-layout:fixed; width:100%; margin:0; page-break-inside:avoid;">
+                                        <colgroup>
+                                            <col t-attf-style="width:{{image_line.width_percent if show_desc else 100}}%;"/>
+                                            <col t-if="show_desc" t-attf-style="width:{{100 - image_line.width_percent}}%;"/>
+                                        </colgroup>
+                                        <tbody>
+                                            <tr>
+                                                <td style="text-align:center;vertical-align:middle;padding:5pt 2pt;">
+                                                    <!-- size_percent * 5 = printed height in pt (tune the 5 to
+                                                         resize; use the Page Break After checkbox on a line to
+                                                         force the next image onto a new page instead of relying on
+                                                         this to land exactly at a page boundary). Actual Size skips
+                                                         this scaling and prints the image at its real pixel size,
+                                                         only shrinking if it's wider than the column. -->
+                                                    <img t-if="image_line.image and image_line.keep_original_size" t-att-src="image_data_uri(image_line.image)"
+                                                         style="width:auto; height:auto; max-width:100%;"/>
+                                                    <img t-if="image_line.image and not image_line.keep_original_size" t-att-src="image_data_uri(image_line.image)"
+                                                         t-attf-style="width:auto; height:auto; max-height:{{image_line.size_percent * 5}}pt; max-width:100%;"/>
+                                                </td>
+                                                <td t-if="show_desc" style="text-align:left;vertical-align:middle;padding:2pt;"><span t-field="image_line.description"/></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div t-if="image_line.page_break_after" style="page-break-after:always;"/>
+                                </t>
+                            </t>
+                            <div style="page-break-after:always;"/>
+                            <p style="font-weight:bold; margin-top:10.5pt;">2. Panel &amp; Sticker Check List</p>
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr style="background-color:#008080; color:white;font-weight:bold;">
+                                        <th style="color:white;font-weight:bold;width:5%;text-align:center;">Item</th>
+                                        <th style="color:white;font-weight:bold;width:15%;text-align:center;">Part Number</th>
+                                        <th style="color:white;font-weight:bold;width:30%;text-align:center;">Description</th>
+                                        <th style="color:white;font-weight:bold;width:15%;text-align:center;">Picture</th>
+                                        <th style="color:white;font-weight:bold;width:10%;text-align:center;">Qty</th>
+                                        <th style="color:white;font-weight:bold;width:8%;text-align:center;">OK&#9745;<br/>NOK&#9746;</th>
+                                        <th style="color:white;font-weight:bold;width:25%;text-align:center;">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
+                                        <td style="text-align:center;vertical-align:middle;"><span t-esc="line.item_number or ''"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.part_number"/></td>
+                                        <td style="text-align:left;vertical-align:middle;"><span t-field="line.description"/></td>
+                                        <td style="text-align:center;vertical-align:middle;">
+                                            <img t-if="line.image" t-att-src="image_data_uri(line.image)"
+                                                 style="max-width:100pt;max-height:100pt;"/>
+                                        </td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.qty" t-options="{'widget': 'integer'}"/></td>
+                                        <td style="line-height:1.1;vertical-align:middle;" class="text-center">&#9744;</td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-field="line.note"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                        <div style="page-break-after:always;"/>
+                        <table class="table table-sm" style="border-collapse: collapse; width: 100%;">
+                            <tr>
+                                <td colspan="2" style="border: 0.75pt solid #000000; background-color:#008080; color:white; font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; box-shadow: none !important;">
+                                    Conclusion
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border: 0.75pt solid #000000; width: 5%; text-align: center; box-shadow: none !important;">&#9744;</td>
+                                <td style="border: 0.75pt solid #000000; box-shadow: none !important;">Test results are accepted</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 0.75pt solid #000000; text-align: center; box-shadow: none !important;">&#9744;</td>
+                                <td style="border: 0.75pt solid #000000; box-shadow: none !important;">Test results are not accepted. Re-testing is required.</td>
+                            </tr>
+                        </table>
+
+                        <table class="table table-sm" style="border-collapse: collapse; width: 100%;">
+                            <tr>
+                                <td colspan="2" style="border: 0.75pt solid #000000; background-color:#008080; color:white; font-weight: bold; padding-top: 6pt; padding-bottom: 6pt; padding-left: 6pt; box-shadow: none !important;">
+                                    Remarks
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" style="border: 0.75pt solid #000000; height:300pt; box-shadow: none !important; vertical-align: top; padding: 6pt;">
+                                    <p t-field="o.remarks"/>
+                                </td>
+                            </tr>
+                        </table>
+
+                    </div>
+                </div>
+
+                <div class="footer" style="border-top:0.75pt solid #999999; padding-top:3pt; font-size:10pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <div>
+                        <div>Document: <span t-field="o.reference"/></div>
+                        
+                        <t t-set="history_sorted" t-value="o.history_ids.sorted(lambda h: (h.sequence, h.id))"/>
+                        <t t-if="history_sorted">
+                            <div>
+                                Revision: <span t-esc="history_sorted[-1].rev"/>
+                            </div>
+                        </t>
+                    </div>
+                    <div style="text-align:right;">Page <span class="page"/> of <span class="topage"/></div>
+                </div>
+
+            </t>
+        </t>
+    </template>
+
+</odoo>

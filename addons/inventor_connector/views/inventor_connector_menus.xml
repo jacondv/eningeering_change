@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_inventor_connector_root" name="Inventor Connector"
+              groups="base.group_system" sequence="90"/>
+
+    <menuitem id="menu_inventor_bom" name="Inventor BOMs"
+              parent="menu_inventor_connector_root" action="action_inventor_bom" sequence="10"/>
+
+    <menuitem id="menu_inventor_bom_type" name="BOM Type Registry"
+              parent="menu_inventor_connector_root" action="action_inventor_bom_type" sequence="20"/>
+
+    <menuitem id="menu_inventor_connector_settings" name="Settings"
+              parent="menu_inventor_connector_root" action="action_inventor_connector_settings" sequence="30"/>
+
+</odoo>

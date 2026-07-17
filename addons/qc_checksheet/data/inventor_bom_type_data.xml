@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="inventor_bom_type_panel_sticker" model="inventor.bom.type">
+        <field name="code">panel_sticker</field>
+        <field name="name">Panel &amp; Sticker</field>
+        <field name="line_model">qc.checksheet.inventor.bom.line</field>
+    </record>
+</odoo>
