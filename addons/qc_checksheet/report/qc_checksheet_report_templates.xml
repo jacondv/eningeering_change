@@ -203,7 +203,7 @@
                                 </thead>
                                 <tbody>
                                     <tr t-foreach="o.panel_line_ids.sorted(lambda l: (l.sequence, l.id))" t-as="line">
-                                        <td style="text-align:center;vertical-align:middle;"><span t-esc="line_index + 1"/></td>
+                                        <td style="text-align:center;vertical-align:middle;"><span t-esc="line.item_number or ''"/></td>
                                         <td style="text-align:center;vertical-align:middle;"><span t-field="line.part_number"/></td>
                                         <td style="text-align:left;vertical-align:middle;"><span t-field="line.description"/></td>
                                         <td style="text-align:center;vertical-align:middle;">

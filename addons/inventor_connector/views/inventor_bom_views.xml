@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_inventor_bom_list" model="ir.ui.view">
+        <field name="name">inventor.bom.list</field>
+        <field name="model">inventor.bom</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="model"/>
+                <field name="bom_type"/>
+                <field name="name"/>
+                <field name="last_synced"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_inventor_bom_form" model="ir.ui.view">
+        <field name="name">inventor.bom.form</field>
+        <field name="model">inventor.bom</field>
+        <field name="arch" type="xml">
+            <form string="Inventor BOM">
+                <sheet>
+                    <group>
+                        <field name="model"/>
+                        <field name="bom_type"/>
+                        <field name="name"/>
+                        <field name="last_synced" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_inventor_bom" model="ir.actions.act_window">
+        <field name="name">Inventor BOMs</field>
+        <field name="res_model">inventor.bom</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_inventor_bom_type_list" model="ir.ui.view">
+        <field name="name">inventor.bom.type.list</field>
+        <field name="model">inventor.bom.type</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="line_model"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_inventor_bom_type" model="ir.actions.act_window">
+        <field name="name">BOM Type Registry</field>
+        <field name="res_model">inventor.bom.type</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

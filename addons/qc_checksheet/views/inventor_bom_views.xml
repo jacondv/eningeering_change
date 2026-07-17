@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_inventor_bom_form_inherit_qc_checksheet" model="ir.ui.view">
+        <field name="name">inventor.bom.form.inherit.qc.checksheet</field>
+        <field name="model">inventor.bom</field>
+        <field name="inherit_id" ref="inventor_connector.view_inventor_bom_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="panel_sticker_line_ids" invisible="bom_type != 'panel_sticker'">
+                    <list editable="bottom">
+                        <field name="item"/>
+                        <field name="part_number"/>
+                        <field name="description"/>
+                        <field name="qty"/>
+                        <field name="image" widget="image" options="{'size': [64, 64]}"/>
+                    </list>
+                </field>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

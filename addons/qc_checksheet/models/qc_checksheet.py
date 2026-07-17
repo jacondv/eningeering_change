@@ -89,6 +89,7 @@ class QcChecksheet(models.Model):
                 self.env['qc.checksheet.panel.line'].create({
                     'checksheet_id': self.id,
                     'sequence': line.sequence,
+                    'item_number': line.item_number,
                     'part_number': line.part_number,
                     'description': line.description,
                     'image': line.image,

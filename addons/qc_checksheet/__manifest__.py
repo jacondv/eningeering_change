@@ -17,15 +17,18 @@ Features:
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'web', 'project'],
+    'depends': ['base', 'web', 'project', 'inventor_connector'],
     'data': [
         'security/qc_checksheet_groups.xml',
         'security/ir.model.access.csv',
+        'data/inventor_bom_type_data.xml',
         'wizard/qc_checksheet_copy_wizard_views.xml',
+        'wizard/qc_checksheet_inventor_import_wizard_views.xml',
         'report/qc_checksheet_report.xml',
         'report/qc_checksheet_report_templates.xml',
         'views/qc_checksheet_views.xml',
         'views/qc_checksheet_menus.xml',
+        'views/inventor_bom_views.xml',
     ],
     'assets': {
         'web.assets_backend': [

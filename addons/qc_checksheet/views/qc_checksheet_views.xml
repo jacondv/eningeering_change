@@ -11,6 +11,9 @@
                     <button string="Copy Content From..." name="%(action_qc_checksheet_copy_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
                             invisible="group_ids or panel_line_ids"/>
+                    <button string="Import from Inventor BOM" name="%(action_qc_checksheet_inventor_import_wizard)d"
+                            type="action" context="{'default_checksheet_id': id}"
+                            invisible="checksheet_type != 'panel_sticker'"/>
                     <button string="Print PDF" name="%(action_report_qc_checksheet)d"
                             type="action" class="oe_highlight"/>
                 </header>
@@ -115,6 +118,7 @@
                             <field name="panel_line_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
+                                    <field name="item_number"/>
                                     <field name="part_number"/>
                                     <field name="description"/>
                                     <field name="image" widget="image" options="{'size': [64, 64]}"/>
