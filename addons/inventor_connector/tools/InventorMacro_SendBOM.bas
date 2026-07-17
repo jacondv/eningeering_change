@@ -21,12 +21,19 @@ Option Explicit
 ' =====================================================================
 
 ' ==================== CONFIGURATION ====================
-Private Const API_URL As String = "http://localhost:8069/api/inventor/bom"
+Private Const API_URL As String = "http://YOUR_ODOO_HOST:8069/api/inventor/bom"
 Private Const API_KEY As String = "PASTE_YOUR_API_KEY_HERE"
 Private Const ODOO_DB As String = "jacon_plm"
 Private Const BOM_TYPE As String = "panel_sticker"
-Private Const IMAGE_FOLDER As String = "C:\InventorImages\"  ' must end with \ ; files named <PartNumber>.jpg/.png/...
+' Relative to the current Windows user's profile folder (auto-resolved via
+' Environ$("USERPROFILE") in GetImageFolder below) - must end with \ ;
+' files named <PartNumber>.jpg/.png/...
+Private Const IMAGE_FOLDER_SUFFIX As String = "OneDrive - MAAS Group Holdings\JACON VN\01. Vehicle & Part Drawing\New Code\19. Safety\1907-Sign Sticker & Panel\SVG\"
 ' ========================================================
+
+Private Function GetImageFolder() As String
+    GetImageFolder = Environ$("USERPROFILE") & "\" & IMAGE_FOLDER_SUFFIX
+End Function
 
 Public Sub SendPartsListToOdoo()
     Dim oDoc As DrawingDocument
@@ -109,30 +116,35 @@ Private Function BuildLinesJson(oPartsList As PartsList) As String
     isFirst = True
 
     For Each oRow In oPartsList.PartsListRows
-        itemNo = "": partNo = "": desc = "": qty = ""
-        On Error Resume Next
-        itemNo = oRow.Item("ITEM")
-        partNo = oRow.Item("PART NUMBER")
-        desc = oRow.Item("DESCRIPTION")
-        qty = oRow.Item("QTY")
-        On Error GoTo 0
+        ' Visible = False means the row was manually filtered/removed from
+        ' the parts list table in this drawing - skip it so we only send
+        ' what's actually shown, not the full underlying BOM.
+        If oRow.Visible Then
+            itemNo = "": partNo = "": desc = "": qty = ""
+            On Error Resume Next
+            itemNo = oRow.Item("ITEM")
+            partNo = oRow.Item("PART NUMBER")
+            desc = oRow.Item("DESCRIPTION")
+            qty = oRow.Item("QTY")
+            On Error GoTo 0
 
-        If Not isFirst Then s = s & ","
-        isFirst = False
+            If Not isFirst Then s = s & ","
+            isFirst = False
 
-        s = s & "{" & _
-            JQuote("item") & ":" & CLngSafe(itemNo) & "," & _
-            JQuote("part_number") & ":" & JQuote(partNo) & "," & _
-            JQuote("description") & ":" & JQuote(desc) & "," & _
-            JQuote("qty") & ":" & CLngSafe(qty)
+            s = s & "{" & _
+                JQuote("item") & ":" & CLngSafe(itemNo) & "," & _
+                JQuote("part_number") & ":" & JQuote(partNo) & "," & _
+                JQuote("description") & ":" & JQuote(desc) & "," & _
+                JQuote("qty") & ":" & CLngSafe(qty)
 
-        imgPath = FindImageFile(partNo)
-        If imgPath <> "" Then
-            imgB64 = Base64EncodeFile(imgPath)
-            s = s & "," & JQuote("image") & ":" & JQuote(imgB64)
+            imgPath = FindImageFile(partNo)
+            If imgPath <> "" Then
+                imgB64 = Base64EncodeFile(imgPath)
+                s = s & "," & JQuote("image") & ":" & JQuote(imgB64)
+            End If
+
+            s = s & "}"
         End If
-
-        s = s & "}"
     Next
 
     BuildLinesJson = s
@@ -147,9 +159,9 @@ Private Function FindImageFile(partNumber As String) As String
         Exit Function
     End If
 
-    exts = Array("jpg", "jpeg", "png", "bmp", "gif")
+    exts = Array("svg","jpg", "jpeg", "png", "bmp", "gif")
     For Each ext In exts
-        candidate = IMAGE_FOLDER & Trim(partNumber) & "." & ext
+        candidate = GetImageFolder() & Trim(partNumber) & "." & ext
         If Dir(candidate) <> "" Then
             FindImageFile = candidate
             Exit Function

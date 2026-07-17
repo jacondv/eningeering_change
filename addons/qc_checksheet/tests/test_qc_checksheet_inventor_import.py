@@ -55,6 +55,21 @@ class TestQcChecksheetInventorImport(TransactionCase):
         self.assertEqual(imported.description, 'Bracket')
         self.assertEqual(imported.qty, 2)
 
+    def test_import_clears_existing_panel_lines_first(self):
+        checksheet = self._create_checksheet()
+        self.env['qc.checksheet.panel.line'].create({
+            'checksheet_id': checksheet.id, 'part_number': 'OLD-MANUAL-LINE',
+        })
+        bom = self._create_bom()
+        wizard = self.env['qc.checksheet.inventor.import.wizard'].create({
+            'checksheet_id': checksheet.id, 'bom_id': bom.id,
+        })
+        wizard._onchange_bom_id()
+        wizard.action_import()
+
+        self.assertEqual(len(checksheet.panel_line_ids), 2)
+        self.assertNotIn('OLD-MANUAL-LINE', checksheet.panel_line_ids.mapped('part_number'))
+
     def test_import_is_a_snapshot_not_a_live_link(self):
         checksheet = self._create_checksheet()
         bom = self._create_bom()
