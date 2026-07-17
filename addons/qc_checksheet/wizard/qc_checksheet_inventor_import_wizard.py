@@ -6,7 +6,8 @@ class QcChecksheetInventorImportWizard(models.TransientModel):
     §6): pick any inventor.bom of type panel_sticker (defaults to one
     matching this checksheet's Machine Model if there is one, but the full
     list is always searchable), tick/edit which lines to bring in, and
-    copy them into panel_line_ids."""
+    replace panel_line_ids with them (existing Panel & Sticker lines on
+    the checksheet are deleted first, not appended to)."""
     _name = 'qc.checksheet.inventor.import.wizard'
     _description = 'Import Panel Lines from Inventor BOM'
 
@@ -46,6 +47,7 @@ class QcChecksheetInventorImportWizard(models.TransientModel):
 
     def action_import(self):
         self.ensure_one()
+        self.checksheet_id.panel_line_ids.unlink()
         for line in self.line_ids.filtered('selected'):
             self.env['qc.checksheet.panel.line'].create({
                 'checksheet_id': self.checksheet_id.id,
