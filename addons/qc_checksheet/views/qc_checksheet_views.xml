@@ -58,6 +58,7 @@
                                     <field name="date"/>
                                     <field name="created_by"/>
                                     <field name="approved_by"/>
+                                    <field name="show_in_report" widget="boolean_toggle"/>
                                 </list>
                             </field>
                         </page>
