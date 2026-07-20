@@ -77,7 +77,6 @@ class QcChecksheet(models.Model):
             self.env['qc.checksheet.history'].create({
                 'checksheet_id': self.id,
                 'sequence': history.sequence,
-                'rev': history.rev,
                 'description': history.description,
                 'date': history.date,
                 'created_by': history.created_by,

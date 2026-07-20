@@ -39,12 +39,27 @@ class TestQcChecksheet(TransactionCase):
         self.env['qc.checksheet.item'].create({'group_id': group_a.id, 'sequence': 20})
         self.assertEqual(group_b.item_ids.item_number, 3)
 
+    def test_rev_auto_increments_and_renumbers(self):
+        checksheet = self._create_checksheet()
+        line_a = self.env['qc.checksheet.history'].create({
+            'checksheet_id': checksheet.id, 'sequence': 10, 'description': 'Initial'})
+        line_b = self.env['qc.checksheet.history'].create({
+            'checksheet_id': checksheet.id, 'sequence': 20, 'description': 'Second'})
+        self.assertEqual(line_a.rev, 1)
+        self.assertEqual(line_b.rev, 2)
+
+        line_new = self.env['qc.checksheet.history'].create({
+            'checksheet_id': checksheet.id, 'sequence': 15, 'description': 'Inserted'})
+        self.assertEqual(line_a.rev, 1)
+        self.assertEqual(line_new.rev, 2)
+        self.assertEqual(line_b.rev, 3)
+
     def test_copy_content_from_standard(self):
         source = self._create_checksheet()
         source.write({
             'machine_serial': 'SN-123', 'customer': 'ACME Co',
             'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Technician'})],
-            'history_ids': [(0, 0, {'sequence': 10, 'rev': '1', 'description': 'Initial'})],
+            'history_ids': [(0, 0, {'sequence': 10, 'description': 'Initial'})],
         })
         self.env['qc.checksheet.group'].create({
             'checksheet_id': source.id, 'name': 'Hydraulic System',
@@ -60,7 +75,7 @@ class TestQcChecksheet(TransactionCase):
         self.assertEqual(copy.machine_serial, 'SN-123')
         self.assertEqual(copy.customer, 'ACME Co')
         self.assertEqual(copy.approval_ids.mapped('position'), ['Technician'])
-        self.assertEqual(copy.history_ids.mapped('rev'), ['1'])
+        self.assertEqual(copy.history_ids.mapped('rev'), [1])
         # Independent copy: editing the copy must not affect the source.
         copy.group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)
