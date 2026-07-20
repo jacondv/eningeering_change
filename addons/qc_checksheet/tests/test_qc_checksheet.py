@@ -54,12 +54,30 @@ class TestQcChecksheet(TransactionCase):
         self.assertEqual(line_new.rev, 2)
         self.assertEqual(line_b.rev, 3)
 
+    def test_show_in_report_defaults_true(self):
+        checksheet = self._create_checksheet()
+        line = self.env['qc.checksheet.history'].create({
+            'checksheet_id': checksheet.id, 'description': 'Initial'})
+        self.assertTrue(line.show_in_report)
+
+    def test_report_omits_history_lines_hidden_from_report(self):
+        checksheet = self._create_checksheet()
+        self.env['qc.checksheet.history'].create({
+            'checksheet_id': checksheet.id, 'sequence': 10, 'description': 'Shown', 'show_in_report': True})
+        self.env['qc.checksheet.history'].create({
+            'checksheet_id': checksheet.id, 'sequence': 20, 'description': 'Hidden', 'show_in_report': False})
+
+        report = self.env.ref('qc_checksheet.action_report_qc_checksheet')
+        html = report.sudo()._render_qweb_html(report.report_name, checksheet.ids)[0].decode()
+        self.assertIn('Shown', html)
+        self.assertNotIn('Hidden', html)
+
     def test_copy_content_from_standard(self):
         source = self._create_checksheet()
         source.write({
             'machine_serial': 'SN-123', 'customer': 'ACME Co',
             'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Technician'})],
-            'history_ids': [(0, 0, {'sequence': 10, 'description': 'Initial'})],
+            'history_ids': [(0, 0, {'sequence': 10, 'description': 'Initial', 'show_in_report': False})],
         })
         self.env['qc.checksheet.group'].create({
             'checksheet_id': source.id, 'name': 'Hydraulic System',
@@ -76,6 +94,7 @@ class TestQcChecksheet(TransactionCase):
         self.assertEqual(copy.customer, 'ACME Co')
         self.assertEqual(copy.approval_ids.mapped('position'), ['Technician'])
         self.assertEqual(copy.history_ids.mapped('rev'), [1])
+        self.assertEqual(copy.history_ids.show_in_report, False)
         # Independent copy: editing the copy must not affect the source.
         copy.group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)

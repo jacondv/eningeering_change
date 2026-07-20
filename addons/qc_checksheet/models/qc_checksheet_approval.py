@@ -26,6 +26,9 @@ class QcChecksheetHistory(models.Model):
     date = fields.Date()
     created_by = fields.Char(string='Created By')
     approved_by = fields.Char(string='Approved By')
+    show_in_report = fields.Boolean(
+        string='Show in Report', default=True,
+        help="Uncheck to keep this revision in the record without printing it on the PDF.")
 
     @api.depends('sequence', 'checksheet_id.history_ids.sequence')
     def _compute_rev(self):
