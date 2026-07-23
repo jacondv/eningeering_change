@@ -77,11 +77,11 @@ class QcChecksheet(models.Model):
             self.env['qc.checksheet.history'].create({
                 'checksheet_id': self.id,
                 'sequence': history.sequence,
-                'rev': history.rev,
                 'description': history.description,
                 'date': history.date,
                 'created_by': history.created_by,
                 'approved_by': history.approved_by,
+                'show_in_report': history.show_in_report,
             })
 
         if self.checksheet_type == 'panel_sticker':
