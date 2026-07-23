@@ -18,8 +18,12 @@ class ProjectTask(models.Model):
     manager_id = fields.Many2one('res.users', string='Manager', tracking=True,
                                   default=lambda self: self._default_ec_manager_id())
     evidence_ids = fields.One2many('engineering.change.action.evidence', 'task_id', string='Evidence')
+    affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_action_affected_project_rel',
+        'task_id', 'project_id', string='Impacted Projects')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
+    can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
 
     # Fields an EC task's own assignee may touch without being Manager Approve
     # or Implement Owner. Kept as a class constant (same style as ENGINEER_FIELDS
@@ -28,6 +32,7 @@ class ProjectTask(models.Model):
     ASSIGNEE_EDITABLE_FIELDS = frozenset({
         'state',
         'evidence_ids',
+        'affected_project_ids',
         # written automatically by project.task's own write() as a side effect
         # of a state change - not something the user is choosing to set.
         'date_last_stage_update',
@@ -48,6 +53,16 @@ class ProjectTask(models.Model):
     def _compute_evidence_count(self):
         for rec in self:
             rec.evidence_count = len(rec.evidence_ids)
+
+    @api.depends('change_id.implement_owner_id')
+    def _compute_can_edit_ec_task_details(self):
+        """Drives the readonly state of the standard task fields shown on
+        the EC task form (see `view_engineering_change_action_form`), so a
+        plain assignee sees them as readonly instead of editing them only to
+        have the whole save rejected by `_check_ec_write_access`."""
+        is_manager = self._is_ec_manager()
+        for rec in self:
+            rec.can_edit_ec_task_details = not rec.change_id or rec._is_ec_owner_or_manager(is_manager)
 
     @api.depends('date_deadline', 'state')
     def _compute_is_overdue(self):
@@ -90,6 +105,29 @@ class ProjectTask(models.Model):
             "Only the Manager or the request's Implement Owner can create or "
             "delete actions/tasks for this request."))
 
+    def _is_ec_owner_or_manager(self, is_manager=None):
+        """True if the current user has unrestricted edit access to this EC
+        task: Manager Approve, or the parent request's Implement Owner."""
+        self.ensure_one()
+        if is_manager is None:
+            is_manager = self._is_ec_manager()
+        return is_manager or self.change_id.implement_owner_id == self.env.user
+
+    def _get_or_create_ec_project(self, change):
+        """Find-or-create the project.project named after `change`'s Request
+        No, so its actions/tasks land under a real project instead of
+        defaulting to Private (no project_id).
+
+        sudo(): a plain assignee allowed to create an EC task (see
+        `_check_ec_manage_access`) may not otherwise have search/create
+        rights on project.project.
+        """
+        Project = self.env['project.project'].sudo()
+        project = Project.search([('name', '=', change.name)], limit=1)
+        if not project:
+            project = Project.create({'name': change.name})
+        return project
+
     def _check_ec_write_access(self, vals, is_manager):
         """Guard editing an existing EC task's fields.
 
@@ -100,9 +138,7 @@ class ProjectTask(models.Model):
         the `ec_task_rule_user_write` record rule and the base ACL.
         """
         self.ensure_one()
-        if is_manager or set(vals) <= self.ASSIGNEE_EDITABLE_FIELDS:
-            return
-        if self.change_id.implement_owner_id == self.env.user:
+        if self._is_ec_owner_or_manager(is_manager) or set(vals) <= self.ASSIGNEE_EDITABLE_FIELDS:
             return
         raise AccessError(_(
             "Only the Manager or the request's Implement Owner can edit task "
@@ -118,7 +154,10 @@ class ProjectTask(models.Model):
         for vals in vals_list:
             change_id = vals.get('change_id')
             if change_id:
-                self._check_ec_manage_access(Change.browse(change_id), is_manager=is_manager)
+                change = Change.browse(change_id)
+                self._check_ec_manage_access(change, is_manager=is_manager)
+                if not vals.get('project_id'):
+                    vals['project_id'] = self._get_or_create_ec_project(change).id
         tasks = super().create(vals_list)
         tasks.filtered('change_id')._post_creation_message()
         return tasks

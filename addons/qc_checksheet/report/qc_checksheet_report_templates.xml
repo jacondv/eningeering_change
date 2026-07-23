@@ -106,14 +106,15 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr t-foreach="o.history_ids.sorted(lambda h: (h.sequence, h.id))" t-as="history">
+                                <t t-set="history_printed" t-value="o.history_ids.filtered('show_in_report').sorted(lambda h: (h.sequence, h.id))"/>
+                                <tr t-foreach="history_printed" t-as="history">
                                     <td style="text-align:center;"><span t-field="history.rev"/></td>
                                     <td><span t-field="history.description"/></td>
                                     <td style="text-align:center;"><span t-field="history.date" t-options='{"format": "dd-MMM-y"}'/></td>
                                     <td style="text-align:center;"><span t-field="history.created_by"/></td>
                                     <td style="text-align:center;"><span t-field="history.approved_by"/></td>
                                 </tr>
-                                <tr t-foreach="range(6 - len(o.history_ids))" t-as="blank_history_row">
+                                <tr t-foreach="range(6 - len(history_printed))" t-as="blank_history_row">
                                     <td>&#160;</td>
                                     <td>&#160;</td>
                                     <td>&#160;</td>
@@ -254,7 +255,7 @@
                     <div>
                         <div>Document: <span t-field="o.reference"/></div>
                         
-                        <t t-set="history_sorted" t-value="o.history_ids.sorted(lambda h: (h.sequence, h.id))"/>
+                        <t t-set="history_sorted" t-value="o.history_ids.filtered('show_in_report').sorted(lambda h: (h.sequence, h.id))"/>
                         <t t-if="history_sorted">
                             <div>
                                 Revision: <span t-esc="history_sorted[-1].rev"/>

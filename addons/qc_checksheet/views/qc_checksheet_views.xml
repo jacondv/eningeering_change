@@ -53,11 +53,12 @@
                             <field name="history_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
-                                    <field name="rev"/>
+                                    <field name="rev" readonly="1"/>
                                     <field name="description"/>
                                     <field name="date"/>
                                     <field name="created_by"/>
                                     <field name="approved_by"/>
+                                    <field name="show_in_report" widget="boolean_toggle"/>
                                 </list>
                             </field>
                         </page>
