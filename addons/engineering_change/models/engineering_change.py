@@ -90,6 +90,9 @@ class EngineeringChange(models.Model):
     action_done_count = fields.Integer(compute='_compute_action_stats')
     progress = fields.Float(compute='_compute_action_stats', string='Progress (%)')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
+    affected_project_ids = fields.Many2many(
+        'project.project', compute='_compute_affected_project_ids',
+        string='Impacted Projects')
     has_overdue_action = fields.Boolean(compute='_compute_has_overdue', store=True)
     next_action_deadline = fields.Date(compute='_compute_next_action_deadline', store=True, string='Next Deadline')
 
@@ -129,6 +132,11 @@ class EngineeringChange(models.Model):
     def _compute_evidence_count(self):
         for rec in self:
             rec.evidence_count = len(rec.task_ids.evidence_ids)
+
+    @api.depends('task_ids.affected_project_ids')
+    def _compute_affected_project_ids(self):
+        for rec in self:
+            rec.affected_project_ids = rec.task_ids.affected_project_ids
 
     @api.depends('task_ids.is_overdue')
     def _compute_has_overdue(self):

@@ -6,49 +6,64 @@
          app views, reused wherever an EC task needs to be listed/edited. -->
 
     <!-- ================= FORM VIEW ================= -->
+    <!-- Inherits Project's own task form (project.view_task_form2) so an
+         Engineering Change action/task shows every standard Odoo task field
+         (assignees, deadline, tags, sub-tasks, dependencies...) instead of a
+         stripped-down substitute, plus the EC-specific bits (Engineering
+         Change No / Manager / Evidence tab). Core fields that aren't in
+         ASSIGNEE_EDITABLE_FIELDS are made readonly unless the current user
+         is the Manager or the request's Implement Owner, mirroring the
+         write guard in _check_ec_write_access - otherwise a plain assignee
+         could edit them in the UI only to have the whole save rejected. -->
     <record id="view_engineering_change_action_form" model="ir.ui.view">
         <field name="name">project.task.ec.form</field>
         <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
         <field name="arch" type="xml">
-            <form string="Engineering Change Action">
-                <sheet>
-                    <div class="oe_title">
-                        <h1>
-                            <field name="name" placeholder="Task name..."/>
-                        </h1>
-                    </div>
-                    <group>
-                        <group>
-                            <field name="change_id"/>
-                            <field name="user_ids" widget="many2many_tags"/>
-                            <field name="manager_id"/>
-                        </group>
-                        <group>
-                            <field name="state"/>
-                            <field name="date_deadline"/>
-                            <field name="is_overdue" invisible="1"/>
-                        </group>
-                    </group>
-                    <field name="description" placeholder="Technical description..."/>
-                    <notebook>
-                        <page string="Evidence" name="evidence">
-                            <field name="evidence_ids">
-                                <list editable="bottom">
-                                    <button name="action_open_attachment" type="object"
-                                            icon="fa-external-link" title="Open File"
-                                            invisible="not attachment"/>
-                                    <field name="attachment" filename="attachment_filename"/>
-                                    <field name="attachment_filename" column_invisible="1"/>
-                                    <field name="description"/>
-                                    <field name="upload_uid" readonly="1"/>
-                                    <field name="upload_date" readonly="1"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
-                </sheet>
-                <chatter/>
-            </form>
+            <field name="is_template" position="after">
+                <field name="can_edit_ec_task_details" invisible="1"/>
+            </field>
+
+            <field name="task_properties" position="before">
+                <group string="Engineering Change" invisible="not change_id">
+                    <field name="change_id" readonly="1"/>
+                    <field name="manager_id" readonly="change_id and not can_edit_ec_task_details"/>
+                    <field name="affected_project_ids" widget="many2many_tags"/>
+                </group>
+            </field>
+
+            <!-- Fields not in ASSIGNEE_EDITABLE_FIELDS: readonly for anyone
+                 but the Manager / Implement Owner once an EC task. Targets
+                 the outer two-column <group> wrapping project_id/milestone_id/
+                 user_ids/role_ids and tag_ids/partner_id/date_deadline/
+                 recurring_task - readonly cascades down to every field in
+                 both sub-groups. -->
+            <xpath expr="//field[@name='project_id']/ancestor::group[2]" position="attributes">
+                <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
+            </xpath>
+            <field name="task_properties" position="attributes">
+                <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
+            </field>
+            <xpath expr="//page[@name='description_page']/field[@name='description']" position="attributes">
+                <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
+            </xpath>
+
+            <page name="description_page" position="after">
+                <page string="Evidence" name="evidence" invisible="not change_id">
+                    <field name="evidence_ids">
+                        <list editable="bottom">
+                            <button name="action_open_attachment" type="object"
+                                    icon="fa-external-link" title="Open File"
+                                    invisible="not attachment"/>
+                            <field name="attachment" filename="attachment_filename"/>
+                            <field name="attachment_filename" column_invisible="1"/>
+                            <field name="description"/>
+                            <field name="upload_uid" readonly="1"/>
+                            <field name="upload_date" readonly="1"/>
+                        </list>
+                    </field>
+                </page>
+            </page>
         </field>
     </record>
 
@@ -62,6 +77,7 @@
                 <field name="name"/>
                 <field name="user_ids" widget="many2many_tags"/>
                 <field name="manager_id"/>
+                <field name="affected_project_ids" widget="many2many_tags" optional="show"/>
                 <field name="date_deadline"/>
                 <field name="state" widget="badge"
                        decoration-success="state == '1_done'"
@@ -81,6 +97,7 @@
                 <field name="name"/>
                 <field name="change_id"/>
                 <field name="user_ids"/>
+                <field name="affected_project_ids"/>
                 <filter string="My Tasks" name="my_tasks" domain="[('user_ids', 'in', [uid])]"/>
                 <filter string="Overdue" name="overdue" domain="[('is_overdue', '=', True)]"/>
                 <separator/>
@@ -94,6 +111,7 @@
                     <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
                     <filter string="Assignee" name="group_assignee" context="{'group_by': 'user_ids'}"/>
                     <filter string="Request" name="group_change" context="{'group_by': 'change_id'}"/>
+                    <filter string="Impacted Project" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
                 </group>
             </search>
         </field>

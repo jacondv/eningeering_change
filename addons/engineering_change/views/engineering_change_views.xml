@@ -51,6 +51,8 @@
                         <h1>
                             <field name="name" readonly="1"/>
                         </h1>
+                        <field name="affected_project_ids" widget="many2many_tags" readonly="1"
+                               invisible="not affected_project_ids"/>
                     </div>
 
                     <notebook>
@@ -165,6 +167,7 @@
                                     <field name="name"/>
                                     <field name="user_ids" widget="many2many_tags"/>
                                     <field name="manager_id"/>
+                                    <field name="affected_project_ids" widget="many2many_tags"/>
                                     <field name="date_deadline"/>
                                     <field name="state"/>
                                     <field name="is_overdue" column_invisible="1"/>
@@ -248,6 +251,7 @@
                 <field name="title"/>
                 <field name="engineer_id"/>
                 <field name="implement_team_ids"/>
+                <field name="affected_project_ids"/>
                 <separator/>
                 <filter string="My Requests" name="my_requests" domain="[('engineer_id', '=', uid)]"/>
                 <filter string="DCR Only" name="dcr_only" domain="[('request_type', '=', 'dcr')]"/>
@@ -269,6 +273,7 @@
                     <filter string="Engineer" name="group_engineer" context="{'group_by': 'engineer_id'}"/>
                     <filter string="Month" name="group_month" context="{'group_by': 'create_date:month'}"/>
                     <filter string="RPN Level" name="group_rpn_level" context="{'group_by': 'rpn_level'}"/>
+                    <filter string="Impacted Project" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
                 </group>
             </search>
         </field>
