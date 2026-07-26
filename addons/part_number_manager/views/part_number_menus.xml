@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_pnm_root" name="Part Numbers"
+          groups="part_number_manager.group_pnm_user"/>
+
+    <menuitem id="menu_pnm_create_convert" name="Create / Convert"
+          parent="menu_pnm_root"
+          action="action_part_management_page"
+          sequence="10"/>
+
+    <menuitem id="menu_pnm_all" name="All Part Numbers"
+          parent="menu_pnm_root"
+          action="action_pnm_part_number"
+          sequence="20"/>
+
+    <menuitem id="menu_pnm_configuration" name="Configuration"
+          parent="menu_pnm_root"
+          groups="part_number_manager.group_pnm_manager"
+          sequence="90"/>
+
+    <menuitem id="menu_pnm_configuration_material_group" name="Material Groups"
+          parent="menu_pnm_configuration"
+          action="action_pnm_material_group"
+          sequence="10"/>
+
+    <menuitem id="menu_pnm_configuration_part_type" name="Part Types"
+          parent="menu_pnm_configuration"
+          action="action_pnm_part_type"
+          sequence="20"/>
+
+    <menuitem id="menu_pnm_configuration_part_attribute" name="Part Attributes"
+          parent="menu_pnm_configuration"
+          action="action_pnm_part_attribute"
+          sequence="30"/>
+
+</odoo>

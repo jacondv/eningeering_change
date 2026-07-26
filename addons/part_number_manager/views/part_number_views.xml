@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_pnm_part_number_list" model="ir.ui.view">
+        <field name="name">part_number_manager.part_number.list</field>
+        <field name="model">part_number_manager.part_number</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'obsolete'">
+                <field name="part_number"/>
+                <field name="short_description"/>
+                <field name="long_description" optional="show"/>
+                <field name="job_number"/>
+                <field name="part_type_id"/>
+                <field name="vendor_id"/>
+                <field name="vendor_ref"/>
+                <field name="attribute_display" string="Attributes" optional="hide"/>
+                <field name="legacy_codes_display" string="Legacy Codes" optional="show"/>
+                <field name="replacement_display" string="Replaced By" optional="show"/>
+                <field name="create_date" string="Created On" optional="show"/>
+                <field name="create_uid" string="Created By" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-success="state == 'active'"
+                       decoration-muted="state == 'obsolete'"/>
+                <field name="material_group_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_pnm_part_number_form" model="ir.ui.view">
+        <field name="name">part_number_manager.part_number.form</field>
+        <field name="model">part_number_manager.part_number</field>
+        <field name="arch" type="xml">
+            <form string="Part Number">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,obsolete"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="part_number" readonly="1" placeholder="Generated on Save"/>
+                        </h1>
+                        <field name="replacement_display" readonly="1" invisible="not replacement_display"/>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="material_group_id" readonly="part_number != False"/>
+                            <field name="job_number"/>
+                            <field name="short_description"/>
+                        </group>
+                        <group>
+                            <field name="vendor_id"/>
+                            <field name="vendor_ref"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Description" name="description">
+                            <field name="long_description"/>
+                        </page>
+                        <page string="Attributes" name="attributes">
+                            <group>
+                                <field name="part_type_id"/>
+                            </group>
+                            <field name="attribute_value_ids">
+                                <list editable="bottom">
+                                    <field name="attribute_id"/>
+                                    <field name="value_type" column_invisible="1"/>
+                                    <field name="value_char" invisible="value_type != 'char'"/>
+                                    <field name="value_float" invisible="value_type != 'float'"/>
+                                    <field name="value_option_id" invisible="value_type != 'selection'"
+                                           domain="[('attribute_id', '=', attribute_id)]"/>
+                                    <field name="display_value" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Legacy / New Code Mapping" name="mapping">
+                            <group string="Legacy codes replaced by this part">
+                                <field name="superseded_ids" nolabel="1">
+                                    <list editable="bottom">
+                                        <field name="legacy_part_id"/>
+                                    </list>
+                                </field>
+                            </group>
+                            <group string="New codes that replaced this part">
+                                <field name="supersedes_ids" nolabel="1">
+                                    <list>
+                                        <field name="new_part_id"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_pnm_part_number_search" model="ir.ui.view">
+        <field name="name">part_number_manager.part_number.search</field>
+        <field name="model">part_number_manager.part_number</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="part_number"/>
+                <field name="material_group_id"/>
+                <field name="job_number"/>
+                <field name="vendor_id"/>
+                <field name="legacy_codes_display" string="Legacy Code"/>
+                <field name="create_uid" string="Created By"/>
+                <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Active" name="filter_active" domain="[('state', '=', 'active')]"/>
+                <filter string="Obsolete" name="filter_obsolete" domain="[('state', '=', 'obsolete')]"/>
+                <group>
+                    <filter string="Material Group" name="groupby_material_group" context="{'group_by': 'material_group_id'}"/>
+                    <filter string="Part Type" name="groupby_part_type" context="{'group_by': 'part_type_id'}"/>
+                    <filter string="Status" name="groupby_state" context="{'group_by': 'state'}"/>
+                    <filter string="Created By" name="groupby_create_uid" context="{'group_by': 'create_uid'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_pnm_part_number" model="ir.actions.act_window">
+        <field name="name">Part Numbers</field>
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_pnm_part_number_search"/>
+        <field name="context">{'search_default_filter_draft': 0}</field>
+    </record>
+
+</odoo>

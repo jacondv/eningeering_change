@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_part_management_page" model="ir.actions.client">
+        <field name="name">Create / Convert Part Numbers</field>
+        <field name="tag">part_number_manager.part_management_page</field>
+    </record>
+
+</odoo>
