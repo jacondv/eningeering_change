@@ -3,3 +3,4 @@ from . import part_type
 from . import part_attribute
 from . import part_number
 from . import part_number_mapping
+from . import project_project

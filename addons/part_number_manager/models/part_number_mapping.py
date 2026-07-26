@@ -17,3 +17,14 @@ class PartNumberMapping(models.Model):
 
     _new_legacy_unique = models.Constraint(
         'unique(new_part_id, legacy_part_id)', 'This mapping already exists.')
+
+    def unlink(self):
+        legacy_parts = self.legacy_part_id
+        result = super().unlink()
+        # A legacy code with no mapping left pointing at it isn't obsolete
+        # anymore - it was only "replaced" while at least one such mapping
+        # existed.
+        for legacy in legacy_parts:
+            if legacy.state == 'obsolete' and not legacy.supersedes_ids:
+                legacy.state = 'active'
+        return result
