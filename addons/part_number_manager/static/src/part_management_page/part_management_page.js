@@ -91,7 +91,9 @@ export class PartManagementPage extends Component {
 
     async _loadAllParts() {
         const parts = await this.orm.searchRead(
-            PART_NUMBER_MODEL, [], ["part_number", "material_group_id", "state"]
+            PART_NUMBER_MODEL,
+            [],
+            ["part_number", "material_group_id", "state", "short_description", "long_description"]
         );
         // Records without a part_number yet (e.g. a draft saved from the
         // classic form before Generate ever ran) have nothing meaningful to
@@ -104,6 +106,8 @@ export class PartManagementPage extends Component {
                 label: p.part_number,
                 material_group_id: p.material_group_id ? p.material_group_id[0] : false,
                 state: p.state,
+                short_description: p.short_description || "",
+                long_description: p.long_description || "",
             }));
     }
 
@@ -216,13 +220,20 @@ export class PartManagementPage extends Component {
         });
     }
 
-    // Legacy Part Number allows creating on the fly: unmatched text is kept
-    // as pending "create" text instead of being discarded.
+    // Old Part Number allows creating on the fly: unmatched text is kept as
+    // pending "create" text instead of being discarded. Picking an existing
+    // one auto-fills its Description into the row, so it doesn't need to be
+    // retyped for the converted part.
     onLegacyPartInput(row, ev) {
         const text = ev.target.value;
         const id = this.resolveIdByLabel(this.legacyOptions, text);
         row.conversion_legacy_id = id;
         row.legacyCodeText = id ? "" : text.trim();
+        if (id) {
+            const legacy = this.legacyOptions.find((p) => p.id === id);
+            row.short_description = legacy.short_description;
+            row.long_description = legacy.long_description;
+        }
     }
 
     // Leaving this blank means "generate a new Part Number" (handled
@@ -245,7 +256,7 @@ export class PartManagementPage extends Component {
             }
             if (this.state.activeTab === "convert") {
                 if (!row.conversion_legacy_id && !row.legacyCodeText) {
-                    errors[`${row._localId}_legacy`] = "Type or pick a legacy part to convert";
+                    errors[`${row._localId}_legacy`] = "Type or pick an Old Part Number to convert";
                 }
                 if (row.targetPartText && !row.existing_new_part_id) {
                     errors[`${row._localId}_target`] = "This Part Number does not exist";
