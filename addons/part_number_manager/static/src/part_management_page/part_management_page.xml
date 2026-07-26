@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="part_number_manager.PartManagementPage">
+        <div class="o_pnm_page">
+            <div class="o_pnm_header">
+                <h2>Part Numbers</h2>
+                <div class="o_pnm_tabs">
+                    <button class="btn btn-link"
+                            t-attf-class="btn {{ state.activeTab === 'create' ? 'btn-primary' : 'btn-outline-primary' }}"
+                            t-on-click="() => this.switchTab('create')">Create New</button>
+                    <button class="btn btn-link"
+                            t-attf-class="btn {{ state.activeTab === 'convert' ? 'btn-primary' : 'btn-outline-primary' }}"
+                            t-on-click="() => this.switchTab('convert')">Convert Legacy Code</button>
+                </div>
+            </div>
+
+            <table class="table table-bordered o_pnm_table">
+                <thead>
+                    <tr>
+                        <th>Material Group</th>
+                        <th>Job Number<t t-if="state.activeTab === 'convert'"> (optional)</t></th>
+                        <th>Short Description</th>
+                        <th>Long Description</th>
+                        <th>Part Type<t t-if="state.activeTab === 'convert'"> (optional)</t></th>
+                        <th>Vendor</th>
+                        <th>Vendor Reference</th>
+                        <th t-if="state.activeTab === 'convert'">Legacy Part Number</th>
+                        <th>Part Number</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="state.rows" t-as="row" t-key="row._localId">
+                        <tr t-attf-class="{{ row.status === 'success' ? 'o_pnm_row_success' : (row.status === 'error' ? 'o_pnm_row_error' : '') }}">
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       placeholder="Type to search..."
+                                       t-attf-list="dl_group_{{row._localId}}"
+                                       t-on-input="(ev) => this.onMaterialGroupInput(row, ev)"
+                                       t-att-disabled="row.status === 'success'"/>
+                                <datalist t-attf-id="dl_group_{{row._localId}}">
+                                    <t t-foreach="materialGroupOptions" t-as="opt" t-key="opt.id">
+                                        <option t-att-value="opt.label"/>
+                                    </t>
+                                </datalist>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_group']">
+                                    <t t-esc="state.errors[row._localId + '_group']"/>
+                                </div>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       placeholder="Type to search..."
+                                       t-attf-list="dl_job_{{row._localId}}"
+                                       t-on-input="(ev) => this.onJobNumberInput(row, ev)"
+                                       t-att-disabled="row.status === 'success'"/>
+                                <datalist t-attf-id="dl_job_{{row._localId}}">
+                                    <t t-foreach="jobNumberOptions" t-as="opt" t-key="opt.id">
+                                        <option t-att-value="opt.label"/>
+                                    </t>
+                                </datalist>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_job']">
+                                    <t t-esc="state.errors[row._localId + '_job']"/>
+                                </div>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="row.short_description"
+                                       t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td>
+                                <textarea class="form-control form-control-sm" rows="2"
+                                          t-model="row.long_description"
+                                          t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td >
+                                <input type="text" class="form-control form-control-sm"
+                                       placeholder="-- none (not BOM-built) --"
+                                       t-attf-list="dl_ptype_{{row._localId}}"
+                                       t-on-input="(ev) => this.onPartTypeInput(row, ev)"
+                                       t-att-disabled="row.status === 'success'"/>
+                                <datalist t-attf-id="dl_ptype_{{row._localId}}">
+                                    <t t-foreach="partTypeOptions" t-as="opt" t-key="opt.id">
+                                        <option t-att-value="opt.label"/>
+                                    </t>
+                                </datalist>
+                                <div class="o_pnm_attributes" t-if="row.attributes.length">
+                                    <t t-foreach="row.attributes" t-as="attr" t-key="attr.attribute_id">
+                                        <div class="o_pnm_attribute_row">
+                                            <label><t t-esc="attr.name"/><t t-if="attr.uom"> (<t t-esc="attr.uom"/>)</t></label>
+                                            <select t-if="attr.value_type === 'selection'" class="form-select form-select-sm"
+                                                    t-att-disabled="row.status === 'success'"
+                                                    t-on-change="(ev) => this.onAttributeValueChange(attr, ev.target.value)">
+                                                <option value="">-- select --</option>
+                                                <t t-foreach="attr.options" t-as="opt" t-key="opt.id">
+                                                    <option t-att-value="opt.name" t-att-selected="attr.value === opt.name">
+                                                        <t t-esc="opt.name"/>
+                                                    </option>
+                                                </t>
+                                            </select>
+                                            <input t-else="" t-att-type="attr.value_type === 'float' ? 'number' : 'text'"
+                                                   class="form-control form-control-sm"
+                                                   t-model="attr.value"
+                                                   t-att-disabled="row.status === 'success'"/>
+                                        </div>
+                                    </t>
+                                </div>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       placeholder="Type to search..."
+                                       t-attf-list="dl_vendor_{{row._localId}}"
+                                       t-on-input="(ev) => this.onVendorInput(row, ev)"
+                                       t-att-disabled="row.status === 'success'"/>
+                                <datalist t-attf-id="dl_vendor_{{row._localId}}">
+                                    <t t-foreach="vendorOptions" t-as="opt" t-key="opt.id">
+                                        <option t-att-value="opt.label"/>
+                                    </t>
+                                </datalist>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="row.vendor_ref"
+                                       t-att-disabled="row.status === 'success'"/>
+                            </td>
+
+                            <td t-if="state.activeTab === 'convert'">
+                                <input type="text" class="form-control form-control-sm"
+                                       placeholder="Type to search or enter a new legacy code"
+                                       t-attf-list="dl_legacy_{{row._localId}}"
+                                       t-on-input="(ev) => this.onLegacyPartInput(row, ev)"
+                                       t-att-disabled="row.status === 'success'"/>
+                                <datalist t-attf-id="dl_legacy_{{row._localId}}">
+                                    <t t-foreach="legacyOptions" t-as="opt" t-key="opt.id">
+                                        <option t-att-value="opt.label"/>
+                                    </t>
+                                </datalist>
+                                <div class="text-muted small" t-if="row.legacyCodeText">
+                                    Will create new legacy code "<t t-esc="row.legacyCodeText"/>"
+                                </div>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_legacy']">
+                                    <t t-esc="state.errors[row._localId + '_legacy']"/>
+                                </div>
+                            </td>
+                            <td class="o_pnm_number_cell">
+                                <t t-if="row.status === 'success'">
+                                    <span class="badge text-bg-success"><t t-esc="row.resultPartNumber"/></span>
+                                </t>
+                                <t t-else="">
+                                    <t t-if="state.activeTab === 'create'">
+                                        <span class="text-muted small">Assigned on Save</span>
+                                    </t>
+                                    <t t-else="">
+                                        <input type="text" class="form-control form-control-sm"
+                                               placeholder="Blank = generate new"
+                                               t-attf-list="dl_target_{{row._localId}}"
+                                               t-on-input="(ev) => this.onTargetPartInput(row, ev)"
+                                               t-att-disabled="!row.material_group_id"/>
+                                        <datalist t-attf-id="dl_target_{{row._localId}}">
+                                            <t t-foreach="getTargetOptions(row)" t-as="opt" t-key="opt.id">
+                                                <option t-att-value="opt.label"/>
+                                            </t>
+                                        </datalist>
+                                        <div class="text-muted small" t-if="!row.material_group_id">
+                                            Select a Material Group first
+                                        </div>
+                                        <div class="text-danger small" t-if="state.errors[row._localId + '_target']">
+                                            <t t-esc="state.errors[row._localId + '_target']"/>
+                                        </div>
+                                    </t>
+                                    <div class="text-danger small" t-if="row.errorMessage">
+                                        <t t-esc="row.errorMessage"/>
+                                    </div>
+                                </t>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger"
+                                        t-if="row.status !== 'success'"
+                                        t-on-click="() => this.removeRow(row._localId)">
+                                    <i class="fa fa-trash"/>
+                                </button>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </table>
+
+            <div class="o_pnm_actions">
+                <button class="btn btn-secondary" t-on-click="() => this.addRow()">
+                    <i class="fa fa-plus"/> Add Row
+                </button>
+                <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
+                    <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
+                    Save
+                </button>
+            </div>
+        </div>
+    </t>
+</templates>
