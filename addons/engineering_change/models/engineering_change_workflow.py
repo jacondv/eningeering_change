@@ -104,10 +104,30 @@ class EngineeringChange(models.Model):
         self.message_post(
             body=_("Request rejected. Reason: %s") % reason, partner_ids=partners.ids)
 
-    def action_confirm_sale(self):
+    def action_confirm_production(self):
         for rec in self:
             if rec.state != 'implement':
-                raise UserError(_("Only requests in Design state can move to Sales."))
+                raise UserError(_("Only requests in Design state can move to Production."))
+            if not rec.can_confirm_production:
+                raise AccessError(_(
+                    "Only the Manager or the request's Implement Owner can confirm Production."))
+            # sudo(): the Implement Owner allowed through the check above is not
+            # necessarily an Engineer/BOD/Manager Approve holder with base write
+            # access on engineering.change (e.g. a plain team member) - the
+            # can_confirm_production check just above is the real gate.
+            rec_sudo = rec.sudo()
+            rec_sudo.with_context(ec_workflow_write=True).state = 'production'
+            partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
+            if partners:
+                rec_sudo.message_subscribe(partner_ids=partners.ids)
+            rec_sudo.message_post(
+                body=_("Moved to Production, confirmed by %s.") % self.env.user.name,
+                partner_ids=partners.ids)
+
+    def action_confirm_sale(self):
+        for rec in self:
+            if rec.state != 'production':
+                raise UserError(_("Only requests in Production state can move to Sales."))
             if not rec.can_confirm_sale:
                 raise AccessError(_(
                     "Only the Manager or the request's Implement Owner can confirm Sales."))
@@ -137,8 +157,10 @@ class EngineeringChange(models.Model):
             return 'waiting_manager_approval'
         if self.state == 'implement':
             return 'bod_review' if self.request_type == 'dcr' else 'waiting_manager_approval'
-        if self.state == 'sale':
+        if self.state == 'production':
             return 'implement'
+        if self.state == 'sale':
+            return 'production'
         return False
 
     def action_revert_to_previous_state(self):

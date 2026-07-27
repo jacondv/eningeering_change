@@ -104,9 +104,12 @@ class TestEngineeringChange(TransactionCase):
             'user_ids': [(6, 0, [self.user_general.id])],
         })
         task.with_user(self.user_manager).write({'state': '1_done'})
-        # Finishing every task no longer auto-closes the request - Sale
-        # and Close are always explicit, manual steps.
+        # Finishing every task no longer auto-closes the request - Production,
+        # Sales and Close are always explicit, manual steps.
         self.assertEqual(change.state, 'implement')
+
+        change.with_user(self.user_manager).action_confirm_production()
+        self.assertEqual(change.state, 'production')
 
         change.with_user(self.user_manager).action_confirm_sale()
         self.assertEqual(change.state, 'sale')
@@ -119,7 +122,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(change.state, 'sale')
         self.assertFalse(change.close_date)
 
-    def test_confirm_sale_by_implement_owner(self):
+    def test_confirm_production_and_sale_by_implement_owner(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_manager).write({
             'implement_team_ids': [(6, 0, [self.user_engineer.id, self.user_general.id])],
@@ -127,6 +130,12 @@ class TestEngineeringChange(TransactionCase):
         })
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager).action_manager_approve()
+
+        with self.assertRaises(AccessError):
+            change.with_user(self.user_engineer).action_confirm_production()
+
+        change.with_user(self.user_general).action_confirm_production()
+        self.assertEqual(change.state, 'production')
 
         with self.assertRaises(AccessError):
             change.with_user(self.user_engineer).action_confirm_sale()
@@ -138,6 +147,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager).action_confirm_production()
         change.with_user(self.user_manager).action_confirm_sale()
 
         with self.assertRaises(UserError):
@@ -157,9 +167,15 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager).action_manager_approve()
         self.assertEqual(change.state, 'implement')
 
+        change.with_user(self.user_manager).action_confirm_production()
+        self.assertEqual(change.state, 'production')
+
         # Accidentally confirmed Sale - Manager steps it back one state.
         change.with_user(self.user_manager).action_confirm_sale()
         self.assertEqual(change.state, 'sale')
+        change.with_user(self.user_manager).action_revert_to_previous_state()
+        self.assertEqual(change.state, 'production')
+
         change.with_user(self.user_manager).action_revert_to_previous_state()
         self.assertEqual(change.state, 'implement')
 
