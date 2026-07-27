@@ -30,6 +30,10 @@
                         <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'implement')"/></div>
                         <div class="o_ec_kpi_label">Design</div>
                     </div>
+                    <div class="o_ec_kpi_card o_ec_kpi_production" t-on-click="() => this.openRequests([['state','=','production']], 'Production')">
+                        <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'production')"/></div>
+                        <div class="o_ec_kpi_label">Production</div>
+                    </div>
                     <div class="o_ec_kpi_card o_ec_kpi_sale" t-on-click="() => this.openRequests([['state','=','sale']], 'Sales')">
                         <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'sale')"/></div>
                         <div class="o_ec_kpi_label">Sales</div>
