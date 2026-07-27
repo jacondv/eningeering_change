@@ -86,7 +86,7 @@
             <field name="name">Close</field>
             <field name="privilege_id" ref="privilege_ec_close"/>
             <field name="implied_ids" eval="[(4, ref('group_ec_user'))]"/>
-            <field name="comment">Can close a Request once it reaches the Sale phase, without needing full Manager Approve rights. Manager Approve can always close as well.</field>
+            <field name="comment">Can close a Request once it reaches the Sales phase, without needing full Manager Approve rights. Manager Approve can always close as well.</field>
         </record>
 
     </data>
