@@ -155,13 +155,15 @@ class EngineeringChange(models.Model):
     def _compute_edit_rights(self):
         user = self.env.user
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        is_manager = user.has_group('engineering_change.group_ec_manager')
+        is_manager = user.has_group('engineering_change.group_ec_manager') \
+            or user.has_group('base.group_system')
         is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
         for rec in self:
-            rec.can_edit_engineer_fields = is_engineer and rec.state == 'draft'
+            rec.can_edit_engineer_fields = is_manager or (is_engineer and rec.state == 'draft')
             rec.can_edit_manager_fields = is_approver and rec.state != 'done'
             rec.can_edit_request_type = (
-                (is_engineer and rec.state == 'draft')
+                is_manager
+                or (is_engineer and rec.state == 'draft')
                 or (is_approver and rec.state in ('draft', 'waiting_manager_approval'))
             )
             rec.can_confirm_production = is_manager or rec.implement_owner_id == user
@@ -217,11 +219,15 @@ class EngineeringChange(models.Model):
         self.ensure_one()
         user = self.env.user
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        is_approver = user.has_group('engineering_change.group_ec_bod') \
-            or user.has_group('engineering_change.group_ec_manager')
+        # Manager Approve and Administrator may always edit any content of the
+        # request, regardless of state or role - they're trusted to correct it
+        # directly instead of going through the Reject-to-Draft round trip.
+        is_manager = user.has_group('engineering_change.group_ec_manager') \
+            or user.has_group('base.group_system')
+        is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
 
         engineer_keys = keys & self.ENGINEER_FIELDS
-        if engineer_keys:
+        if engineer_keys and not is_manager:
             if self.state != 'draft':
                 raise UserError(_(
                     "The request content (%s) can only be edited while the request is in Draft. "
@@ -234,10 +240,10 @@ class EngineeringChange(models.Model):
         if manager_keys:
             if not is_approver:
                 raise AccessError(_("Only BOD Approve / Manager Approve can edit the Implement Team fields."))
-            if self.state == 'done':
+            if self.state == 'done' and not is_manager:
                 raise UserError(_("Reopen the request before editing the Implement Team fields."))
 
-        if 'request_type' in keys:
+        if 'request_type' in keys and not is_manager:
             if not (is_engineer or is_approver):
                 raise AccessError(_("Only the Request or Approve roles can change the Request Type."))
             if self.state not in ('draft', 'waiting_manager_approval'):

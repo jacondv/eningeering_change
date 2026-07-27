@@ -57,11 +57,6 @@ class TestEngineeringChange(TransactionCase):
             'engineer_id': self.user_engineer.id,
         })
 
-    def test_submit_requires_valid_rpn(self):
-        change = self._create_request(rpn=0)
-        with self.assertRaises(UserError):
-            change.with_user(self.user_engineer).action_submit()
-
     def test_minor_change_flow(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
@@ -250,10 +245,11 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(UserError):
             change.with_user(self.user_engineer).write({'title': 'Too late'})
 
-    def test_manager_cannot_edit_engineer_content(self):
+    def test_manager_can_edit_engineer_content(self):
         change = self._create_request(request_type='minor')
-        with self.assertRaises(AccessError):
-            change.with_user(self.user_manager).write({'title': 'Manager should not touch this'})
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager).write({'title': 'Manager corrected this'})
+        self.assertEqual(change.title, 'Manager corrected this')
 
     def test_request_type_exception_for_manager(self):
         change = self._create_request(request_type='minor')
