@@ -59,6 +59,7 @@ class EngineeringChange(models.Model):
         ('waiting_manager_approval', 'Manager Approval'),
         ('bod_review', 'BOD Approval'),
         ('implement', 'Design'),
+        ('production', 'Production'),
         ('sale', 'Sales'),
         ('done', 'Closed'),
     ], default='draft', copy=False, tracking=True, index=True)
@@ -102,6 +103,7 @@ class EngineeringChange(models.Model):
     can_edit_engineer_fields = fields.Boolean(compute='_compute_edit_rights')
     can_edit_manager_fields = fields.Boolean(compute='_compute_edit_rights')
     can_edit_request_type = fields.Boolean(compute='_compute_edit_rights')
+    can_confirm_production = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
@@ -167,6 +169,7 @@ class EngineeringChange(models.Model):
                 or (is_engineer and rec.state == 'draft')
                 or (is_approver and rec.state in ('draft', 'waiting_manager_approval'))
             )
+            rec.can_confirm_production = is_manager or rec.implement_owner_id == user
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
 
     # ------------------------------------------------------------
