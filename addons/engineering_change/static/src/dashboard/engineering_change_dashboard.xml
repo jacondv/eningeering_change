@@ -30,13 +30,13 @@
                         <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'implement')"/></div>
                         <div class="o_ec_kpi_label">Design</div>
                     </div>
-                    <div class="o_ec_kpi_card o_ec_kpi_sale" t-on-click="() => this.openRequests([['state','=','sale']], 'Sale')">
+                    <div class="o_ec_kpi_card o_ec_kpi_sale" t-on-click="() => this.openRequests([['state','=','sale']], 'Sales')">
                         <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'sale')"/></div>
-                        <div class="o_ec_kpi_label">Sale</div>
+                        <div class="o_ec_kpi_label">Sales</div>
                     </div>
-                    <div class="o_ec_kpi_card o_ec_kpi_done" t-on-click="() => this.openRequests([['state','=','done']], 'Close')">
+                    <div class="o_ec_kpi_card o_ec_kpi_done" t-on-click="() => this.openRequests([['state','=','done']], 'Closed')">
                         <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'done')"/></div>
-                        <div class="o_ec_kpi_label">Close</div>
+                        <div class="o_ec_kpi_label">Closed</div>
                     </div>
                     <div class="o_ec_kpi_card o_ec_kpi_overdue" t-on-click="() => this.openRequests([['has_overdue_action','=',true]], 'Overdue Requests')">
                         <div class="o_ec_kpi_value"><t t-esc="state.data.overdue_requests"/></div>
