@@ -59,8 +59,8 @@ class EngineeringChange(models.Model):
         ('waiting_manager_approval', 'Manager Approval'),
         ('bod_review', 'BOD Approval'),
         ('implement', 'Design'),
-        ('sale', 'Sale'),
-        ('done', 'Close'),
+        ('sale', 'Sales'),
+        ('done', 'Closed'),
     ], default='draft', copy=False, tracking=True, index=True)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
     active = fields.Boolean(default=True)

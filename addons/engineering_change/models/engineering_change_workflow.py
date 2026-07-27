@@ -4,7 +4,7 @@ from odoo.exceptions import AccessError, UserError
 
 class EngineeringChange(models.Model):
     """The request's state machine (Submit / Approve / Reject / Confirm
-    Sale / Close / Reopen / Revert) and the notification helpers it
+    Sales / Close / Reopen / Revert) and the notification helpers it
     uses. Split out from engineering_change.py, which owns the record's
     fields, computed UX hints, and field-level edit guards - this file only
     ever changes `state` (and its side-effect fields) through the workflow
@@ -107,10 +107,10 @@ class EngineeringChange(models.Model):
     def action_confirm_sale(self):
         for rec in self:
             if rec.state != 'implement':
-                raise UserError(_("Only requests in Design state can move to Sale."))
+                raise UserError(_("Only requests in Design state can move to Sales."))
             if not rec.can_confirm_sale:
                 raise AccessError(_(
-                    "Only the Manager or the request's Implement Owner can confirm Sale."))
+                    "Only the Manager or the request's Implement Owner can confirm Sales."))
             # sudo(): the Implement Owner allowed through the check above is not
             # necessarily an Engineer/BOD/Manager Approve holder with base write
             # access on engineering.change (e.g. a plain team member) - the
@@ -121,7 +121,7 @@ class EngineeringChange(models.Model):
             if partners:
                 rec_sudo.message_subscribe(partner_ids=partners.ids)
             rec_sudo.message_post(
-                body=_("Moved to Sale, confirmed by %s.") % self.env.user.name,
+                body=_("Moved to Sales, confirmed by %s.") % self.env.user.name,
                 partner_ids=partners.ids)
 
     def _previous_workflow_state(self):
@@ -168,7 +168,7 @@ class EngineeringChange(models.Model):
     def action_close_request(self):
         for rec in self:
             if rec.state != 'sale':
-                raise UserError(_("Only requests in Sale state can be closed."))
+                raise UserError(_("Only requests in Sales state can be closed."))
             if not (self.env.user.has_group('engineering_change.group_ec_manager')
                     or self.env.user.has_group('engineering_change.group_ec_close')):
                 raise UserError(_("Only Engineering Manager or a user granted Close rights can close a request."))
