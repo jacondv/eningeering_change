@@ -43,6 +43,12 @@
             <field name="sequence">50</field>
         </record>
 
+        <record id="privilege_ec_close" model="res.groups.privilege">
+            <field name="name">Close</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">45</field>
+        </record>
+
         <record id="group_ec_user" model="res.groups">
             <field name="name">View</field>
             <field name="privilege_id" ref="privilege_ec_view"/>
@@ -73,7 +79,14 @@
         <record id="group_ec_delete" model="res.groups">
             <field name="name">Delete</field>
             <field name="privilege_id" ref="privilege_ec_delete"/>
-            <field name="comment">Can permanently delete Engineering Change requests (Draft only, unless overridden). Independent of the other roles - grant it to whoever should be allowed to clean up requests.</field>
+            <field name="comment">Can permanently delete Engineering Change requests at any stage, after confirming their own password. Independent of the other roles - grant it to whoever should be allowed to clean up requests.</field>
+        </record>
+
+        <record id="group_ec_close" model="res.groups">
+            <field name="name">Close</field>
+            <field name="privilege_id" ref="privilege_ec_close"/>
+            <field name="implied_ids" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="comment">Can close a Request once it reaches the Sale phase, without needing full Manager Approve rights. Manager Approve can always close as well.</field>
         </record>
 
     </data>

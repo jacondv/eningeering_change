@@ -23,17 +23,20 @@
                     <button name="action_bod_reject" string="Reject" type="object"
                             invisible="state != 'bod_review'"
                             groups="engineering_change.group_ec_bod"/>
-                    <button name="action_confirm_production" string="Confirm Production" type="object"
-                            class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"/>
+                    <button name="action_confirm_sale" string="Confirm Sale" type="object"
+                            class="oe_highlight" invisible="state != 'implement' or not can_confirm_sale"/>
                     <button name="action_close_request" string="Close Request" type="object"
-                            class="oe_highlight" invisible="state != 'production'"
-                            groups="engineering_change.group_ec_manager"/>
+                            class="oe_highlight" invisible="state != 'sale'"
+                            groups="engineering_change.group_ec_manager,engineering_change.group_ec_close"/>
                     <button name="action_reopen" string="Reopen" type="object"
                             invisible="state != 'done'"
                             groups="engineering_change.group_ec_manager"/>
-                    <field name="can_confirm_production" invisible="1"/>
+                    <button name="action_delete_with_password" string="Delete Request" type="object"
+                            confirm="This will permanently delete this request. This cannot be undone. Continue?"
+                            groups="engineering_change.group_ec_delete"/>
+                    <field name="can_confirm_sale" invisible="1"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="draft,waiting_manager_approval,bod_review,implement,production,done"/>
+                           statusbar_visible="draft,waiting_manager_approval,bod_review,implement,sale,done"/>
                 </header>
                 <sheet>
                     <div name="button_box" class="oe_button_box">
@@ -197,7 +200,7 @@
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
                        decoration-info="state in ('waiting_manager_approval', 'bod_review')"
-                       decoration-warning="state in ('implement', 'production')"/>
+                       decoration-warning="state in ('implement', 'sale')"/>
                 <field name="rpn_level" widget="badge"
                        decoration-danger="rpn_level == 'high'"
                        decoration-warning="rpn_level == 'medium'"
@@ -265,8 +268,8 @@
                 <filter string="Manager Approval" name="state_waiting_manager"
                         domain="[('state', '=', 'waiting_manager_approval')]"/>
                 <filter string="BOD Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
-                <filter string="Implement" name="state_implement" domain="[('state', '=', 'implement')]"/>
-                <filter string="Production" name="state_production" domain="[('state', '=', 'production')]"/>
+                <filter string="Design" name="state_implement" domain="[('state', '=', 'implement')]"/>
+                <filter string="Sale" name="state_sale" domain="[('state', '=', 'sale')]"/>
                 <group>
                     <filter string="State" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Request Type" name="group_type" context="{'group_by': 'request_type'}"/>

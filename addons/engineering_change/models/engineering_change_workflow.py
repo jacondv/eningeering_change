@@ -4,7 +4,7 @@ from odoo.exceptions import AccessError, UserError
 
 class EngineeringChange(models.Model):
     """The request's state machine (Submit / Approve / Reject / Confirm
-    Production / Close / Reopen / Revert) and the notification helpers it
+    Sale / Close / Reopen / Revert) and the notification helpers it
     uses. Split out from engineering_change.py, which owns the record's
     fields, computed UX hints, and field-level edit guards - this file only
     ever changes `state` (and its side-effect fields) through the workflow
@@ -43,9 +43,9 @@ class EngineeringChange(models.Model):
         for rec in self:
             if rec.state != 'draft':
                 raise UserError(_("Only Draft requests can be submitted."))
-            if not rec.title or not rec.description or rec.rpn <= 0:
+            if not rec.title or not rec.description:
                 raise UserError(_(
-                    "Title, Description and a valid RPN (greater than 0) are required before submitting."))
+                    "Title and Description are required before submitting."))
             if rec.name == 'New':
                 rec.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
             rec.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
@@ -104,24 +104,24 @@ class EngineeringChange(models.Model):
         self.message_post(
             body=_("Request rejected. Reason: %s") % reason, partner_ids=partners.ids)
 
-    def action_confirm_production(self):
+    def action_confirm_sale(self):
         for rec in self:
             if rec.state != 'implement':
-                raise UserError(_("Only requests in Implement state can move to Production."))
-            if not rec.can_confirm_production:
+                raise UserError(_("Only requests in Design state can move to Sale."))
+            if not rec.can_confirm_sale:
                 raise AccessError(_(
-                    "Only the Manager or the request's Implement Owner can confirm Production."))
+                    "Only the Manager or the request's Implement Owner can confirm Sale."))
             # sudo(): the Implement Owner allowed through the check above is not
             # necessarily an Engineer/BOD/Manager Approve holder with base write
             # access on engineering.change (e.g. a plain team member) - the
-            # can_confirm_production check just above is the real gate.
+            # can_confirm_sale check just above is the real gate.
             rec_sudo = rec.sudo()
-            rec_sudo.with_context(ec_workflow_write=True).state = 'production'
+            rec_sudo.with_context(ec_workflow_write=True).state = 'sale'
             partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
             if partners:
                 rec_sudo.message_subscribe(partner_ids=partners.ids)
             rec_sudo.message_post(
-                body=_("Moved to Production, confirmed by %s.") % self.env.user.name,
+                body=_("Moved to Sale, confirmed by %s.") % self.env.user.name,
                 partner_ids=partners.ids)
 
     def _previous_workflow_state(self):
@@ -137,13 +137,13 @@ class EngineeringChange(models.Model):
             return 'waiting_manager_approval'
         if self.state == 'implement':
             return 'bod_review' if self.request_type == 'dcr' else 'waiting_manager_approval'
-        if self.state == 'production':
+        if self.state == 'sale':
             return 'implement'
         return False
 
     def action_revert_to_previous_state(self):
         """Manager-only safety valve to undo an accidental workflow click
-        (e.g. Confirm Production hit by mistake) by stepping back exactly one
+        (e.g. Confirm Sale hit by mistake) by stepping back exactly one
         state, without going through the Reject wizard (which always resets
         all the way to Draft and requires a reason).
         """
@@ -167,16 +167,22 @@ class EngineeringChange(models.Model):
 
     def action_close_request(self):
         for rec in self:
-            if rec.state != 'production':
-                raise UserError(_("Only requests in Production state can be closed."))
-            if not self.env.user.has_group('engineering_change.group_ec_manager'):
-                raise UserError(_("Only Engineering Manager can close a request."))
-            rec.with_context(ec_workflow_write=True).write(
+            if rec.state != 'sale':
+                raise UserError(_("Only requests in Sale state can be closed."))
+            if not (self.env.user.has_group('engineering_change.group_ec_manager')
+                    or self.env.user.has_group('engineering_change.group_ec_close')):
+                raise UserError(_("Only Engineering Manager or a user granted Close rights can close a request."))
+            # sudo(): a Close-group-only user's write access is scoped to
+            # state == 'sale' (see ec_change_rule_close_write) - once the
+            # state flips to 'done' below, they'd lose write access to their own
+            # just-closed record for the chatter side effects that follow.
+            rec_sudo = rec.sudo()
+            rec_sudo.with_context(ec_workflow_write=True).write(
                 {'state': 'done', 'close_date': fields.Datetime.now()})
             partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
             if partners:
-                rec.message_subscribe(partner_ids=partners.ids)
-            rec.message_post(body=_("Request closed."), partner_ids=partners.ids)
+                rec_sudo.message_subscribe(partner_ids=partners.ids)
+            rec_sudo.message_post(body=_("Request closed."), partner_ids=partners.ids)
 
     def action_reopen(self):
         for rec in self:
@@ -185,7 +191,7 @@ class EngineeringChange(models.Model):
             if rec.state != 'done':
                 raise UserError(_("Only Done requests can be reopened."))
             rec.with_context(ec_workflow_write=True).write(
-                {'state': 'production', 'close_date': False})
+                {'state': 'sale', 'close_date': False})
             partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
             rec.message_post(
                 body=_("Request reopened by %s.") % self.env.user.name, partner_ids=partners.ids)
