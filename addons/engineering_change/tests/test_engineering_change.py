@@ -104,22 +104,22 @@ class TestEngineeringChange(TransactionCase):
             'user_ids': [(6, 0, [self.user_general.id])],
         })
         task.with_user(self.user_manager).write({'state': '1_done'})
-        # Finishing every task no longer auto-closes the request - Production
+        # Finishing every task no longer auto-closes the request - Sale
         # and Close are always explicit, manual steps.
         self.assertEqual(change.state, 'implement')
 
-        change.with_user(self.user_manager).action_confirm_production()
-        self.assertEqual(change.state, 'production')
+        change.with_user(self.user_manager).action_confirm_sale()
+        self.assertEqual(change.state, 'sale')
 
         change.with_user(self.user_manager).action_close_request()
         self.assertEqual(change.state, 'done')
         self.assertTrue(change.close_date)
 
         change.with_user(self.user_manager).action_reopen()
-        self.assertEqual(change.state, 'production')
+        self.assertEqual(change.state, 'sale')
         self.assertFalse(change.close_date)
 
-    def test_confirm_production_by_implement_owner(self):
+    def test_confirm_sale_by_implement_owner(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_manager).write({
             'implement_team_ids': [(6, 0, [self.user_engineer.id, self.user_general.id])],
@@ -129,16 +129,16 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager).action_manager_approve()
 
         with self.assertRaises(AccessError):
-            change.with_user(self.user_engineer).action_confirm_production()
+            change.with_user(self.user_engineer).action_confirm_sale()
 
-        change.with_user(self.user_general).action_confirm_production()
-        self.assertEqual(change.state, 'production')
+        change.with_user(self.user_general).action_confirm_sale()
+        self.assertEqual(change.state, 'sale')
 
-    def test_only_manager_can_close_request(self):
+    def test_only_manager_or_close_group_can_close_request(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager).action_manager_approve()
-        change.with_user(self.user_manager).action_confirm_production()
+        change.with_user(self.user_manager).action_confirm_sale()
 
         with self.assertRaises(UserError):
             change.with_user(self.user_bod).action_close_request()
@@ -157,9 +157,9 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager).action_manager_approve()
         self.assertEqual(change.state, 'implement')
 
-        # Accidentally confirmed Production - Manager steps it back one state.
-        change.with_user(self.user_manager).action_confirm_production()
-        self.assertEqual(change.state, 'production')
+        # Accidentally confirmed Sale - Manager steps it back one state.
+        change.with_user(self.user_manager).action_confirm_sale()
+        self.assertEqual(change.state, 'sale')
         change.with_user(self.user_manager).action_revert_to_previous_state()
         self.assertEqual(change.state, 'implement')
 
@@ -203,11 +203,25 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(AccessError):
             task.with_user(self.user_general).write({'name': 'Renamed by general user'})
 
-    def test_unlink_only_allowed_in_draft(self):
+    def test_unlink_requires_password_confirmation_context(self):
+        # Plain unlink() (the standard Action > Delete menu) always refuses,
+        # even for a Delete-group holder and even in Draft - only the
+        # password-confirmed action_delete_with_password() flow may delete.
+        change = self._create_request(request_type='minor')
+        with self.assertRaises(UserError):
+            change.with_user(self.user_deleter).unlink()
+
+        change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
+        self.assertFalse(change.exists())
+
+    def test_delete_allowed_regardless_of_stage(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        with self.assertRaises(UserError):
-            change.with_user(self.user_manager).unlink()
+        change.with_user(self.user_manager).action_manager_approve()
+        self.assertEqual(change.state, 'implement')
+
+        change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
+        self.assertFalse(change.exists())
 
     def test_state_cannot_be_written_directly(self):
         change = self._create_request(request_type='minor')
@@ -225,11 +239,11 @@ class TestEngineeringChange(TransactionCase):
 
         # Manager Approve alone no longer includes Delete - the ACL denies it outright.
         with self.assertRaises(AccessError):
-            change.with_user(self.user_manager).unlink()
+            change.with_user(self.user_manager).with_context(ec_delete_password_confirmed=True).unlink()
 
-        # A user holding only the Delete group can remove a Draft request, even
+        # A user holding only the Delete group can remove a request, even
         # though they have no Request/Approve rights of their own.
-        change.with_user(self.user_deleter).unlink()
+        change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
         self.assertFalse(change.exists())
 
     def test_everyone_sees_every_request(self):

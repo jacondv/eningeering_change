@@ -4,6 +4,7 @@ access_engineering_change_engineer,engineering.change.engineer,model_engineering
 access_engineering_change_bod,engineering.change.bod,model_engineering_change,group_ec_bod,1,1,0,0
 access_engineering_change_manager,engineering.change.manager,model_engineering_change,group_ec_manager,1,1,1,0
 access_engineering_change_delete,engineering.change.delete,model_engineering_change,group_ec_delete,1,0,0,1
+access_engineering_change_close,engineering.change.close,model_engineering_change,group_ec_close,1,1,0,0
 access_engineering_change_image_user,engineering.change.image.user,model_engineering_change_image,group_ec_user,1,0,0,0
 access_engineering_change_image_engineer,engineering.change.image.engineer,model_engineering_change_image,group_ec_engineer,1,1,1,0
 access_engineering_change_image_bod,engineering.change.image.bod,model_engineering_change_image,group_ec_bod,1,1,0,0

@@ -52,6 +52,20 @@
             <field name="perm_unlink">0</field>
         </record>
 
+        <!-- Close holders don't get general write access to the request - only
+             enough to flip it to Done via action_close_request(), which itself
+             enforces "state == sale" and re-checks group membership. -->
+        <record id="ec_change_rule_close_write" model="ir.rule">
+            <field name="name">EC Change: Close holders can close a Sale-phase request</field>
+            <field name="model_id" ref="model_engineering_change"/>
+            <field name="domain_force">[('state','=','sale')]</field>
+            <field name="groups" eval="[(4, ref('group_ec_close'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <record id="ec_change_rule_delete" model="ir.rule">
             <field name="name">EC Change: Delete holders can delete</field>
             <field name="model_id" ref="model_engineering_change"/>
