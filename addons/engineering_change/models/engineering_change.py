@@ -1,4 +1,5 @@
 from odoo import _, api, fields, models
+from odoo.addons.base.models.res_users import check_identity
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 
@@ -48,7 +49,7 @@ class EngineeringChange(models.Model):
     ], string='Request Type', required=True, default='minor', tracking=True)
     dcr_no = fields.Char(string='DCR No', readonly=True, copy=False, index=True, tracking=True)
     title = fields.Char(required=True, tracking=True)
-    description = fields.Html(required=True, tracking=True)
+    description = fields.Html(required=True)
     engineer_id = fields.Many2one(
         'res.users', string='Engineer', required=True, index=True,
         default=lambda self: self.env.user, tracking=True)
@@ -57,9 +58,9 @@ class EngineeringChange(models.Model):
         ('draft', 'Draft'),
         ('waiting_manager_approval', 'Manager Approval'),
         ('bod_review', 'BOD Approval'),
-        ('implement', 'Implement'),
-        ('production', 'Production'),
-        ('done', 'Done'),
+        ('implement', 'Design'),
+        ('sale', 'Sale'),
+        ('done', 'Close'),
     ], default='draft', copy=False, tracking=True, index=True)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
@@ -101,7 +102,7 @@ class EngineeringChange(models.Model):
     can_edit_engineer_fields = fields.Boolean(compute='_compute_edit_rights')
     can_edit_manager_fields = fields.Boolean(compute='_compute_edit_rights')
     can_edit_request_type = fields.Boolean(compute='_compute_edit_rights')
-    can_confirm_production = fields.Boolean(compute='_compute_edit_rights')
+    can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -166,7 +167,7 @@ class EngineeringChange(models.Model):
                 or (is_engineer and rec.state == 'draft')
                 or (is_approver and rec.state in ('draft', 'waiting_manager_approval'))
             )
-            rec.can_confirm_production = is_manager or rec.implement_owner_id == user
+            rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
 
     # ------------------------------------------------------------
     # Constraints
@@ -191,12 +192,28 @@ class EngineeringChange(models.Model):
         return super().create(vals_list)
 
     def unlink(self):
-        for rec in self:
-            if rec.state != 'draft' and not (
-                self.env.context.get('force_delete') and self.env.user.has_group('engineering_change.group_ec_delete')
-            ):
-                raise UserError(_("You can only delete a Request that is still in Draft state."))
+        if not self.env.context.get('ec_delete_password_confirmed'):
+            raise UserError(_(
+                "Use the Delete button on the request form to permanently delete it - "
+                "it will ask you to confirm your password first."))
         return super().unlink()
+
+    @check_identity
+    def action_delete_with_password(self):
+        """Permanently delete this request, regardless of its stage. Wrapped
+        in Odoo's standard password re-check (`check_identity`): the first
+        call pops up the core "Access Control" wizard instead of running this
+        method, and only calls back into it once the user's password has been
+        confirmed - see `res.users.identitycheck` in the `base` module.
+        Deletion is otherwise irreversible, unlike Archive, so this is
+        intentionally harder to trigger than the plain Action > Delete menu
+        (which unlink() above refuses outright).
+        """
+        self.with_context(ec_delete_password_confirmed=True).unlink()
+        # Redirect back to the list instead of ir.actions.act_window_close:
+        # this button lives on a full-page form (not a dialog), so closing
+        # alone leaves the client trying to reload the now-deleted record.
+        return self.env['ir.actions.act_window']._for_xml_id('engineering_change.action_engineering_change_all')
 
     def write(self, vals):
         keys = set(vals.keys())
