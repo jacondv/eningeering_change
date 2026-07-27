@@ -269,7 +269,7 @@
                         domain="[('state', '=', 'waiting_manager_approval')]"/>
                 <filter string="BOD Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
                 <filter string="Design" name="state_implement" domain="[('state', '=', 'implement')]"/>
-                <filter string="Sale" name="state_sale" domain="[('state', '=', 'sale')]"/>
+                <filter string="Sales" name="state_sale" domain="[('state', '=', 'sale')]"/>
                 <group>
                     <filter string="State" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Request Type" name="group_type" context="{'group_by': 'request_type'}"/>
