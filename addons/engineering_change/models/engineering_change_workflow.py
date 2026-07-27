@@ -43,9 +43,9 @@ class EngineeringChange(models.Model):
         for rec in self:
             if rec.state != 'draft':
                 raise UserError(_("Only Draft requests can be submitted."))
-            if not rec.title or not rec.description or rec.rpn <= 0:
+            if not rec.title or not rec.description:
                 raise UserError(_(
-                    "Title, Description and a valid RPN (greater than 0) are required before submitting."))
+                    "Title and Description are required before submitting."))
             if rec.name == 'New':
                 rec.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
             rec.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
