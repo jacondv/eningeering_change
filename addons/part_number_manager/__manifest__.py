@@ -21,6 +21,7 @@ Features:
     'data': [
         'security/part_number_manager_groups.xml',
         'security/ir.model.access.csv',
+        'views/material_category_views.xml',
         'views/material_group_views.xml',
         'views/part_type_views.xml',
         'views/part_attribute_views.xml',

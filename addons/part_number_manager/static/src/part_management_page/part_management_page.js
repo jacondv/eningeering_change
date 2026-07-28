@@ -25,6 +25,7 @@ export class PartManagementPage extends Component {
         // field: [{id, label}]. Kept as plain (non-reactive) component
         // properties - inputs are uncontrolled (see part_management_page.xml)
         // so re-renders never fight the user's typing.
+        this.materialCategories = [];
         this.materialGroupOptions = [];
         this.jobNumberOptions = [];
         this.vendorOptions = [];
@@ -35,6 +36,7 @@ export class PartManagementPage extends Component {
 
         onWillStart(async () => {
             await Promise.all([
+                this._loadMaterialCategories(),
                 this._loadMaterialGroups(),
                 this._loadJobNumbers(),
                 this._loadVendors(),
@@ -45,11 +47,36 @@ export class PartManagementPage extends Component {
         });
     }
 
+    async _loadMaterialCategories() {
+        const categories = await this.orm.searchRead(
+            "part_number_manager.material_category", [], ["code", "description"]
+        );
+        this.materialCategories = categories.map((c) => ({ id: c.id, label: `${c.code} - ${c.description}` }));
+    }
+
     async _loadMaterialGroups() {
         const groups = await this.orm.searchRead(
-            "part_number_manager.material_group", [], ["code", "description"]
+            "part_number_manager.material_group", [], ["code", "description", "category_id"]
         );
-        this.materialGroupOptions = groups.map((g) => ({ id: g.id, label: `${g.code} - ${g.description}` }));
+        this.materialGroupOptions = groups.map((g) => ({
+            id: g.id,
+            label: `${g.code} - ${g.description}`,
+            category_id: g.category_id ? g.category_id[0] : false,
+        }));
+    }
+
+    // Single select field for Material Group, options grouped under an
+    // <optgroup> per Main Category - a mouse-only pick (scan the section,
+    // click), no typing required, and clicking an already-filled select
+    // reopens the dropdown directly (unlike the old two free-text inputs,
+    // which needed their text cleared before picking again).
+    get materialGroupsByCategory() {
+        return this.materialCategories
+            .map((category) => ({
+                category,
+                groups: this.materialGroupOptions.filter((g) => g.category_id === category.id),
+            }))
+            .filter((entry) => entry.groups.length);
     }
 
     async _loadJobNumbers() {
@@ -179,8 +206,8 @@ export class PartManagementPage extends Component {
         this.state.rows = this.state.rows.filter((r) => r._localId !== localId);
     }
 
-    onMaterialGroupInput(row, ev) {
-        row.material_group_id = this.resolveIdByLabel(this.materialGroupOptions, ev.target.value);
+    onMaterialGroupChange(row, ev) {
+        row.material_group_id = ev.target.value ? Number(ev.target.value) : false;
         // The target-part datalist is scoped to this Material Group - clear
         // a stale pick if the group changed underneath it.
         row.existing_new_part_id = false;

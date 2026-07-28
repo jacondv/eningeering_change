@@ -11,8 +11,12 @@ class MaterialGroup(models.Model):
     _description = 'Part Number Material Group'
     _order = 'code'
 
-    code = fields.Char(required=True, size=4, index=True)
+    code = fields.Char(required=True, index=True)
     description = fields.Char(required=True)
+    category_id = fields.Many2one(
+        'part_number_manager.material_category', string='Main Category', required=True, index=True,
+        help="Used to narrow the Material Group picker to a two-step selection - "
+             "not otherwise validated against `code`.")
 
     _code_unique = models.Constraint('unique(code)', 'This Material Group code already exists.')
 
