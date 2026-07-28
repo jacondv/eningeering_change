@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Indent sub-tasks under their parent in the Tasks list view: sort
+         rows by parent_path so a sub-task always sits directly under its
+         parent (instead of Odoo's normal stage/priority/date ordering),
+         and swap the Title field's widget for one that pads its text based
+         on hierarchy_depth (see models/project_task.py). Inheriting the
+         "main base" list view so this reaches every List built on top of
+         it (Tasks, My Tasks, All Tasks, per-project Tasks). -->
+    <record id="project_task_view_tree_main_base_indent" model="ir.ui.view">
+        <field name="name">project.task.view.list.main.base.indent</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.project_task_view_tree_main_base"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="default_order">parent_path, priority desc, sequence, state, date_deadline asc, id desc</attribute>
+            </xpath>
+            <xpath expr="//field[@name='name']" position="attributes">
+                <attribute name="widget">task_name_indent</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Repair for DBs where an earlier version of this addon added
+         "hierarchy" to this action's view_mode: removing that record from
+         our own XML does not revert a field on a record owned by another
+         module (project), so it must be written back explicitly here. -->
+    <record id="project.act_project_project_2_project_task_all" model="ir.actions.act_window">
+        <field name="view_mode">kanban,list,form,calendar,pivot,graph,activity</field>
+    </record>
+
+</odoo>
