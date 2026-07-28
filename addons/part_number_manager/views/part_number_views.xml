@@ -45,7 +45,9 @@
                     </div>
                     <group>
                         <group>
-                            <field name="material_group_id" readonly="part_number != False"/>
+                            <field name="material_category_id" readonly="part_number != False"/>
+                            <field name="material_group_id" readonly="part_number != False"
+                                   domain="[('category_id', '=', material_category_id)]"/>
                             <field name="job_number"/>
                             <field name="short_description"/>
                         </group>

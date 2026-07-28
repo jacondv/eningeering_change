@@ -19,6 +19,11 @@
           groups="part_number_manager.group_pnm_manager"
           sequence="90"/>
 
+    <menuitem id="menu_pnm_configuration_material_category" name="Main Categories"
+          parent="menu_pnm_configuration"
+          action="action_pnm_material_category"
+          sequence="5"/>
+
     <menuitem id="menu_pnm_configuration_material_group" name="Material Groups"
           parent="menu_pnm_configuration"
           action="action_pnm_material_group"

@@ -28,6 +28,12 @@ class PartNumber(models.Model):
         index=True, copy=False, readonly=True,
         help="Generated via the Generate button (material_group.code + sequence_suffix). Never entered by hand.")
     sequence_suffix = fields.Char(size=4, copy=False, readonly=True)
+    material_category_id = fields.Many2one(
+        'part_number_manager.material_category', string='Main Category',
+        compute='_compute_material_category_id', store=False, readonly=False,
+        help="UI helper only, not stored: narrows the Material Group picker to a "
+             "two-step selection. Recomputed from material_group_id whenever that "
+             "changes; editable in between so it can be picked first.")
     material_group_id = fields.Many2one(
         'part_number_manager.material_group', string='Material Group', required=True, index=True)
     job_number = fields.Many2one('project.project', string='Job Number')
@@ -63,6 +69,19 @@ class PartNumber(models.Model):
     _part_number_unique = models.Constraint(
         'unique(part_number)',
         'This Part Number already exists. The advisory lock in _get_next_suffix should have prevented this.')
+
+    @api.depends('material_group_id')
+    def _compute_material_category_id(self):
+        for rec in self:
+            rec.material_category_id = rec.material_group_id.category_id
+
+    @api.onchange('material_category_id')
+    def _onchange_material_category_id(self):
+        # material_group_id's domain is filtered to this category in the
+        # view - if the category changes out from under an already-picked
+        # group, clear it instead of silently keeping a now-hidden value.
+        if self.material_group_id.category_id != self.material_category_id:
+            self.material_group_id = False
 
     @api.depends('supersedes_ids.new_part_id.part_number')
     def _compute_replacement_display(self):

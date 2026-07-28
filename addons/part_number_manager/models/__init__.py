@@ -1,3 +1,4 @@
+from . import material_category
 from . import material_group
 from . import part_type
 from . import part_attribute

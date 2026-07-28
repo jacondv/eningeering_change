@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_pnm_material_category_list" model="ir.ui.view">
+        <field name="name">part_number_manager.material_category.list</field>
+        <field name="model">part_number_manager.material_category</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="code"/>
+                <field name="description"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_pnm_material_category_form" model="ir.ui.view">
+        <field name="name">part_number_manager.material_category.form</field>
+        <field name="model">part_number_manager.material_category</field>
+        <field name="arch" type="xml">
+            <form string="Main Category">
+                <sheet>
+                    <group>
+                        <field name="code" placeholder="e.g. 10"/>
+                        <field name="description" placeholder="e.g. Axle &amp; spare parts"/>
+                    </group>
+                    <notebook>
+                        <page string="Material Groups" name="groups">
+                            <field name="group_ids">
+                                <list editable="bottom">
+                                    <field name="code" placeholder="e.g. 1000"/>
+                                    <field name="description" placeholder="e.g. Comer axle &amp; spare"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pnm_material_category" model="ir.actions.act_window">
+        <field name="name">Main Categories</field>
+        <field name="res_model">part_number_manager.material_category</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>
