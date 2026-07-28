@@ -27,7 +27,7 @@ class EngineeringChange(models.Model):
     #   (matches the original requirement to let the type be corrected right before
     #   that approval).
     ENGINEER_FIELDS = frozenset({
-        'title', 'description', 'engineer_id', 'rpn',
+        'title', 'description', 'engineer_id', 'rpn', 'change_category',
         'impact_lead_time', 'impact_safety', 'impact_compliance',
         'image_ids', 'document_ids',
     })
@@ -48,6 +48,12 @@ class EngineeringChange(models.Model):
         ('dcr', 'DCR'),
     ], string='Request Type', required=True, default='minor', tracking=True)
     dcr_no = fields.Char(string='DCR No', readonly=True, copy=False, index=True, tracking=True)
+    change_category = fields.Selection([
+        ('quality', 'Quality'),
+        ('safety', 'Safety'),
+        ('productivity', 'Productivity'),
+        ('service', 'Service'),
+    ], string='Change Category', tracking=True)
     title = fields.Char(required=True, tracking=True)
     description = fields.Html(required=True)
     engineer_id = fields.Many2one(
@@ -65,6 +71,15 @@ class EngineeringChange(models.Model):
     ], default='draft', copy=False, tracking=True, index=True)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
+    project_id = fields.Many2one(
+        'project.project', string='Project', readonly=True, copy=False, ondelete='restrict',
+        help="Container Project (named after the Request No) that this "
+             "request's Actions/Tasks are filed under, instead of Private. "
+             "Created automatically on Submit, once the Request No is assigned. "
+             "ondelete='restrict': this Project may only be deleted as a side "
+             "effect of deleting this request (see unlink() below) - deleting "
+             "it directly would silently orphan the request and, worse, "
+             "bypass the password confirmation required to delete a request.")
 
     image_ids = fields.One2many('engineering.change.image', 'change_id', string='Images')
     document_ids = fields.One2many('engineering.change.document', 'change_id', string='Related Drawings')
@@ -92,9 +107,9 @@ class EngineeringChange(models.Model):
     action_done_count = fields.Integer(compute='_compute_action_stats')
     progress = fields.Float(compute='_compute_action_stats', string='Progress (%)')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
-    affected_project_ids = fields.Many2many(
-        'project.project', compute='_compute_affected_project_ids',
-        string='Impacted Projects')
+    affected_model_ids = fields.Many2many(
+        'equipment.model', compute='_compute_affected_model_ids',
+        string='Impacted Models')
     has_overdue_action = fields.Boolean(compute='_compute_has_overdue', store=True)
     next_action_deadline = fields.Date(compute='_compute_next_action_deadline', store=True, string='Next Deadline')
 
@@ -109,6 +124,10 @@ class EngineeringChange(models.Model):
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
         'RPN cannot be negative.',
+    )
+    _project_id_unique = models.Constraint(
+        'UNIQUE(project_id)',
+        'Each Project can only be linked to one Engineering Change request.',
     )
 
     # ------------------------------------------------------------
@@ -136,10 +155,10 @@ class EngineeringChange(models.Model):
         for rec in self:
             rec.evidence_count = len(rec.task_ids.evidence_ids)
 
-    @api.depends('task_ids.affected_project_ids')
-    def _compute_affected_project_ids(self):
+    @api.depends('task_ids.affected_model_ids')
+    def _compute_affected_model_ids(self):
         for rec in self:
-            rec.affected_project_ids = rec.task_ids.affected_project_ids
+            rec.affected_model_ids = rec.task_ids.affected_model_ids
 
     @api.depends('task_ids.is_overdue')
     def _compute_has_overdue(self):
@@ -173,6 +192,36 @@ class EngineeringChange(models.Model):
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
 
     # ------------------------------------------------------------
+    # Project linking
+    # ------------------------------------------------------------
+    def _link_ec_project(self):
+        """Find-or-create the project.project named after this request's
+        (now-assigned) Request No and set it as `project_id`, moving any
+        Actions/Tasks already created pre-Submit (when the request was still
+        named "New") onto it - called from action_submit(), once the real
+        Request No exists, so requests don't collide on a shared "New"
+        project while still in Draft.
+
+        Always creates a brand new project rather than reusing one found by
+        name match: `project_id` is 1-1 with the request (enforced by
+        `_project_id_unique`), so this must never accidentally attach to a
+        pre-existing, unrelated project.project that happens to share the
+        same name.
+
+        sudo(): the Engineer submitting isn't necessarily granted create
+        rights on project.project.
+        """
+        self.ensure_one()
+        project = self.env['project.project'].sudo().create({
+            'name': self.name,
+            'is_ec_project': True,
+        })
+        self.project_id = project.id
+        stale_tasks = self.task_ids.filtered(lambda t: t.project_id != project)
+        if stale_tasks:
+            stale_tasks.sudo().write({'project_id': project.id})
+
+    # ------------------------------------------------------------
     # Constraints
     # ------------------------------------------------------------
     @api.constrains('implement_owner_id', 'implement_team_ids')
@@ -199,7 +248,16 @@ class EngineeringChange(models.Model):
             raise UserError(_(
                 "Use the Delete button on the request form to permanently delete it - "
                 "it will ask you to confirm your password first."))
-        return super().unlink()
+        # project_id is 1-1 with the request and declares ondelete='restrict'
+        # (deleting the Project directly, bypassing this password-confirmed
+        # flow, must not silently take the request down with it - see the
+        # field's docstring). So instead: delete the requests first (clearing
+        # the reference project_id's restrict is guarding), then delete their
+        # now-unreferenced projects as a deliberate side effect of this method.
+        projects = self.project_id
+        result = super().unlink()
+        projects.sudo().unlink()
+        return result
 
     @check_identity
     def action_delete_with_password(self):

@@ -10,28 +10,35 @@
                 <header>
                     <button name="action_submit" string="Submit" type="object"
                             class="oe_highlight" invisible="state != 'draft'"
+                            confirm="Submit this request for Manager approval?"
                             groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
                     <button name="action_manager_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'waiting_manager_approval'"
+                            confirm="Approve this request?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_manager_reject" string="Reject" type="object"
                             invisible="state != 'waiting_manager_approval'"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_bod_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'bod_review'"
+                            confirm="Approve this request?"
                             groups="engineering_change.group_ec_bod"/>
                     <button name="action_bod_reject" string="Reject" type="object"
                             invisible="state != 'bod_review'"
                             groups="engineering_change.group_ec_bod"/>
                     <button name="action_confirm_production" string="Confirm Production" type="object"
-                            class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"/>
+                            class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"
+                            confirm="Move this request to Production?"/>
                     <button name="action_confirm_sale" string="Confirm Sale" type="object"
-                            class="oe_highlight" invisible="state != 'production' or not can_confirm_sale"/>
+                            class="oe_highlight" invisible="state != 'production' or not can_confirm_sale"
+                            confirm="Move this request to Sales?"/>
                     <button name="action_close_request" string="Close Request" type="object"
                             class="oe_highlight" invisible="state != 'sale'"
+                            confirm="Close this request? It will no longer be editable unless reopened."
                             groups="engineering_change.group_ec_manager,engineering_change.group_ec_close"/>
                     <button name="action_reopen" string="Reopen" type="object"
                             invisible="state != 'done'"
+                            confirm="Reopen this closed request?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_delete_with_password" string="Delete Request" type="object"
                             confirm="This will permanently delete this request. This cannot be undone. Continue?"
@@ -57,8 +64,8 @@
                         <h1>
                             <field name="name" readonly="1"/>
                         </h1>
-                        <field name="affected_project_ids" widget="many2many_tags" readonly="1"
-                               invisible="not affected_project_ids"/>
+                        <field name="affected_model_ids" widget="many2many_tags" readonly="1"
+                               invisible="not affected_model_ids"/>
                     </div>
 
                     <notebook>
@@ -69,10 +76,13 @@
                                            readonly="not can_edit_engineer_fields"/>
                                     <field name="request_type" widget="radio" options="{'horizontal': true}"
                                            readonly="not can_edit_request_type"/>
+                                    <field name="change_category" required="1"
+                                           readonly="not can_edit_engineer_fields"/>
                                     <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
                                 </group>
                                 <group>
                                     <field name="dcr_no"/>
+                                    <field name="project_id" invisible="not project_id"/>
                                     <field name="create_date" string="Created"/>
                                     <field name="close_date" invisible="not close_date"/>
                                     <field name="rpn_level" widget="badge"
@@ -173,7 +183,7 @@
                                     <field name="name"/>
                                     <field name="user_ids" widget="many2many_tags"/>
                                     <field name="manager_id"/>
-                                    <field name="affected_project_ids" widget="many2many_tags"/>
+                                    <field name="affected_model_ids" widget="many2many_tags"/>
                                     <field name="date_deadline"/>
                                     <field name="state"/>
                                     <field name="is_overdue" column_invisible="1"/>
@@ -197,7 +207,9 @@
                 <field name="name"/>
                 <field name="title"/>
                 <field name="request_type" widget="badge"/>
+                <field name="change_category" widget="badge" optional="show"/>
                 <field name="dcr_no"/>
+                <field name="project_id" optional="hide"/>
                 <field name="create_date" string="Created"/>
                 <field name="engineer_id"/>
                 <field name="state" widget="badge"
@@ -257,7 +269,9 @@
                 <field name="title"/>
                 <field name="engineer_id"/>
                 <field name="implement_team_ids"/>
-                <field name="affected_project_ids"/>
+                <field name="affected_model_ids"/>
+                <field name="change_category"/>
+                <field name="project_id"/>
                 <separator/>
                 <filter string="My Requests" name="my_requests" domain="[('engineer_id', '=', uid)]"/>
                 <filter string="DCR Only" name="dcr_only" domain="[('request_type', '=', 'dcr')]"/>
@@ -280,7 +294,8 @@
                     <filter string="Engineer" name="group_engineer" context="{'group_by': 'engineer_id'}"/>
                     <filter string="Month" name="group_month" context="{'group_by': 'create_date:month'}"/>
                     <filter string="RPN Level" name="group_rpn_level" context="{'group_by': 'rpn_level'}"/>
-                    <filter string="Impacted Project" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
+                    <filter string="Change Category" name="group_change_category" context="{'group_by': 'change_category'}"/>
+                    <filter string="Impacted Model" name="group_affected_model" context="{'group_by': 'affected_model_ids'}"/>
                 </group>
             </search>
         </field>

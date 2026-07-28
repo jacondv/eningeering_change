@@ -1,5 +1,6 @@
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import TransactionCase, tagged
+from odoo.tools import mute_logger
 
 
 @tagged('post_install', '-at_install')
@@ -48,12 +49,13 @@ class TestEngineeringChange(TransactionCase):
             'group_ids': [(6, 0, [cls.group_internal.id, cls.group_delete.id])],
         })
 
-    def _create_request(self, request_type='minor', rpn=50):
+    def _create_request(self, request_type='minor', rpn=50, change_category='quality'):
         return self.env['engineering.change'].with_user(self.user_engineer).create({
             'title': 'Test Change',
             'description': '<p>Description</p>',
             'request_type': request_type,
             'rpn': rpn,
+            'change_category': change_category,
             'engineer_id': self.user_engineer.id,
         })
 
@@ -65,6 +67,28 @@ class TestEngineeringChange(TransactionCase):
 
         change.with_user(self.user_manager).action_manager_approve()
         self.assertEqual(change.state, 'implement')
+
+    def test_submit_requires_change_category(self):
+        change = self._create_request(request_type='minor', change_category=False)
+        with self.assertRaises(UserError):
+            change.with_user(self.user_engineer).action_submit()
+
+    def test_submit_links_project_named_after_request_no(self):
+        change = self._create_request(request_type='minor')
+        self.assertFalse(change.project_id)
+
+        task = self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'name': 'Do the thing',
+        })
+        self.assertEqual(task.project_id.name, 'New')
+
+        change.with_user(self.user_engineer).action_submit()
+        self.assertTrue(change.project_id)
+        self.assertEqual(change.project_id.name, change.name)
+        # The task created pre-Submit under the stale "New" project is
+        # reconciled onto the real one.
+        self.assertEqual(task.project_id, change.project_id)
 
     def test_dcr_flow_and_dcr_no_generation(self):
         change = self._create_request(request_type='dcr')
@@ -219,6 +243,30 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(AccessError):
             task.with_user(self.user_general).write({'name': 'Renamed by general user'})
 
+    def test_affected_model_ids_tagging_and_rollup(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager).action_manager_approve()
+
+        model_a = self.env['equipment.model'].create({'name': 'Model A'})
+        model_b = self.env['equipment.model'].create({'name': 'Model B'})
+
+        task = self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'name': 'Do the thing',
+            'user_ids': [(6, 0, [self.user_general.id])],
+        })
+
+        # The task's own assignee (not Manager/Implement Owner) may still
+        # tag Impacted Models - it's in ASSIGNEE_EDITABLE_FIELDS, same as Evidence.
+        task.with_user(self.user_general).write({
+            'affected_model_ids': [(6, 0, [model_a.id, model_b.id])],
+        })
+        self.assertEqual(set(task.affected_model_ids.ids), {model_a.id, model_b.id})
+
+        # Rolls up onto the parent request.
+        self.assertEqual(set(change.affected_model_ids.ids), {model_a.id, model_b.id})
+
     def test_unlink_requires_password_confirmation_context(self):
         # Plain unlink() (the standard Action > Delete menu) always refuses,
         # even for a Delete-group holder and even in Draft - only the
@@ -238,6 +286,29 @@ class TestEngineeringChange(TransactionCase):
 
         change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
         self.assertFalse(change.exists())
+
+    def test_delete_request_cascades_to_its_project(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        project = change.project_id
+        self.assertTrue(project)
+        self.assertTrue(project.is_ec_project)
+
+        change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
+        self.assertFalse(change.exists())
+        self.assertFalse(project.exists())
+
+    @mute_logger('odoo.sql_db')
+    def test_cannot_delete_linked_project_directly(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        project = change.project_id
+        self.assertTrue(project)
+
+        # project_id declares ondelete='restrict' precisely so this route
+        # (bypassing the request's password-confirmed delete) is blocked.
+        with self.assertRaises(Exception):
+            project.sudo().unlink()
 
     def test_state_cannot_be_written_directly(self):
         change = self._create_request(request_type='minor')
