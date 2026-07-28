@@ -49,11 +49,13 @@ class EngineeringChange(models.Model):
     ], string='Request Type', required=True, default='minor', tracking=True)
     dcr_no = fields.Char(string='DCR No', readonly=True, copy=False, index=True, tracking=True)
     change_category = fields.Selection([
-        ('quality', 'Quality'),
+        ('standard', 'Standard'),
+        ('client_feedback', 'Client Feedback'),
+        ('supplychain', 'SupplyChain'),
         ('safety', 'Safety'),
         ('productivity', 'Productivity'),
-        ('service', 'Service'),
-    ], string='Change Category', tracking=True)
+        ('production', 'Production')
+    ], string='Change Source', tracking=True)
     title = fields.Char(required=True, tracking=True)
     description = fields.Html(required=True)
     engineer_id = fields.Many2one(
