@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_equipment_model_root" name="Equipment Models"
+          groups="equipment_model.group_equipment_model_user"/>
+
+    <menuitem id="menu_equipment_model_all" name="Equipment Models"
+          parent="menu_equipment_model_root"
+          action="action_equipment_model"
+          sequence="10"/>
+
+</odoo>
