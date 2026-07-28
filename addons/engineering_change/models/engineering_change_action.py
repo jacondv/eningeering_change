@@ -18,9 +18,9 @@ class ProjectTask(models.Model):
     manager_id = fields.Many2one('res.users', string='Manager', tracking=True,
                                   default=lambda self: self._default_ec_manager_id())
     evidence_ids = fields.One2many('engineering.change.action.evidence', 'task_id', string='Evidence')
-    affected_project_ids = fields.Many2many(
-        'project.project', 'engineering_change_action_affected_project_rel',
-        'task_id', 'project_id', string='Impacted Projects')
+    affected_model_ids = fields.Many2many(
+        'equipment.model', 'engineering_change_action_affected_model_rel',
+        'task_id', 'model_id', string='Impacted Models')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
@@ -32,7 +32,7 @@ class ProjectTask(models.Model):
     ASSIGNEE_EDITABLE_FIELDS = frozenset({
         'state',
         'evidence_ids',
-        'affected_project_ids',
+        'affected_model_ids',
         # written automatically by project.task's own write() as a side effect
         # of a state change - not something the user is choosing to set.
         'date_last_stage_update',
@@ -118,10 +118,19 @@ class ProjectTask(models.Model):
         No, so its actions/tasks land under a real project instead of
         defaulting to Private (no project_id).
 
+        If `change` already has its own `project_id` (set on Submit, see
+        `EngineeringChange._link_ec_project`), reuse it directly. Otherwise
+        (an action created while the request is still Draft, named "New")
+        fall back to finding/creating one by the request's current name -
+        `_link_ec_project` reconciles these onto the real project once the
+        request is actually submitted.
+
         sudo(): a plain assignee allowed to create an EC task (see
         `_check_ec_manage_access`) may not otherwise have search/create
         rights on project.project.
         """
+        if change.project_id:
+            return change.project_id
         Project = self.env['project.project'].sudo()
         project = Project.search([('name', '=', change.name)], limit=1)
         if not project:

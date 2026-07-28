@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Projects auto-created to hold a single Engineering Change request's
+         Actions/Tasks (is_ec_project=True, see EngineeringChange._link_ec_project)
+         are hidden from the Project app's own "Projects" screens - they're an
+         implementation detail of the EC workflow, not something to browse or
+         edit there. They still show up normally under "Tasks" (untouched here)
+         and remain reachable from the Request form's own Project field.
+
+         ir.actions.act_window has no view-style <xpath> inheritance, so these
+         are record overrides of project's own actions (same external ID,
+         module-prefixed) - both the plain and "group by stage" variant of each
+         screen, since project toggles between them per a user setting. -->
+    <record id="project.open_view_project_all" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False)]</field>
+    </record>
+
+    <record id="project.open_view_project_all_group_stage" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False)]</field>
+    </record>
+
+    <record id="project.open_view_project_all_config" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False)]</field>
+    </record>
+
+    <record id="project.open_view_project_all_config_group_stage" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False)]</field>
+    </record>
+
+</odoo>

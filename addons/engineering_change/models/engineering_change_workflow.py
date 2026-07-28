@@ -43,11 +43,13 @@ class EngineeringChange(models.Model):
         for rec in self:
             if rec.state != 'draft':
                 raise UserError(_("Only Draft requests can be submitted."))
-            if not rec.title or not rec.description:
+            if not rec.title or not rec.description or not rec.change_category:
                 raise UserError(_(
-                    "Title and Description are required before submitting."))
+                    "Title, Description and Change Category are required before submitting."))
             if rec.name == 'New':
                 rec.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
+            if not rec.project_id:
+                rec._link_ec_project()
             rec.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
             partners = rec._get_group_partners('engineering_change.group_ec_manager')
             if partners:
