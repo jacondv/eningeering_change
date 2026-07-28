@@ -20,7 +20,7 @@ Features:
 """,
     'author': 'DCR Project',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'web', 'project'],
+    'depends': ['base', 'mail', 'web', 'project', 'equipment_model'],
     'data': [
         'security/engineering_change_groups.xml',
         'security/engineering_change_rules.xml',
@@ -33,6 +33,7 @@ Features:
         'views/engineering_change_action_views.xml',
         'views/engineering_change_action_evidence_views.xml',
         'views/engineering_change_dashboard_views.xml',
+        'views/project_project_views.xml',
         'views/engineering_change_menus.xml',
         'report/engineering_change_report.xml',
         'report/engineering_change_report_templates.xml',
