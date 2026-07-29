@@ -21,6 +21,7 @@ business logic.
     'data': [
         'security/equipment_model_groups.xml',
         'security/ir.model.access.csv',
+        'views/equipment_model_category_views.xml',
         'views/equipment_model_views.xml',
         'views/equipment_model_menus.xml',
     ],
