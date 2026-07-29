@@ -49,7 +49,7 @@ class TestEngineeringChange(TransactionCase):
             'group_ids': [(6, 0, [cls.group_internal.id, cls.group_delete.id])],
         })
 
-    def _create_request(self, request_type='minor', rpn=50, change_category='quality'):
+    def _create_request(self, request_type='minor', rpn=50, change_category='standard'):
         return self.env['engineering.change'].with_user(self.user_engineer).create({
             'title': 'Test Change',
             'description': '<p>Description</p>',
