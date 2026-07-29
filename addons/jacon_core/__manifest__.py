@@ -17,14 +17,16 @@ Currently provides:
 - Task Type: a fixed classification (3D, 2D, Sch, BOM, ...) on every Task, usable in Timesheet reporting to break down time spent per discipline.
 - Clipboard Image field widget: an Image field variant that accepts a picture pasted straight from the clipboard (Ctrl+V), for use on any Image field of any addon.
 - Evidence: proof-of-completion file attachments on any Task (moved here from engineering_change, which originally restricted it to its own tasks).
+- Project Model: exposes equipment_model's `project.project.model_id` on the Project form and quick-create dialog.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'project', 'hr_timesheet'],
+    'depends': ['base', 'project', 'hr_timesheet', 'equipment_model'],
     'data': [
         'security/ir.model.access.csv',
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
+        'views/project_project_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
