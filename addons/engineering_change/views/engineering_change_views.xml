@@ -181,13 +181,15 @@
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>
                                     <field name="name"/>
-                                    <field name="user_ids" widget="many2many_tags"/>
-                                    <field name="manager_id"/>
-                                    <field name="affected_model_ids" widget="many2many_tags"/>
-                                    <field name="date_deadline"/>
-                                    <field name="state"/>
+                                    <field name="user_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="manager_id" optional="show"/>
+                                    <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="task_type" optional="hide"/>
+                                    <field name="date_deadline" optional="show"/>
+                                    <field name="allocated_hours" optional="show"/>
+                                    <field name="state" optional="show"/>
                                     <field name="is_overdue" column_invisible="1"/>
-                                    <field name="evidence_count"/>
+                                    <field name="evidence_count" optional="show"/>
                                 </list>
                             </field>
                         </page>
