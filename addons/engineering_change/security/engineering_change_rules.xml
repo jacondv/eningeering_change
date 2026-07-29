@@ -82,7 +82,7 @@
              ============================================================ -->
         <record id="ec_evidence_rule_assignee" model="ir.rule">
             <field name="name">EC Evidence: assignee manages evidence on their own task</field>
-            <field name="model_id" ref="model_engineering_change_action_evidence"/>
+            <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[('task_id.user_ids','in',[user.id])]</field>
             <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
             <field name="perm_read">1</field>
@@ -96,7 +96,7 @@
              ec_evidence_rule_assignee above) or Manager Approve (any evidence, below). -->
         <record id="ec_evidence_rule_engineer" model="ir.rule">
             <field name="name">EC Evidence: Request/BOD full visibility (no delete)</field>
-            <field name="model_id" ref="model_engineering_change_action_evidence"/>
+            <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[(1,'=',1)]</field>
             <field name="groups" eval="[(4, ref('group_ec_engineer')), (4, ref('group_ec_bod'))]"/>
             <field name="perm_read">1</field>
@@ -107,7 +107,7 @@
 
         <record id="ec_evidence_rule_manager" model="ir.rule">
             <field name="name">EC Evidence: Manager Approve full access</field>
-            <field name="model_id" ref="model_engineering_change_action_evidence"/>
+            <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[(1,'=',1)]</field>
             <field name="groups" eval="[(4, ref('group_ec_manager'))]"/>
             <field name="perm_read">1</field>

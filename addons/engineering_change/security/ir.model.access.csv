@@ -17,9 +17,5 @@ access_project_task_ec_user,project.task.ec.user,project.model_project_task,grou
 access_project_task_ec_engineer,project.task.ec.engineer,project.model_project_task,group_ec_engineer,1,0,0,0
 access_project_task_ec_bod,project.task.ec.bod,project.model_project_task,group_ec_bod,1,0,0,0
 access_project_task_ec_manager,project.task.ec.manager,project.model_project_task,group_ec_manager,1,1,1,1
-access_engineering_change_action_evidence_user,engineering.change.action.evidence.user,model_engineering_change_action_evidence,group_ec_user,1,1,1,1
-access_engineering_change_action_evidence_engineer,engineering.change.action.evidence.engineer,model_engineering_change_action_evidence,group_ec_engineer,1,1,1,0
-access_engineering_change_action_evidence_bod,engineering.change.action.evidence.bod,model_engineering_change_action_evidence,group_ec_bod,1,1,1,0
-access_engineering_change_action_evidence_manager,engineering.change.action.evidence.manager,model_engineering_change_action_evidence,group_ec_manager,1,1,1,1
 access_engineering_change_reject_wizard_bod,engineering.change.reject.wizard.bod,model_engineering_change_reject_wizard,group_ec_bod,1,1,1,0
 access_engineering_change_reject_wizard_manager,engineering.change.reject.wizard.manager,model_engineering_change_reject_wizard,group_ec_manager,1,1,1,0
