@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 
 TASK_TYPE_SELECTION = [
     ('3d', '3D'),
@@ -25,3 +25,12 @@ class ProjectTask(models.Model):
 
     task_type = fields.Selection(
         TASK_TYPE_SELECTION, string='Task Type', index=True, tracking=True)
+
+    evidence_ids = fields.One2many(
+        'engineering.change.action.evidence', 'task_id', string='Evidence')
+    evidence_count = fields.Integer(compute='_compute_evidence_count')
+
+    @api.depends('evidence_ids')
+    def _compute_evidence_count(self):
+        for rec in self:
+            rec.evidence_count = len(rec.evidence_ids)

@@ -48,23 +48,6 @@
             <xpath expr="//page[@name='description_page']/field[@name='description']" position="attributes">
                 <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
             </xpath>
-
-            <page name="description_page" position="after">
-                <page string="Evidence" name="evidence" invisible="not change_id">
-                    <field name="evidence_ids">
-                        <list editable="bottom">
-                            <button name="action_open_attachment" type="object"
-                                    icon="fa-external-link" title="Open File"
-                                    invisible="not attachment"/>
-                            <field name="attachment" filename="attachment_filename"/>
-                            <field name="attachment_filename" column_invisible="1"/>
-                            <field name="description"/>
-                            <field name="upload_uid" readonly="1"/>
-                            <field name="upload_date" readonly="1"/>
-                        </list>
-                    </field>
-                </page>
-            </page>
         </field>
     </record>
 
@@ -74,13 +57,14 @@
         <field name="model">project.task</field>
         <field name="arch" type="xml">
             <list string="Engineering Change Actions" decoration-danger="is_overdue">
-                <field name="change_id"/>
+                <field name="change_id" optional="show"/>
                 <field name="name"/>
-                <field name="user_ids" widget="many2many_tags"/>
-                <field name="manager_id"/>
+                <field name="user_ids" widget="many2many_tags" optional="show"/>
+                <field name="manager_id" optional="show"/>
                 <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
                 <field name="task_type" optional="hide"/>
-                <field name="date_deadline"/>
+                <field name="date_deadline" optional="show"/>
+                <field name="allocated_hours" optional="show"/>
                 <field name="state" widget="badge"
                        decoration-success="state == '1_done'"
                        decoration-info="state == '01_in_progress'"
