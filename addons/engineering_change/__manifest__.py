@@ -20,7 +20,7 @@ Features:
 """,
     'author': 'DCR Project',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'web', 'project', 'equipment_model'],
+    'depends': ['base', 'mail', 'web', 'project', 'equipment_model', 'jacon_core'],
     'data': [
         'security/engineering_change_groups.xml',
         'security/engineering_change_rules.xml',
