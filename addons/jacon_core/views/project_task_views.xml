@@ -10,7 +10,7 @@
             <field name="tag_ids" position="after">
                 <field name="task_type"/>
             </field>
-            <xpath expr="//page[@name='sub_tasks_page']//list/field[@name='user_ids']" position="after">
+            <xpath expr="//page[@name='sub_tasks_page']//list/field[@name='project_id']" position="before">
                 <field name="task_type" optional="hide"/>
             </xpath>
             <page name="description_page" position="after">
