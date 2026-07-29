@@ -1,4 +1,4 @@
-from odoo import api, fields, models
+from odoo import fields, models
 
 TASK_TYPE_SELECTION = [
     ('3d', '3D'),
