@@ -2,11 +2,16 @@ from odoo import _, api, fields, models
 
 
 class EngineeringChangeActionEvidence(models.Model):
+    """Proof-of-completion file attached to a project.task. Keeps its
+    original technical name (from when it was EC-only, defined in the
+    engineering_change addon) even though it's now usable by any Task -
+    renaming it would rename its DB table and require migrating existing
+    production data for no user-visible benefit.
+    """
     _name = 'engineering.change.action.evidence'
     _description = 'Engineering Change Action Evidence'
 
-    task_id = fields.Many2one('project.task', required=True, ondelete='cascade',
-                               domain=[('change_id', '!=', False)])
+    task_id = fields.Many2one('project.task', required=True, ondelete='cascade')
     attachment = fields.Binary(required=True)
     attachment_filename = fields.Char(string='File Name')
     description = fields.Char(required=True, help='Explain what this evidence demonstrates.')
