@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="edit_project_inherit_equipment_model" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.equipment.model</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="before">
+                <field name="model_id" options="{'no_create': True}"/>
+            </field>
+            <xpath expr="//group//field[@name='label_tasks']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="project_project_view_form_simplified_inherit_equipment_model" model="ir.ui.view">
+        <field name="name">project.project.view.form.simplified.inherit.equipment.model</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.project_project_view_form_simplified"/>
+        <field name="arch" type="xml">
+            <div name="alias_def" position="before">
+                <group>
+                    <field name="model_id" options="{'no_create': True}"/>
+                </group>
+            </div>
+        </field>
+    </record>
+
+</odoo>
