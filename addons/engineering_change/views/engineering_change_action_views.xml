@@ -48,23 +48,6 @@
             <xpath expr="//page[@name='description_page']/field[@name='description']" position="attributes">
                 <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
             </xpath>
-
-            <page name="description_page" position="after">
-                <page string="Evidence" name="evidence" invisible="not change_id">
-                    <field name="evidence_ids">
-                        <list editable="bottom">
-                            <button name="action_open_attachment" type="object"
-                                    icon="fa-external-link" title="Open File"
-                                    invisible="not attachment"/>
-                            <field name="attachment" filename="attachment_filename"/>
-                            <field name="attachment_filename" column_invisible="1"/>
-                            <field name="description"/>
-                            <field name="upload_uid" readonly="1"/>
-                            <field name="upload_date" readonly="1"/>
-                        </list>
-                    </field>
-                </page>
-            </page>
         </field>
     </record>
 

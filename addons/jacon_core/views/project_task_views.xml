@@ -10,6 +10,22 @@
             <field name="tag_ids" position="after">
                 <field name="task_type"/>
             </field>
+            <page name="description_page" position="after">
+                <page string="Evidence" name="evidence">
+                    <field name="evidence_ids">
+                        <list editable="bottom">
+                            <button name="action_open_attachment" type="object"
+                                    icon="fa-external-link" title="Open File"
+                                    invisible="not attachment"/>
+                            <field name="attachment" filename="attachment_filename"/>
+                            <field name="attachment_filename" column_invisible="1"/>
+                            <field name="description"/>
+                            <field name="upload_uid" readonly="1"/>
+                            <field name="upload_date" readonly="1"/>
+                        </list>
+                    </field>
+                </page>
+            </page>
         </field>
     </record>
 

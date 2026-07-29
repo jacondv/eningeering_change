@@ -17,11 +17,9 @@ class ProjectTask(models.Model):
                                  ondelete='cascade', index=True)
     manager_id = fields.Many2one('res.users', string='Manager', tracking=True,
                                   default=lambda self: self._default_ec_manager_id())
-    evidence_ids = fields.One2many('engineering.change.action.evidence', 'task_id', string='Evidence')
     affected_model_ids = fields.Many2many(
         'equipment.model', 'engineering_change_action_affected_model_rel',
         'task_id', 'model_id', string='Impacted Models')
-    evidence_count = fields.Integer(compute='_compute_evidence_count')
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
 
@@ -49,11 +47,6 @@ class ProjectTask(models.Model):
             if change.bod_approver_id:
                 return change.bod_approver_id.id
         return self.env.user.id
-
-    @api.depends('evidence_ids')
-    def _compute_evidence_count(self):
-        for rec in self:
-            rec.evidence_count = len(rec.evidence_ids)
 
     @api.depends('change_id.implement_owner_id')
     def _compute_can_edit_ec_task_details(self):
