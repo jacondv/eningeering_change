@@ -1,0 +1,28 @@
+{
+    'name': 'Jacon Core',
+    'version': '19.0.1.0.0',
+    'category': 'Hidden/Tools',
+    'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
+    'description': """
+Jacon Core
+==========
+A standing home for small, cross-cutting model extensions shared across
+Jacon's addons - thin `_inherit`s on models this addon does not own
+(e.g. `project.task`), not a distinct business domain of its own.
+
+Distinct business domains (even if also reusable) should still get their
+own addon; only generic field/behavior extensions belong here.
+
+Currently provides:
+- Task Type: a fixed classification (3D, 2D, Sch, BOM, ...) on every Task, usable in Timesheet reporting to break down time spent per discipline.
+""",
+    'author': 'Jacon',
+    'license': 'LGPL-3',
+    'depends': ['base', 'project', 'hr_timesheet'],
+    'data': [
+        'views/project_task_views.xml',
+        'views/hr_timesheet_views.xml',
+    ],
+    'installable': True,
+    'application': False,
+}
