@@ -79,6 +79,8 @@
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
                                     <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
+                                    <field name="default_affected_model_ids" widget="many2many_tags"
+                                           readonly="not can_edit_engineer_fields"/>
                                 </group>
                                 <group>
                                     <field name="dcr_no"/>
@@ -176,7 +178,7 @@
                         </page>
 
                         <page string="Actions" name="actions">
-                            <field name="task_ids" context="{'default_change_id': id}">
+                            <field name="task_ids" context="{'default_change_id': id, 'default_affected_model_ids': default_affected_model_ids}">
                                 <list editable="bottom" decoration-danger="is_overdue">
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>

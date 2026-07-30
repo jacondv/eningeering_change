@@ -29,7 +29,7 @@ class EngineeringChange(models.Model):
     ENGINEER_FIELDS = frozenset({
         'title', 'description', 'engineer_id', 'rpn', 'change_category',
         'impact_lead_time', 'impact_safety', 'impact_compliance',
-        'image_ids', 'document_ids',
+        'image_ids', 'document_ids', 'default_affected_model_ids',
     })
     MANAGER_FIELDS = frozenset({'implement_team_ids', 'implement_owner_id'})
     # Fields only ever meant to change as a side effect of the workflow methods
@@ -112,6 +112,13 @@ class EngineeringChange(models.Model):
     affected_model_ids = fields.Many2many(
         'equipment.model', compute='_compute_affected_model_ids',
         string='Impacted Models')
+    default_affected_model_ids = fields.Many2many(
+        'equipment.model', 'engineering_change_default_model_rel', 'change_id', 'model_id',
+        string='Default Impacted Model',
+        help="Pre-fills each new Action's own Impacted Model when created under "
+             "this request, since most Actions typically affect the same "
+             "Model(s). Each Action can still change or clear it afterward - "
+             "this is only a starting value, not kept in sync.")
     has_overdue_action = fields.Boolean(compute='_compute_has_overdue', store=True)
     next_action_deadline = fields.Date(compute='_compute_next_action_deadline', store=True, string='Next Deadline')
 
