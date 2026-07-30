@@ -18,8 +18,8 @@ class EquipmentModel(models.Model):
 
     name = fields.Char(required=True, index=True)
     description = fields.Text()
-    category_id = fields.Many2one(
-        'equipment.model.category', string='Category', index=True)
+    family_id = fields.Many2one(
+        'equipment.model.family', string='Product Family', index=True)
     parent_id = fields.Many2one(
         'equipment.model', string='Parent Model', index=True, ondelete='restrict')
     child_ids = fields.One2many('equipment.model', 'parent_id', string='Child Models')

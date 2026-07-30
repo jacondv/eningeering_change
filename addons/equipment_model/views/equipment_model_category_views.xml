@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <list>
                 <field name="name"/>
+                <field name="family_count"/>
                 <field name="model_count"/>
                 <field name="description"/>
             </list>
@@ -26,11 +27,11 @@
                     </div>
                     <field name="description" placeholder="Description..."/>
                     <notebook>
-                        <page string="Models" name="models">
-                            <field name="model_ids">
+                        <page string="Product Families" name="families">
+                            <field name="family_ids">
                                 <list editable="bottom">
                                     <field name="name"/>
-                                    <field name="parent_id"/>
+                                    <field name="model_count"/>
                                     <field name="description"/>
                                 </list>
                             </field>
