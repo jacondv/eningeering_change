@@ -9,9 +9,14 @@
           action="action_equipment_model"
           sequence="10"/>
 
+    <menuitem id="menu_equipment_model_family"
+          parent="menu_equipment_model_root"
+          action="action_equipment_model_family"
+          sequence="20"/>
+
     <menuitem id="menu_equipment_model_category"
           parent="menu_equipment_model_root"
           action="action_equipment_model_category"
-          sequence="20"/>
+          sequence="30"/>
 
 </odoo>
