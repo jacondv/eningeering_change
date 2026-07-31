@@ -1,0 +1,10 @@
+// Odoo right-aligns numeric-typed columns (e.g. Allocated Hours) by default
+// via .o_list_number. Scoped to just the lists using our custom js_class
+// (see resizable_column_list_view.js) rather than overriding it everywhere.
+table.o_jacon_core_left_align_list {
+    th.o_list_number,
+    td.o_list_number,
+    .o_list_number_th {
+        text-align: left !important;
+    }
+}
