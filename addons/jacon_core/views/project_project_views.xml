@@ -8,6 +8,9 @@
         <field name="arch" type="xml">
             <field name="partner_id" position="before">
                 <field name="model_id" options="{'no_create': True}"/>
+                <field name="machine_serial" placeholder="e.g. S30-2106-163"/>
+                <field name="engine_serial" placeholder="e.g. 12190634"/>
+                <field name="vin_tin" placeholder="e.g. 6U9VSS00000244099"/>
             </field>
             <xpath expr="//group//field[@name='label_tasks']" position="attributes">
                 <attribute name="invisible">1</attribute>
