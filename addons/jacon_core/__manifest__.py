@@ -20,6 +20,7 @@ Currently provides:
 - Project Model: exposes equipment_model's `project.project.model_id` on the Project form and quick-create dialog.
 - Project Events: a "Project Events" tab on the Project form (PO Received Date, IOF/BOM/Drawing Release, QC Checksheet, Photo Taken + Note).
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
+- Resizable column memory: the Project and Task List views remember column widths the user drags, across browser refreshes.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -35,6 +36,7 @@ Currently provides:
             'jacon_core/static/src/fields/clipboard_image_field.js',
             'jacon_core/static/src/fields/date_or_na_field.js',
             'jacon_core/static/src/fields/date_or_na_field.xml',
+            'jacon_core/static/src/list/resizable_column_list_view.js',
         ],
     },
     'installable': True,
