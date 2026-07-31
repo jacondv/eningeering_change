@@ -27,6 +27,7 @@
                 <page name="project_events" string="Project Events">
                     <group>
                         <group>
+                            <field name="po_number" placeholder="e.g. PO132511"/>
                             <field name="po_received_date" widget="date_or_na" options="{'numeric': True}"/>
                             <field name="iof_release_date" widget="date_or_na" options="{'numeric': True}"/>
                             <field name="bom_release_date" widget="date_or_na" options="{'numeric': True}"/>
@@ -35,6 +36,7 @@
                             <field name="drawing_release_date" widget="date_or_na" options="{'numeric': True}"/>
                             <field name="qc_checksheet_date" widget="date_or_na" options="{'numeric': True}"/>
                             <field name="photo_taken_date" widget="date_or_na" options="{'numeric': True}"/>
+                            <field name="dispatch_date" widget="date_or_na" options="{'numeric': True}"/>
                         </group>
                     </group>
                     <field name="project_events_note" placeholder="Notes..."/>
