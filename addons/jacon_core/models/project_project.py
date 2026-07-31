@@ -11,3 +11,7 @@ class ProjectProject(models.Model):
     qc_checksheet_date = fields.Date(string='QC Checksheet')
     photo_taken_date = fields.Date(string='Photo Taken')
     project_events_note = fields.Text(string='Note')
+
+    machine_serial = fields.Char(string='Machine Serial')
+    engine_serial = fields.Char(string='Engine Serial')
+    vin_tin = fields.Char(string='VIN/TIN')
