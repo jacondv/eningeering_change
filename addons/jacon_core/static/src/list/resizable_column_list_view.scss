@@ -7,4 +7,11 @@ table.o_jacon_core_left_align_list {
     .o_list_number_th {
         text-align: left !important;
     }
+
+    // Bootstrap's default table-striped accent (--bs-table-accent-bg) is
+    // very light and hard to tell apart row-to-row; darken it a bit.
+    &.table-striped > tbody > tr:nth-of-type(odd) > * {
+        --bs-table-accent-bg: #dfe3e8;
+        background-color: var(--bs-table-accent-bg);
+    }
 }
