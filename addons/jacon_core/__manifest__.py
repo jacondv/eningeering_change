@@ -37,6 +37,7 @@ Currently provides:
             'jacon_core/static/src/fields/date_or_na_field.js',
             'jacon_core/static/src/fields/date_or_na_field.xml',
             'jacon_core/static/src/list/resizable_column_list_view.js',
+            'jacon_core/static/src/list/resizable_column_list_view.scss',
         ],
     },
     'installable': True,
