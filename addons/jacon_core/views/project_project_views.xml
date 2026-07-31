@@ -45,6 +45,11 @@
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.view_project"/>
         <field name="arch" type="xml">
+            <!-- Persist user-resized column widths across refreshes (see
+                 static/src/list/resizable_column_list_view.js) -->
+            <xpath expr="//list" position="attributes">
+                <attribute name="js_class">jacon_core_project_list</attribute>
+            </xpath>
             <!-- "Tasks" button: drop it from its original spot (after Stage)
                  and re-add it before Name, renamed from "View Tasks". -->
             <xpath expr="//button[@name='action_view_tasks']" position="replace"/>
