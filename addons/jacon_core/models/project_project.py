@@ -5,7 +5,7 @@ class ProjectProject(models.Model):
     _inherit = 'project.project'
 
     po_number = fields.Char(string='PO Number')
-    po_received_date = fields.Date(string='PO Received Date')
+    po_received_date = fields.Date(string='PO Received')
     iof_release_date = fields.Date(string='IOF Release')
     bom_release_date = fields.Date(string='BOM Release')
     drawing_release_date = fields.Date(string='Drawing Release')
