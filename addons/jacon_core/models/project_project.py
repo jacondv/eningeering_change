@@ -1,5 +1,5 @@
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessDenied, ValidationError
 
 
 class ProjectProject(models.Model):
@@ -24,6 +24,37 @@ class ProjectProject(models.Model):
         help="Delivery site for this project's equipment - a child contact "
              "of the Customer (address type 'Site'). Typing a new name "
              "creates it directly under the selected Customer.")
+
+    is_unlocked = fields.Boolean(
+        string='Unlocked for Editing', compute='_compute_is_unlocked',
+        inverse='_inverse_is_unlocked',
+        help="Not stored - always recomputed on load, so a project is "
+             "always locked again after being saved or the page is "
+             "refreshed. New (unsaved) projects are always unlocked. "
+             "See the Edit button on the form.")
+
+    def _compute_is_unlocked(self):
+        for project in self:
+            project.is_unlocked = not project.id
+
+    def _inverse_is_unlocked(self):
+        # No-op: this field is intentionally never persisted - see the
+        # help text. The client sets it in-memory (via the Edit button)
+        # to unlock the form for the current editing session only.
+        pass
+
+    def check_edit_password(self, password):
+        """Verify `password` against the current user's own login
+        credentials. Used by the Edit-lock button on the Project form -
+        does not use/require the password of the project's Customer or
+        any other party, only the logged-in user's own account."""
+        self.ensure_one()
+        credential = {'login': self.env.user.login, 'password': password, 'type': 'password'}
+        try:
+            self.env.user._check_credentials(credential, {'interactive': True})
+        except AccessDenied:
+            return False
+        return True
 
     @api.onchange('partner_id')
     def _onchange_partner_id_clear_stale_site(self):
