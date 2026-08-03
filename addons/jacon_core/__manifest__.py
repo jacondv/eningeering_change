@@ -23,6 +23,7 @@ Currently provides:
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
 - Resizable column memory: the Project and Task List views remember column widths the user drags, across browser refreshes.
 - Site: adds a "Site" address type to Contacts (alongside Invoice/Delivery/Other), and a Project "Site" field limited to the selected Customer's Site child contacts (typing a new name creates it under that Customer).
+- Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -40,6 +41,12 @@ Currently provides:
             'jacon_core/static/src/fields/date_or_na_field.xml',
             'jacon_core/static/src/list/resizable_column_list_view.js',
             'jacon_core/static/src/list/resizable_column_list_view.scss',
+            'jacon_core/static/src/project_lock/project_unlock_dialog.js',
+            'jacon_core/static/src/project_lock/project_unlock_dialog.xml',
+            'jacon_core/static/src/project_lock/project_edit_lock_field.js',
+            'jacon_core/static/src/project_lock/project_edit_lock_field.xml',
+            'jacon_core/static/src/project_lock/project_field_readonly_patch.js',
+            'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
         ],
     },
     'installable': True,
