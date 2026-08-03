@@ -22,6 +22,7 @@ Currently provides:
 - Project Events: a "Project Events" tab on the Project form (PO Received Date, IOF/BOM/Drawing Release, QC Checksheet, Photo Taken + Note).
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
 - Resizable column memory: the Project and Task List views remember column widths the user drags, across browser refreshes.
+- Site: adds a "Site" address type to Contacts (alongside Invoice/Delivery/Other), and a Project "Site" field limited to the selected Customer's Site child contacts (typing a new name creates it under that Customer).
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
