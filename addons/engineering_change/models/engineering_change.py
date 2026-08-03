@@ -110,7 +110,8 @@ class EngineeringChange(models.Model):
     progress = fields.Float(compute='_compute_action_stats', string='Progress (%)')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
     affected_model_ids = fields.Many2many(
-        'equipment.model', compute='_compute_affected_model_ids',
+        'equipment.model', 'engineering_change_affected_model_rel', 'change_id', 'model_id',
+        compute='_compute_affected_model_ids', store=True,
         string='Impacted Models')
     default_affected_model_ids = fields.Many2many(
         'equipment.model', 'engineering_change_default_model_rel', 'change_id', 'model_id',
