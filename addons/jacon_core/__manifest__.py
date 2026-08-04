@@ -24,6 +24,7 @@ Currently provides:
 - Resizable column memory: every list view (in any module that depends on jacon_core) remembers column widths the user drags, across browser refreshes.
 - Left-aligned number columns: the Project and Task List views left-align numeric columns and use a darker zebra striping.
 - Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
+- Form layout: system-wide, widens the form sheet and gives the chatter side panel a narrower fixed width, so more of the form is visible without shrinking the chatter down to unreadable.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -48,6 +49,7 @@ Currently provides:
             'jacon_core/static/src/project_lock/project_edit_lock_field.xml',
             'jacon_core/static/src/project_lock/project_field_readonly_patch.js',
             'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
+            'jacon_core/static/src/scss/form_layout.scss',
         ],
     },
     'installable': True,
