@@ -29,6 +29,7 @@
                     <field name="change_id" readonly="1"/>
                     <field name="manager_id" readonly="change_id and not can_edit_ec_task_details"/>
                     <field name="affected_model_ids" widget="many2many_tags"/>
+                    <field name="affected_project_ids" widget="many2many_tags"/>
                     <field name="task_type"/>
                 </group>
             </field>
@@ -62,9 +63,11 @@
                 <field name="user_ids" widget="many2many_tags" optional="show"/>
                 <field name="manager_id" optional="show"/>
                 <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
+                <field name="affected_project_ids" widget="many2many_tags" optional="show"/>
                 <field name="task_type" optional="hide"/>
                 <field name="date_deadline" optional="show"/>
                 <field name="allocated_hours" optional="show"/>
+                <field name="evidence_count" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == '1_done'"
                        decoration-info="state == '01_in_progress'"
@@ -84,6 +87,7 @@
                 <field name="change_id"/>
                 <field name="user_ids"/>
                 <field name="affected_model_ids"/>
+                <field name="affected_project_ids"/>
                 <filter string="My Tasks" name="my_tasks" domain="[('user_ids', 'in', [uid])]"/>
                 <filter string="Overdue" name="overdue" domain="[('is_overdue', '=', True)]"/>
                 <separator/>
@@ -98,6 +102,7 @@
                     <filter string="Assignee" name="group_assignee" context="{'group_by': 'user_ids'}"/>
                     <filter string="Request" name="group_change" context="{'group_by': 'change_id'}"/>
                     <filter string="Impacted Model" name="group_affected_model" context="{'group_by': 'affected_model_ids'}"/>
+                    <filter string="Impacted Job Number" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
                     <filter string="Task Type" name="group_task_type" context="{'group_by': 'task_type'}"/>
                 </group>
             </search>
