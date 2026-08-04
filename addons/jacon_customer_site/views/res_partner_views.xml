@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_partner_form_inherit_site" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.site</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <page name="sales_purchases" position="after">
+                <page name="sites" string="Sites" invisible="type == 'site'">
+                    <field name="site_ids" widget="many2many_tags"
+                        context="{'default_type': 'site'}"/>
+                </page>
+                <page name="customers" string="Customers" invisible="type != 'site'">
+                    <field name="customer_ids" widget="many2many_tags"/>
+                </page>
+            </page>
+        </field>
+    </record>
+
+    <record id="action_partner_site" model="ir.actions.act_window">
+        <field name="name">Sites</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('type', '=', 'site')]</field>
+        <field name="context">{'default_type': 'site', 'search_default_type': 'site'}</field>
+    </record>
+
+    <menuitem id="menu_partner_site"
+        name="Sites"
+        parent="contacts.menu_contacts"
+        action="action_partner_site"
+        sequence="15"/>
+
+</odoo>
