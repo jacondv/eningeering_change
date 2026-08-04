@@ -1,0 +1,18 @@
+// Widen the form sheet and give the chatter side panel a narrower fixed
+// width, system-wide (every form view with a chatter, not just Project).
+//
+// Odoo's defaults ($o-form-view-sheet-max-width: 1400px, $o-mail-Chatter-
+// minWidth: 530px) are SCSS variables compiled inside web/mail's own
+// bundles, so they can't be overridden from a separate addon - only the
+// resulting CSS rules can be re-declared here, hence !important.
+.o_form_sheet_bg {
+    max-width: 2000px !important;
+}
+
+// Only the "aside" (side-by-side) chatter layout is widened - the
+// below-sheet layout used on narrow screens is left alone so mobile/small
+// windows keep using the full width instead of a cramped fixed column.
+.o-mail-Form-chatter.o-aside {
+    flex: 0 0 400px !important;
+    width: 400px !important;
+}

@@ -64,8 +64,20 @@
                         <h1>
                             <field name="name" readonly="1"/>
                         </h1>
-                        <field name="affected_model_ids" widget="many2many_tags" readonly="1"
-                               invisible="not affected_model_ids"/>
+                    </div>
+                    <div class="row">
+                        <div class="col-6" invisible="not affected_model_ids">
+                            <details class="o_ec_tag_collapse">
+                                <summary class="text-muted">Impacted Models</summary>
+                                <field name="affected_model_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </details>
+                        </div>
+                        <div class="col-6" invisible="not affected_project_ids">
+                            <details class="o_ec_tag_collapse">
+                                <summary class="text-muted">Impacted Job Numbers</summary>
+                                <field name="affected_project_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </details>
+                        </div>
                     </div>
 
                     <notebook>
@@ -78,9 +90,12 @@
                                            readonly="not can_edit_request_type"/>
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
-                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
+                                    <label for="default_affected_model_ids" class="text-nowrap"/>
                                     <field name="default_affected_model_ids" widget="many2many_tags"
-                                           readonly="not can_edit_engineer_fields"/>
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
+                                    <label for="default_affected_project_ids" class="text-nowrap"/>
+                                    <field name="default_affected_project_ids" widget="many2many_tags"
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
                                 </group>
                                 <group>
                                     <field name="dcr_no"/>
@@ -91,6 +106,7 @@
                                            decoration-danger="rpn_level == 'high'"
                                            decoration-warning="rpn_level == 'medium'"
                                            decoration-success="rpn_level == 'low'"/>
+                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
                                     <field name="can_edit_engineer_fields" invisible="1"/>
                                     <field name="can_edit_manager_fields" invisible="1"/>
                                     <field name="can_edit_request_type" invisible="1"/>
@@ -178,7 +194,7 @@
                         </page>
 
                         <page string="Actions" name="actions">
-                            <field name="task_ids" context="{'default_change_id': id, 'default_affected_model_ids': default_affected_model_ids}">
+                            <field name="task_ids" context="{'default_change_id': id, 'default_affected_model_ids': default_affected_model_ids, 'default_affected_project_ids': default_affected_project_ids}">
                                 <list editable="bottom" decoration-danger="is_overdue">
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>
@@ -186,6 +202,7 @@
                                     <field name="user_ids" widget="many2many_tags" optional="show"/>
                                     <field name="manager_id" optional="show"/>
                                     <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="affected_project_ids" widget="many2many_tags" optional="show"/>
                                     <field name="task_type" optional="hide"/>
                                     <field name="date_deadline" optional="show"/>
                                     <field name="allocated_hours" optional="show"/>
@@ -216,15 +233,27 @@
                 <field name="project_id" optional="hide"/>
                 <field name="create_date" string="Created"/>
                 <field name="engineer_id"/>
+                <field name="implement_owner_id" optional="hide"/>
+                <field name="implement_team_ids" widget="many2many_tags" optional="hide"/>
+                <field name="bod_approver_id" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
                        decoration-info="state in ('waiting_manager_approval', 'bod_review')"
                        decoration-warning="state in ('implement', 'production', 'sale')"/>
+                <field name="rpn" optional="hide"/>
                 <field name="rpn_level" widget="badge"
                        decoration-danger="rpn_level == 'high'"
                        decoration-warning="rpn_level == 'medium'"
                        decoration-success="rpn_level == 'low'"/>
+                <field name="affected_model_ids" widget="many2many_tags" optional="hide"/>
+                <field name="affected_project_ids" widget="many2many_tags" optional="hide"/>
+                <field name="action_count" optional="hide"/>
+                <field name="action_done_count" optional="hide"/>
+                <field name="progress" optional="hide" widget="progressbar"/>
+                <field name="evidence_count" optional="hide"/>
                 <field name="next_action_deadline"/>
+                <field name="close_date" optional="hide"/>
+                <field name="company_id" optional="hide" groups="base.group_multi_company"/>
                 <field name="has_overdue_action" column_invisible="1"/>
             </list>
         </field>
@@ -274,6 +303,7 @@
                 <field name="engineer_id"/>
                 <field name="implement_team_ids"/>
                 <field name="affected_model_ids"/>
+                <field name="affected_project_ids"/>
                 <field name="change_category"/>
                 <field name="project_id"/>
                 <separator/>
@@ -300,6 +330,7 @@
                     <filter string="RPN Level" name="group_rpn_level" context="{'group_by': 'rpn_level'}"/>
                     <filter string="Change Category" name="group_change_category" context="{'group_by': 'change_category'}"/>
                     <filter string="Impacted Model" name="group_affected_model" context="{'group_by': 'affected_model_ids'}"/>
+                    <filter string="Impacted Job Number" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
                 </group>
             </search>
         </field>

@@ -30,6 +30,7 @@ class EngineeringChange(models.Model):
         'title', 'description', 'engineer_id', 'rpn', 'change_category',
         'impact_lead_time', 'impact_safety', 'impact_compliance',
         'image_ids', 'document_ids', 'default_affected_model_ids',
+        'default_affected_project_ids',
     })
     MANAGER_FIELDS = frozenset({'implement_team_ids', 'implement_owner_id'})
     # Fields only ever meant to change as a side effect of the workflow methods
@@ -120,6 +121,17 @@ class EngineeringChange(models.Model):
              "this request, since most Actions typically affect the same "
              "Model(s). Each Action can still change or clear it afterward - "
              "this is only a starting value, not kept in sync.")
+    affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_affected_project_rel', 'change_id', 'project_id',
+        compute='_compute_affected_project_ids', store=True,
+        string='Impacted Job Numbers')
+    default_affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_default_project_rel', 'change_id', 'project_id',
+        string='Default Impacted Job Number', domain=[('is_ec_project', '=', False)],
+        help="Pre-fills each new Action's own Impacted Job Number when created "
+             "under this request, since most Actions typically affect the same "
+             "Job Number(s). Each Action can still change or clear it afterward - "
+             "this is only a starting value, not kept in sync.")
     has_overdue_action = fields.Boolean(compute='_compute_has_overdue', store=True)
     next_action_deadline = fields.Date(compute='_compute_next_action_deadline', store=True, string='Next Deadline')
 
@@ -169,6 +181,11 @@ class EngineeringChange(models.Model):
     def _compute_affected_model_ids(self):
         for rec in self:
             rec.affected_model_ids = rec.task_ids.affected_model_ids
+
+    @api.depends('task_ids.affected_project_ids')
+    def _compute_affected_project_ids(self):
+        for rec in self:
+            rec.affected_project_ids = rec.task_ids.affected_project_ids
 
     @api.depends('task_ids.is_overdue')
     def _compute_has_overdue(self):
@@ -301,7 +318,26 @@ class EngineeringChange(models.Model):
         if 'active' in keys:
             for rec in self:
                 rec._check_archive_permission()
-        return super().write(vals)
+        result = super().write(vals)
+        if 'request_type' in keys:
+            self._sync_dcr_no_on_type_change()
+        return result
+
+    # Once a request already went through BOD approval (state at/after
+    # 'implement'), the normal action_bod_approve() flow that assigns
+    # dcr_no won't run again - only the Manager/Admin can still flip
+    # request_type at that point (see can_edit_request_type), and this
+    # keeps dcr_no consistent with the corrected type without requiring a
+    # Reject-to-Draft round trip. Earlier states are left alone: dcr_no is
+    # still assigned by action_bod_approve() once the request actually
+    # reaches BOD approval, same as always.
+    def _sync_dcr_no_on_type_change(self):
+        for rec in self:
+            if rec.request_type == 'dcr' and not rec.dcr_no and rec.state not in ('draft', 'waiting_manager_approval', 'bod_review'):
+                rec.with_context(ec_workflow_write=True).dcr_no = (
+                    self.env['ir.sequence'].next_by_code('engineering.change.dcr') or False)
+            elif rec.request_type == 'minor' and rec.dcr_no:
+                rec.with_context(ec_workflow_write=True).dcr_no = False
 
     def _check_field_edit_permissions(self, keys):
         self.ensure_one()
