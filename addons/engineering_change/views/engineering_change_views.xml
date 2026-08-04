@@ -64,10 +64,20 @@
                         <h1>
                             <field name="name" readonly="1"/>
                         </h1>
-                        <field name="affected_model_ids" widget="many2many_tags" readonly="1"
-                               invisible="not affected_model_ids"/>
-                        <field name="affected_project_ids" widget="many2many_tags" readonly="1"
-                               invisible="not affected_project_ids"/>
+                    </div>
+                    <div class="row">
+                        <div class="col-6" invisible="not affected_model_ids">
+                            <details class="o_ec_tag_collapse">
+                                <summary class="text-muted">Impacted Models</summary>
+                                <field name="affected_model_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </details>
+                        </div>
+                        <div class="col-6" invisible="not affected_project_ids">
+                            <details class="o_ec_tag_collapse">
+                                <summary class="text-muted">Impacted Job Numbers</summary>
+                                <field name="affected_project_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </details>
+                        </div>
                     </div>
 
                     <notebook>
@@ -80,11 +90,12 @@
                                            readonly="not can_edit_request_type"/>
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
-                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
+                                    <label for="default_affected_model_ids" class="text-nowrap"/>
                                     <field name="default_affected_model_ids" widget="many2many_tags"
-                                           readonly="not can_edit_engineer_fields"/>
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
+                                    <label for="default_affected_project_ids" class="text-nowrap"/>
                                     <field name="default_affected_project_ids" widget="many2many_tags"
-                                           readonly="not can_edit_engineer_fields"/>
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
                                 </group>
                                 <group>
                                     <field name="dcr_no"/>
@@ -95,6 +106,7 @@
                                            decoration-danger="rpn_level == 'high'"
                                            decoration-warning="rpn_level == 'medium'"
                                            decoration-success="rpn_level == 'low'"/>
+                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
                                     <field name="can_edit_engineer_fields" invisible="1"/>
                                     <field name="can_edit_manager_fields" invisible="1"/>
                                     <field name="can_edit_request_type" invisible="1"/>
