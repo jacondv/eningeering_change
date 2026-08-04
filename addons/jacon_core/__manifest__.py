@@ -21,9 +21,10 @@ Currently provides:
 - Equipment Serials: Machine Serial, Engine Serial, VIN/TIN free-text fields on the Project form, next to the Model field.
 - Project Events: a "Project Events" tab on the Project form (PO Received Date, IOF/BOM/Drawing Release, QC Checksheet, Photo Taken + Note).
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
-- Resizable column memory: the Project and Task List views remember column widths the user drags, across browser refreshes.
-- Site: adds a "Site" address type to Contacts (alongside Invoice/Delivery/Other), and a Project "Site" field limited to the selected Customer's Site child contacts (typing a new name creates it under that Customer).
+- Resizable column memory: every list view (in any module that depends on jacon_core) remembers column widths the user drags, across browser refreshes.
+- Left-aligned number columns: the Project and Task List views left-align numeric columns and use a darker zebra striping.
 - Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
+- Form layout: system-wide, widens the form sheet and gives the chatter side panel a narrower fixed width, so more of the form is visible without shrinking the chatter down to unreadable.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -40,13 +41,15 @@ Currently provides:
             'jacon_core/static/src/fields/date_or_na_field.js',
             'jacon_core/static/src/fields/date_or_na_field.xml',
             'jacon_core/static/src/list/resizable_column_list_view.js',
-            'jacon_core/static/src/list/resizable_column_list_view.scss',
+            'jacon_core/static/src/list/left_align_number_list_view.js',
+            'jacon_core/static/src/list/left_align_number_list_view.scss',
             'jacon_core/static/src/project_lock/project_unlock_dialog.js',
             'jacon_core/static/src/project_lock/project_unlock_dialog.xml',
             'jacon_core/static/src/project_lock/project_edit_lock_field.js',
             'jacon_core/static/src/project_lock/project_edit_lock_field.xml',
             'jacon_core/static/src/project_lock/project_field_readonly_patch.js',
             'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
+            'jacon_core/static/src/scss/form_layout.scss',
         ],
     },
     'installable': True,

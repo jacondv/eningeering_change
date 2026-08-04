@@ -41,8 +41,8 @@
             <field name="partner_id" position="after">
                 <field name="task_type" optional="hide"/>
             </field>
-            <!-- Persist user-resized column widths across refreshes (see
-                 static/src/list/resizable_column_list_view.js) -->
+            <!-- Left-align numeric columns + darker zebra striping (see
+                 static/src/list/left_align_number_list_view.js) -->
             <xpath expr="//list" position="attributes">
                 <attribute name="js_class">jacon_core_task_list</attribute>
             </xpath>

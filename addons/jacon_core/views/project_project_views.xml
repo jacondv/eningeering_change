@@ -12,11 +12,6 @@
                 <field name="engine_serial" placeholder="e.g. 12190634"/>
                 <field name="vin_tin" placeholder="e.g. 6U9VSS00000244099"/>
             </field>
-            <field name="partner_id" position="after">
-                <field name="site_id" options="{'no_open': True}"
-                    domain="[('parent_id', '=', partner_id), ('type', '=', 'site')]"
-                    context="{'default_parent_id': partner_id, 'default_type': 'site', 'default_is_company': False}"/>
-            </field>
             <xpath expr="//group//field[@name='label_tasks']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
@@ -28,14 +23,11 @@
 
     <!-- Customer is normally only shown when the project has "Billable"
          enabled (Sales integration, see sale_project's own inherit of this
-         same field) - Site depends on Customer being set regardless of
-         that, so drop that condition here (still hidden for templates).
-         Also excludes 'site' contacts from the Customer picker itself -
-         Customer must be the parent Company/Contact, never a Site, so
-         grouping/reporting by Customer always rolls up correctly across
-         every Site. High priority so this is combined last and reliably
-         wins over other addons' own attribute overrides on the same
-         field, regardless of view/module install order. -->
+         same field) - other jacon_core fields (Project Events, Equipment
+         Serials) don't depend on Billable, so drop that condition here
+         (still hidden for templates). High priority so this is combined
+         last and reliably wins over other addons' own attribute overrides
+         on the same field, regardless of view/module install order. -->
     <record id="edit_project_partner_id_always_visible" model="ir.ui.view">
         <field name="name">project.project.form.partner.always.visible</field>
         <field name="model">project.project</field>
@@ -44,7 +36,6 @@
         <field name="arch" type="xml">
             <field name="partner_id" position="attributes">
                 <attribute name="invisible">is_template</attribute>
-                <attribute name="domain">[('type', '!=', 'site')]</attribute>
             </field>
         </field>
     </record>
@@ -81,8 +72,8 @@
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.view_project"/>
         <field name="arch" type="xml">
-            <!-- Persist user-resized column widths across refreshes (see
-                 static/src/list/resizable_column_list_view.js) -->
+            <!-- Left-align numeric columns + darker zebra striping (see
+                 static/src/list/left_align_number_list_view.js) -->
             <xpath expr="//list" position="attributes">
                 <attribute name="js_class">jacon_core_project_list</attribute>
             </xpath>
@@ -91,9 +82,6 @@
             <xpath expr="//button[@name='action_view_tasks']" position="replace"/>
             <field name="name" position="before">
                 <button string="Tasks" name="action_view_tasks" type="object"/>
-            </field>
-            <field name="partner_id" position="after">
-                <field name="site_id" optional="hide"/>
             </field>
             <field name="stage_id" position="after">
                 <field name="po_number" optional="hide"/>
