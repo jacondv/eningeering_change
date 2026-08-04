@@ -20,6 +20,13 @@ class ProjectTask(models.Model):
     affected_model_ids = fields.Many2many(
         'equipment.model', 'engineering_change_action_affected_model_rel',
         'task_id', 'model_id', string='Impacted Models')
+    affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_action_affected_project_rel',
+        'task_id', 'project_id', string='Impacted Job Numbers',
+        domain=[('is_ec_project', '=', False)],
+        help="Concrete customer Job Numbers (Projects) this action affects - "
+             "excludes the container Projects auto-created for Engineering "
+             "Change requests themselves, only real production jobs.")
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
 
@@ -31,6 +38,7 @@ class ProjectTask(models.Model):
         'state',
         'evidence_ids',
         'affected_model_ids',
+        'affected_project_ids',
         'task_type',
         # written automatically by project.task's own write() as a side effect
         # of a state change - not something the user is choosing to set.
