@@ -6,6 +6,15 @@
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
+            <!-- "Site" is a real address type (used by the Site/Customer
+                 relationship below), but it's created via the dedicated
+                 Sites menu, not by picking it here when adding a regular
+                 child contact - keep the quick-add radio to its original
+                 4 choices. -->
+            <xpath expr="//field[@name='child_ids']//field[@name='type'][@widget='radio']"
+                position="attributes">
+                <attribute name="selection">[('contact', 'Contact'), ('invoice', 'Invoice'), ('delivery', 'Delivery'), ('other', 'Other')]</attribute>
+            </xpath>
             <page name="sales_purchases" position="after">
                 <page name="sites" string="Sites" invisible="type == 'site'">
                     <field name="site_ids" widget="many2many_tags"
