@@ -8,3 +8,22 @@
 .o_list_view tr.o_data_row.o_decoration_danger {
     font-weight: 500;
 }
+
+// Collapse/expand box for the Impacted Models / Impacted Job Numbers tag
+// lists on the EC form header (native <details>/<summary>, no JS needed).
+.o_ec_tag_collapse {
+    > summary {
+        cursor: pointer;
+        font-size: 0.9em;
+        user-select: none;
+    }
+
+    &[open] > summary {
+        margin-bottom: 4px;
+    }
+
+    .o_field_many2many_tags {
+        max-height: 20em;
+        overflow-y: auto;
+    }
+}
