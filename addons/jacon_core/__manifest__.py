@@ -22,7 +22,6 @@ Currently provides:
 - Project Events: a "Project Events" tab on the Project form (PO Received Date, IOF/BOM/Drawing Release, QC Checksheet, Photo Taken + Note).
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
 - Resizable column memory: the Project and Task List views remember column widths the user drags, across browser refreshes.
-- Site: adds a "Site" address type to Contacts (alongside Invoice/Delivery/Other), and a Project "Site" field limited to the selected Customer's Site child contacts (typing a new name creates it under that Customer).
 - Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
 """,
     'author': 'Jacon',
