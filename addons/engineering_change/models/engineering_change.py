@@ -30,6 +30,7 @@ class EngineeringChange(models.Model):
         'title', 'description', 'engineer_id', 'rpn', 'change_category',
         'impact_lead_time', 'impact_safety', 'impact_compliance',
         'image_ids', 'document_ids', 'default_affected_model_ids',
+        'default_affected_project_ids',
     })
     MANAGER_FIELDS = frozenset({'implement_team_ids', 'implement_owner_id'})
     # Fields only ever meant to change as a side effect of the workflow methods
@@ -120,6 +121,17 @@ class EngineeringChange(models.Model):
              "this request, since most Actions typically affect the same "
              "Model(s). Each Action can still change or clear it afterward - "
              "this is only a starting value, not kept in sync.")
+    affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_affected_project_rel', 'change_id', 'project_id',
+        compute='_compute_affected_project_ids', store=True,
+        string='Impacted Job Numbers')
+    default_affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_default_project_rel', 'change_id', 'project_id',
+        string='Default Impacted Job Number', domain=[('is_ec_project', '=', False)],
+        help="Pre-fills each new Action's own Impacted Job Number when created "
+             "under this request, since most Actions typically affect the same "
+             "Job Number(s). Each Action can still change or clear it afterward - "
+             "this is only a starting value, not kept in sync.")
     has_overdue_action = fields.Boolean(compute='_compute_has_overdue', store=True)
     next_action_deadline = fields.Date(compute='_compute_next_action_deadline', store=True, string='Next Deadline')
 
@@ -169,6 +181,11 @@ class EngineeringChange(models.Model):
     def _compute_affected_model_ids(self):
         for rec in self:
             rec.affected_model_ids = rec.task_ids.affected_model_ids
+
+    @api.depends('task_ids.affected_project_ids')
+    def _compute_affected_project_ids(self):
+        for rec in self:
+            rec.affected_project_ids = rec.task_ids.affected_project_ids
 
     @api.depends('task_ids.is_overdue')
     def _compute_has_overdue(self):
