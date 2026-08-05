@@ -30,10 +30,27 @@
             text-transform: uppercase;
             margin-bottom: 2px;
         }
+
+        select {
+            min-width: 90px;
+        }
+    }
+
+    .o_pd_filter_reset {
+        margin-left: auto;
+    }
+
+    // Bootstrap's dropdown-menu already floats above in-flow content, but
+    // force it explicitly (position/z-index) so it can never end up
+    // visually behind a neighboring filter button in this toolbar.
+    .o_pd_filter_bar .dropdown-menu {
+        position: absolute !important;
+        z-index: 1070 !important;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, .15);
     }
 
     .o_pd_filter_menu {
-        max-height: 280px;
+        max-height: 320px;
         overflow-y: auto;
         min-width: 220px;
 
@@ -45,6 +62,41 @@
         }
     }
 
+    .o_pd_filter_menu_actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px 6px;
+        font-size: .78rem;
+
+        .btn-link {
+            font-size: .78rem;
+            text-decoration: none;
+
+            &:disabled { opacity: .4; text-decoration: none; }
+        }
+    }
+
+    .o_pd_filter_menu_sep {
+        color: #ccc;
+    }
+
+    .o_pd_months_menu {
+        min-width: 260px;
+    }
+
+    .o_pd_months_grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 2px 4px;
+        padding: 0 !important;
+
+        .dropdown-item {
+            padding: 4px 6px;
+            border-radius: 4px;
+        }
+    }
+
     .o_pd_kpi_row {
         display: flex;
         flex-wrap: wrap;
@@ -52,8 +104,8 @@
     }
 
     .o_pd_kpi_card {
-        flex: 1 1 150px;
-        min-width: 150px;
+        flex: 1 1 140px;
+        min-width: 140px;
         background: #ffffff;
         border: 1px solid #ebebf0;
         border-left: 4px solid #4e79a7;
@@ -79,7 +131,6 @@
         border: 1px solid #ebebf0;
         border-radius: 6px;
         padding: 14px 18px;
-        height: 100%;
 
         h4 {
             font-size: 1rem;
@@ -88,13 +139,45 @@
         }
     }
 
+    .o_pd_panel_head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .o_pd_view_tabs .btn {
+        white-space: nowrap;
+    }
+
+    .o_pd_chart_tools {
+        display: flex;
+        gap: 8px;
+    }
+
     .o_pd_chart_wrap {
         position: relative;
         height: 280px;
     }
 
+    .o_pd_chart_wrap_lg {
+        height: 340px;
+    }
+
+    .o_pd_table_wrap {
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
     .o_pd_table {
         font-size: .85rem;
+    }
+
+    .o_pd_more_toggle {
+        width: 100%;
+        text-align: left;
     }
 
     .o_pd_heatmap_wrap {
@@ -118,5 +201,63 @@
             text-align: left;
             font-weight: 500;
         }
+    }
+
+    // ------------------------------------------------------------
+    // Capacity / Allocated Time panel
+    // ------------------------------------------------------------
+    .o_pd_capacity_list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .o_pd_capacity_row {
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f4;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    .o_pd_capacity_top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 4px;
+    }
+
+    .o_pd_capacity_name {
+        font-weight: 500;
+        font-size: .9rem;
+    }
+
+    .o_pd_capacity_pct {
+        font-size: .75rem;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 10px;
+
+        &.o_pd_capacity_free { color: #2e7d32; background: #e8f5e9; }
+        &.o_pd_capacity_tight { color: #8a6d00; background: #fff8e1; }
+        &.o_pd_capacity_over { color: #c62828; background: #ffebee; }
+    }
+
+    .o_pd_capacity_bar_bg {
+        height: 8px;
+        border-radius: 4px;
+        background: #eef0f5;
+        overflow: hidden;
+    }
+
+    .o_pd_capacity_bar_fill {
+        height: 100%;
+        border-radius: 4px;
+
+        &.o_pd_capacity_free { background: #59a14f; }
+        &.o_pd_capacity_tight { background: #edc948; }
+        &.o_pd_capacity_over { background: #e15759; }
+    }
+
+    .o_pd_capacity_bottom {
+        margin-top: 2px;
     }
 }
