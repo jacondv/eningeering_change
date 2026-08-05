@@ -45,6 +45,7 @@ Currently provides:
             'jacon_core/static/src/list/resizable_column_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.scss',
+            'jacon_core/static/src/list/task_deadline_badge.scss',
             'jacon_core/static/src/project_lock/project_unlock_dialog.js',
             'jacon_core/static/src/project_lock/project_unlock_dialog.xml',
             'jacon_core/static/src/project_lock/project_edit_lock_field.js',
