@@ -23,6 +23,10 @@ TASK_TYPE_SELECTION = [
 class ProjectTask(models.Model):
     _inherit = 'project.task'
 
+    # Default to the creating user - core only does this when created from
+    # a "My Tasks" personal-stage context, not from a Project's Tasks list.
+    user_ids = fields.Many2many(default=lambda self: self.env.user.ids)
+
     task_type = fields.Selection(
         TASK_TYPE_SELECTION, string='Task Type', index=True, tracking=True)
 
