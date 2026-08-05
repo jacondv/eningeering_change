@@ -1,0 +1,323 @@
+import calendar
+from datetime import date
+
+from odoo import api, fields, models
+from odoo.fields import Domain
+
+from odoo.addons.jacon_core.models.project_task import TASK_TYPE_SELECTION
+
+DONE_TASK_STATES = ('1_done', '1_canceled')
+TASK_TYPE_LABELS = dict(TASK_TYPE_SELECTION)
+
+
+def _month_label(value):
+    """`_read_group` returns a `date` (first day of the month) for a
+    'field:month' groupby key - format it as 'YYYY-MM' for the chart axis.
+    Falls back to a plain string for any other shape, just in case."""
+    if hasattr(value, 'strftime'):
+        return value.strftime('%Y-%m')
+    return str(value) if value else 'N/A'
+
+
+def _num(value):
+    """`_read_group` SUM aggregates can come back as `False` instead of
+    `0.0` for some groups (NULL-coalescing gap) - normalize to a real
+    number everywhere a summed value is used, so arithmetic never breaks."""
+    return value or 0.0
+
+
+def _rec_id_name(value):
+    """A `_read_group` groupby row on a relational field is either an empty
+    recordset (no value) or a single-record recordset - normalize both into
+    a plain {id, name} dict (or None)."""
+    if not value:
+        return None
+    return {'id': value.id, 'name': value.display_name}
+
+
+def _month_bounds(year, month):
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last_day)
+
+
+class JaconProjectDashboard(models.AbstractModel):
+    """Pure aggregation logic backing the Jacon Project Dashboard client
+    action - no table of its own (AbstractModel), same idea as
+    `engineering.change.get_dashboard_data()` but factored into its own
+    model since this dashboard isn't tied to one business model.
+    """
+    _name = 'jacon.project.dashboard'
+    _description = 'Jacon Project Dashboard'
+
+    @api.model
+    def get_filter_options(self):
+        projects = self.env['project.project'].search_read([], ['name'], order='name')
+        employees = self.env['hr.employee'].search_read([], ['name'], order='name')
+
+        current_year = fields.Date.context_today(self).year
+        first_line = self.env['account.analytic.line'].search(
+            [('project_id', '!=', False)], order='date asc', limit=1)
+        min_year = first_line.date.year if first_line and first_line.date else current_year
+        years = list(range(min_year, current_year + 1))
+
+        months = [{'key': m, 'label': calendar.month_abbr[m]} for m in range(1, 13)]
+
+        return {
+            'projects': [{'id': p['id'], 'name': p['name']} for p in projects],
+            'employees': [{'id': e['id'], 'name': e['name']} for e in employees],
+            'task_types': [{'key': key, 'label': label} for key, label in TASK_TYPE_SELECTION],
+            'years': years,
+            'months': months,
+            'current_year': current_year,
+        }
+
+    def _years_months_domain(self, years, months):
+        """Both Year and Month are multi-select and independent of each
+        other: every selected year is OR'd together, each optionally
+        narrowed to the selected months (also OR'd) - e.g. Jan+Jul of
+        2025 OR 2026, not a contiguous range."""
+        year_domains = []
+        for year in years:
+            if months:
+                month_domains = [
+                    [('date', '>=', s.isoformat()), ('date', '<=', e.isoformat())]
+                    for s, e in (_month_bounds(year, m) for m in months)
+                ]
+                year_domains.append(Domain.OR(month_domains))
+            else:
+                year_domains.append([
+                    ('date', '>=', date(year, 1, 1).isoformat()),
+                    ('date', '<=', date(year, 12, 31).isoformat())])
+        return Domain.OR(year_domains)
+
+    def _date_domain(self, filters):
+        years = filters.get('years') or [fields.Date.context_today(self).year]
+        months = filters.get('months') or []
+        return self._years_months_domain(years, months)
+
+    def _build_domains(self, filters):
+        """Two separate domains: Spent (Timesheet, date-bounded) and Planned
+        (Task, not date-bounded - `allocated_hours` is a single static
+        number per task, it has no per-month breakdown to filter on)."""
+        project_ids = filters.get('project_ids') or []
+        employee_ids = filters.get('employee_ids') or []
+        task_types = filters.get('task_types') or []
+
+        spent_domain = Domain.AND([[('project_id', '!=', False)], self._date_domain(filters)])
+        if project_ids:
+            spent_domain = Domain.AND([spent_domain, [('project_id', 'in', project_ids)]])
+        if employee_ids:
+            spent_domain = Domain.AND([spent_domain, [('employee_id', 'in', employee_ids)]])
+        if task_types:
+            spent_domain = Domain.AND([spent_domain, [('task_type', 'in', task_types)]])
+
+        planned_domain = [('project_id', '!=', False)]
+        if project_ids:
+            planned_domain.append(('project_id', 'in', project_ids))
+        if employee_ids:
+            user_ids = self.env['hr.employee'].browse(employee_ids).mapped('user_id').ids
+            planned_domain.append(('user_ids', 'in', user_ids))
+        if task_types:
+            planned_domain.append(('task_type', 'in', task_types))
+
+        return spent_domain, planned_domain
+
+    def _capacity_by_employee(self, filters, planned_domain, spent_by_employee):
+        """Allocated (planned) vs Spent hours per engineer, so a manager can
+        see at a glance who still has room to take on more work. Allocated
+        is not date-bound (see `_build_domains`); Spent follows the current
+        Year/Months filter, same trade-off as the KPI utilization figure."""
+        Task = self.env['project.task']
+        allocated_by_user = {
+            user.id: _num(total)
+            for user, total in Task._read_group(planned_domain, ['user_ids'], ['allocated_hours:sum'])
+            if user
+        }
+
+        employee_ids = filters.get('employee_ids') or []
+        emp_domain = [('user_id', '!=', False)]
+        if employee_ids:
+            emp_domain.append(('id', 'in', employee_ids))
+        employees = self.env['hr.employee'].search_read(emp_domain, ['name', 'user_id'])
+
+        capacity = []
+        for emp in employees:
+            allocated = allocated_by_user.get(emp['user_id'][0], 0.0)
+            spent = spent_by_employee.get(emp['id'], 0.0)
+            if not allocated and not spent:
+                continue
+            if allocated:
+                free_pct = round((allocated - spent) / allocated * 100, 1)
+            else:
+                free_pct = -100.0 if spent else 0.0
+            capacity.append({
+                'id': emp['id'],
+                'name': emp['name'],
+                'allocated': round(allocated, 1),
+                'spent': round(spent, 1),
+                'free_hours': round(allocated - spent, 1),
+                'free_pct': free_pct,
+            })
+        capacity.sort(key=lambda r: r['free_pct'], reverse=True)
+        return capacity
+
+    @api.model
+    def get_dashboard_data(self, filters=None):
+        filters = filters or {}
+        Timesheet = self.env['account.analytic.line']
+        Task = self.env['project.task']
+        spent_domain, planned_domain = self._build_domains(filters)
+
+        total_spent = _num((Timesheet._read_group(spent_domain, [], ['unit_amount:sum']) or [(0.0,)])[0][0])
+        total_planned = _num((Task._read_group(planned_domain, [], ['allocated_hours:sum']) or [(0.0,)])[0][0])
+        utilization_pct = round(total_spent / total_planned * 100, 1) if total_planned else 0.0
+
+        today = fields.Date.context_today(self)
+        overdue_domain = planned_domain + [
+            ('date_deadline', '<', today), ('state', 'not in', list(DONE_TASK_STATES))]
+        overdue_tasks_count = Task.search_count(overdue_domain)
+
+        by_task_type = []
+        for key, total, count in Timesheet._read_group(
+                spent_domain, ['task_type'], ['unit_amount:sum', '__count']):
+            total = _num(total)
+            by_task_type.append({
+                'key': key or 'undefined',
+                'label': TASK_TYPE_LABELS.get(key, 'Undefined'),
+                'spent_hours': total,
+                'task_count': count,
+                'avg_hours': round(total / count, 2) if count else 0.0,
+            })
+
+        by_employee = []
+        spent_by_employee = {}
+        for employee, total in Timesheet._read_group(
+                spent_domain, ['employee_id'], ['unit_amount:sum']):
+            emp = _rec_id_name(employee)
+            if emp:
+                hours = _num(total)
+                by_employee.append({**emp, 'spent_hours': hours})
+                spent_by_employee[emp['id']] = hours
+        by_employee.sort(key=lambda r: r['spent_hours'], reverse=True)
+
+        employee_task_type_matrix = []
+        for employee, task_type, total in Timesheet._read_group(
+                spent_domain, ['employee_id', 'task_type'], ['unit_amount:sum']):
+            emp = _rec_id_name(employee)
+            if emp:
+                employee_task_type_matrix.append({
+                    'employee': emp['name'],
+                    'task_type': TASK_TYPE_LABELS.get(task_type, 'Undefined'),
+                    'hours': _num(total),
+                })
+
+        by_month = [
+            {'month': _month_label(month), 'spent_hours': _num(total)}
+            for month, total in Timesheet._read_group(
+                spent_domain, ['date:month'], ['unit_amount:sum'], order='date:month asc')
+        ]
+
+        by_month_task_type = [
+            {'month': _month_label(month), 'task_type': TASK_TYPE_LABELS.get(task_type, 'Undefined'), 'hours': _num(total)}
+            for month, task_type, total in Timesheet._read_group(
+                spent_domain, ['date:month', 'task_type'], ['unit_amount:sum'], order='date:month asc')
+        ]
+
+        spent_by_project = {
+            project.id: _num(total)
+            for project, total in Timesheet._read_group(
+                spent_domain, ['project_id'], ['unit_amount:sum'])
+            if project
+        }
+        planned_by_project = {
+            project.id: _num(total)
+            for project, total in Task._read_group(
+                planned_domain, ['project_id'], ['allocated_hours:sum'])
+            if project
+        }
+        project_names = {
+            p['id']: p['name'] for p in self.env['project.project'].browse(
+                set(spent_by_project) | set(planned_by_project)).read(['name'])
+        }
+        planned_vs_actual_by_project = [{
+            'id': pid,
+            'name': project_names.get(pid, ''),
+            'planned': planned_by_project.get(pid, 0.0),
+            'spent': spent_by_project.get(pid, 0.0),
+            'over_budget': spent_by_project.get(pid, 0.0) > planned_by_project.get(pid, 0.0),
+        } for pid in (set(spent_by_project) | set(planned_by_project))]
+        planned_vs_actual_by_project.sort(key=lambda r: r['spent'], reverse=True)
+
+        top_projects = [
+            {**_rec_id_name(project), 'spent_hours': _num(total)}
+            for project, total in Timesheet._read_group(
+                spent_domain, ['project_id'], ['unit_amount:sum'],
+                order='unit_amount:sum desc', limit=10)
+            if project
+        ]
+
+        overdue_by_project = [
+            {**_rec_id_name(project), 'overdue_count': count}
+            for project, count in Task._read_group(overdue_domain, ['project_id'], ['__count'])
+            if project
+        ]
+        overdue_by_employee = [
+            {**_rec_id_name(user), 'overdue_count': count}
+            for user, count in Task._read_group(overdue_domain, ['user_ids'], ['__count'])
+            if user
+        ]
+
+        capacity_by_employee = self._capacity_by_employee(filters, planned_domain, spent_by_employee)
+
+        return {
+            'kpi': {
+                'total_planned': round(total_planned, 1),
+                'total_spent': round(total_spent, 1),
+                'utilization_pct': utilization_pct,
+                'remaining_hours': round(total_planned - total_spent, 1),
+                'overdue_tasks_count': overdue_tasks_count,
+            },
+            'by_task_type': by_task_type,
+            'by_employee': by_employee,
+            'employee_task_type_matrix': employee_task_type_matrix,
+            'by_month': by_month,
+            'by_month_task_type': by_month_task_type,
+            'planned_vs_actual_by_project': planned_vs_actual_by_project,
+            'top_projects': top_projects,
+            'overdue_by_project': overdue_by_project,
+            'overdue_by_employee': overdue_by_employee,
+            'capacity_by_employee': capacity_by_employee,
+        }
+
+    @api.model
+    def get_timesheet_lines(self, filters=None, drill=None, limit=200):
+        """Detail rows backing the drill-down table: the current global
+        filters narrowed further by whatever the user just clicked on the
+        main chart (a single employee, task type, or month)."""
+        filters = filters or {}
+        drill = drill or {}
+        Timesheet = self.env['account.analytic.line']
+        spent_domain, _ = self._build_domains(filters)
+
+        if drill.get('employee_id'):
+            spent_domain = Domain.AND([spent_domain, [('employee_id', '=', drill['employee_id'])]])
+        if drill.get('task_type'):
+            spent_domain = Domain.AND([spent_domain, [('task_type', '=', drill['task_type'])]])
+        if drill.get('month'):
+            year = drill.get('year') or (filters.get('years') or [fields.Date.context_today(self).year])[0]
+            start, end = _month_bounds(year, drill['month'])
+            spent_domain = Domain.AND(
+                [spent_domain, [('date', '>=', start.isoformat()), ('date', '<=', end.isoformat())]])
+
+        lines = Timesheet.search_read(
+            spent_domain,
+            ['date', 'project_id', 'employee_id', 'task_type', 'task_id', 'unit_amount'],
+            order='date desc', limit=limit)
+        return [{
+            'date': line['date'],
+            'project': line['project_id'][1] if line['project_id'] else '',
+            'employee': line['employee_id'][1] if line['employee_id'] else '',
+            'task_type': TASK_TYPE_LABELS.get(line['task_type'], 'Undefined'),
+            'task': line['task_id'][1] if line['task_id'] else '',
+            'hours': line['unit_amount'],
+        } for line in lines]
