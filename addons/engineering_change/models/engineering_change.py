@@ -54,7 +54,7 @@ class EngineeringChange(models.Model):
         ('client_feedback', 'Client Feedback'),
         ('supplychain', 'SupplyChain'),
         ('safety', 'Safety'),
-        ('productivity', 'Productivity'),
+        ('improvement', 'Improvement'),
         ('production', 'Production')
     ], string='Change Source', tracking=True)
     title = fields.Char(required=True, tracking=True)
