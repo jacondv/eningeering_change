@@ -21,6 +21,7 @@ Currently provides:
 - Equipment Serials: Machine Serial, Engine Serial, VIN/TIN free-text fields on the Project form, next to the Model field.
 - Project Events: a "Project Events" tab on the Project form (PO Received Date, IOF/BOM/Drawing Release, QC Checksheet, Photo Taken + Note).
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
+- Day-month date field widget: a Date field variant that always shows "5 Aug, 2026" (fixed day-before-month) instead of the browser locale's default order or relative wording ("Tomorrow", "In 26 days") - used on the Task Deadline (Kanban card).
 - Resizable column memory: every list view (in any module that depends on jacon_core) remembers column widths the user drags, across browser refreshes.
 - Left-aligned number columns: the Project and Task List views left-align numeric columns and use a darker zebra striping.
 - Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
@@ -40,6 +41,7 @@ Currently provides:
             'jacon_core/static/src/fields/clipboard_image_field.js',
             'jacon_core/static/src/fields/date_or_na_field.js',
             'jacon_core/static/src/fields/date_or_na_field.xml',
+            'jacon_core/static/src/fields/day_month_date_field.js',
             'jacon_core/static/src/list/resizable_column_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.scss',
