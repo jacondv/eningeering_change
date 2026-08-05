@@ -351,33 +351,33 @@ class EngineeringChange(models.Model):
             elif rec.request_type == 'minor' and rec.dcr_no:
                 rec.with_context(ec_workflow_write=True).dcr_no = False
 
+    # Tracks (in ir.config_parameter, not a field on this model) the last
+    # year-month _next_dcr_no() generated a number for, so it knows when to
+    # reset the counter below.
+    _DCR_PERIOD_PARAM = 'engineering_change.dcr_period'
+
     def _next_dcr_no(self):
         """Next DCR No, formatted yymmDCxx (e.g. 2608DC01) - the 2-digit
         counter resets to 01 every calendar month. ir.sequence's own
         use_date_range only resets yearly (see _create_date_range_seq in
         Odoo core, which always buckets Jan 1 - Dec 31 regardless of what
-        date codes the prefix uses), so a monthly reset needs its own
-        sequence per year-month instead - created lazily here the first
-        time a given month is needed, reusing ir.sequence's atomic
-        next_by_code() for the actual counter (safe under concurrent BOD
-        approvals) rather than hand-rolling a race-prone max()+1 query.
+        date codes the prefix uses), so instead of a prefix/date_range
+        Odoo doesn't support, a single bare counter sequence
+        (seq_engineering_change_dcr, no prefix, use_date_range=False) is
+        reused forever - its counter is simply reset back to 1 here
+        whenever the current year-month differs from the last one it was
+        used for, and the "yymmDC" part is prepended in Python. This
+        avoids creating a new ir.sequence record every month just to get
+        a fresh counter.
         """
         self.ensure_one()
         period = fields.Date.context_today(self).strftime('%y%m')
-        code = f'engineering.change.dcr.{period}'
-        Sequence = self.env['ir.sequence'].sudo()
-        number = Sequence.next_by_code(code)
-        if number:
-            return number
-        Sequence.create({
-            'name': f'Engineering Change DCR No {period}',
-            'code': code,
-            'prefix': f'{period}DC',
-            'padding': 2,
-            'number_increment': 1,
-            'implementation': 'standard',
-        })
-        return Sequence.next_by_code(code)
+        IrConfigParameter = self.env['ir.config_parameter'].sudo()
+        if IrConfigParameter.get_param(self._DCR_PERIOD_PARAM) != period:
+            self.env.ref('engineering_change.seq_engineering_change_dcr').sudo().number_next_actual = 1
+            IrConfigParameter.set_param(self._DCR_PERIOD_PARAM, period)
+        number = self.env['ir.sequence'].sudo().next_by_code('engineering.change.dcr')
+        return f'{period}DC{number}' if number else False
 
     def _check_field_edit_permissions(self, keys):
         self.ensure_one()
