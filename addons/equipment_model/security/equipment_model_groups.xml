@@ -3,7 +3,7 @@
     <data noupdate="0">
 
         <record id="module_category_equipment_model" model="ir.module.category">
-            <field name="name">Equipment Model</field>
+            <field name="name">Jacon - Equipment Model</field>
             <field name="sequence">32</field>
         </record>
 

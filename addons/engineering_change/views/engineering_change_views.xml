@@ -43,6 +43,7 @@
                     <button name="action_delete_with_password" string="Delete Request" type="object"
                             confirm="This will permanently delete this request. This cannot be undone. Continue?"
                             groups="engineering_change.group_ec_delete"/>
+                    <button name="action_send_email" string="Send Email" type="object" icon="fa-envelope"/>
                     <field name="can_confirm_production" invisible="1"/>
                     <field name="can_confirm_sale" invisible="1"/>
                     <field name="state" widget="statusbar"
@@ -98,7 +99,7 @@
                                            readonly="not can_edit_engineer_fields" nolabel="1"/>
                                 </group>
                                 <group>
-                                    <field name="dcr_no"/>
+                                    <field name="dcr_no" readonly="not can_edit_dcr_no"/>
                                     <field name="project_id" invisible="not project_id"/>
                                     <field name="create_date" string="Created"/>
                                     <field name="close_date" invisible="not close_date"/>
@@ -110,6 +111,7 @@
                                     <field name="can_edit_engineer_fields" invisible="1"/>
                                     <field name="can_edit_manager_fields" invisible="1"/>
                                     <field name="can_edit_request_type" invisible="1"/>
+                                    <field name="can_edit_dcr_no" invisible="1"/>
                                 </group>
                             </group>
                             <field name="description" required="1" placeholder="Describe the engineering change..."

@@ -1,8 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
-rem Usage: restore_odoo.bat <backup_folder> <target_database_name>
-rem Example: restore_odoo.bat C:\odoo_backup\jacon_plm_20260804_125445 jacon_plm_restore
+rem Usage: restore_odoo.bat <backup_folder_or_db_name> <target_database_name>
+rem First argument can be either:
+rem   - a database name (e.g. jacon_plm) - automatically uses its newest
+rem     backup under BACKUP_ROOT below
+rem   - a specific backup folder name (e.g. jacon_plm_20260804_125445) or a
+rem     full path to one, to restore an older/specific backup instead
+rem Example: restore_odoo.bat jacon_plm jacon_plm_restore
 rem
 rem DESTRUCTIVE: if <target_database_name> already exists it is DROPPED
 rem and recreated from the backup. Restoring into a name that does not
@@ -14,20 +19,43 @@ rem is elsewhere, so its path is hardcoded below rather than derived from
 rem the script's own location.
 
 set "PROJECT_DIR=C:\odoo-project"
+set "BACKUP_ROOT=C:\Users\JaconVNComet&JaconEq\OneDrive - MAAS Group Holdings\JACON ENGINEERING\12. App\Odoo\data_backup"
 
 set "BACKUP_DIR=%~1"
 set "DB_NAME=%~2"
 
 if "%BACKUP_DIR%"=="" (
-    echo Usage: restore_odoo.bat ^<backup_folder^> ^<target_database_name^>
+    echo Usage: restore_odoo.bat ^<backup_folder_or_db_name^> ^<target_database_name^>
     exit /b 1
 )
 if "%DB_NAME%"=="" (
-    echo Usage: restore_odoo.bat ^<backup_folder^> ^<target_database_name^>
+    echo Usage: restore_odoo.bat ^<backup_folder_or_db_name^> ^<target_database_name^>
     exit /b 1
 )
+
+rem If given a bare folder name (not a full/relative path that already
+rem exists), look it up under the backup root.
 if not exist "%BACKUP_DIR%" (
-    echo *** Backup folder not found: "%BACKUP_DIR%" ***
+    if exist "%BACKUP_ROOT%\%BACKUP_DIR%" (
+        set "BACKUP_DIR=%BACKUP_ROOT%\%BACKUP_DIR%"
+    )
+)
+
+rem Still not found as an exact folder - treat it as a database name and
+rem pick its newest backup under BACKUP_ROOT (folders are named
+rem "<db>_<timestamp>", so the latest one sorts last alphabetically).
+if not exist "%BACKUP_DIR%" (
+    set "LATEST="
+    for /f "delims=" %%D in ('dir /b /ad /o-n "%BACKUP_ROOT%\%BACKUP_DIR%_*" 2^>nul') do (
+        if not defined LATEST set "LATEST=%%D"
+    )
+    if defined LATEST (
+        set "BACKUP_DIR=%BACKUP_ROOT%\!LATEST!"
+    )
+)
+
+if not exist "%BACKUP_DIR%" (
+    echo *** No backup found matching "%BACKUP_DIR%" under "%BACKUP_ROOT%". ***
     exit /b 1
 )
 
