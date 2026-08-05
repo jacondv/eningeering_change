@@ -1,5 +1,6 @@
-from odoo import fields, models
-from odoo.exceptions import AccessDenied
+from odoo import _, fields, models
+from odoo.addons.base.models.res_users import check_identity
+from odoo.exceptions import AccessDenied, UserError
 
 
 class ProjectProject(models.Model):
@@ -36,6 +37,30 @@ class ProjectProject(models.Model):
         # help text. The client sets it in-memory (via the Edit button)
         # to unlock the form for the current editing session only.
         pass
+
+    def unlink(self):
+        if not self.env.context.get('project_delete_password_confirmed'):
+            raise UserError(_(
+                "Use the Delete button on the Project form to permanently "
+                "delete it - it will ask you to confirm your password first."))
+        return super().unlink()
+
+    @check_identity
+    def action_delete_with_password(self):
+        """Permanently delete this Project. Wrapped in Odoo's standard
+        password re-check (`check_identity`): the first call pops up the
+        core "Access Control" wizard instead of running this method, and
+        only calls back into it once the user's password has been
+        confirmed - see `res.users.identitycheck` in the `base` module.
+        Deletion is otherwise irreversible, unlike Archive, so this is
+        intentionally harder to trigger than the plain Action > Delete menu
+        (which unlink() above refuses outright).
+        """
+        self.with_context(project_delete_password_confirmed=True).unlink()
+        # Redirect back to the list instead of ir.actions.act_window_close:
+        # this button lives on a full-page form (not a dialog), so closing
+        # alone leaves the client trying to reload the now-deleted record.
+        return self.env['ir.actions.act_window']._for_xml_id('project.open_view_project_all')
 
     def check_edit_password(self, password):
         """Verify `password` against the current user's own login
