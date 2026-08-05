@@ -85,7 +85,7 @@ class EngineeringChange(models.Model):
                 raise UserError(_("Implement Team cannot be empty before BOD approval."))
             rec.with_context(ec_workflow_write=True).write({
                 'bod_approver_id': self.env.user.id,
-                'dcr_no': rec.dcr_no or self.env['ir.sequence'].next_by_code('engineering.change.dcr') or False,
+                'dcr_no': rec.dcr_no or rec._next_dcr_no() or False,
                 'state': 'implement',
             })
             rec._notify_implement_team(

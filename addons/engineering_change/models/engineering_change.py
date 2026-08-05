@@ -54,7 +54,7 @@ class EngineeringChange(models.Model):
         ('client_feedback', 'Client Feedback'),
         ('supplychain', 'SupplyChain'),
         ('safety', 'Safety'),
-        ('productivity', 'Productivity'),
+        ('improvement', 'Improvement'),
         ('production', 'Production')
     ], string='Change Source', tracking=True)
     title = fields.Char(required=True, tracking=True)
@@ -142,6 +142,7 @@ class EngineeringChange(models.Model):
     can_edit_request_type = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_production = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
+    can_edit_dcr_no = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -150,6 +151,10 @@ class EngineeringChange(models.Model):
     _project_id_unique = models.Constraint(
         'UNIQUE(project_id)',
         'Each Project can only be linked to one Engineering Change request.',
+    )
+    _dcr_no_unique = models.Constraint(
+        'UNIQUE(dcr_no)',
+        'This DCR Number is already used by another request.',
     )
 
     # ------------------------------------------------------------
@@ -207,6 +212,7 @@ class EngineeringChange(models.Model):
         is_manager = user.has_group('engineering_change.group_ec_manager') \
             or user.has_group('base.group_system')
         is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
+        can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
             rec.can_edit_engineer_fields = is_manager or (is_engineer and rec.state == 'draft')
             rec.can_edit_manager_fields = is_approver and rec.state != 'done'
@@ -217,6 +223,7 @@ class EngineeringChange(models.Model):
             )
             rec.can_confirm_production = is_manager or rec.implement_owner_id == user
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
+            rec.can_edit_dcr_no = can_edit_dcr_no
 
     # ------------------------------------------------------------
     # Project linking
@@ -310,6 +317,12 @@ class EngineeringChange(models.Model):
             for rec in self:
                 rec._check_field_edit_permissions(keys)
         workflow_keys = keys & self.WORKFLOW_FIELDS
+        if 'dcr_no' in workflow_keys and self.env.user.has_group('engineering_change.group_ec_edit_dcr_no'):
+            # Edit DCR Number holders may correct dcr_no directly (e.g. fixing
+            # a typo, or a number issued under an old numbering format) -
+            # everything else in WORKFLOW_FIELDS still requires going through
+            # the workflow buttons below.
+            workflow_keys = workflow_keys - {'dcr_no'}
         if workflow_keys and not self.env.context.get('ec_workflow_write'):
             raise UserError(_(
                 "%s can only change via the workflow buttons (Submit / Approve / "
@@ -334,10 +347,37 @@ class EngineeringChange(models.Model):
     def _sync_dcr_no_on_type_change(self):
         for rec in self:
             if rec.request_type == 'dcr' and not rec.dcr_no and rec.state not in ('draft', 'waiting_manager_approval', 'bod_review'):
-                rec.with_context(ec_workflow_write=True).dcr_no = (
-                    self.env['ir.sequence'].next_by_code('engineering.change.dcr') or False)
+                rec.with_context(ec_workflow_write=True).dcr_no = rec._next_dcr_no() or False
             elif rec.request_type == 'minor' and rec.dcr_no:
                 rec.with_context(ec_workflow_write=True).dcr_no = False
+
+    # Tracks (in ir.config_parameter, not a field on this model) the last
+    # year-month _next_dcr_no() generated a number for, so it knows when to
+    # reset the counter below.
+    _DCR_PERIOD_PARAM = 'engineering_change.dcr_period'
+
+    def _next_dcr_no(self):
+        """Next DCR No, formatted yymmDCxx (e.g. 2608DC01) - the 2-digit
+        counter resets to 01 every calendar month. ir.sequence's own
+        use_date_range only resets yearly (see _create_date_range_seq in
+        Odoo core, which always buckets Jan 1 - Dec 31 regardless of what
+        date codes the prefix uses), so instead of a prefix/date_range
+        Odoo doesn't support, a single bare counter sequence
+        (seq_engineering_change_dcr, no prefix, use_date_range=False) is
+        reused forever - its counter is simply reset back to 1 here
+        whenever the current year-month differs from the last one it was
+        used for, and the "yymmDC" part is prepended in Python. This
+        avoids creating a new ir.sequence record every month just to get
+        a fresh counter.
+        """
+        self.ensure_one()
+        period = fields.Date.context_today(self).strftime('%y%m')
+        IrConfigParameter = self.env['ir.config_parameter'].sudo()
+        if IrConfigParameter.get_param(self._DCR_PERIOD_PARAM) != period:
+            self.env.ref('engineering_change.seq_engineering_change_dcr').sudo().number_next_actual = 1
+            IrConfigParameter.set_param(self._DCR_PERIOD_PARAM, period)
+        number = self.env['ir.sequence'].sudo().next_by_code('engineering.change.dcr')
+        return f'{period}DC{number}' if number else False
 
     def _check_field_edit_permissions(self, keys):
         self.ensure_one()
