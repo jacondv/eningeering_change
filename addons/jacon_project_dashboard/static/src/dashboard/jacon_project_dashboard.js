@@ -5,17 +5,15 @@ import { loadBundle } from "@web/core/assets";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
-function todayISO() {
-    return new Date().toISOString().slice(0, 10);
-}
-
-function startOfYearISO() {
-    return `${new Date().getFullYear()}-01-01`;
-}
-
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
     "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
+];
+
+const MAIN_VIEWS = [
+    { key: "month", label: "Hour by Month" },
+    { key: "employee", label: "Hour by Engineer" },
+    { key: "task_type", label: "Hour by Task Type" },
 ];
 
 export class JaconProjectDashboard extends Component {
@@ -25,49 +23,67 @@ export class JaconProjectDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.mainViews = MAIN_VIEWS;
         this.canvasRefs = {
+            main: useRef("chart_main"),
             plannedActual: useRef("chart_planned_actual"),
-            byMonth: useRef("chart_by_month"),
-            byMonthTaskType: useRef("chart_by_month_task_type"),
-            byTaskType: useRef("chart_by_task_type"),
-            byEmployee: useRef("chart_by_employee"),
             topProjects: useRef("chart_top_projects"),
             overdueByProject: useRef("chart_overdue_by_project"),
         };
         this.charts = {};
         this.state = useState({
             loading: true,
-            options: { projects: [], employees: [], task_types: [] },
+            linesLoading: false,
+            options: { projects: [], employees: [], task_types: [], years: [], months: [] },
             data: null,
+            lines: [],
             filters: {
-                date_from: startOfYearISO(),
-                date_to: todayISO(),
+                years: [new Date().getFullYear()],
+                months: [],
                 project_ids: [],
                 employee_ids: [],
                 task_types: [],
             },
+            mainView: "month",
+            chartType: "bar",
+            stacked: false,
+            drill: { employee_id: null, task_type: null, month: null, year: null },
+            showMore: false,
         });
 
         onWillStart(async () => {
             await loadBundle("web.chartjs_lib");
             this.state.options = await this.orm.call("jacon.project.dashboard", "get_filter_options", []);
+            if (this.state.options.current_year) {
+                this.state.filters.years = [this.state.options.current_year];
+            }
             await this.fetchData();
         });
     }
 
+    // ------------------------------------------------------------
+    // Filters
+    // ------------------------------------------------------------
     async fetchData() {
         this.state.loading = true;
         this.state.data = await this.orm.call(
             "jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters });
         this.state.loading = false;
-        // Charts render into <canvas> elements that only exist once `data`
-        // is truthy, so defer until after the next render pass.
-        requestAnimationFrame(() => this.renderCharts());
+        requestAnimationFrame(() => {
+            this.renderMainChart();
+            if (this.state.showMore) {
+                this.renderMoreCharts();
+            }
+        });
+        await this.fetchLines();
     }
 
-    onDateChange(field, ev) {
-        this.state.filters[field] = ev.target.value;
-        this.fetchData();
+    async fetchLines() {
+        this.state.linesLoading = true;
+        this.state.lines = await this.orm.call(
+            "jacon.project.dashboard", "get_timesheet_lines", [],
+            { filters: this.state.filters, drill: this.state.drill });
+        this.state.linesLoading = false;
     }
 
     toggleFilterValue(field, value) {
@@ -90,9 +106,81 @@ export class JaconProjectDashboard extends Component {
         this.fetchData();
     }
 
+    /** Backing values for the "All" shortcut of each multi-select filter -
+     * kept in one place so the template doesn't need to know the shape of
+     * each options list (ids vs keys vs plain numbers). */
+    allFilterValues(field) {
+        switch (field) {
+            case "years": return this.state.options.years;
+            case "months": return this.state.options.months.map((m) => m.key);
+            case "project_ids": return this.state.options.projects.map((p) => p.id);
+            case "employee_ids": return this.state.options.employees.map((e) => e.id);
+            case "task_types": return this.state.options.task_types.map((t) => t.key);
+            default: return [];
+        }
+    }
+
+    selectAllFilter(field) {
+        this.state.filters[field] = [...this.allFilterValues(field)];
+        this.fetchData();
+    }
+
+    isAllSelected(field) {
+        return this.state.filters[field].length === this.allFilterValues(field).length;
+    }
+
+    resetAllFilters() {
+        this.state.filters = {
+            years: this.state.options.current_year ? [this.state.options.current_year] : [new Date().getFullYear()],
+            months: [],
+            project_ids: [],
+            employee_ids: [],
+            task_types: [],
+        };
+        this.state.drill = { employee_id: null, task_type: null, month: null, year: null };
+        this.fetchData();
+    }
+
     // ------------------------------------------------------------
-    // Chart rendering
+    // Main chart (Month / Engineer / Task Type - one canvas, switched by tab)
     // ------------------------------------------------------------
+    setMainView(view) {
+        this.state.mainView = view;
+        this.state.stacked = false;
+        requestAnimationFrame(() => this.renderMainChart());
+    }
+
+    setChartType(type) {
+        this.state.chartType = type;
+        requestAnimationFrame(() => this.renderMainChart());
+    }
+
+    toggleStacked() {
+        this.state.stacked = !this.state.stacked;
+        requestAnimationFrame(() => this.renderMainChart());
+    }
+
+    setDrill(patch) {
+        this.state.drill = { employee_id: null, task_type: null, month: null, year: null, ...patch };
+        this.fetchLines();
+    }
+
+    /** 'YYYY-MM' chart label -> {year, month} drill patch. */
+    _monthDrillFromLabel(label) {
+        const [y, m] = (label || "").split("-");
+        return { year: y ? parseInt(y, 10) : null, month: m ? parseInt(m, 10) : null };
+    }
+
+    clearDrill() {
+        this.state.drill = { employee_id: null, task_type: null, month: null, year: null };
+        this.fetchLines();
+    }
+
+    get hasDrill() {
+        const d = this.state.drill;
+        return !!(d.employee_id || d.task_type || d.month);
+    }
+
     _renderChart(key, config) {
         const canvas = this.canvasRefs[key].el;
         if (!canvas) {
@@ -104,7 +192,129 @@ export class JaconProjectDashboard extends Component {
         this.charts[key] = new Chart(canvas, config);
     }
 
-    renderCharts() {
+    renderMainChart() {
+        const data = this.state.data;
+        if (!data) {
+            return;
+        }
+        if (this.state.mainView === "month") {
+            this._renderMonthChart(data);
+        } else if (this.state.mainView === "employee") {
+            this._renderEmployeeChart(data);
+        } else {
+            this._renderTaskTypeChart(data);
+        }
+    }
+
+    _renderMonthChart(data) {
+        if (this.state.stacked) {
+            const months = [...new Set(data.by_month_task_type.map((r) => r.month))];
+            const taskTypes = [...new Set(data.by_month_task_type.map((r) => r.task_type))];
+            this._renderChart("main", {
+                type: "bar",
+                data: {
+                    labels: months,
+                    datasets: taskTypes.map((tt, i) => ({
+                        label: tt,
+                        data: months.map((m) => {
+                            const row = data.by_month_task_type.find((r) => r.month === m && r.task_type === tt);
+                            return row ? row.hours : 0;
+                        }),
+                        backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                    })),
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true } },
+                    onClick: (ev, elements) => {
+                        if (elements.length) {
+                            this.setDrill(this._monthDrillFromLabel(months[elements[0].index]));
+                        }
+                    },
+                },
+            });
+            return;
+        }
+        this._renderChart("main", {
+            type: this.state.chartType,
+            data: {
+                labels: data.by_month.map((r) => r.month),
+                datasets: [{
+                    label: "Spent Hours",
+                    data: data.by_month.map((r) => r.spent_hours),
+                    borderColor: "#4e79a7",
+                    backgroundColor: this.state.chartType === "line" ? "#4e79a733" : "#4e79a7",
+                    fill: this.state.chartType === "line",
+                    tension: 0.25,
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                onClick: (ev, elements) => {
+                    if (elements.length) {
+                        this.setDrill(this._monthDrillFromLabel(data.by_month[elements[0].index].month));
+                    }
+                },
+            },
+        });
+    }
+
+    _renderEmployeeChart(data) {
+        this._renderChart("main", {
+            type: "bar",
+            data: {
+                labels: data.by_employee.map((r) => r.name),
+                datasets: [{
+                    label: "Spent Hours",
+                    data: data.by_employee.map((r) => r.spent_hours),
+                    backgroundColor: "#f28e2b",
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: "y",
+                onClick: (ev, elements) => {
+                    if (elements.length) {
+                        this.setDrill({ employee_id: data.by_employee[elements[0].index].id });
+                    }
+                },
+            },
+        });
+    }
+
+    _renderTaskTypeChart(data) {
+        this._renderChart("main", {
+            type: "bar",
+            data: {
+                labels: data.by_task_type.map((r) => r.label),
+                datasets: [{
+                    label: "Spent Hours",
+                    data: data.by_task_type.map((r) => r.spent_hours),
+                    backgroundColor: CHART_COLORS,
+                }],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: "y",
+                onClick: (ev, elements) => {
+                    if (elements.length) {
+                        this.setDrill({ task_type: data.by_task_type[elements[0].index].key });
+                    }
+                },
+            },
+        });
+    }
+
+    // ------------------------------------------------------------
+    // More insights (accordion, rendered on demand - canvases inside a
+    // collapsed panel have no size until it's opened)
+    // ------------------------------------------------------------
+    toggleShowMore() {
+        this.state.showMore = !this.state.showMore;
+        if (this.state.showMore) {
+            requestAnimationFrame(() => this.renderMoreCharts());
+        }
+    }
+
+    renderMoreCharts() {
         const data = this.state.data;
         if (!data) {
             return;
@@ -129,69 +339,6 @@ export class JaconProjectDashboard extends Component {
                 ],
             },
             options: { responsive: true, maintainAspectRatio: false },
-        });
-
-        this._renderChart("byMonth", {
-            type: "line",
-            data: {
-                labels: data.by_month.map((r) => r.month),
-                datasets: [{
-                    label: "Spent Hours",
-                    data: data.by_month.map((r) => r.spent_hours),
-                    borderColor: "#4e79a7",
-                    backgroundColor: "#4e79a733",
-                    fill: true,
-                    tension: 0.2,
-                }],
-            },
-            options: { responsive: true, maintainAspectRatio: false },
-        });
-
-        const months = [...new Set(data.by_month_task_type.map((r) => r.month))];
-        const taskTypes = [...new Set(data.by_month_task_type.map((r) => r.task_type))];
-        this._renderChart("byMonthTaskType", {
-            type: "bar",
-            data: {
-                labels: months,
-                datasets: taskTypes.map((tt, i) => ({
-                    label: tt,
-                    data: months.map((m) => {
-                        const row = data.by_month_task_type.find((r) => r.month === m && r.task_type === tt);
-                        return row ? row.hours : 0;
-                    }),
-                    backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
-                })),
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { x: { stacked: true }, y: { stacked: true } },
-            },
-        });
-
-        this._renderChart("byTaskType", {
-            type: "bar",
-            data: {
-                labels: data.by_task_type.map((r) => r.label),
-                datasets: [{
-                    label: "Spent Hours",
-                    data: data.by_task_type.map((r) => r.spent_hours),
-                    backgroundColor: CHART_COLORS,
-                }],
-            },
-            options: { responsive: true, maintainAspectRatio: false, indexAxis: "y" },
-        });
-
-        this._renderChart("byEmployee", {
-            type: "bar",
-            data: {
-                labels: data.by_employee.map((r) => r.name),
-                datasets: [{
-                    label: "Spent Hours",
-                    data: data.by_employee.map((r) => r.spent_hours),
-                    backgroundColor: "#f28e2b",
-                }],
-            },
-            options: { responsive: true, maintainAspectRatio: false, indexAxis: "y" },
         });
 
         this._renderChart("topProjects", {
@@ -246,6 +393,24 @@ export class JaconProjectDashboard extends Component {
         const intensity = Math.min(1, value / this.heatmapMax);
         return `background-color: rgba(78, 121, 167, ${intensity.toFixed(2)});` +
             (intensity > 0.55 ? " color: #fff;" : "");
+    }
+
+    // ------------------------------------------------------------
+    // Capacity panel helpers
+    // ------------------------------------------------------------
+    capacityBarStyle(row) {
+        const pct = Math.max(0, Math.min(100, row.allocated ? (row.spent / row.allocated) * 100 : 100));
+        return `width: ${pct}%;`;
+    }
+
+    capacityLevel(row) {
+        if (row.free_pct < 0) {
+            return "o_pd_capacity_over";
+        }
+        if (row.free_pct < 15) {
+            return "o_pd_capacity_tight";
+        }
+        return "o_pd_capacity_free";
     }
 }
 

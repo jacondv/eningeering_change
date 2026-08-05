@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
+    <!-- Shared "Select all / Clear" row for every multi-select filter menu below -
+         caller sets `field` (filters key) before t-call'ing this. -->
+    <t t-name="jacon_project_dashboard.FilterMenuActions">
+        <li class="o_pd_filter_menu_actions">
+            <button type="button" class="btn btn-sm btn-link p-0"
+                    t-att-disabled="isAllSelected(field)"
+                    t-on-click="() => this.selectAllFilter(field)">Select all</button>
+            <span class="o_pd_filter_menu_sep">|</span>
+            <button type="button" class="btn btn-sm btn-link p-0"
+                    t-att-disabled="!state.filters[field].length"
+                    t-on-click="() => this.clearFilter(field)">Clear</button>
+        </li>
+        <li><hr class="dropdown-divider"/></li>
+    </t>
+
     <t t-name="jacon_project_dashboard.Dashboard">
         <div class="o_pd_dashboard">
             <div class="o_pd_header">
@@ -7,20 +22,55 @@
             </div>
 
             <div class="o_pd_filter_bar">
-                <div class="o_pd_filter_item">
-                    <label>From</label>
-                    <input type="date" class="form-control form-control-sm"
-                           t-att-value="state.filters.date_from"
-                           t-on-change="(ev) => this.onDateChange('date_from', ev)"/>
-                </div>
-                <div class="o_pd_filter_item">
-                    <label>To</label>
-                    <input type="date" class="form-control form-control-sm"
-                           t-att-value="state.filters.date_to"
-                           t-on-change="(ev) => this.onDateChange('date_to', ev)"/>
+                <div class="o_pd_filter_item dropdown">
+                    <label>Year</label>
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <t t-if="state.filters.years.length === 1"><t t-esc="state.filters.years[0]"/></t>
+                        <t t-else="">
+                            Year
+                            <t t-if="state.filters.years.length">(<t t-esc="state.filters.years.length"/>)</t>
+                        </t>
+                    </button>
+                    <ul class="dropdown-menu p-2 o_pd_filter_menu">
+                        <t t-call="jacon_project_dashboard.FilterMenuActions">
+                            <t t-set="field" t-value="'years'"/>
+                        </t>
+                        <li t-foreach="state.options.years" t-as="y" t-key="y">
+                            <label class="dropdown-item">
+                                <input type="checkbox"
+                                       t-att-checked="isFilterActive('years', y)"
+                                       t-on-change="() => this.toggleFilterValue('years', y)"/>
+                                <t t-esc="y"/>
+                            </label>
+                        </li>
+                    </ul>
                 </div>
 
                 <div class="o_pd_filter_item dropdown">
+                    <label>&#160;</label>
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        Months
+                        <t t-if="state.filters.months.length">
+                            (<t t-esc="state.filters.months.length"/>)
+                        </t>
+                    </button>
+                    <ul class="dropdown-menu p-2 o_pd_filter_menu o_pd_months_menu">
+                        <t t-call="jacon_project_dashboard.FilterMenuActions">
+                            <t t-set="field" t-value="'months'"/>
+                        </t>
+                        <li class="o_pd_months_grid">
+                            <label t-foreach="state.options.months" t-as="m" t-key="m.key" class="dropdown-item">
+                                <input type="checkbox"
+                                       t-att-checked="isFilterActive('months', m.key)"
+                                       t-on-change="() => this.toggleFilterValue('months', m.key)"/>
+                                <t t-esc="m.label"/>
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="o_pd_filter_item dropdown">
+                    <label>&#160;</label>
                     <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                         Project
                         <t t-if="state.filters.project_ids.length">
@@ -28,6 +78,9 @@
                         </t>
                     </button>
                     <ul class="dropdown-menu p-2 o_pd_filter_menu">
+                        <t t-call="jacon_project_dashboard.FilterMenuActions">
+                            <t t-set="field" t-value="'project_ids'"/>
+                        </t>
                         <li t-foreach="state.options.projects" t-as="project" t-key="project.id">
                             <label class="dropdown-item">
                                 <input type="checkbox"
@@ -40,13 +93,17 @@
                 </div>
 
                 <div class="o_pd_filter_item dropdown">
+                    <label>&#160;</label>
                     <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                        Resource
+                        Engineer
                         <t t-if="state.filters.employee_ids.length">
                             (<t t-esc="state.filters.employee_ids.length"/>)
                         </t>
                     </button>
                     <ul class="dropdown-menu p-2 o_pd_filter_menu">
+                        <t t-call="jacon_project_dashboard.FilterMenuActions">
+                            <t t-set="field" t-value="'employee_ids'"/>
+                        </t>
                         <li t-foreach="state.options.employees" t-as="employee" t-key="employee.id">
                             <label class="dropdown-item">
                                 <input type="checkbox"
@@ -59,6 +116,7 @@
                 </div>
 
                 <div class="o_pd_filter_item dropdown">
+                    <label>&#160;</label>
                     <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                         Task Type
                         <t t-if="state.filters.task_types.length">
@@ -66,6 +124,9 @@
                         </t>
                     </button>
                     <ul class="dropdown-menu p-2 o_pd_filter_menu">
+                        <t t-call="jacon_project_dashboard.FilterMenuActions">
+                            <t t-set="field" t-value="'task_types'"/>
+                        </t>
                         <li t-foreach="state.options.task_types" t-as="tt" t-key="tt.key">
                             <label class="dropdown-item">
                                 <input type="checkbox"
@@ -75,6 +136,11 @@
                             </label>
                         </li>
                     </ul>
+                </div>
+
+                <div class="o_pd_filter_item o_pd_filter_reset">
+                    <label>&#160;</label>
+                    <button class="btn btn-sm btn-link" t-on-click="resetAllFilters">Reset filters</button>
                 </div>
             </div>
 
@@ -87,15 +153,19 @@
                 <div class="o_pd_kpi_row">
                     <div class="o_pd_kpi_card">
                         <div class="o_pd_kpi_value"><t t-esc="state.data.kpi.total_planned"/></div>
-                        <div class="o_pd_kpi_label">Total Planned (h)</div>
+                        <div class="o_pd_kpi_label">Allocated (h)</div>
                     </div>
                     <div class="o_pd_kpi_card">
                         <div class="o_pd_kpi_value"><t t-esc="state.data.kpi.total_spent"/></div>
-                        <div class="o_pd_kpi_label">Total Spent (h)</div>
+                        <div class="o_pd_kpi_label">Spent (h)</div>
                     </div>
                     <div class="o_pd_kpi_card">
                         <div class="o_pd_kpi_value"><t t-esc="state.data.kpi.utilization_pct"/>%</div>
                         <div class="o_pd_kpi_label">Utilization</div>
+                    </div>
+                    <div class="o_pd_kpi_card">
+                        <div class="o_pd_kpi_value"><t t-esc="state.data.kpi.remaining_hours"/></div>
+                        <div class="o_pd_kpi_label">Remaining (h)</div>
                     </div>
                     <div class="o_pd_kpi_card o_pd_kpi_overdue">
                         <div class="o_pd_kpi_value"><t t-esc="state.data.kpi.overdue_tasks_count"/></div>
@@ -104,81 +174,110 @@
                 </div>
 
                 <div class="row mt-3">
-                    <div class="col-lg-6">
-                        <div class="o_pd_panel">
-                            <h4>Planned vs Spent by Project</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_planned_actual"/>
+                    <div class="col-lg-8">
+                        <div class="o_pd_panel h-100">
+                            <div class="o_pd_panel_head">
+                                <div class="btn-group btn-group-sm o_pd_view_tabs" role="group">
+                                    <button t-foreach="mainViews" t-as="v" t-key="v.key"
+                                            t-att-class="'btn btn-outline-primary' + (state.mainView === v.key ? ' active' : '')"
+                                            t-on-click="() => this.setMainView(v.key)">
+                                        <t t-esc="v.label"/>
+                                    </button>
+                                </div>
+                                <div class="o_pd_chart_tools">
+                                    <t t-if="state.mainView === 'month' and !state.stacked">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button t-att-class="'btn btn-outline-secondary' + (state.chartType === 'bar' ? ' active' : '')"
+                                                    t-on-click="() => this.setChartType('bar')">
+                                                <i class="fa fa-bar-chart"/>
+                                            </button>
+                                            <button t-att-class="'btn btn-outline-secondary' + (state.chartType === 'line' ? ' active' : '')"
+                                                    t-on-click="() => this.setChartType('line')">
+                                                <i class="fa fa-line-chart"/>
+                                            </button>
+                                        </div>
+                                    </t>
+                                    <t t-if="state.mainView === 'month'">
+                                        <button t-att-class="'btn btn-sm btn-outline-secondary' + (state.stacked ? ' active' : '')"
+                                                t-on-click="toggleStacked">
+                                            Split by Task Type
+                                        </button>
+                                    </t>
+                                </div>
                             </div>
+                            <div class="o_pd_chart_wrap o_pd_chart_wrap_lg">
+                                <canvas t-ref="chart_main"/>
+                            </div>
+                            <p class="text-muted small mb-0 mt-1">
+                                <i class="fa fa-info-circle"/> Click a bar to filter the table below.
+                            </p>
                         </div>
                     </div>
-                    <div class="col-lg-6">
-                        <div class="o_pd_panel">
-                            <h4>Spent Hours by Month</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_by_month"/>
+
+                    <div class="col-lg-4">
+                        <div class="o_pd_panel h-100">
+                            <h4>Allocated Time &amp; Capacity</h4>
+                            <p class="text-muted small">Who still has room for more work</p>
+                            <t t-if="!state.data.capacity_by_employee.length">
+                                <p class="text-muted">No data for the current filters.</p>
+                            </t>
+                            <div class="o_pd_capacity_list" t-else="">
+                                <div t-foreach="state.data.capacity_by_employee" t-as="row" t-key="row.id"
+                                     class="o_pd_capacity_row">
+                                    <div class="o_pd_capacity_top">
+                                        <span class="o_pd_capacity_name"><t t-esc="row.name"/></span>
+                                        <span t-attf-class="o_pd_capacity_pct {{capacityLevel(row)}}">
+                                            <t t-esc="row.free_pct"/>% free
+                                        </span>
+                                    </div>
+                                    <div class="o_pd_capacity_bar_bg">
+                                        <div t-attf-class="o_pd_capacity_bar_fill {{capacityLevel(row)}}"
+                                             t-att-style="capacityBarStyle(row)"/>
+                                    </div>
+                                    <div class="o_pd_capacity_bottom text-muted small">
+                                        <t t-esc="row.spent"/>h spent / <t t-esc="row.allocated"/>h allocated
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="row mt-3">
-                    <div class="col-lg-12">
+                    <div class="col-12">
                         <div class="o_pd_panel">
-                            <h4>Spent Hours by Month &amp; Task Type</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_by_month_task_type"/>
+                            <div class="o_pd_panel_head">
+                                <h4 class="mb-0">
+                                    Timesheet Detail
+                                    <t t-if="hasDrill">
+                                        <button class="btn btn-sm btn-link" t-on-click="clearDrill">
+                                            (clear filter <i class="fa fa-times-circle"/>)
+                                        </button>
+                                    </t>
+                                </h4>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-lg-6">
-                        <div class="o_pd_panel">
-                            <h4>Spent Hours by Task Type</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_by_task_type"/>
-                            </div>
-                            <table class="table table-sm o_pd_table mt-2">
-                                <thead>
-                                    <tr><th>Task Type</th><th>Hours</th><th>Tasks</th><th>Avg h/Task</th></tr>
-                                </thead>
-                                <tbody>
-                                    <tr t-foreach="state.data.by_task_type" t-as="row" t-key="row.key">
-                                        <td><t t-esc="row.label"/></td>
-                                        <td><t t-esc="row.spent_hours"/></td>
-                                        <td><t t-esc="row.task_count"/></td>
-                                        <td><t t-esc="row.avg_hours"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="o_pd_panel">
-                            <h4>Spent Hours by Resource</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_by_employee"/>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-lg-6">
-                        <div class="o_pd_panel">
-                            <h4>Top Projects by Spent Hours</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_top_projects"/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="o_pd_panel">
-                            <h4>Overdue Tasks by Project</h4>
-                            <div class="o_pd_chart_wrap">
-                                <canvas t-ref="chart_overdue_by_project"/>
+                            <div class="o_pd_table_wrap">
+                                <table class="table table-sm table-hover o_pd_table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th><th>Project</th><th>Engineer</th>
+                                            <th>Task Type</th><th>Task</th><th class="text-end">Hours</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="state.lines" t-as="line" t-key="line_index">
+                                            <td><t t-esc="line.date"/></td>
+                                            <td><t t-esc="line.project"/></td>
+                                            <td><t t-esc="line.employee"/></td>
+                                            <td><t t-esc="line.task_type"/></td>
+                                            <td><t t-esc="line.task"/></td>
+                                            <td class="text-end"><t t-esc="line.hours"/></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <t t-if="!state.linesLoading and !state.lines.length">
+                                    <p class="text-muted text-center p-3">No timesheet lines for the current filters.</p>
+                                </t>
                             </div>
                         </div>
                     </div>
@@ -186,31 +285,68 @@
 
                 <div class="row mt-3 mb-3">
                     <div class="col-12">
-                        <div class="o_pd_panel">
-                            <h4>Resource × Task Type Heatmap (Hours)</h4>
-                            <t t-if="!state.data.employee_task_type_matrix.length">
-                                <p class="text-muted">No data for the current filters.</p>
-                            </t>
-                            <div class="o_pd_heatmap_wrap" t-else="">
-                                <table class="table table-sm o_pd_heatmap">
-                                    <thead>
-                                        <tr>
-                                            <th/>
-                                            <th t-foreach="heatmapTaskTypes" t-as="tt" t-key="tt"><t t-esc="tt"/></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr t-foreach="heatmapEmployees" t-as="emp" t-key="emp">
-                                            <th><t t-esc="emp"/></th>
-                                            <td t-foreach="heatmapTaskTypes" t-as="tt" t-key="tt"
-                                                t-attf-style="{{heatmapStyle(heatmapValue(emp, tt))}}">
-                                                <t t-esc="heatmapValue(emp, tt)"/>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                        <button class="btn btn-sm btn-outline-secondary o_pd_more_toggle" t-on-click="toggleShowMore">
+                            <i t-att-class="state.showMore ? 'fa fa-chevron-up' : 'fa fa-chevron-down'"/>
+                            More insights (Planned vs Actual, Top Projects, Overdue, Resource Heatmap)
+                        </button>
+
+                        <t t-if="state.showMore">
+                            <div class="row mt-3">
+                                <div class="col-lg-6">
+                                    <div class="o_pd_panel">
+                                        <h4>Planned vs Spent by Project</h4>
+                                        <div class="o_pd_chart_wrap">
+                                            <canvas t-ref="chart_planned_actual"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="o_pd_panel">
+                                        <h4>Top Projects by Spent Hours</h4>
+                                        <div class="o_pd_chart_wrap">
+                                            <canvas t-ref="chart_top_projects"/>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                            <div class="row mt-3">
+                                <div class="col-lg-6">
+                                    <div class="o_pd_panel">
+                                        <h4>Overdue Tasks by Project</h4>
+                                        <div class="o_pd_chart_wrap">
+                                            <canvas t-ref="chart_overdue_by_project"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="o_pd_panel">
+                                        <h4>Resource &#215; Task Type Heatmap (Hours)</h4>
+                                        <t t-if="!state.data.employee_task_type_matrix.length">
+                                            <p class="text-muted">No data for the current filters.</p>
+                                        </t>
+                                        <div class="o_pd_heatmap_wrap" t-else="">
+                                            <table class="table table-sm o_pd_heatmap">
+                                                <thead>
+                                                    <tr>
+                                                        <th/>
+                                                        <th t-foreach="heatmapTaskTypes" t-as="tt" t-key="tt"><t t-esc="tt"/></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr t-foreach="heatmapEmployees" t-as="emp" t-key="emp">
+                                                        <th><t t-esc="emp"/></th>
+                                                        <td t-foreach="heatmapTaskTypes" t-as="tt" t-key="tt"
+                                                            t-attf-style="{{heatmapStyle(heatmapValue(emp, tt))}}">
+                                                            <t t-esc="heatmapValue(emp, tt)"/>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
                     </div>
                 </div>
             </t>

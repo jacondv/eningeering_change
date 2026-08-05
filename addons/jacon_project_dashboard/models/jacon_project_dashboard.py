@@ -1,4 +1,9 @@
+import calendar
+from datetime import date
+
 from odoo import api, fields, models
+from odoo.fields import Domain
+
 from odoo.addons.jacon_core.models.project_task import TASK_TYPE_SELECTION
 
 DONE_TASK_STATES = ('1_done', '1_canceled')
@@ -30,6 +35,11 @@ def _rec_id_name(value):
     return {'id': value.id, 'name': value.display_name}
 
 
+def _month_bounds(year, month):
+    last_day = calendar.monthrange(year, month)[1]
+    return date(year, month, 1), date(year, month, last_day)
+
+
 class JaconProjectDashboard(models.AbstractModel):
     """Pure aggregation logic backing the Jacon Project Dashboard client
     action - no table of its own (AbstractModel), same idea as
@@ -43,33 +53,63 @@ class JaconProjectDashboard(models.AbstractModel):
     def get_filter_options(self):
         projects = self.env['project.project'].search_read([], ['name'], order='name')
         employees = self.env['hr.employee'].search_read([], ['name'], order='name')
+
+        current_year = fields.Date.context_today(self).year
+        first_line = self.env['account.analytic.line'].search(
+            [('project_id', '!=', False)], order='date asc', limit=1)
+        min_year = first_line.date.year if first_line and first_line.date else current_year
+        years = list(range(min_year, current_year + 1))
+
+        months = [{'key': m, 'label': calendar.month_abbr[m]} for m in range(1, 13)]
+
         return {
             'projects': [{'id': p['id'], 'name': p['name']} for p in projects],
             'employees': [{'id': e['id'], 'name': e['name']} for e in employees],
             'task_types': [{'key': key, 'label': label} for key, label in TASK_TYPE_SELECTION],
+            'years': years,
+            'months': months,
+            'current_year': current_year,
         }
+
+    def _years_months_domain(self, years, months):
+        """Both Year and Month are multi-select and independent of each
+        other: every selected year is OR'd together, each optionally
+        narrowed to the selected months (also OR'd) - e.g. Jan+Jul of
+        2025 OR 2026, not a contiguous range."""
+        year_domains = []
+        for year in years:
+            if months:
+                month_domains = [
+                    [('date', '>=', s.isoformat()), ('date', '<=', e.isoformat())]
+                    for s, e in (_month_bounds(year, m) for m in months)
+                ]
+                year_domains.append(Domain.OR(month_domains))
+            else:
+                year_domains.append([
+                    ('date', '>=', date(year, 1, 1).isoformat()),
+                    ('date', '<=', date(year, 12, 31).isoformat())])
+        return Domain.OR(year_domains)
+
+    def _date_domain(self, filters):
+        years = filters.get('years') or [fields.Date.context_today(self).year]
+        months = filters.get('months') or []
+        return self._years_months_domain(years, months)
 
     def _build_domains(self, filters):
         """Two separate domains: Spent (Timesheet, date-bounded) and Planned
         (Task, not date-bounded - `allocated_hours` is a single static
         number per task, it has no per-month breakdown to filter on)."""
-        date_from = filters.get('date_from')
-        date_to = filters.get('date_to')
         project_ids = filters.get('project_ids') or []
         employee_ids = filters.get('employee_ids') or []
         task_types = filters.get('task_types') or []
 
-        spent_domain = [('project_id', '!=', False)]
-        if date_from:
-            spent_domain.append(('date', '>=', date_from))
-        if date_to:
-            spent_domain.append(('date', '<=', date_to))
+        spent_domain = Domain.AND([[('project_id', '!=', False)], self._date_domain(filters)])
         if project_ids:
-            spent_domain.append(('project_id', 'in', project_ids))
+            spent_domain = Domain.AND([spent_domain, [('project_id', 'in', project_ids)]])
         if employee_ids:
-            spent_domain.append(('employee_id', 'in', employee_ids))
+            spent_domain = Domain.AND([spent_domain, [('employee_id', 'in', employee_ids)]])
         if task_types:
-            spent_domain.append(('task_type', 'in', task_types))
+            spent_domain = Domain.AND([spent_domain, [('task_type', 'in', task_types)]])
 
         planned_domain = [('project_id', '!=', False)]
         if project_ids:
@@ -81,6 +121,45 @@ class JaconProjectDashboard(models.AbstractModel):
             planned_domain.append(('task_type', 'in', task_types))
 
         return spent_domain, planned_domain
+
+    def _capacity_by_employee(self, filters, planned_domain, spent_by_employee):
+        """Allocated (planned) vs Spent hours per engineer, so a manager can
+        see at a glance who still has room to take on more work. Allocated
+        is not date-bound (see `_build_domains`); Spent follows the current
+        Year/Months filter, same trade-off as the KPI utilization figure."""
+        Task = self.env['project.task']
+        allocated_by_user = {
+            user.id: _num(total)
+            for user, total in Task._read_group(planned_domain, ['user_ids'], ['allocated_hours:sum'])
+            if user
+        }
+
+        employee_ids = filters.get('employee_ids') or []
+        emp_domain = [('user_id', '!=', False)]
+        if employee_ids:
+            emp_domain.append(('id', 'in', employee_ids))
+        employees = self.env['hr.employee'].search_read(emp_domain, ['name', 'user_id'])
+
+        capacity = []
+        for emp in employees:
+            allocated = allocated_by_user.get(emp['user_id'][0], 0.0)
+            spent = spent_by_employee.get(emp['id'], 0.0)
+            if not allocated and not spent:
+                continue
+            if allocated:
+                free_pct = round((allocated - spent) / allocated * 100, 1)
+            else:
+                free_pct = -100.0 if spent else 0.0
+            capacity.append({
+                'id': emp['id'],
+                'name': emp['name'],
+                'allocated': round(allocated, 1),
+                'spent': round(spent, 1),
+                'free_hours': round(allocated - spent, 1),
+                'free_pct': free_pct,
+            })
+        capacity.sort(key=lambda r: r['free_pct'], reverse=True)
+        return capacity
 
     @api.model
     def get_dashboard_data(self, filters=None):
@@ -111,11 +190,14 @@ class JaconProjectDashboard(models.AbstractModel):
             })
 
         by_employee = []
+        spent_by_employee = {}
         for employee, total in Timesheet._read_group(
                 spent_domain, ['employee_id'], ['unit_amount:sum']):
             emp = _rec_id_name(employee)
             if emp:
-                by_employee.append({**emp, 'spent_hours': _num(total)})
+                hours = _num(total)
+                by_employee.append({**emp, 'spent_hours': hours})
+                spent_by_employee[emp['id']] = hours
         by_employee.sort(key=lambda r: r['spent_hours'], reverse=True)
 
         employee_task_type_matrix = []
@@ -185,11 +267,14 @@ class JaconProjectDashboard(models.AbstractModel):
             if user
         ]
 
+        capacity_by_employee = self._capacity_by_employee(filters, planned_domain, spent_by_employee)
+
         return {
             'kpi': {
                 'total_planned': round(total_planned, 1),
                 'total_spent': round(total_spent, 1),
                 'utilization_pct': utilization_pct,
+                'remaining_hours': round(total_planned - total_spent, 1),
                 'overdue_tasks_count': overdue_tasks_count,
             },
             'by_task_type': by_task_type,
@@ -201,4 +286,38 @@ class JaconProjectDashboard(models.AbstractModel):
             'top_projects': top_projects,
             'overdue_by_project': overdue_by_project,
             'overdue_by_employee': overdue_by_employee,
+            'capacity_by_employee': capacity_by_employee,
         }
+
+    @api.model
+    def get_timesheet_lines(self, filters=None, drill=None, limit=200):
+        """Detail rows backing the drill-down table: the current global
+        filters narrowed further by whatever the user just clicked on the
+        main chart (a single employee, task type, or month)."""
+        filters = filters or {}
+        drill = drill or {}
+        Timesheet = self.env['account.analytic.line']
+        spent_domain, _ = self._build_domains(filters)
+
+        if drill.get('employee_id'):
+            spent_domain = Domain.AND([spent_domain, [('employee_id', '=', drill['employee_id'])]])
+        if drill.get('task_type'):
+            spent_domain = Domain.AND([spent_domain, [('task_type', '=', drill['task_type'])]])
+        if drill.get('month'):
+            year = drill.get('year') or (filters.get('years') or [fields.Date.context_today(self).year])[0]
+            start, end = _month_bounds(year, drill['month'])
+            spent_domain = Domain.AND(
+                [spent_domain, [('date', '>=', start.isoformat()), ('date', '<=', end.isoformat())]])
+
+        lines = Timesheet.search_read(
+            spent_domain,
+            ['date', 'project_id', 'employee_id', 'task_type', 'task_id', 'unit_amount'],
+            order='date desc', limit=limit)
+        return [{
+            'date': line['date'],
+            'project': line['project_id'][1] if line['project_id'] else '',
+            'employee': line['employee_id'][1] if line['employee_id'] else '',
+            'task_type': TASK_TYPE_LABELS.get(line['task_type'], 'Undefined'),
+            'task': line['task_id'][1] if line['task_id'] else '',
+            'hours': line['unit_amount'],
+        } for line in lines]
