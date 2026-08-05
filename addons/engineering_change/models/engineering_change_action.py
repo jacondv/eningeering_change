@@ -40,6 +40,7 @@ class ProjectTask(models.Model):
         'affected_model_ids',
         'affected_project_ids',
         'task_type',
+        'timesheet_ids',
         # written automatically by project.task's own write() as a side effect
         # of a state change - not something the user is choosing to set.
         'date_last_stage_update',
