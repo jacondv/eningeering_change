@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from odoo import _, api, models
 
 # Tasks belonging to an archived request are excluded from every aggregate/
@@ -47,6 +49,37 @@ class EngineeringChange(models.Model):
             ],
             'domain': [('task_id.change_id', '=', self.id)],
         }
+
+    def action_send_email(self):
+        """Open the user's own default mail client (mailto:) with a new
+        message pre-filled: Subject "<DCR/Request No> - <Title>", CC'ing
+        the Engineer and every Implement Team member. Deliberately opens
+        the OS/browser mail handler instead of sending through Odoo -
+        lets the user review/attach files/edit before actually sending,
+        rather than an automated notification email.
+
+        No "To" is pre-filled - left for the user to fill in themselves.
+
+        Routed through /engineering_change/<id>/send_email (see
+        controllers/main.py) rather than returning the mailto: url
+        directly here: ir.actions.act_url can't target it directly, since
+        the web client prefixes a "/" onto any url that doesn't already
+        start with "http" or "/", breaking "mailto:..." into a bogus
+        internal route (a 404) - a real HTTP redirect sidesteps that.
+        """
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/engineering_change/{self.id}/send_email',
+            'target': 'self',
+        }
+
+    def _get_send_email_mailto_url(self):
+        self.ensure_one()
+        subject = f"{self.dcr_no or self.name} - {self.title}"
+        cc_partners = (self.implement_team_ids | self.engineer_id).mapped('partner_id')
+        cc = ','.join(sorted(set(p.email for p in cc_partners if p.email)))
+        return f"mailto:?subject={quote(subject)}&cc={quote(cc)}"
 
     # ------------------------------------------------------------
     # Dashboard
