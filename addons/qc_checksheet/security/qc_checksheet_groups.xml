@@ -3,8 +3,8 @@
     <data noupdate="0">
 
         <record id="module_category_qc_checksheet" model="ir.module.category">
-            <field name="name">QC Check Sheet</field>
-            <field name="sequence">30</field>
+            <field name="name">Jacon - QC Check Sheet</field>
+            <field name="sequence">33</field>
         </record>
 
         <!-- Single privilege on purpose (see techspec §7, decision 5): no separate
