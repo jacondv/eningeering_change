@@ -3,8 +3,8 @@
     <data noupdate="0">
 
         <record id="module_category_inventor_connector" model="ir.module.category">
-            <field name="name">Inventor Connector</field>
-            <field name="sequence">31</field>
+            <field name="name">Jacon - Inventor Connector</field>
+            <field name="sequence">34</field>
         </record>
 
         <record id="privilege_inventor_bom_manager" model="res.groups.privilege">

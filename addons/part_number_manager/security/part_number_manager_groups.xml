@@ -3,7 +3,7 @@
     <data noupdate="0">
 
         <record id="module_category_part_number_manager" model="ir.module.category">
-            <field name="name">Part Number Manager</field>
+            <field name="name">Jacon - Part Number Manager</field>
             <field name="sequence">31</field>
         </record>
 
