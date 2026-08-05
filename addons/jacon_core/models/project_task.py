@@ -6,6 +6,7 @@ TASK_TYPE_SELECTION = [
     ('sch', 'Sch'),
     ('bom', 'BOM'),
     ('checklist', 'Checklist'),
+    ('doc', 'Doc'),
     ('fem', 'FEM'),
     ('rnd', 'R&D'),
     ('train', 'Train'),
