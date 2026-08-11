@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from odoo import api, fields, models
 
 TASK_TYPE_SELECTION = [
@@ -47,6 +49,22 @@ class ProjectTask(models.Model):
     def _get_assigned_employees(self):
         return self.env['hr.employee'].search([('user_id', 'in', self.user_ids.ids)])
 
+    def _suggest_or_keep_deadline(self):
+        """Nearest week this task's assignee has room for it, or the task's
+        current deadline if none was found - used to pre-fill the overload
+        wizard's "New Deadline" column so it already opens on a sensible
+        date instead of the one causing the overload."""
+        self.ensure_one()
+        employee = self._get_assigned_employees()[:1]
+        remaining = max(self.remaining_hours or 0.0, 0.0)
+        if employee and remaining:
+            suggested = employee.suggest_free_week_deadline(
+                remaining, self.date_deadline, exclude_task_id=self.id)
+            if suggested:
+                time_of_day = (self.date_deadline or fields.Datetime.now()).time()
+                return datetime.combine(suggested, time_of_day)
+        return self.date_deadline
+
     @api.onchange('user_ids', 'allocated_hours', 'date_deadline')
     def _onchange_check_overload(self):
         self.overload_warning = False
@@ -91,7 +109,7 @@ class ProjectTask(models.Model):
         conflicts = self.env['project.task'].browse(task_ids)
         wizard = self.env['jacon.task.deadline.wizard'].create({
             'line_ids': [
-                (0, 0, {'task_id': task.id, 'new_deadline': task.date_deadline})
+                (0, 0, {'task_id': task.id, 'new_deadline': task._suggest_or_keep_deadline()})
                 for task in conflicts
             ],
         })

@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from odoo import fields, models
 
 
@@ -30,26 +28,9 @@ class TaskDeadlineWizardLine(models.TransientModel):
     user_ids = fields.Many2many(related='task_id.user_ids', readonly=True)
     remaining_hours = fields.Float(related='task_id.remaining_hours', readonly=True)
     current_deadline = fields.Datetime(related='task_id.date_deadline', readonly=True, string='Current Deadline')
-    # Set explicitly by the caller when creating the line (see
-    # project.task.action_view_overload_conflicts) - a cross-field default
-    # can't see the `task_id` passed in the same create() call.
+    # Pre-filled by the caller when creating the line (see
+    # project.task._suggest_or_keep_deadline / action_view_overload_conflicts)
+    # with the nearest week the assignee has room, so the field already
+    # opens on a sensible date - the user can still pick any other date
+    # normally, it's just a starting point, not applied until Save.
     new_deadline = fields.Datetime(string='New Deadline', required=True)
-
-    def get_suggested_deadline(self):
-        """Pure read: returns the nearest free-week deadline for this line's
-        task, or False - doesn't write anything anywhere. Called from the
-        "Suggest date" widget in the list, which applies the result to this
-        row's (unsaved) `new_deadline` on the client side, so nothing about
-        the wizard's dialog/save flow is touched by this call."""
-        self.ensure_one()
-        employee = self.task_id._get_assigned_employees()[:1]
-        remaining = max(self.task_id.remaining_hours or 0.0, 0.0)
-        if not employee or not remaining:
-            return False
-        after = self.new_deadline or self.task_id.date_deadline
-        suggested = employee.suggest_free_week_deadline(
-            remaining, after, exclude_task_id=self.task_id.id)
-        if not suggested:
-            return False
-        time_of_day = (after or fields.Datetime.now()).time()
-        return fields.Datetime.to_string(datetime.combine(suggested, time_of_day))

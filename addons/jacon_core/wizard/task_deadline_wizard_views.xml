@@ -8,7 +8,8 @@
             <form string="Xử lý xung đột lịch">
                 <p class="text-muted">
                     Các task dưới đây đang góp phần gây quá tải lịch làm việc.
-                    "Gợi ý ngày" chỉ điền thử ở đây - bấm "Lưu" mới thực sự áp dụng vào task.
+                    Cột "New Deadline" đã được điền sẵn ngày gần nhất còn trống - bấm vào để xem/chỉnh nếu cần,
+                    "Lưu" mới thực sự áp dụng vào task.
                 </p>
                 <field name="line_ids">
                     <list editable="bottom" create="0" delete="0">
@@ -18,7 +19,6 @@
                         <field name="remaining_hours" readonly="1"/>
                         <field name="current_deadline" readonly="1"/>
                         <field name="new_deadline"/>
-                        <widget name="suggest_deadline_button"/>
                     </list>
                 </field>
                 <footer>
