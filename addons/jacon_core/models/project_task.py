@@ -1,5 +1,3 @@
-from datetime import datetime, time
-
 from odoo import api, fields, models
 
 TASK_TYPE_SELECTION = [
@@ -75,6 +73,9 @@ class ProjectTask(models.Model):
             self.overload_warning = '\n'.join(lines)
 
     def action_view_overload_conflicts(self):
+        """Open a review wizard (not a direct edit) for the other open
+        tasks contributing to this task's overload - deadlines are only
+        applied to the real tasks if the user clicks Save on the wizard."""
         self.ensure_one()
         remaining = max(self.remaining_hours or 0.0, 0.0)
         today = fields.Date.context_today(self)
@@ -87,30 +88,18 @@ class ProjectTask(models.Model):
             for week in weeks:
                 if week['overloaded']:
                     task_ids.update(week['task_ids'])
+        conflicts = self.env['project.task'].browse(task_ids)
+        wizard = self.env['jacon.task.deadline.wizard'].create({
+            'line_ids': [
+                (0, 0, {'task_id': task.id, 'new_deadline': task.date_deadline})
+                for task in conflicts
+            ],
+        })
         return {
             'type': 'ir.actions.act_window',
             'name': 'Task đang xung đột lịch',
-            'res_model': 'project.task',
-            'view_mode': 'list',
-            'views': [(self.env.ref('jacon_core.view_task_list_overload_conflicts').id, 'list')],
-            'domain': [('id', 'in', list(task_ids))],
+            'res_model': 'jacon.task.deadline.wizard',
+            'view_mode': 'form',
+            'res_id': wizard.id,
             'target': 'new',
         }
-
-    def action_suggest_deadline(self):
-        """Fill `date_deadline` with the nearest week this task's assignee
-        still has room for it - a starting point the user can accept as-is
-        or override, never applied silently."""
-        for task in self:
-            employee = task._get_assigned_employees()[:1]
-            remaining = max(task.remaining_hours or 0.0, 0.0)
-            if not employee or not remaining:
-                continue
-            suggested = employee.suggest_free_week_deadline(
-                remaining, task.date_deadline or fields.Date.context_today(self),
-                exclude_task_id=task.id)
-            if suggested:
-                # `date_deadline` is a Datetime field - keep the same
-                # time-of-day the task already has, default end-of-day.
-                time_of_day = (task.date_deadline or datetime.combine(suggested, time(17, 0))).time()
-                task.date_deadline = datetime.combine(suggested, time_of_day)
