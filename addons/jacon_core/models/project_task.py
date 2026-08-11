@@ -37,9 +37,13 @@ class ProjectTask(models.Model):
         'engineering.change.action.evidence', 'task_id', string='Evidence')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
 
-    # Session-only warning, never persisted - set by `_onchange_check_overload`
-    # while the form is being edited (see hr.employee.get_weekly_load).
-    overload_warning = fields.Text(string='Overload Warning', store=False)
+    # Never persisted - recomputed every time the form loads/reloads (not
+    # just while editing), so it reflects the real, current state of every
+    # other task in the system - e.g. it only clears after the overload
+    # wizard's Save actually resolves the conflict, not just because the
+    # wizard closed. See hr.employee.get_weekly_load.
+    overload_warning = fields.Text(
+        string='Overload Warning', compute='_compute_overload_warning', store=False)
 
     @api.depends('evidence_ids')
     def _compute_evidence_count(self):
@@ -58,54 +62,58 @@ class ProjectTask(models.Model):
         employee = self._get_assigned_employees()[:1]
         remaining = max(self.remaining_hours or 0.0, 0.0)
         if employee and remaining:
-            suggested = employee.suggest_free_week_deadline(
-                remaining, self.date_deadline, exclude_task_id=self.id)
+            # A genuinely free week first (no other task touches it at all);
+            # if this task alone needs more than a week's capacity, that can
+            # never succeed, so fall back to a pace-based estimate instead
+            # of silently giving up and leaving the deadline unchanged.
+            suggested = (
+                employee.suggest_free_week_deadline(remaining, self.date_deadline, exclude_task_id=self.id)
+                or employee.suggest_paced_deadline(remaining, self.date_deadline)
+            )
             if suggested:
                 time_of_day = (self.date_deadline or fields.Datetime.now()).time()
                 return datetime.combine(suggested, time_of_day)
         return self.date_deadline
 
-    @api.onchange('user_ids', 'allocated_hours', 'date_deadline')
-    def _onchange_check_overload(self):
-        self.overload_warning = False
-        if not (self.user_ids and self.allocated_hours and self.date_deadline):
-            return
+    def _get_overloaded_weeks(self):
+        """(employee, week) pairs where this task's assignee(s) would be
+        over capacity, counting this task's own remaining hours on top of
+        their other open tasks - shared by the warning banner and the
+        conflict wizard so the two never disagree."""
+        self.ensure_one()
         remaining = max(self.remaining_hours or 0.0, 0.0)
-        if not remaining:
-            return
+        if not (self.user_ids and self.allocated_hours and self.date_deadline and remaining):
+            return []
         exclude_id = self._origin.id or None
         today = fields.Date.context_today(self)
-        lines = []
+        result = []
         for employee in self._get_assigned_employees():
             weeks = employee.get_weekly_load(
                 today, self.date_deadline,
                 extra_remaining=[(remaining, self.date_deadline)],
                 exclude_task_id=exclude_id)
-            for week in weeks:
-                if week['overloaded']:
-                    lines.append('%s - tuần %s → %s: %.1fh / %.1fh (vượt %.1fh)' % (
-                        employee.name,
-                        week['start'].strftime('%d-%m'), week['end'].strftime('%d-%m'),
-                        week['load'], week['capacity'], week['load'] - week['capacity']))
-        if lines:
-            self.overload_warning = '\n'.join(lines)
+            result += [(employee, week) for week in weeks if week['overloaded']]
+        return result
+
+    @api.depends('user_ids', 'allocated_hours', 'date_deadline', 'remaining_hours')
+    def _compute_overload_warning(self):
+        for task in self:
+            lines = [
+                '%s - tuần %s → %s: %.1fh / %.1fh (vượt %.1fh)' % (
+                    employee.name, week['start'].strftime('%d-%m'), week['end'].strftime('%d-%m'),
+                    week['load'], week['capacity'], week['load'] - week['capacity'])
+                for employee, week in task._get_overloaded_weeks()
+            ]
+            task.overload_warning = '\n'.join(lines) if lines else False
 
     def action_view_overload_conflicts(self):
         """Open a review wizard (not a direct edit) for the other open
         tasks contributing to this task's overload - deadlines are only
         applied to the real tasks if the user clicks Save on the wizard."""
         self.ensure_one()
-        remaining = max(self.remaining_hours or 0.0, 0.0)
-        today = fields.Date.context_today(self)
         task_ids = set()
-        for employee in self._get_assigned_employees():
-            weeks = employee.get_weekly_load(
-                today, self.date_deadline,
-                extra_remaining=[(remaining, self.date_deadline)],
-                exclude_task_id=self.id)
-            for week in weeks:
-                if week['overloaded']:
-                    task_ids.update(week['task_ids'])
+        for _employee, week in self._get_overloaded_weeks():
+            task_ids.update(week['task_ids'])
         conflicts = self.env['project.task'].browse(task_ids)
         wizard = self.env['jacon.task.deadline.wizard'].create({
             'line_ids': [

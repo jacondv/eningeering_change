@@ -1,3 +1,4 @@
+import math
 from datetime import timedelta
 
 from odoo import fields, models
@@ -129,8 +130,10 @@ class HrEmployee(models.Model):
         """Nearest week (searching forward from the week after `after_date`)
         where this employee still has enough free capacity for
         `remaining_hours` - returned as that week's last working day. None
-        if nothing frees up within `horizon_weeks`. Only a suggestion: the
-        caller decides whether to apply it."""
+        if `remaining_hours` doesn't fit in a single week at all (bigger
+        than the weekly capacity - see `suggest_paced_deadline`) or nothing
+        frees up within `horizon_weeks`. Only a suggestion: the caller
+        decides whether to apply it."""
         self.ensure_one()
         weekdays = self._work_weekdays()
         start = _week_start(fields.Date.to_date(after_date)) + timedelta(days=7)
@@ -143,4 +146,35 @@ class HrEmployee(models.Model):
                 ]
                 if work_days_in_week:
                     return max(work_days_in_week)
+        return None
+
+    def suggest_paced_deadline(self, remaining_hours, after_date=None, horizon_days=180):
+        """Fallback for tasks too big to ever fit in a single free week
+        (remaining_hours > one week's capacity, so `suggest_free_week_deadline`
+        can never succeed for them): nearest date such that spreading
+        `remaining_hours` over working days from today up to that date needs
+        no more than this employee's normal daily capacity on average.
+        Ignores other tasks' load entirely (unlike `suggest_free_week_deadline`)
+        - it only asks "does *this task alone* stop demanding more than a
+        full day's work per day", which is always achievable given enough
+        time, so this rarely returns None."""
+        self.ensure_one()
+        if remaining_hours <= 0:
+            return None
+        weekdays = self._work_weekdays()
+        daily_hours = self._daily_hours()
+        if daily_hours <= 0:
+            return None
+        needed_work_days = math.ceil(remaining_hours / daily_hours)
+        today = fields.Date.context_today(self)
+        start = max(today, fields.Date.to_date(after_date) or today)
+        d = start
+        count = 0
+        limit = start + timedelta(days=horizon_days)
+        while d <= limit:
+            if d.weekday() in weekdays:
+                count += 1
+                if count >= needed_work_days:
+                    return d
+            d += timedelta(days=1)
         return None
