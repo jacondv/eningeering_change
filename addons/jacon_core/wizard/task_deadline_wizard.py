@@ -35,17 +35,21 @@ class TaskDeadlineWizardLine(models.TransientModel):
     # can't see the `task_id` passed in the same create() call.
     new_deadline = fields.Datetime(string='New Deadline', required=True)
 
-    def action_suggest(self):
-        """Preview only: overwrites `new_deadline` on this wizard line, the
-        real task is untouched until the wizard's Save button is clicked."""
-        for line in self:
-            employee = line.task_id._get_assigned_employees()[:1]
-            remaining = max(line.task_id.remaining_hours or 0.0, 0.0)
-            if not employee or not remaining:
-                continue
-            after = line.new_deadline or line.task_id.date_deadline
-            suggested = employee.suggest_free_week_deadline(
-                remaining, after, exclude_task_id=line.task_id.id)
-            if suggested:
-                time_of_day = (after or fields.Datetime.now()).time()
-                line.new_deadline = datetime.combine(suggested, time_of_day)
+    def get_suggested_deadline(self):
+        """Pure read: returns the nearest free-week deadline for this line's
+        task, or False - doesn't write anything anywhere. Called from the
+        "Suggest date" widget in the list, which applies the result to this
+        row's (unsaved) `new_deadline` on the client side, so nothing about
+        the wizard's dialog/save flow is touched by this call."""
+        self.ensure_one()
+        employee = self.task_id._get_assigned_employees()[:1]
+        remaining = max(self.task_id.remaining_hours or 0.0, 0.0)
+        if not employee or not remaining:
+            return False
+        after = self.new_deadline or self.task_id.date_deadline
+        suggested = employee.suggest_free_week_deadline(
+            remaining, after, exclude_task_id=self.task_id.id)
+        if not suggested:
+            return False
+        time_of_day = (after or fields.Datetime.now()).time()
+        return fields.Datetime.to_string(datetime.combine(suggested, time_of_day))
