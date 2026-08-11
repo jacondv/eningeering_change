@@ -99,27 +99,4 @@
         </field>
     </record>
 
-    <!-- ================= OVERLOAD CONFLICTS POPUP ================= -->
-    <!-- Opened by action_view_overload_conflicts (button in the warning
-         banner above): the other open tasks contributing to an overloaded
-         week for this task's assignee(s). Deadline is editable right here
-         (standard editable list, no custom widget needed); "Suggest date"
-         fills it with the nearest free week per employee - the user still
-         has to accept/adjust and Save. -->
-    <record id="view_task_list_overload_conflicts" model="ir.ui.view">
-        <field name="name">project.task.list.overload.conflicts</field>
-        <field name="model">project.task</field>
-        <field name="arch" type="xml">
-            <list editable="bottom" create="0" delete="0" default_order="date_deadline">
-                <field name="project_id"/>
-                <field name="name"/>
-                <field name="user_ids" widget="many2many_tags"/>
-                <field name="remaining_hours"/>
-                <field name="date_deadline"/>
-                <button name="action_suggest_deadline" type="object"
-                        string="Gợi ý ngày" icon="fa-magic" title="Điền ngày gần nhất còn trống"/>
-            </list>
-        </field>
-    </record>
-
 </odoo>
