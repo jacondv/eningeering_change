@@ -18,9 +18,7 @@
                         <field name="remaining_hours" readonly="1"/>
                         <field name="current_deadline" readonly="1"/>
                         <field name="new_deadline"/>
-                        <button name="action_suggest" type="object"
-                                string="Gợi ý ngày" icon="fa-magic"
-                                title="Điền ngày gần nhất còn trống"/>
+                        <widget name="suggest_deadline_button"/>
                     </list>
                 </field>
                 <footer>

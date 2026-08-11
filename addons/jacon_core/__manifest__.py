@@ -56,6 +56,8 @@ Currently provides:
             'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
             'jacon_core/static/src/chatter/chatter_collapse_toggle.js',
             'jacon_core/static/src/scss/form_layout.scss',
+            'jacon_core/static/src/wizard/suggest_deadline_button.js',
+            'jacon_core/static/src/wizard/suggest_deadline_button.xml',
         ],
     },
     'installable': True,
