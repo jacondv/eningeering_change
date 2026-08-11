@@ -7,6 +7,19 @@
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project.view_task_form2"/>
         <field name="arch" type="xml">
+            <!-- Non-blocking heads-up when assigning this task would push
+                 an engineer over capacity some week - see
+                 project_task._onchange_check_overload. Odoo's stock form
+                 reserves this exact spot for inherited warnings. -->
+            <xpath expr="//t[@name='warning_section']" position="after">
+                <div class="alert alert-warning mb-0" role="alert" invisible="not overload_warning">
+                    <strong><i class="fa fa-exclamation-triangle"/> Cảnh báo quá tải lịch làm việc</strong>
+                    <field name="overload_warning" nolabel="1" readonly="1"/>
+                    <button name="action_view_overload_conflicts" type="object"
+                            string="Xem &amp; xử lý xung đột" class="btn btn-sm btn-outline-warning mt-1"
+                            invisible="not id"/>
+                </div>
+            </xpath>
             <field name="tag_ids" position="after">
                 <field name="task_type"/>
             </field>
@@ -83,6 +96,29 @@
             <filter name="stage" position="after">
                 <filter string="Task Type" name="group_task_type" context="{'group_by': 'task_type'}"/>
             </filter>
+        </field>
+    </record>
+
+    <!-- ================= OVERLOAD CONFLICTS POPUP ================= -->
+    <!-- Opened by action_view_overload_conflicts (button in the warning
+         banner above): the other open tasks contributing to an overloaded
+         week for this task's assignee(s). Deadline is editable right here
+         (standard editable list, no custom widget needed); "Suggest date"
+         fills it with the nearest free week per employee - the user still
+         has to accept/adjust and Save. -->
+    <record id="view_task_list_overload_conflicts" model="ir.ui.view">
+        <field name="name">project.task.list.overload.conflicts</field>
+        <field name="model">project.task</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" create="0" delete="0" default_order="date_deadline">
+                <field name="project_id"/>
+                <field name="name"/>
+                <field name="user_ids" widget="many2many_tags"/>
+                <field name="remaining_hours"/>
+                <field name="date_deadline"/>
+                <button name="action_suggest_deadline" type="object"
+                        string="Gợi ý ngày" icon="fa-magic" title="Điền ngày gần nhất còn trống"/>
+            </list>
         </field>
     </record>
 
