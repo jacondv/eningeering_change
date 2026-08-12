@@ -107,7 +107,7 @@ class ProjectTask(models.Model):
                 period = (
                     rng['start'].strftime('%d-%m') if rng['start'] == rng['end']
                     else '%s → %s' % (rng['start'].strftime('%d-%m'), rng['end'].strftime('%d-%m')))
-                lines.append('%s - ngày %s: vượt quá công suất làm việc (dư %.1fh)' % (
+                lines.append('%s - %s: over capacity by %.1fh' % (
                     employee.name, period, rng['excess_hours']))
             task.overload_warning = '\n'.join(lines) if lines else False
 
@@ -128,7 +128,7 @@ class ProjectTask(models.Model):
         })
         return {
             'type': 'ir.actions.act_window',
-            'name': 'Task đang xung đột lịch',
+            'name': 'Tasks in Schedule Conflict',
             'res_model': 'jacon.task.deadline.wizard',
             'view_mode': 'form',
             'res_id': wizard.id,
