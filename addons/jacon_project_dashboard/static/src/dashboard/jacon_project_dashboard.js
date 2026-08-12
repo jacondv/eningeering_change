@@ -1,13 +1,10 @@
 /** @odoo-module **/
 
-import { Component, onMounted, onWillStart, useRef, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { loadBundle } from "@web/core/assets";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-
-const TIMELINE_DAY_WIDTH = 22;
-const TIMELINE_LANE_HEIGHT = 24;
 
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
@@ -61,6 +58,20 @@ export class JaconProjectDashboard extends Component {
         };
         this.taskGanttRef = useRef("task_gantt");
         this.taskGantt = null;
+        // Frappe Gantt fires on_date_change on every mousemove while
+        // dragging, not just on drop - so on_date_change only records the
+        // latest position here, and the confirm popup opens once, on the
+        // next mouseup (real drag end), from _onGanttMouseUp below.
+        this._pendingGanttChange = null;
+        this._onGanttMouseUp = () => {
+            const change = this._pendingGanttChange;
+            this._pendingGanttChange = null;
+            if (change) {
+                this.confirmTaskGanttChange(change);
+            }
+        };
+        document.addEventListener("mouseup", this._onGanttMouseUp);
+        onWillUnmount(() => document.removeEventListener("mouseup", this._onGanttMouseUp));
         this.charts = {};
         this.state = useState({
             loading: true,
@@ -549,7 +560,12 @@ export class JaconProjectDashboard extends Component {
             view_mode: "Day",
             scroll_to: "today",
             readonly_progress: true,
-            on_date_change: (task, start, end) => this.onTaskGanttDateChange(task, start, end),
+            // Fires on every mousemove while dragging, not just on drop -
+            // just record the latest position; _onGanttMouseUp (setup())
+            // opens the confirm popup once, on the actual drag end.
+            on_date_change: (task, start, end) => {
+                this._pendingGanttChange = { ganttTaskId: task.id, taskId: parseInt(task.id, 10), start, end };
+            },
         });
     }
 
@@ -558,15 +574,17 @@ export class JaconProjectDashboard extends Component {
             `-${String(date.getDate()).padStart(2, "0")}`;
     }
 
-    onTaskGanttDateChange(ganttTask, newStart, newEnd) {
-        const taskId = parseInt(ganttTask.id, 10);
+    confirmTaskGanttChange({ ganttTaskId, taskId, start, end }) {
         const row = (this.state.data.task_timeline || []).find((r) => r.id === taskId);
         if (!row) {
             return;
         }
-        const newStartStr = this._formatIsoDate(newStart);
-        const newEndStr = this._formatIsoDate(newEnd);
-        const revert = () => this.taskGantt.update_task(ganttTask.id, { start: row.start, end: row.end });
+        const newStartStr = this._formatIsoDate(start);
+        const newEndStr = this._formatIsoDate(end);
+        const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
+        if (newStartStr === row.start && newEndStr === row.end) {
+            return;
+        }
 
         this.dialog.add(ConfirmationDialog, {
             title: "Move Task Dates?",
