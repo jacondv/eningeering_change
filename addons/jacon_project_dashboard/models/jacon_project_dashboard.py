@@ -138,22 +138,26 @@ class JaconProjectDashboard(models.AbstractModel):
 
         return spent_domain, planned_domain
 
-    def _capacity_by_employee(self, filters, spent_by_employee):
-        """Calendar capacity for the selected Year/Month period vs hours
-        already logged in it, so a manager can see who still has room
-        *this period* - not an all-time, unscoped total.
+    def _capacity_by_employee(self, filters):
+        """Calendar capacity for the selected Year/Month period vs how much
+        of it is already committed to open tasks, so a manager can see who
+        still has room *this period* for MORE work - not who has been busy
+        in the past.
 
-        Capacity = daily hours x working days across the selected
-        period (Mon-Fri per each employee's calendar; company holidays
-        and personal leave aren't subtracted yet - see
+        Capacity = daily hours x working days across the selected period
+        (Mon-Fri per each employee's calendar; company holidays and
+        personal leave aren't subtracted yet - see
         hr.employee.get_period_capacity_hours - so this is currently a
         ceiling, slightly optimistic until leave data exists).
 
-        Spent reuses `spent_by_employee` - the same period-scoped
-        Timesheet sum the rest of the dashboard already uses - so both
-        sides of the comparison share the same Year/Month/Project/Task
-        Type filters instead of pairing a calendar figure with numbers
-        pulled from a different scope."""
+        Committed is NOT "hours already logged" (that's a backward-looking
+        fact, blind to work that hasn't happened yet) - it's each open
+        task's `remaining_hours` spread across its own working days
+        (date_start -> date_deadline) and summed for whichever of those
+        days fall in the selected period, via the same day-by-day engine
+        the Task overload warning uses (hr.employee.get_daily_load). A
+        task due next month but not yet started still shows up here on
+        the days it would need to be worked."""
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
@@ -164,19 +168,23 @@ class JaconProjectDashboard(models.AbstractModel):
         capacity = []
         for emp in employees:
             period_capacity = sum(emp.get_period_capacity_hours(start, end) for start, end in segments)
-            spent = spent_by_employee.get(emp.id, 0.0)
-            if not period_capacity and not spent:
+            committed = sum(
+                day['load']
+                for start, end in segments
+                for day in emp.get_daily_load(start, end)
+            )
+            if not period_capacity and not committed:
                 continue
             if period_capacity:
-                free_pct = round((period_capacity - spent) / period_capacity * 100, 1)
+                free_pct = round((period_capacity - committed) / period_capacity * 100, 1)
             else:
-                free_pct = -100.0 if spent else 0.0
+                free_pct = -100.0 if committed else 0.0
             capacity.append({
                 'id': emp.id,
                 'name': emp.name,
                 'allocated': round(period_capacity, 1),
-                'spent': round(spent, 1),
-                'free_hours': round(period_capacity - spent, 1),
+                'spent': round(committed, 1),
+                'free_hours': round(period_capacity - committed, 1),
                 'free_pct': free_pct,
             })
         capacity.sort(key=lambda r: r['free_pct'], reverse=True)
@@ -288,7 +296,7 @@ class JaconProjectDashboard(models.AbstractModel):
             if user
         ]
 
-        capacity_by_employee = self._capacity_by_employee(filters, spent_by_employee)
+        capacity_by_employee = self._capacity_by_employee(filters)
 
         return {
             'kpi': {
