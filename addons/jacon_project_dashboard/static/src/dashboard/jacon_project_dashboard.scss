@@ -317,5 +317,13 @@
     .o_pd_task_gantt {
         max-height: 480px;
         overflow: auto;
+
+        // Base bar color (default library theme is a near-white fill,
+        // too washed out against our panel background) - overload state
+        // overrides it to red; the progress fill is a separate, always-
+        // green signal layered on top of either color.
+        .bar-wrapper .bar { fill: #4e79a7; }
+        .bar-progress { fill: #2e7d32; }
+        .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
     }
 }

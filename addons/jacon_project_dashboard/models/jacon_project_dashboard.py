@@ -296,6 +296,30 @@ class JaconProjectDashboard(models.AbstractModel):
                 'progress': round(task.progress or 0.0),
                 'overdue': deadline < today,
             })
+
+        # Overload flag per bar: does this task's own window contain any
+        # day where its assignee is over capacity (same day-by-day engine
+        # as the Task form warning and Workload Gantt)? Batched one
+        # get_daily_load call per employee (spanning all of their bars)
+        # instead of one per task, since it re-queries that employee's
+        # whole open-task list internally.
+        emp_by_id = {emp.id: emp for emp in employees}
+        bars_by_employee = {}
+        for bar in bars:
+            bars_by_employee.setdefault(bar['employee_id'], []).append(bar)
+        for emp_id, emp_bars in bars_by_employee.items():
+            emp = emp_by_id[emp_id]
+            span_start = min(date.fromisoformat(b['start']) for b in emp_bars)
+            span_end = max(date.fromisoformat(b['end']) for b in emp_bars)
+            overloaded_dates = {
+                day['date'] for day in emp.get_daily_load(span_start, span_end) if day['overloaded']
+            }
+            for bar in emp_bars:
+                b_start = date.fromisoformat(bar['start'])
+                b_end = date.fromisoformat(bar['end'])
+                bar['overloaded'] = bool(overloaded_dates) and any(
+                    b_start <= d <= b_end for d in overloaded_dates)
+
         bars.sort(key=lambda b: (b['employee'], b['start']))
         return bars
 
