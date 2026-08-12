@@ -126,11 +126,18 @@ class JaconProjectDashboard(models.AbstractModel):
         """Allocated (planned) vs Spent hours per engineer, so a manager can
         see at a glance who still has room to take on more work. Allocated
         is not date-bound (see `_build_domains`); Spent follows the current
-        Year/Months filter, same trade-off as the KPI utilization figure."""
+        Year/Months filter, same trade-off as the KPI utilization figure.
+
+        Unlike `planned_domain` elsewhere (KPI/charts, which intentionally
+        include done tasks - they're still valid "planned vs actual" data
+        points for a past period), a Done/Cancelled task no longer occupies
+        any of an engineer's future capacity, so it must not count toward
+        "how much room do they still have" here."""
         Task = self.env['project.task']
+        open_planned_domain = Domain.AND([planned_domain, [('state', 'not in', list(DONE_TASK_STATES))]])
         allocated_by_user = {
             user.id: _num(total)
-            for user, total in Task._read_group(planned_domain, ['user_ids'], ['allocated_hours:sum'])
+            for user, total in Task._read_group(open_planned_domain, ['user_ids'], ['allocated_hours:sum'])
             if user
         }
 
