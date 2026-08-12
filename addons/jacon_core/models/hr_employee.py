@@ -77,10 +77,18 @@ class HrEmployee(models.Model):
         cursor = _week_start(date_from)
         while cursor <= date_to:
             week_end = cursor + timedelta(days=6)
+            # For the current (partial) week, Monday..yesterday is already
+            # gone - it was never going to receive any of this week's load
+            # either (every task's own distribution window starts at
+            # `today`, never earlier), so counting it as usable capacity
+            # would understate how tight the *remaining* days of this week
+            # really are. Future weeks are untouched (max(cursor, today) ==
+            # cursor for them).
+            capacity_start = max(cursor, today)
             weeks.append({
                 'start': cursor,
                 'end': week_end,
-                'capacity': daily_hours * self._count_work_days(cursor, week_end, weekdays),
+                'capacity': daily_hours * self._count_work_days(capacity_start, week_end, weekdays),
                 'load': 0.0,
                 'task_ids': set(),
             })
