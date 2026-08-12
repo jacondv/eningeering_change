@@ -2,6 +2,7 @@
 
 import { Component, onMounted, onWillStart, useRef, useState } from "@odoo/owl";
 import { loadBundle } from "@web/core/assets";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
@@ -50,6 +51,7 @@ export class JaconProjectDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.dialog = useService("dialog");
         this.mainViews = MAIN_VIEWS;
         this.canvasRefs = {
             main: useRef("chart_main"),
@@ -57,6 +59,8 @@ export class JaconProjectDashboard extends Component {
             topProjects: useRef("chart_top_projects"),
             overdueByProject: useRef("chart_overdue_by_project"),
         };
+        this.taskGanttRef = useRef("task_gantt");
+        this.taskGantt = null;
         this.charts = {};
         this.state = useState({
             loading: true,
@@ -79,7 +83,10 @@ export class JaconProjectDashboard extends Component {
         });
 
         onWillStart(async () => {
-            await loadBundle("web.chartjs_lib");
+            await Promise.all([
+                loadBundle("web.chartjs_lib"),
+                loadBundle("jacon_project_dashboard.frappe_gantt_lib"),
+            ]);
             this.state.options = await this.orm.call("jacon.project.dashboard", "get_filter_options", []);
             const stored = loadStoredFilters();
             if (stored) {
@@ -99,6 +106,7 @@ export class JaconProjectDashboard extends Component {
         onMounted(() => {
             if (this.state.data) {
                 this.renderMainChart();
+                this.renderTaskGantt();
                 if (this.state.showMore) {
                     this.renderMoreCharts();
                 }
@@ -117,6 +125,7 @@ export class JaconProjectDashboard extends Component {
         this.state.loading = false;
         requestAnimationFrame(() => {
             this.renderMainChart();
+            this.renderTaskGantt();
             if (this.state.showMore) {
                 this.renderMoreCharts();
             }
@@ -512,74 +521,67 @@ export class JaconProjectDashboard extends Component {
     }
 
     // ------------------------------------------------------------
-    // Task Timeline helpers (plain bars, no external Gantt widget -
-    // this Odoo install is Community, the native Gantt view is
-    // Enterprise-only)
+    // Task Timeline (Frappe Gantt, MIT-licensed, vendored locally under
+    // static/lib - this Odoo install is Community, the native Gantt
+    // view is Enterprise-only). Drag/resize a bar -> confirm popup ->
+    // only written to the real task if the user confirms; declined or
+    // dismissed snaps the bar back to where it was.
     // ------------------------------------------------------------
-    /** Every calendar day (not just work days, so bars read as
-     * continuous strips through weekends) from axis_start to axis_end. */
-    get timelineDates() {
-        const timeline = this.state.data.task_timeline;
-        if (!timeline.axis_start) {
-            return [];
+    renderTaskGantt() {
+        const el = this.taskGanttRef.el;
+        const rows = this.state.data && this.state.data.task_timeline;
+        if (!el || !window.Gantt) {
+            return;
         }
-        const dates = [];
-        const d = new Date(timeline.axis_start + "T00:00:00");
-        const end = new Date(timeline.axis_end + "T00:00:00");
-        while (d <= end) {
-            dates.push(d.toISOString().slice(0, 10));
-            d.setDate(d.getDate() + 1);
+        el.innerHTML = "";
+        this.taskGantt = null;
+        if (!rows || !rows.length) {
+            return;
         }
-        return dates;
+        const tasks = rows.map((row) => ({
+            id: String(row.id),
+            name: `${row.employee}: ${row.name}`,
+            start: row.start,
+            end: row.end,
+            progress: row.progress,
+        }));
+        this.taskGantt = new window.Gantt(el, tasks, {
+            view_mode: "Day",
+            scroll_to: "today",
+            readonly_progress: true,
+            on_date_change: (task, start, end) => this.onTaskGanttDateChange(task, start, end),
+        });
     }
 
-    _timelineDayIndex(dateStr) {
-        const axisStart = new Date(this.state.data.task_timeline.axis_start + "T00:00:00");
-        const d = new Date(dateStr + "T00:00:00");
-        return Math.round((d - axisStart) / 86400000);
+    _formatIsoDate(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` +
+            `-${String(date.getDate()).padStart(2, "0")}`;
     }
 
-    /** Greedy lane-packing so overlapping tasks for the same employee
-     * stack into separate rows instead of drawing on top of each other -
-     * one lane per "currently occupied until" slot, reused once free. */
-    _timelineLanes(row) {
-        const lanes = [];
-        const laneOf = {};
-        const sorted = [...row.tasks].sort((a, b) => a.start.localeCompare(b.start));
-        for (const task of sorted) {
-            const startIdx = this._timelineDayIndex(task.start);
-            const endIdx = this._timelineDayIndex(task.end);
-            let lane = lanes.findIndex((occupiedUntil) => occupiedUntil < startIdx);
-            if (lane === -1) {
-                lane = lanes.length;
-                lanes.push(endIdx);
-            } else {
-                lanes[lane] = endIdx;
-            }
-            laneOf[task.id] = lane;
+    onTaskGanttDateChange(ganttTask, newStart, newEnd) {
+        const taskId = parseInt(ganttTask.id, 10);
+        const row = (this.state.data.task_timeline || []).find((r) => r.id === taskId);
+        if (!row) {
+            return;
         }
-        return { laneCount: lanes.length || 1, laneOf };
-    }
+        const newStartStr = this._formatIsoDate(newStart);
+        const newEndStr = this._formatIsoDate(newEnd);
+        const revert = () => this.taskGantt.update_task(ganttTask.id, { start: row.start, end: row.end });
 
-    timelineRowStyle(row) {
-        const { laneCount } = this._timelineLanes(row);
-        return `width: ${this.timelineDates.length * TIMELINE_DAY_WIDTH}px; ` +
-            `height: ${laneCount * TIMELINE_LANE_HEIGHT}px;`;
-    }
-
-    timelineBarStyle(row, task) {
-        const { laneOf } = this._timelineLanes(row);
-        const startIdx = this._timelineDayIndex(task.start);
-        const endIdx = this._timelineDayIndex(task.end);
-        const left = startIdx * TIMELINE_DAY_WIDTH;
-        const width = (endIdx - startIdx + 1) * TIMELINE_DAY_WIDTH - 2;
-        const top = (laneOf[task.id] || 0) * TIMELINE_LANE_HEIGHT;
-        return `left: ${left}px; width: ${width}px; top: ${top}px;`;
-    }
-
-    timelineBarTitle(task) {
-        return `${task.name} (${task.project || "No Project"}) - ${task.start} → ${task.end}, ` +
-            `${task.allocated_hours}h` + (task.overdue ? " - overdue" : "");
+        this.dialog.add(ConfirmationDialog, {
+            title: "Move Task Dates?",
+            body: `"${row.name}" (${row.employee}): ${row.start} → ${row.end} becomes ` +
+                `${newStartStr} → ${newEndStr}. Apply this to the real task?`,
+            confirm: async () => {
+                await this.orm.write("project.task", [taskId], {
+                    date_start: newStartStr,
+                    date_deadline: `${newEndStr} 23:59:59`,
+                });
+                await this.fetchData();
+            },
+            cancel: revert,
+            dismiss: revert,
+        });
     }
 }
 
