@@ -291,38 +291,6 @@
                 <div class="row mt-3">
                     <div class="col-12">
                         <div class="o_pd_panel">
-                            <h4>Workload Gantt</h4>
-                            <p class="text-muted small">Who's overloaded and on which exact days, from today through the end of the selected period (Year/Months filter above).</p>
-                            <t t-if="!state.data.workload_gantt.length">
-                                <p class="text-muted">No data for the current filters.</p>
-                            </t>
-                            <div class="o_pd_gantt_wrap" t-else="">
-                                <table class="o_pd_gantt">
-                                    <thead>
-                                        <tr>
-                                            <th class="o_pd_gantt_name_col"/>
-                                            <th t-foreach="ganttDates" t-as="d" t-key="d" class="o_pd_gantt_date_col">
-                                                <t t-esc="ganttDateLabel(d)"/>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr t-foreach="state.data.workload_gantt" t-as="row" t-key="row.id">
-                                            <th class="o_pd_gantt_name_col"><t t-esc="row.name"/></th>
-                                            <td t-foreach="ganttDates" t-as="d" t-key="d"
-                                                t-attf-class="o_pd_gantt_cell {{ganttCellClass(row, d)}}"
-                                                t-att-title="ganttCellTitle(row, d)"/>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="o_pd_panel">
                             <div class="o_pd_panel_head">
                                 <h4 class="mb-0">
                                     Timesheet Detail
