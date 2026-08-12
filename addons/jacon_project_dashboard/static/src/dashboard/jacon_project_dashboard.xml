@@ -216,8 +216,8 @@
 
                     <div class="col-lg-4">
                         <div class="o_pd_panel h-100">
-                            <h4>Allocated Time &amp; Capacity</h4>
-                            <p class="text-muted small">Who still has room for more work</p>
+                            <h4>Capacity</h4>
+                            <p class="text-muted small">Who still has room this period (Year/Months filter above) - hours already logged vs. calendar capacity, holidays/leave not yet subtracted</p>
                             <t t-if="!state.data.capacity_by_employee.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
@@ -235,7 +235,7 @@
                                              t-att-style="capacityBarStyle(row)"/>
                                     </div>
                                     <div class="o_pd_capacity_bottom text-muted small">
-                                        <t t-esc="row.spent"/>h spent / <t t-esc="row.allocated"/>h allocated
+                                        <t t-esc="row.spent"/>h spent / <t t-esc="row.allocated"/>h capacity
                                     </div>
                                 </div>
                             </div>
