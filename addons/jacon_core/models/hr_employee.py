@@ -6,20 +6,28 @@ DONE_TASK_STATES = ('1_done', '1_canceled')
 
 
 def _group_overloaded_days(days):
-    """Consecutive overloaded work days -> [{start, end, task_ids}], so the
-    warning reads as one range ("12/8 -> 14/8") instead of one line per
-    day. `days` is already sorted, work-days-only, so list-adjacency alone
-    (not date arithmetic) is exactly "consecutive working days"."""
+    """Consecutive overloaded work days -> [{start, end, task_ids,
+    excess_hours}], so the warning reads as one range ("12/8 -> 14/8")
+    instead of one line per day. `excess_hours` is the total over-capacity
+    load across that range (sum of load - capacity on each overloaded
+    day), so the warning can say *how much* over, not just that it's
+    over. `days` is already sorted, work-days-only, so list-adjacency
+    alone (not date arithmetic) is exactly "consecutive working days"."""
     groups = []
     current = None
     for day in days:
         if day['overloaded']:
+            excess = round(day['load'] - day['capacity'], 1)
             if current is None:
-                current = {'start': day['date'], 'end': day['date'], 'task_ids': set(day['task_ids'])}
+                current = {
+                    'start': day['date'], 'end': day['date'],
+                    'task_ids': set(day['task_ids']), 'excess_hours': excess,
+                }
                 groups.append(current)
             else:
                 current['end'] = day['date']
                 current['task_ids'] |= set(day['task_ids'])
+                current['excess_hours'] = round(current['excess_hours'] + excess, 1)
         else:
             current = None
     return groups

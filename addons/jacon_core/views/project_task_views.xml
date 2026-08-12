@@ -28,7 +28,7 @@
                  instead of always "today". -->
             <xpath expr="//label[@for='date_deadline']" position="before">
                 <label for="date_start"/>
-                <field name="date_start"/>
+                <field name="date_start" nolabel="1"/>
             </xpath>
             <field name="tag_ids" position="after">
                 <field name="task_type"/>

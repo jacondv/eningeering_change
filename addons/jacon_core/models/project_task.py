@@ -107,7 +107,8 @@ class ProjectTask(models.Model):
                 period = (
                     rng['start'].strftime('%d-%m') if rng['start'] == rng['end']
                     else '%s → %s' % (rng['start'].strftime('%d-%m'), rng['end'].strftime('%d-%m')))
-                lines.append('%s - ngày %s: vượt quá công suất làm việc' % (employee.name, period))
+                lines.append('%s - ngày %s: vượt quá công suất làm việc (dư %.1fh)' % (
+                    employee.name, period, rng['excess_hours']))
             task.overload_warning = '\n'.join(lines) if lines else False
 
     def action_view_overload_conflicts(self):
