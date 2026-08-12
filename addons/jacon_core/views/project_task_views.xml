@@ -8,8 +8,9 @@
         <field name="inherit_id" ref="project.view_task_form2"/>
         <field name="arch" type="xml">
             <!-- Non-blocking heads-up when assigning this task would push
-                 an engineer over capacity some week - see
-                 project_task._onchange_check_overload. Odoo's stock form
+                 an engineer over daily capacity somewhere between its
+                 Start Date and Deadline - see
+                 project_task._compute_overload_warning. Odoo's stock form
                  reserves this exact spot for inherited warnings. -->
             <xpath expr="//t[@name='warning_section']" position="after">
                 <div class="alert alert-warning mb-0" role="alert" invisible="not overload_warning">
@@ -19,6 +20,15 @@
                             string="Xem &amp; xử lý xung đột" class="btn btn-sm btn-outline-warning mt-1"
                             invisible="not id"/>
                 </div>
+            </xpath>
+
+            <!-- Explicit Start Date (default: creation date, editable) -
+                 the overload calculation spreads remaining hours across
+                 working days from here to Deadline, a fixed window
+                 instead of always "today". -->
+            <xpath expr="//label[@for='date_deadline']" position="before">
+                <label for="date_start"/>
+                <field name="date_start"/>
             </xpath>
             <field name="tag_ids" position="after">
                 <field name="task_type"/>
