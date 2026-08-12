@@ -67,6 +67,19 @@ class HrEmployee(models.Model):
             d += timedelta(days=1)
         return count
 
+    def get_period_capacity_hours(self, date_from, date_to):
+        """Total working-hour capacity for this employee between
+        date_from and date_to (inclusive) - daily hours x working days
+        per their calendar (Mon-Fri unless configured otherwise).
+        Company holidays and personal leave are not subtracted yet (no
+        leave data in the system to subtract from) - this is a ceiling,
+        not yet a true "how much room is left" figure."""
+        self.ensure_one()
+        date_from = fields.Date.to_date(date_from)
+        date_to = fields.Date.to_date(date_to)
+        weekdays = self._work_weekdays()
+        return self._daily_hours() * self._count_work_days(date_from, date_to, weekdays)
+
     def _next_work_day(self, d, weekdays):
         while d.weekday() not in weekdays:
             d += timedelta(days=1)
