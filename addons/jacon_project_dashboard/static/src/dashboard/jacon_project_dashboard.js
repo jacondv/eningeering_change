@@ -16,6 +16,30 @@ const MAIN_VIEWS = [
     { key: "task_type", label: "Hour by Task Type" },
 ];
 
+// Remembers the filter bar (Year/Month/Project/Engineer/Task Type)
+// between visits, per browser - until the user explicitly changes it or
+// clicks "Reset filters". Not synced across users/devices on purpose,
+// same as any other client-side UI preference.
+const FILTERS_STORAGE_KEY = "jacon_project_dashboard.filters";
+
+function loadStoredFilters() {
+    try {
+        const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+function storeFilters(filters) {
+    try {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+    } catch {
+        // Storage unavailable (private mode, quota, ...) - silently skip,
+        // filters just won't persist for this session.
+    }
+}
+
 export class JaconProjectDashboard extends Component {
     static template = "jacon_project_dashboard.Dashboard";
     static props = ["*"];
@@ -54,7 +78,10 @@ export class JaconProjectDashboard extends Component {
         onWillStart(async () => {
             await loadBundle("web.chartjs_lib");
             this.state.options = await this.orm.call("jacon.project.dashboard", "get_filter_options", []);
-            if (this.state.options.current_year) {
+            const stored = loadStoredFilters();
+            if (stored) {
+                Object.assign(this.state.filters, stored);
+            } else if (this.state.options.current_year) {
                 this.state.filters.years = [this.state.options.current_year];
             }
             await this.fetchData();
@@ -65,6 +92,7 @@ export class JaconProjectDashboard extends Component {
     // Filters
     // ------------------------------------------------------------
     async fetchData() {
+        storeFilters(this.state.filters);
         this.state.loading = true;
         this.state.data = await this.orm.call(
             "jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters });

@@ -148,23 +148,37 @@ class JaconProjectDashboard(models.AbstractModel):
         (Mon-Fri per each employee's calendar; company holidays and
         personal leave aren't subtracted yet - see
         hr.employee.get_period_capacity_hours - so this is currently a
-        ceiling, slightly optimistic until leave data exists).
+        ceiling, slightly optimistic until leave data exists). Any part of
+        the period that's already in the past is excluded from both sides
+        - a day that's gone can't be "still free for more work", so
+        counting it would only inflate the free% for periods partly
+        behind us (e.g. viewing this month from the 20th).
 
         Committed is NOT "hours already logged" (that's a backward-looking
-        fact, blind to work that hasn't happened yet) - it's each open
-        task's `remaining_hours` spread across its own working days
-        (date_start -> date_deadline) and summed for whichever of those
-        days fall in the selected period, via the same day-by-day engine
-        the Task overload warning uses (hr.employee.get_daily_load). A
-        task due next month but not yet started still shows up here on
-        the days it would need to be worked."""
+        fact that drops the instant someone logs a timesheet line, even
+        though the task's calendar slot hasn't actually changed) - it's
+        each open task's `allocated_hours` (the planned/booked hours)
+        spread across its own working days (date_start -> date_deadline)
+        and summed for whichever of those days fall in the selected
+        period, via the same day-by-day engine the Task overload warning
+        uses (hr.employee.get_daily_load). A task due next month but not
+        yet started still shows up here on the days it would need to be
+        worked; a task that finishes Done - on time or early, however
+        many hours it actually took - drops out entirely and frees up
+        the rest of its window immediately."""
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
             emp_domain.append(('id', 'in', employee_ids))
         employees = self.env['hr.employee'].search(emp_domain)
 
-        segments = self._period_segments(filters)
+        today = fields.Date.context_today(self)
+        segments = [
+            (max(start, today), end)
+            for start, end in self._period_segments(filters)
+        ]
+        segments = [(start, end) for start, end in segments if start <= end]
+
         capacity = []
         for emp in employees:
             period_capacity = sum(emp.get_period_capacity_hours(start, end) for start, end in segments)
