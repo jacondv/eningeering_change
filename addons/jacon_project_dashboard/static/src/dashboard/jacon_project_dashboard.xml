@@ -279,31 +279,11 @@
                     <div class="col-12">
                         <div class="o_pd_panel">
                             <h4>Task Timeline</h4>
-                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline, from today through the end of the selected period.</p>
-                            <t t-if="!state.data.task_timeline.rows.length">
+                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize. Nothing is saved until you confirm.</p>
+                            <t t-if="!state.data.task_timeline.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
-                            <div class="o_pd_timeline_wrap" t-else="">
-                                <div class="o_pd_timeline_header">
-                                    <div class="o_pd_timeline_name_col"/>
-                                    <div class="o_pd_timeline_dates">
-                                        <div t-foreach="timelineDates" t-as="d" t-key="d" class="o_pd_timeline_date_col">
-                                            <t t-esc="ganttDateLabel(d)"/>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div t-foreach="state.data.task_timeline.rows" t-as="row" t-key="row.id" class="o_pd_timeline_row">
-                                    <div class="o_pd_timeline_name_col"><t t-esc="row.name"/></div>
-                                    <div class="o_pd_timeline_lanes" t-att-style="timelineRowStyle(row)">
-                                        <div t-foreach="row.tasks" t-as="task" t-key="task.id"
-                                             t-attf-class="o_pd_timeline_bar {{task.overdue ? 'o_pd_timeline_bar_overdue' : ''}}"
-                                             t-att-style="timelineBarStyle(row, task)"
-                                             t-att-title="timelineBarTitle(task)">
-                                            <t t-esc="task.name"/>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <div class="o_pd_task_gantt" t-ref="task_gantt" t-else=""/>
                         </div>
                     </div>
                 </div>

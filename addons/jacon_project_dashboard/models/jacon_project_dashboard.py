@@ -241,13 +241,17 @@ class JaconProjectDashboard(models.AbstractModel):
         return rows
 
     def _task_timeline(self, filters):
-        """Individual open tasks as (start, end) bars per employee, for the
-        Task Timeline panel: complements the Workload Gantt's day-load
-        coloring by showing exactly *which tasks* overlap, not just that
-        some day is overloaded - no external Gantt widget needed (this
-        Odoo install is Community, the native Gantt view is
-        Enterprise-only), just plain bars over the same forward-looking
-        window as Capacity/Workload Gantt.
+        """Individual open tasks as (start, end) bars, one per task, for the
+        drag & drop Task Timeline panel (Frappe Gantt, MIT-licensed,
+        vendored locally under static/lib - this Odoo install is
+        Community, the native Gantt view is Enterprise-only).
+
+        Dates are the task's *real*, unclamped date_start/date_deadline -
+        the selected Year/Months period is only used to decide which
+        tasks to include (must overlap the window), not to clip the bar
+        itself, because dragging a bar has to write back the task's
+        actual dates and a clipped starting position would silently
+        shift them on the first drag.
         """
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
@@ -255,43 +259,45 @@ class JaconProjectDashboard(models.AbstractModel):
             emp_domain.append(('id', 'in', employee_ids))
         employees = self.env['hr.employee'].search(emp_domain)
         segments = self._period_segments_from_today(filters)
-        if not segments:
-            return {'axis_start': False, 'axis_end': False, 'rows': []}
+        if not segments or not employees:
+            return []
 
-        axis_start = min(start for start, _end in segments)
-        axis_end = max(end for _start, end in segments)
+        window_start = min(start for start, _end in segments)
+        window_end = max(end for _start, end in segments)
         today = fields.Date.context_today(self)
+        emp_by_user = {emp.user_id.id: emp for emp in employees}
 
-        rows = []
-        for emp in employees:
-            if not emp.user_id:
+        tasks = self.env['project.task'].search([
+            ('user_ids', 'in', employees.user_id.ids),
+            ('state', 'not in', list(DONE_TASK_STATES)),
+            ('date_deadline', '!=', False),
+        ])
+
+        bars = []
+        for task in tasks:
+            deadline = fields.Date.to_date(task.date_deadline)
+            start = fields.Date.to_date(task.date_start) or deadline
+            if start > deadline:
+                start = deadline
+            if deadline < window_start or start > window_end:
                 continue
-            tasks = self.env['project.task'].search([
-                ('user_ids', 'in', emp.user_id.id),
-                ('state', 'not in', list(DONE_TASK_STATES)),
-                ('date_deadline', '!=', False),
-            ])
-            bars = []
-            for task in tasks:
-                deadline = fields.Date.to_date(task.date_deadline)
-                start = fields.Date.to_date(task.date_start) or deadline
-                if start > deadline:
-                    start = deadline
-                if deadline < axis_start or start > axis_end:
-                    continue
-                bars.append({
-                    'id': task.id,
-                    'name': task.name,
-                    'project': task.project_id.name or '',
-                    'start': max(start, axis_start).isoformat(),
-                    'end': min(deadline, axis_end).isoformat(),
-                    'allocated_hours': task.allocated_hours,
-                    'overdue': deadline < today,
-                })
-            if bars:
-                bars.sort(key=lambda b: b['start'])
-                rows.append({'id': emp.id, 'name': emp.name, 'tasks': bars})
-        return {'axis_start': axis_start.isoformat(), 'axis_end': axis_end.isoformat(), 'rows': rows}
+            assignee = next((emp_by_user[u.id] for u in task.user_ids if u.id in emp_by_user), None)
+            if not assignee:
+                continue
+            bars.append({
+                'id': task.id,
+                'name': task.name,
+                'project': task.project_id.name or '',
+                'employee': assignee.name,
+                'employee_id': assignee.id,
+                'start': start.isoformat(),
+                'end': deadline.isoformat(),
+                'allocated_hours': task.allocated_hours,
+                'progress': round(task.progress or 0.0),
+                'overdue': deadline < today,
+            })
+        bars.sort(key=lambda b: (b['employee'], b['start']))
+        return bars
 
     @api.model
     def get_dashboard_data(self, filters=None):
