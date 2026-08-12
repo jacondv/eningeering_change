@@ -570,6 +570,11 @@ export class JaconProjectDashboard extends Component {
             start: row.start,
             end: row.end,
             progress: row.progress,
+            // Red bar = this task's own window contains a day where its
+            // assignee is over capacity (same flag as the Task form
+            // warning and Workload Gantt) - the progress fill (green,
+            // via SCSS) stays a separate, independent signal on top.
+            custom_class: row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
             view_mode: this.taskGanttViewMode,
