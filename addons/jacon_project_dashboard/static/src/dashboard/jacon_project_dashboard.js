@@ -6,6 +6,8 @@ import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_d
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
+const TASK_GANTT_ZOOM_LEVELS = ["Day", "Week", "Month", "Year"];
+
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
     "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
@@ -58,6 +60,11 @@ export class JaconProjectDashboard extends Component {
         };
         this.taskGanttRef = useRef("task_gantt");
         this.taskGantt = null;
+        // Not reactive state on purpose - a zoom level change shouldn't
+        // trigger a re-render by itself, it only needs to survive across
+        // the re-renders `renderTaskGantt` already does for other reasons
+        // (filter change, post-drag refresh).
+        this.taskGanttViewMode = "Day";
         // Frappe Gantt fires on_date_change on every mousemove while
         // dragging, not just on drop - so on_date_change only records the
         // latest position here, and the confirm popup opens once, on the
@@ -565,7 +572,7 @@ export class JaconProjectDashboard extends Component {
             progress: row.progress,
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
-            view_mode: "Day",
+            view_mode: this.taskGanttViewMode,
             scroll_to: "today",
             readonly_progress: true,
             // Fires on every mousemove while dragging, not just on drop -
@@ -575,6 +582,28 @@ export class JaconProjectDashboard extends Component {
                 this._pendingGanttChange = { ganttTaskId: task.id, taskId: parseInt(task.id, 10), start, end };
             },
         });
+        // Ctrl+wheel to zoom the time scale (Day <-> Week <-> Month <->
+        // Year) - plain wheel is left alone so it still just scrolls the
+        // page/panel like the user expects. `el` is a fresh DOM node every
+        // call (Owl remounts this container on each loading toggle), so no
+        // listener cleanup/dedup needed here.
+        el.addEventListener("wheel", (ev) => this.onTaskGanttWheel(ev), { passive: false });
+    }
+
+    onTaskGanttWheel(ev) {
+        if (!ev.ctrlKey || !this.taskGantt) {
+            return;
+        }
+        ev.preventDefault();
+        const idx = TASK_GANTT_ZOOM_LEVELS.indexOf(this.taskGanttViewMode);
+        const nextIdx = ev.deltaY < 0
+            ? Math.max(0, idx - 1)
+            : Math.min(TASK_GANTT_ZOOM_LEVELS.length - 1, idx + 1);
+        const nextMode = TASK_GANTT_ZOOM_LEVELS[nextIdx];
+        if (nextMode !== this.taskGanttViewMode) {
+            this.taskGanttViewMode = nextMode;
+            this.taskGantt.change_view_mode(nextMode);
+        }
     }
 
     _formatIsoDate(date) {
