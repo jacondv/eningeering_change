@@ -247,7 +247,7 @@
                     <div class="col-12">
                         <div class="o_pd_panel">
                             <h4>Workload Gantt</h4>
-                            <p class="text-muted small">Ai quá tải và vào đúng ngày nào, tính từ hôm nay đến cuối kỳ đang chọn (Year/Months filter phía trên).</p>
+                            <p class="text-muted small">Who's overloaded and on which exact days, from today through the end of the selected period (Year/Months filter above).</p>
                             <t t-if="!state.data.workload_gantt.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
