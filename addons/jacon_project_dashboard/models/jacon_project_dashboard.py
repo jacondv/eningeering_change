@@ -122,24 +122,34 @@ class JaconProjectDashboard(models.AbstractModel):
 
         return spent_domain, planned_domain
 
-    def _capacity_by_employee(self, filters, planned_domain, spent_by_employee):
+    def _capacity_by_employee(self, filters, planned_domain):
         """Allocated (planned) vs Spent hours per engineer, so a manager can
-        see at a glance who still has room to take on more work. Allocated
-        is not date-bound (see `_build_domains`); Spent follows the current
-        Year/Months filter, same trade-off as the KPI utilization figure.
+        see at a glance who still has room to take on more work. Not
+        date-bound (see `_build_domains`) - capacity is about current
+        standing commitments, not a period.
 
         Unlike `planned_domain` elsewhere (KPI/charts, which intentionally
         include done tasks - they're still valid "planned vs actual" data
         points for a past period), a Done/Cancelled task no longer occupies
         any of an engineer's future capacity, so it must not count toward
-        "how much room do they still have" here."""
+        "how much room do they still have" here.
+
+        Both Allocated and Spent are read off the *same* open tasks (via
+        `allocated_hours` / `effective_hours`) instead of pairing task
+        assignment (`user_ids`) with the timesheet's own `employee_id` -
+        those two are independent fields in Odoo (nothing stops someone
+        from logging time on a task they're not assigned to, or a task
+        being reassigned after time was logged against it), so mixing them
+        can silently compare hours from two different sets of tasks."""
         Task = self.env['project.task']
         open_planned_domain = Domain.AND([planned_domain, [('state', 'not in', list(DONE_TASK_STATES))]])
-        allocated_by_user = {
-            user.id: _num(total)
-            for user, total in Task._read_group(open_planned_domain, ['user_ids'], ['allocated_hours:sum'])
-            if user
-        }
+
+        allocated_by_user = {}
+        spent_by_user = {}
+        for task in Task.search(open_planned_domain):
+            for user in task.user_ids:
+                allocated_by_user[user.id] = allocated_by_user.get(user.id, 0.0) + (task.allocated_hours or 0.0)
+                spent_by_user[user.id] = spent_by_user.get(user.id, 0.0) + (task.effective_hours or 0.0)
 
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
@@ -150,7 +160,7 @@ class JaconProjectDashboard(models.AbstractModel):
         capacity = []
         for emp in employees:
             allocated = allocated_by_user.get(emp['user_id'][0], 0.0)
-            spent = spent_by_employee.get(emp['id'], 0.0)
+            spent = spent_by_user.get(emp['user_id'][0], 0.0)
             if not allocated and not spent:
                 continue
             if allocated:
@@ -274,7 +284,7 @@ class JaconProjectDashboard(models.AbstractModel):
             if user
         ]
 
-        capacity_by_employee = self._capacity_by_employee(filters, planned_domain, spent_by_employee)
+        capacity_by_employee = self._capacity_by_employee(filters, planned_domain)
 
         return {
             'kpi': {
