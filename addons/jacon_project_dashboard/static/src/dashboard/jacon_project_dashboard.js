@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useRef, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, useRef, useState } from "@odoo/owl";
 import { loadBundle } from "@web/core/assets";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
@@ -85,6 +85,21 @@ export class JaconProjectDashboard extends Component {
                 this.state.filters.years = [this.state.options.current_year];
             }
             await this.fetchData();
+        });
+
+        // fetchData's own render (below) runs inside onWillStart on first
+        // load, i.e. before Owl has mounted the canvases for the first
+        // time - `requestAnimationFrame` isn't a reliable enough guard for
+        // that first paint, so re-render once mounting is guaranteed done.
+        // Subsequent filter/tab changes call fetchData after mount, where
+        // the rAF render already works fine.
+        onMounted(() => {
+            if (this.state.data) {
+                this.renderMainChart();
+                if (this.state.showMore) {
+                    this.renderMoreCharts();
+                }
+            }
         });
     }
 
