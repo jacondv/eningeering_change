@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useEffect, useRef, useState } from "@odoo/owl";
 import { loadBundle } from "@web/core/assets";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { registry } from "@web/core/registry";
@@ -93,6 +93,16 @@ export class JaconProjectDashboard extends Component {
             showMore: false,
         });
 
+        // useEffect (not rAF/onMounted like the canvas charts below) -
+        // runs after every DOM patch where state.data actually changed,
+        // including ones triggered from inside the confirm dialog after a
+        // drag, where a plain rAF callback could fire before Owl finishes
+        // re-mounting the (loading-toggled) container div.
+        useEffect(
+            () => this.renderTaskGantt(),
+            () => [this.state.data]
+        );
+
         onWillStart(async () => {
             await Promise.all([
                 loadBundle("web.chartjs_lib"),
@@ -117,7 +127,6 @@ export class JaconProjectDashboard extends Component {
         onMounted(() => {
             if (this.state.data) {
                 this.renderMainChart();
-                this.renderTaskGantt();
                 if (this.state.showMore) {
                     this.renderMoreCharts();
                 }
@@ -136,7 +145,6 @@ export class JaconProjectDashboard extends Component {
         this.state.loading = false;
         requestAnimationFrame(() => {
             this.renderMainChart();
-            this.renderTaskGantt();
             if (this.state.showMore) {
                 this.renderMoreCharts();
             }
