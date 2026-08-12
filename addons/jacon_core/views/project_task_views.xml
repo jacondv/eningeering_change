@@ -30,6 +30,18 @@
                 <label for="date_start"/>
                 <field name="date_start" nolabel="1"/>
             </xpath>
+
+            <!-- Turn the Deadline field itself red the moment the
+                 Start Date -> Deadline window can't physically fit
+                 Allocated Time (this task alone, or stacked with the
+                 assignee's other open tasks) - overload_warning already
+                 covers both cases, this just surfaces it right where
+                 the user is editing instead of only in the banner
+                 below. -->
+            <xpath expr="//div[@id='date_deadline_and_recurring_task']/field[@name='date_deadline']"
+                   position="attributes">
+                <attribute name="decoration-danger">(date_deadline and date_deadline &lt; current_date and state not in ['1_done', '1_canceled']) or overload_warning</attribute>
+            </xpath>
             <field name="tag_ids" position="after">
                 <field name="task_type"/>
             </field>

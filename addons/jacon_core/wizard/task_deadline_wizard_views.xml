@@ -11,6 +11,7 @@
                     "New Deadline" is pre-filled with the nearest date that has room - click to review/adjust if needed,
                     nothing is applied to the real tasks until you click "Save".
                 </p>
+                <field name="gantt_html" widget="html" nolabel="1" readonly="1"/>
                 <field name="line_ids">
                     <list editable="bottom" create="0" delete="0">
                         <field name="project_id" readonly="1"/>
