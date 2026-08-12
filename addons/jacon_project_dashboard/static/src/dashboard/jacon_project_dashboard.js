@@ -455,6 +455,58 @@ export class JaconProjectDashboard extends Component {
         }
         return "o_pd_capacity_free";
     }
+
+    // ------------------------------------------------------------
+    // Workload Gantt helpers
+    // ------------------------------------------------------------
+    /** Union of every employee's work-day dates, sorted - the column
+     * axis. Not every employee necessarily has a cell for every date
+     * (different calendars), missing = day off for that person. */
+    get ganttDates() {
+        const dates = new Set();
+        for (const row of this.state.data.workload_gantt) {
+            for (const day of row.days) {
+                dates.add(day.date);
+            }
+        }
+        return [...dates].sort();
+    }
+
+    ganttDateLabel(dateStr) {
+        const d = new Date(dateStr + "T00:00:00");
+        return `${d.getDate()}/${d.getMonth() + 1}`;
+    }
+
+    _ganttDay(row, dateStr) {
+        return row.days.find((day) => day.date === dateStr);
+    }
+
+    ganttCellClass(row, dateStr) {
+        const day = this._ganttDay(row, dateStr);
+        if (!day) {
+            return "o_pd_gantt_off";
+        }
+        if (day.overloaded) {
+            return "o_pd_gantt_over";
+        }
+        const pct = day.capacity ? (day.load / day.capacity) * 100 : 0;
+        if (pct >= 85) {
+            return "o_pd_gantt_tight";
+        }
+        if (pct > 0) {
+            return "o_pd_gantt_busy";
+        }
+        return "o_pd_gantt_free";
+    }
+
+    ganttCellTitle(row, dateStr) {
+        const day = this._ganttDay(row, dateStr);
+        if (!day) {
+            return `${row.name} - ${dateStr}: off`;
+        }
+        return `${row.name} - ${dateStr}: ${day.load}h / ${day.capacity}h` +
+            (day.overloaded ? " (overloaded)" : "");
+    }
 }
 
 registry.category("actions").add("jacon_project_dashboard", JaconProjectDashboard);
