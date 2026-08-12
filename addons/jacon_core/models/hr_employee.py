@@ -34,11 +34,19 @@ class HrEmployee(models.Model):
     instead of drifting apart.
 
     Every task has an explicit `date_start` (default: creation date) and
-    `date_deadline`. Its `remaining_hours` (allocated - already logged)
-    is spread evenly across the working days in that window - a fixed,
-    stored window, not "today" recomputed on every check, so the answer
-    for a given task doesn't silently shift depending on which day you
-    happen to look at it.
+    `date_deadline`. Its `allocated_hours` (the planned/booked hours, NOT
+    `remaining_hours`) is spread evenly across the working days in that
+    window - a fixed, stored window, not "today" recomputed on every
+    check, so the answer for a given task doesn't silently shift
+    depending on which day you happen to look at it.
+
+    `allocated_hours` is used on purpose instead of `remaining_hours`:
+    this is a *schedule* (how much of each day is booked), not a
+    progress tracker - logging timesheet hours against a task shouldn't
+    instantly "free up" days that are still booked on the calendar until
+    the task is actually closed (Done/Cancelled), at which point it
+    drops out of this calculation entirely, regardless of how many hours
+    it ended up taking.
     """
     _inherit = 'hr.employee'
 
@@ -90,7 +98,7 @@ class HrEmployee(models.Model):
         every working day in [date_from, date_to] (inclusive).
 
         Every open task assigned to this employee (state not
-        done/canceled, with a deadline) spreads its `remaining_hours`
+        done/canceled, with a deadline) spreads its `allocated_hours`
         evenly across the working days from its own `date_start` to its
         `date_deadline`, contributing that daily rate to each of those
         days that also falls inside [date_from, date_to].
@@ -148,7 +156,7 @@ class HrEmployee(models.Model):
                 domain.append(('id', '!=', exclude_task_id))
             for task in self.env['project.task'].search(domain):
                 task_start = task.date_start or task.create_date
-                _distribute(max(task.remaining_hours or 0.0, 0.0), task_start, task.date_deadline, task.id)
+                _distribute(max(task.allocated_hours or 0.0, 0.0), task_start, task.date_deadline, task.id)
 
         for remaining, start, deadline in (extra_remaining or []):
             _distribute(remaining, start, deadline)
