@@ -278,6 +278,71 @@
                 <div class="row mt-3">
                     <div class="col-12">
                         <div class="o_pd_panel">
+                            <h4>Task Timeline</h4>
+                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline, from today through the end of the selected period.</p>
+                            <t t-if="!state.data.task_timeline.rows.length">
+                                <p class="text-muted">No data for the current filters.</p>
+                            </t>
+                            <div class="o_pd_timeline_wrap" t-else="">
+                                <div class="o_pd_timeline_header">
+                                    <div class="o_pd_timeline_name_col"/>
+                                    <div class="o_pd_timeline_dates">
+                                        <div t-foreach="timelineDates" t-as="d" t-key="d" class="o_pd_timeline_date_col">
+                                            <t t-esc="ganttDateLabel(d)"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div t-foreach="state.data.task_timeline.rows" t-as="row" t-key="row.id" class="o_pd_timeline_row">
+                                    <div class="o_pd_timeline_name_col"><t t-esc="row.name"/></div>
+                                    <div class="o_pd_timeline_lanes" t-att-style="timelineRowStyle(row)">
+                                        <div t-foreach="row.tasks" t-as="task" t-key="task.id"
+                                             t-attf-class="o_pd_timeline_bar {{task.overdue ? 'o_pd_timeline_bar_overdue' : ''}}"
+                                             t-att-style="timelineBarStyle(row, task)"
+                                             t-att-title="timelineBarTitle(task)">
+                                            <t t-esc="task.name"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="o_pd_panel">
+                            <h4>Workload Gantt</h4>
+                            <p class="text-muted small">Who's overloaded and on which exact days, from today through the end of the selected period (Year/Months filter above).</p>
+                            <t t-if="!state.data.workload_gantt.length">
+                                <p class="text-muted">No data for the current filters.</p>
+                            </t>
+                            <div class="o_pd_gantt_wrap" t-else="">
+                                <table class="o_pd_gantt">
+                                    <thead>
+                                        <tr>
+                                            <th class="o_pd_gantt_name_col"/>
+                                            <th t-foreach="ganttDates" t-as="d" t-key="d" class="o_pd_gantt_date_col">
+                                                <t t-esc="ganttDateLabel(d)"/>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr t-foreach="state.data.workload_gantt" t-as="row" t-key="row.id">
+                                            <th class="o_pd_gantt_name_col"><t t-esc="row.name"/></th>
+                                            <td t-foreach="ganttDates" t-as="d" t-key="d"
+                                                t-attf-class="o_pd_gantt_cell {{ganttCellClass(row, d)}}"
+                                                t-att-title="ganttCellTitle(row, d)"/>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="o_pd_panel">
                             <div class="o_pd_panel_head">
                                 <h4 class="mb-0">
                                     Timesheet Detail

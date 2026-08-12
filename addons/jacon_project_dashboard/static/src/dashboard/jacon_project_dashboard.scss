@@ -310,4 +310,77 @@
         &.o_pd_gantt_tight { background: #edc948; }
         &.o_pd_gantt_over { background: #e15759; }
     }
+
+    // ------------------------------------------------------------
+    // Task Timeline panel
+    // ------------------------------------------------------------
+    .o_pd_timeline_wrap {
+        overflow-x: auto;
+        max-height: 420px;
+        overflow-y: auto;
+    }
+
+    .o_pd_timeline_name_col {
+        position: sticky;
+        left: 0;
+        background: #ffffff;
+        flex: 0 0 140px;
+        width: 140px;
+        font-size: .82rem;
+        font-weight: 500;
+        padding-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        z-index: 1;
+    }
+
+    .o_pd_timeline_header {
+        display: flex;
+        margin-bottom: 4px;
+    }
+
+    .o_pd_timeline_dates {
+        display: flex;
+    }
+
+    .o_pd_timeline_date_col {
+        flex: 0 0 22px;
+        width: 22px;
+        font-size: .62rem;
+        font-weight: 500;
+        color: #888;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .o_pd_timeline_row {
+        display: flex;
+        align-items: flex-start;
+        padding: 4px 0;
+        border-bottom: 1px solid #f0f0f4;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    .o_pd_timeline_lanes {
+        position: relative;
+    }
+
+    .o_pd_timeline_bar {
+        position: absolute;
+        height: 20px;
+        border-radius: 3px;
+        background: #4e79a7;
+        color: #ffffff;
+        font-size: .68rem;
+        line-height: 20px;
+        padding: 0 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
+
+        &.o_pd_timeline_bar_overdue { background: #e15759; }
+    }
 }

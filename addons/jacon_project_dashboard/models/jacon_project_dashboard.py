@@ -240,6 +240,59 @@ class JaconProjectDashboard(models.AbstractModel):
             })
         return rows
 
+    def _task_timeline(self, filters):
+        """Individual open tasks as (start, end) bars per employee, for the
+        Task Timeline panel: complements the Workload Gantt's day-load
+        coloring by showing exactly *which tasks* overlap, not just that
+        some day is overloaded - no external Gantt widget needed (this
+        Odoo install is Community, the native Gantt view is
+        Enterprise-only), just plain bars over the same forward-looking
+        window as Capacity/Workload Gantt.
+        """
+        employee_ids = filters.get('employee_ids') or []
+        emp_domain = [('user_id', '!=', False)]
+        if employee_ids:
+            emp_domain.append(('id', 'in', employee_ids))
+        employees = self.env['hr.employee'].search(emp_domain)
+        segments = self._period_segments_from_today(filters)
+        if not segments:
+            return {'axis_start': False, 'axis_end': False, 'rows': []}
+
+        axis_start = min(start for start, _end in segments)
+        axis_end = max(end for _start, end in segments)
+        today = fields.Date.context_today(self)
+
+        rows = []
+        for emp in employees:
+            if not emp.user_id:
+                continue
+            tasks = self.env['project.task'].search([
+                ('user_ids', 'in', emp.user_id.id),
+                ('state', 'not in', list(DONE_TASK_STATES)),
+                ('date_deadline', '!=', False),
+            ])
+            bars = []
+            for task in tasks:
+                deadline = fields.Date.to_date(task.date_deadline)
+                start = fields.Date.to_date(task.date_start) or deadline
+                if start > deadline:
+                    start = deadline
+                if deadline < axis_start or start > axis_end:
+                    continue
+                bars.append({
+                    'id': task.id,
+                    'name': task.name,
+                    'project': task.project_id.name or '',
+                    'start': max(start, axis_start).isoformat(),
+                    'end': min(deadline, axis_end).isoformat(),
+                    'allocated_hours': task.allocated_hours,
+                    'overdue': deadline < today,
+                })
+            if bars:
+                bars.sort(key=lambda b: b['start'])
+                rows.append({'id': emp.id, 'name': emp.name, 'tasks': bars})
+        return {'axis_start': axis_start.isoformat(), 'axis_end': axis_end.isoformat(), 'rows': rows}
+
     @api.model
     def get_dashboard_data(self, filters=None):
         filters = filters or {}
@@ -348,6 +401,7 @@ class JaconProjectDashboard(models.AbstractModel):
 
         capacity_by_employee = self._capacity_by_employee(filters)
         workload_gantt = self._workload_gantt(filters)
+        task_timeline = self._task_timeline(filters)
 
         return {
             'kpi': {
@@ -368,6 +422,7 @@ class JaconProjectDashboard(models.AbstractModel):
             'overdue_by_employee': overdue_by_employee,
             'capacity_by_employee': capacity_by_employee,
             'workload_gantt': workload_gantt,
+            'task_timeline': task_timeline,
         }
 
     @api.model

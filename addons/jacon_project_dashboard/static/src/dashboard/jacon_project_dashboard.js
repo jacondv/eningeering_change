@@ -5,6 +5,9 @@ import { loadBundle } from "@web/core/assets";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
+const TIMELINE_DAY_WIDTH = 22;
+const TIMELINE_LANE_HEIGHT = 24;
+
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
     "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
@@ -506,6 +509,77 @@ export class JaconProjectDashboard extends Component {
         }
         return `${row.name} - ${dateStr}: ${day.load}h / ${day.capacity}h` +
             (day.overloaded ? " (overloaded)" : "");
+    }
+
+    // ------------------------------------------------------------
+    // Task Timeline helpers (plain bars, no external Gantt widget -
+    // this Odoo install is Community, the native Gantt view is
+    // Enterprise-only)
+    // ------------------------------------------------------------
+    /** Every calendar day (not just work days, so bars read as
+     * continuous strips through weekends) from axis_start to axis_end. */
+    get timelineDates() {
+        const timeline = this.state.data.task_timeline;
+        if (!timeline.axis_start) {
+            return [];
+        }
+        const dates = [];
+        const d = new Date(timeline.axis_start + "T00:00:00");
+        const end = new Date(timeline.axis_end + "T00:00:00");
+        while (d <= end) {
+            dates.push(d.toISOString().slice(0, 10));
+            d.setDate(d.getDate() + 1);
+        }
+        return dates;
+    }
+
+    _timelineDayIndex(dateStr) {
+        const axisStart = new Date(this.state.data.task_timeline.axis_start + "T00:00:00");
+        const d = new Date(dateStr + "T00:00:00");
+        return Math.round((d - axisStart) / 86400000);
+    }
+
+    /** Greedy lane-packing so overlapping tasks for the same employee
+     * stack into separate rows instead of drawing on top of each other -
+     * one lane per "currently occupied until" slot, reused once free. */
+    _timelineLanes(row) {
+        const lanes = [];
+        const laneOf = {};
+        const sorted = [...row.tasks].sort((a, b) => a.start.localeCompare(b.start));
+        for (const task of sorted) {
+            const startIdx = this._timelineDayIndex(task.start);
+            const endIdx = this._timelineDayIndex(task.end);
+            let lane = lanes.findIndex((occupiedUntil) => occupiedUntil < startIdx);
+            if (lane === -1) {
+                lane = lanes.length;
+                lanes.push(endIdx);
+            } else {
+                lanes[lane] = endIdx;
+            }
+            laneOf[task.id] = lane;
+        }
+        return { laneCount: lanes.length || 1, laneOf };
+    }
+
+    timelineRowStyle(row) {
+        const { laneCount } = this._timelineLanes(row);
+        return `width: ${this.timelineDates.length * TIMELINE_DAY_WIDTH}px; ` +
+            `height: ${laneCount * TIMELINE_LANE_HEIGHT}px;`;
+    }
+
+    timelineBarStyle(row, task) {
+        const { laneOf } = this._timelineLanes(row);
+        const startIdx = this._timelineDayIndex(task.start);
+        const endIdx = this._timelineDayIndex(task.end);
+        const left = startIdx * TIMELINE_DAY_WIDTH;
+        const width = (endIdx - startIdx + 1) * TIMELINE_DAY_WIDTH - 2;
+        const top = (laneOf[task.id] || 0) * TIMELINE_LANE_HEIGHT;
+        return `left: ${left}px; width: ${width}px; top: ${top}px;`;
+    }
+
+    timelineBarTitle(task) {
+        return `${task.name} (${task.project || "No Project"}) - ${task.start} → ${task.end}, ` +
+            `${task.allocated_hours}h` + (task.overdue ? " - overdue" : "");
     }
 }
 
