@@ -279,7 +279,7 @@
                     <div class="col-12">
                         <div class="o_pd_panel">
                             <h4>Task Timeline</h4>
-                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize. Nothing is saved until you confirm.</p>
+                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize (nothing is saved until you confirm), Ctrl+scroll to zoom Day/Week/Month/Year.</p>
                             <t t-if="!state.data.task_timeline.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
