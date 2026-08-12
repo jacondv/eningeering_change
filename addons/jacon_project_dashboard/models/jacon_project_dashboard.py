@@ -111,6 +111,15 @@ class JaconProjectDashboard(models.AbstractModel):
                 segments.append((date(year, 1, 1), date(year, 12, 31)))
         return segments
 
+    def _period_segments_from_today(self, filters):
+        """`_period_segments`, clamped so no segment starts before today -
+        shared by Capacity and the Workload Gantt, both of which are
+        forward-looking ("who has room / who's overloaded from now on"),
+        not a record of what already happened."""
+        today = fields.Date.context_today(self)
+        segments = [(max(start, today), end) for start, end in self._period_segments(filters)]
+        return [(start, end) for start, end in segments if start <= end]
+
     def _build_domains(self, filters):
         """Two separate domains: Spent (Timesheet, date-bounded) and Planned
         (Task, not date-bounded - `allocated_hours` is a single static
@@ -171,13 +180,7 @@ class JaconProjectDashboard(models.AbstractModel):
         if employee_ids:
             emp_domain.append(('id', 'in', employee_ids))
         employees = self.env['hr.employee'].search(emp_domain)
-
-        today = fields.Date.context_today(self)
-        segments = [
-            (max(start, today), end)
-            for start, end in self._period_segments(filters)
-        ]
-        segments = [(start, end) for start, end in segments if start <= end]
+        segments = self._period_segments_from_today(filters)
 
         capacity = []
         for emp in employees:
@@ -203,6 +206,39 @@ class JaconProjectDashboard(models.AbstractModel):
             })
         capacity.sort(key=lambda r: r['free_pct'], reverse=True)
         return capacity
+
+    def _workload_gantt(self, filters):
+        """Day-by-day load vs. capacity per employee for the selected
+        period (same forward-looking window as Capacity - see
+        _period_segments_from_today), for the Workload Gantt panel: a
+        visual "who's overloaded and exactly when" view, one row per
+        employee, one column per working day, backed by the same
+        hr.employee.get_daily_load engine as everything else here."""
+        employee_ids = filters.get('employee_ids') or []
+        emp_domain = [('user_id', '!=', False)]
+        if employee_ids:
+            emp_domain.append(('id', 'in', employee_ids))
+        employees = self.env['hr.employee'].search(emp_domain)
+        segments = self._period_segments_from_today(filters)
+
+        rows = []
+        for emp in employees:
+            days = []
+            for start, end in segments:
+                days += emp.get_daily_load(start, end)
+            if not days:
+                continue
+            rows.append({
+                'id': emp.id,
+                'name': emp.name,
+                'days': [{
+                    'date': day['date'].isoformat(),
+                    'load': day['load'],
+                    'capacity': day['capacity'],
+                    'overloaded': day['overloaded'],
+                } for day in days],
+            })
+        return rows
 
     @api.model
     def get_dashboard_data(self, filters=None):
@@ -311,6 +347,7 @@ class JaconProjectDashboard(models.AbstractModel):
         ]
 
         capacity_by_employee = self._capacity_by_employee(filters)
+        workload_gantt = self._workload_gantt(filters)
 
         return {
             'kpi': {
@@ -330,6 +367,7 @@ class JaconProjectDashboard(models.AbstractModel):
             'overdue_by_project': overdue_by_project,
             'overdue_by_employee': overdue_by_employee,
             'capacity_by_employee': capacity_by_employee,
+            'workload_gantt': workload_gantt,
         }
 
     @api.model

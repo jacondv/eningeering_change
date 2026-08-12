@@ -260,4 +260,54 @@
     .o_pd_capacity_bottom {
         margin-top: 2px;
     }
+
+    // ------------------------------------------------------------
+    // Workload Gantt panel
+    // ------------------------------------------------------------
+    .o_pd_gantt_wrap {
+        overflow-x: auto;
+        max-height: 420px;
+        overflow-y: auto;
+    }
+
+    .o_pd_gantt {
+        border-collapse: separate;
+        border-spacing: 2px;
+
+        th, td {
+            white-space: nowrap;
+        }
+
+        .o_pd_gantt_name_col {
+            position: sticky;
+            left: 0;
+            background: #ffffff;
+            text-align: left;
+            font-size: .82rem;
+            font-weight: 500;
+            padding: 0 10px 0 0;
+            z-index: 1;
+        }
+
+        .o_pd_gantt_date_col {
+            font-size: .68rem;
+            font-weight: 500;
+            color: #888;
+            text-align: center;
+            padding-bottom: 4px;
+        }
+    }
+
+    .o_pd_gantt_cell {
+        width: 20px;
+        min-width: 20px;
+        height: 20px;
+        border-radius: 3px;
+
+        &.o_pd_gantt_off { background: #f2f2f5; }
+        &.o_pd_gantt_free { background: #cfe8cc; }
+        &.o_pd_gantt_busy { background: #59a14f; }
+        &.o_pd_gantt_tight { background: #edc948; }
+        &.o_pd_gantt_over { background: #e15759; }
+    }
 }
