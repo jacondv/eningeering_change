@@ -274,6 +274,7 @@ class JaconProjectDashboard(models.AbstractModel):
         ])
 
         bars = []
+        task_by_id = {}
         for task in tasks:
             deadline = fields.Date.to_date(task.date_deadline)
             start = fields.Date.to_date(task.date_start) or deadline
@@ -284,6 +285,7 @@ class JaconProjectDashboard(models.AbstractModel):
             assignee = next((emp_by_user[u.id] for u in task.user_ids if u.id in emp_by_user), None)
             if not assignee:
                 continue
+            task_by_id[task.id] = task
             bars.append({
                 'id': task.id,
                 'name': task.name,
@@ -297,12 +299,15 @@ class JaconProjectDashboard(models.AbstractModel):
                 'overdue': deadline < today,
             })
 
-        # Overload flag per bar: does this task's own window contain any
+        # Overload detail per bar: does this task's own window contain any
         # day where its assignee is over capacity (same day-by-day engine
-        # as the Task form warning and Workload Gantt)? Batched one
-        # get_daily_load call per employee (spanning all of their bars)
-        # instead of one per task, since it re-queries that employee's
-        # whole open-task list internally.
+        # as the Task form warning and Workload Gantt)? If so, also surface
+        # how many hours over (summed across those days) and the nearest
+        # deadline that would clear it - the exact numbers a manager needs
+        # to decide how to fix it, not just that something's wrong.
+        # Batched one get_daily_load call per employee (spanning all of
+        # their bars) instead of one per task, since it re-queries that
+        # employee's whole open-task list internally.
         emp_by_id = {emp.id: emp for emp in employees}
         bars_by_employee = {}
         for bar in bars:
@@ -311,14 +316,23 @@ class JaconProjectDashboard(models.AbstractModel):
             emp = emp_by_id[emp_id]
             span_start = min(date.fromisoformat(b['start']) for b in emp_bars)
             span_end = max(date.fromisoformat(b['end']) for b in emp_bars)
-            overloaded_dates = {
-                day['date'] for day in emp.get_daily_load(span_start, span_end) if day['overloaded']
+            excess_by_date = {
+                day['date']: round(day['load'] - day['capacity'], 1)
+                for day in emp.get_daily_load(span_start, span_end) if day['overloaded']
             }
             for bar in emp_bars:
                 b_start = date.fromisoformat(bar['start'])
                 b_end = date.fromisoformat(bar['end'])
-                bar['overloaded'] = bool(overloaded_dates) and any(
-                    b_start <= d <= b_end for d in overloaded_dates)
+                excess = round(sum(v for d, v in excess_by_date.items() if b_start <= d <= b_end), 1)
+                bar['overloaded'] = excess > 0
+                bar['excess_hours'] = excess
+                bar['suggested_deadline'] = None
+                if bar['overloaded']:
+                    task = task_by_id[bar['id']]
+                    suggested = emp.suggest_deadline_without_overload(
+                        task.allocated_hours, task.date_start,
+                        after_date=task.date_deadline, exclude_task_id=task.id)
+                    bar['suggested_deadline'] = suggested.isoformat() if suggested else None
 
         bars.sort(key=lambda b: (b['employee'], b['start']))
         return bars
