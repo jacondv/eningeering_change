@@ -51,6 +51,7 @@ export class JaconProjectDashboard extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.dialog = useService("dialog");
+        this.notification = useService("notification");
         this.mainViews = MAIN_VIEWS;
         this.canvasRefs = {
             main: useRef("chart_main"),
@@ -586,6 +587,7 @@ export class JaconProjectDashboard extends Component {
             on_date_change: (task, start, end) => {
                 this._pendingGanttChange = { ganttTaskId: task.id, taskId: parseInt(task.id, 10), start, end };
             },
+            popup: (ctx) => this.taskGanttPopup(ctx),
         });
         // Ctrl+wheel to zoom the time scale (Day <-> Week <-> Month <->
         // Year) - plain wheel is left alone so it still just scrolls the
@@ -593,6 +595,36 @@ export class JaconProjectDashboard extends Component {
         // call (Owl remounts this container on each loading toggle), so no
         // listener cleanup/dedup needed here.
         el.addEventListener("wheel", (ev) => this.onTaskGanttWheel(ev), { passive: false });
+    }
+
+    /** For overloaded tasks, append the exact numbers a manager needs to
+     * fix it - how many hours over and the nearest deadline that would
+     * clear it (same figures as the Task form warning) - plus a one-click
+     * action to apply that suggestion, instead of just flagging the bar
+     * red and leaving the "how much" and "to when" to guesswork. */
+    taskGanttPopup({ task, get_details, set_details, add_action }) {
+        const row = (this.state.data.task_timeline || []).find((r) => String(r.id) === task.id);
+        if (!row || !row.overloaded) {
+            return;
+        }
+        const lines = [`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`];
+        if (row.suggested_deadline) {
+            lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
+        }
+        lines.push("</div>");
+        set_details(get_details().innerHTML + lines.join(""));
+        if (row.suggested_deadline) {
+            add_action("Apply suggested deadline", () => this.applySuggestedDeadline(row));
+        }
+    }
+
+    async applySuggestedDeadline(row) {
+        await this.orm.write("project.task", [row.id], {
+            date_deadline: `${row.suggested_deadline} 23:59:59`,
+        });
+        this.notification.add(
+            `"${row.name}" deadline moved to ${row.suggested_deadline}.`, { type: "success" });
+        await this.fetchData();
     }
 
     onTaskGanttWheel(ev) {

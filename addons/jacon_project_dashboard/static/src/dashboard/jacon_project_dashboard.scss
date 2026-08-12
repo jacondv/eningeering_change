@@ -332,5 +332,16 @@
         .bar-wrapper .bar { fill: #4e79a7; }
         .bar-progress { fill: #2e7d32; }
         .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
+
+        // Extra "over by Xh / suggested deadline" line appended to the
+        // popup for overloaded tasks (see taskGanttPopup in the JS).
+        .o_pd_gantt_popup_overload {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid #ebeff2;
+            color: #c62828;
+            font-size: .78rem;
+            font-weight: 500;
+        }
     }
 }
