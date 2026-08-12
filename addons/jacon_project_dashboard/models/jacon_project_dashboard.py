@@ -95,6 +95,22 @@ class JaconProjectDashboard(models.AbstractModel):
         months = filters.get('months') or []
         return self._years_months_domain(years, months)
 
+    def _period_segments(self, filters):
+        """(start, end) date pairs for the currently selected Year/Month
+        filter - a list rather than one min..max span, because selected
+        months can be non-contiguous (e.g. Jan + Jul) or span several
+        years; summing capacity over a single wide range would wrongly
+        include unselected months in between."""
+        years = filters.get('years') or [fields.Date.context_today(self).year]
+        months = filters.get('months') or []
+        segments = []
+        for year in years:
+            if months:
+                segments += [_month_bounds(year, m) for m in months]
+            else:
+                segments.append((date(year, 1, 1), date(year, 12, 31)))
+        return segments
+
     def _build_domains(self, filters):
         """Two separate domains: Spent (Timesheet, date-bounded) and Planned
         (Task, not date-bounded - `allocated_hours` is a single static
@@ -122,57 +138,45 @@ class JaconProjectDashboard(models.AbstractModel):
 
         return spent_domain, planned_domain
 
-    def _capacity_by_employee(self, filters, planned_domain):
-        """Allocated (planned) vs Spent hours per engineer, so a manager can
-        see at a glance who still has room to take on more work. Not
-        date-bound (see `_build_domains`) - capacity is about current
-        standing commitments, not a period.
+    def _capacity_by_employee(self, filters, spent_by_employee):
+        """Calendar capacity for the selected Year/Month period vs hours
+        already logged in it, so a manager can see who still has room
+        *this period* - not an all-time, unscoped total.
 
-        Unlike `planned_domain` elsewhere (KPI/charts, which intentionally
-        include done tasks - they're still valid "planned vs actual" data
-        points for a past period), a Done/Cancelled task no longer occupies
-        any of an engineer's future capacity, so it must not count toward
-        "how much room do they still have" here.
+        Capacity = daily hours x working days across the selected
+        period (Mon-Fri per each employee's calendar; company holidays
+        and personal leave aren't subtracted yet - see
+        hr.employee.get_period_capacity_hours - so this is currently a
+        ceiling, slightly optimistic until leave data exists).
 
-        Both Allocated and Spent are read off the *same* open tasks (via
-        `allocated_hours` / `effective_hours`) instead of pairing task
-        assignment (`user_ids`) with the timesheet's own `employee_id` -
-        those two are independent fields in Odoo (nothing stops someone
-        from logging time on a task they're not assigned to, or a task
-        being reassigned after time was logged against it), so mixing them
-        can silently compare hours from two different sets of tasks."""
-        Task = self.env['project.task']
-        open_planned_domain = Domain.AND([planned_domain, [('state', 'not in', list(DONE_TASK_STATES))]])
-
-        allocated_by_user = {}
-        spent_by_user = {}
-        for task in Task.search(open_planned_domain):
-            for user in task.user_ids:
-                allocated_by_user[user.id] = allocated_by_user.get(user.id, 0.0) + (task.allocated_hours or 0.0)
-                spent_by_user[user.id] = spent_by_user.get(user.id, 0.0) + (task.effective_hours or 0.0)
-
+        Spent reuses `spent_by_employee` - the same period-scoped
+        Timesheet sum the rest of the dashboard already uses - so both
+        sides of the comparison share the same Year/Month/Project/Task
+        Type filters instead of pairing a calendar figure with numbers
+        pulled from a different scope."""
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
             emp_domain.append(('id', 'in', employee_ids))
-        employees = self.env['hr.employee'].search_read(emp_domain, ['name', 'user_id'])
+        employees = self.env['hr.employee'].search(emp_domain)
 
+        segments = self._period_segments(filters)
         capacity = []
         for emp in employees:
-            allocated = allocated_by_user.get(emp['user_id'][0], 0.0)
-            spent = spent_by_user.get(emp['user_id'][0], 0.0)
-            if not allocated and not spent:
+            period_capacity = sum(emp.get_period_capacity_hours(start, end) for start, end in segments)
+            spent = spent_by_employee.get(emp.id, 0.0)
+            if not period_capacity and not spent:
                 continue
-            if allocated:
-                free_pct = round((allocated - spent) / allocated * 100, 1)
+            if period_capacity:
+                free_pct = round((period_capacity - spent) / period_capacity * 100, 1)
             else:
                 free_pct = -100.0 if spent else 0.0
             capacity.append({
-                'id': emp['id'],
-                'name': emp['name'],
-                'allocated': round(allocated, 1),
+                'id': emp.id,
+                'name': emp.name,
+                'allocated': round(period_capacity, 1),
                 'spent': round(spent, 1),
-                'free_hours': round(allocated - spent, 1),
+                'free_hours': round(period_capacity - spent, 1),
                 'free_pct': free_pct,
             })
         capacity.sort(key=lambda r: r['free_pct'], reverse=True)
@@ -284,7 +288,7 @@ class JaconProjectDashboard(models.AbstractModel):
             if user
         ]
 
-        capacity_by_employee = self._capacity_by_employee(filters, planned_domain)
+        capacity_by_employee = self._capacity_by_employee(filters, spent_by_employee)
 
         return {
             'kpi': {
