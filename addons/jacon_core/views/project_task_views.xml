@@ -14,10 +14,10 @@
                  reserves this exact spot for inherited warnings. -->
             <xpath expr="//t[@name='warning_section']" position="after">
                 <div class="alert alert-warning mb-0" role="alert" invisible="not overload_warning">
-                    <strong><i class="fa fa-exclamation-triangle"/> Cảnh báo quá tải lịch làm việc</strong>
+                    <strong><i class="fa fa-exclamation-triangle"/> Schedule Overload Warning</strong>
                     <field name="overload_warning" nolabel="1" readonly="1"/>
                     <button name="action_view_overload_conflicts" type="object"
-                            string="Xem &amp; xử lý xung đột" class="btn btn-sm btn-outline-warning mt-1"
+                            string="View &amp; Resolve Conflicts" class="btn btn-sm btn-outline-warning mt-1"
                             invisible="not id"/>
                 </div>
             </xpath>
