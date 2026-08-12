@@ -26,7 +26,8 @@ Currently provides:
 - Left-aligned number columns: the Project and Task List views left-align numeric columns and use a darker zebra striping.
 - Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
 - Form layout: system-wide, widens the form sheet and gives the chatter side panel a narrower fixed width, so more of the form is visible without shrinking the chatter down to unreadable. Adds a handle to collapse/expand the chatter on demand.
-- Overload warning: assigning a Task (Engineer, Allocated Hours, Deadline) warns right on the form if it would push that engineer over their weekly working-hour capacity, and links to a review wizard listing the other tasks contributing to it - each row's New Deadline opens pre-filled with the nearest week that engineer has room, editable before anything is actually saved to the tasks.
+- Start Date: an explicit, editable Task field (defaults to the creation date) alongside Deadline - the window an engineer's remaining hours on that task are spread across.
+- Overload warning: assigning a Task (Engineer, Allocated Hours, Start Date, Deadline) warns right on the form if it would push that engineer's combined daily workload over their working-calendar capacity on any day between Start Date and Deadline, and links to a review wizard listing the other tasks contributing to it - each row's New Deadline opens pre-filled with the nearest date that engineer has room, editable before anything is actually saved to the tasks.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
