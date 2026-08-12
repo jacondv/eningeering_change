@@ -315,8 +315,15 @@
     // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
     // ------------------------------------------------------------
     .o_pd_task_gantt {
-        max-height: 480px;
+        height: 480px;
+        min-height: 200px;
+        max-height: 85vh;
         overflow: auto;
+        // Native browser resize handle (bottom-right corner drag) - the
+        // default 480px is fine for a handful of tasks but way too
+        // short once an employee has many overlapping ones, and there's
+        // no single "right" height to hardcode for every user's data.
+        resize: vertical;
 
         // Base bar color (default library theme is a near-white fill,
         // too washed out against our panel background) - overload state
