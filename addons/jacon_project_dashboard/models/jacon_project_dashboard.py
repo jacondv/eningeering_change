@@ -116,9 +116,8 @@ class JaconProjectDashboard(models.AbstractModel):
 
     def _period_segments_from_today(self, filters):
         """`_period_segments`, clamped so no segment starts before today -
-        shared by Capacity and the Workload Gantt, both of which are
-        forward-looking ("who has room / who's overloaded from now on"),
-        not a record of what already happened."""
+        used by Capacity, which is forward-looking ("who has room from
+        now on"), not a record of what already happened."""
         today = fields.Date.context_today(self)
         segments = [(max(start, today), end) for start, end in self._period_segments(filters)]
         return [(start, end) for start, end in segments if start <= end]
@@ -221,50 +220,6 @@ class JaconProjectDashboard(models.AbstractModel):
         capacity.sort(key=lambda r: r['free_pct'], reverse=True)
         return capacity
 
-    def _workload_gantt(self, filters):
-        """Day-by-day load vs. capacity per employee for the selected
-        period (same forward-looking window as Capacity - see
-        _period_segments_from_today), for the Workload Gantt panel: a
-        visual "who's overloaded and exactly when" view, one row per
-        employee, one column per working day, backed by the same
-        hr.employee.get_daily_load engine as everything else here."""
-        employee_ids = filters.get('employee_ids') or []
-        emp_domain = [('user_id', '!=', False)]
-        if employee_ids:
-            emp_domain.append(('id', 'in', employee_ids))
-        employees = self.env['hr.employee'].search(emp_domain)
-        segments = self._period_segments_from_today(filters)
-        if not segments:
-            return []
-        span_start = min(start for start, _end in segments)
-        span_end = max(end for _start, end in segments)
-
-        rows = []
-        for emp in employees:
-            # One continuous simulation across the whole span, then keep
-            # only the days inside the selected segments - see the same
-            # note in _capacity_by_employee for why per-segment calls
-            # would corrupt the priority queue's state across a gap
-            # (e.g. Aug + Nov selected, Sep/Oct skipped).
-            all_days = emp.get_daily_load(span_start, span_end)
-            days = [
-                day for day in all_days
-                if any(start <= day['date'] <= end for start, end in segments)
-            ]
-            if not days:
-                continue
-            rows.append({
-                'id': emp.id,
-                'name': emp.name,
-                'days': [{
-                    'date': day['date'].isoformat(),
-                    'load': day['load'],
-                    'capacity': day['capacity'],
-                    'overloaded': day['overloaded'],
-                } for day in days],
-            })
-        return rows
-
     def _task_timeline(self, filters, window_start, window_end):
         """Individual open tasks as (start, end) bars, one per task, for the
         drag & drop Task Timeline panel (Frappe Gantt, MIT-licensed,
@@ -276,7 +231,7 @@ class JaconProjectDashboard(models.AbstractModel):
         (must overlap the window), not to clip the bar itself, because
         dragging a bar has to write back the task's actual dates and a
         clipped starting position would silently shift them on the first
-        drag. Unlike Capacity/Workload Gantt this window is caller-chosen
+        drag. Unlike Capacity this window is caller-chosen
         and NOT clamped to today - the Timeline is also meant to show
         recently-past work (e.g. its default "previous/current/next
         month"), not just what's still ahead.
@@ -488,7 +443,6 @@ class JaconProjectDashboard(models.AbstractModel):
         ]
 
         capacity_by_employee = self._capacity_by_employee(filters)
-        workload_gantt = self._workload_gantt(filters)
 
         return {
             'kpi': {
@@ -508,7 +462,6 @@ class JaconProjectDashboard(models.AbstractModel):
             'overdue_by_project': overdue_by_project,
             'overdue_by_employee': overdue_by_employee,
             'capacity_by_employee': capacity_by_employee,
-            'workload_gantt': workload_gantt,
         }
 
     @api.model
