@@ -6,7 +6,22 @@ import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_d
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
-const TASK_GANTT_ZOOM_LEVELS = ["Day", "Week", "Month", "Year"];
+const TASK_GANTT_VIEW_MODES = ["Day", "Week", "Month"];
+
+function _isoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` +
+        `-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Default Task Timeline window: previous/current/next calendar month,
+ * centered on today - a rolling 3-month view, independent of whatever
+ * Year/Months the main dashboard filter happens to have selected. */
+function defaultTaskGanttRange() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    return { start: _isoDate(start), end: _isoDate(end) };
+}
 
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
@@ -53,6 +68,7 @@ export class JaconProjectDashboard extends Component {
         this.dialog = useService("dialog");
         this.notification = useService("notification");
         this.mainViews = MAIN_VIEWS;
+        this.taskGanttViewModes = TASK_GANTT_VIEW_MODES;
         this.canvasRefs = {
             main: useRef("chart_main"),
             plannedActual: useRef("chart_planned_actual"),
@@ -61,11 +77,6 @@ export class JaconProjectDashboard extends Component {
         };
         this.taskGanttRef = useRef("task_gantt");
         this.taskGantt = null;
-        // Not reactive state on purpose - a zoom level change shouldn't
-        // trigger a re-render by itself, it only needs to survive across
-        // the re-renders `renderTaskGantt` already does for other reasons
-        // (filter change, post-drag refresh).
-        this.taskGanttViewMode = "Day";
         // Frappe Gantt fires on_date_change on every mousemove while
         // dragging, not just on drop - so on_date_change only records the
         // latest position here, and the confirm popup opens once, on the
@@ -87,6 +98,9 @@ export class JaconProjectDashboard extends Component {
             options: { projects: [], employees: [], task_types: [], years: [], months: [] },
             data: null,
             lines: [],
+            taskGanttData: [],
+            taskGanttViewMode: "Day",
+            taskGanttRange: defaultTaskGanttRange(),
             filters: {
                 years: [new Date().getFullYear()],
                 months: [],
@@ -102,13 +116,13 @@ export class JaconProjectDashboard extends Component {
         });
 
         // useEffect (not rAF/onMounted like the canvas charts below) -
-        // runs after every DOM patch where state.data actually changed,
+        // runs after every DOM patch where taskGanttData actually changed,
         // including ones triggered from inside the confirm dialog after a
         // drag, where a plain rAF callback could fire before Owl finishes
         // re-mounting the (loading-toggled) container div.
         useEffect(
             () => this.renderTaskGantt(),
-            () => [this.state.data]
+            () => [this.state.taskGanttData]
         );
 
         onWillStart(async () => {
@@ -148,8 +162,11 @@ export class JaconProjectDashboard extends Component {
     async fetchData() {
         storeFilters(this.state.filters);
         this.state.loading = true;
-        this.state.data = await this.orm.call(
-            "jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters });
+        const [data] = await Promise.all([
+            this.orm.call("jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters }),
+            this.fetchTaskTimeline(),
+        ]);
+        this.state.data = data;
         this.state.loading = false;
         requestAnimationFrame(() => {
             this.renderMainChart();
@@ -158,6 +175,42 @@ export class JaconProjectDashboard extends Component {
             }
         });
         await this.fetchLines();
+    }
+
+    /** Task Timeline is fetched separately from the rest of the dashboard
+     * (own Day/Week/Month range, independent of the Year/Months filter up
+     * top - see get_task_timeline) - called both from fetchData (so
+     * Project/Engineer/Task Type filter changes still reach it) and
+     * directly whenever its own range/view controls change. */
+    async fetchTaskTimeline() {
+        this.state.taskGanttData = await this.orm.call(
+            "jacon.project.dashboard", "get_task_timeline", [], {
+                filters: this.state.filters,
+                range_start: this.state.taskGanttRange.start,
+                range_end: this.state.taskGanttRange.end,
+            });
+    }
+
+    setTaskGanttViewMode(mode) {
+        this.state.taskGanttViewMode = mode;
+        if (this.taskGantt) {
+            this.taskGantt.change_view_mode(mode);
+        }
+    }
+
+    setTaskGanttRangeStart(value) {
+        this.state.taskGanttRange.start = value;
+        this.fetchTaskTimeline();
+    }
+
+    setTaskGanttRangeEnd(value) {
+        this.state.taskGanttRange.end = value;
+        this.fetchTaskTimeline();
+    }
+
+    resetTaskGanttRange() {
+        this.state.taskGanttRange = defaultTaskGanttRange();
+        this.fetchTaskTimeline();
     }
 
     async fetchLines() {
@@ -556,7 +609,7 @@ export class JaconProjectDashboard extends Component {
     // ------------------------------------------------------------
     renderTaskGantt() {
         const el = this.taskGanttRef.el;
-        const rows = this.state.data && this.state.data.task_timeline;
+        const rows = this.state.taskGanttData;
         if (!el || !window.Gantt) {
             return;
         }
@@ -578,9 +631,16 @@ export class JaconProjectDashboard extends Component {
             custom_class: row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
-            view_mode: this.taskGanttViewMode,
+            view_mode: this.state.taskGanttViewMode,
             scroll_to: "today",
             readonly_progress: true,
+            // The date range is now explicit (the range picker above), so
+            // there's no "infinite" axis to extend into - disabling this
+            // also removes Frappe's own wheel listener that shifted the
+            // date range on scroll, which is what made plain mouse-wheel
+            // feel like it was jumping the chart around instead of just
+            // scrolling the page/panel.
+            infinite_padding: false,
             // Fires on every mousemove while dragging, not just on drop -
             // just record the latest position; _onGanttMouseUp (setup())
             // opens the confirm popup once, on the actual drag end.
@@ -589,30 +649,32 @@ export class JaconProjectDashboard extends Component {
             },
             popup: (ctx) => this.taskGanttPopup(ctx),
         });
-        // Ctrl+wheel to zoom the time scale (Day <-> Week <-> Month <->
-        // Year) - plain wheel is left alone so it still just scrolls the
-        // page/panel like the user expects. `el` is a fresh DOM node every
-        // call (Owl remounts this container on each loading toggle), so no
-        // listener cleanup/dedup needed here.
-        el.addEventListener("wheel", (ev) => this.onTaskGanttWheel(ev), { passive: false });
     }
 
     /** For overloaded tasks, append the exact numbers a manager needs to
      * fix it - how many hours over and the nearest deadline that would
      * clear it (same figures as the Task form warning) - plus a one-click
      * action to apply that suggestion, instead of just flagging the bar
-     * red and leaving the "how much" and "to when" to guesswork. */
+     * red and leaving the "how much" and "to when" to guesswork. Frappe
+     * Gantt reuses the same popup DOM node across opens, so any earlier
+     * injected block is stripped first - otherwise it just keeps growing,
+     * one more "Over capacity by Xh" line per click. */
     taskGanttPopup({ task, get_details, set_details, add_action }) {
-        const row = (this.state.data.task_timeline || []).find((r) => String(r.id) === task.id);
+        const row = (this.state.taskGanttData || []).find((r) => String(r.id) === task.id);
         if (!row || !row.overloaded) {
             return;
+        }
+        const detailsEl = get_details();
+        const existing = detailsEl.querySelector(".o_pd_gantt_popup_overload");
+        if (existing) {
+            existing.remove();
         }
         const lines = [`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`];
         if (row.suggested_deadline) {
             lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
         }
         lines.push("</div>");
-        set_details(get_details().innerHTML + lines.join(""));
+        set_details(detailsEl.innerHTML + lines.join(""));
         if (row.suggested_deadline) {
             add_action("Apply suggested deadline", () => this.applySuggestedDeadline(row));
         }
@@ -627,34 +689,13 @@ export class JaconProjectDashboard extends Component {
         await this.fetchData();
     }
 
-    onTaskGanttWheel(ev) {
-        if (!ev.ctrlKey || !this.taskGantt) {
-            return;
-        }
-        ev.preventDefault();
-        const idx = TASK_GANTT_ZOOM_LEVELS.indexOf(this.taskGanttViewMode);
-        const nextIdx = ev.deltaY < 0
-            ? Math.max(0, idx - 1)
-            : Math.min(TASK_GANTT_ZOOM_LEVELS.length - 1, idx + 1);
-        const nextMode = TASK_GANTT_ZOOM_LEVELS[nextIdx];
-        if (nextMode !== this.taskGanttViewMode) {
-            this.taskGanttViewMode = nextMode;
-            this.taskGantt.change_view_mode(nextMode);
-        }
-    }
-
-    _formatIsoDate(date) {
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` +
-            `-${String(date.getDate()).padStart(2, "0")}`;
-    }
-
     confirmTaskGanttChange({ ganttTaskId, taskId, start, end }) {
-        const row = (this.state.data.task_timeline || []).find((r) => r.id === taskId);
+        const row = (this.state.taskGanttData || []).find((r) => r.id === taskId);
         if (!row) {
             return;
         }
-        const newStartStr = this._formatIsoDate(start);
-        const newEndStr = this._formatIsoDate(end);
+        const newStartStr = _isoDate(start);
+        const newEndStr = _isoDate(end);
         const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
         if (newStartStr === row.start && newEndStr === row.end) {
             return;
