@@ -1,9 +1,102 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useRef, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useEffect, useRef, useState } from "@odoo/owl";
 import { loadBundle } from "@web/core/assets";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+
+const TASK_GANTT_VIEW_MODES = ["Day", "Week", "Month"];
+
+// Remembers the Task Timeline's Day/Week/Month choice between visits,
+// per browser - the panel's own date window is always the rolling
+// previous/current/next month (server-side default in
+// get_task_timeline), only the zoom level is a saved preference.
+const TASK_GANTT_VIEW_MODE_STORAGE_KEY = "jacon_project_dashboard.task_gantt_view_mode";
+
+function loadStoredTaskGanttViewMode() {
+    try {
+        const stored = localStorage.getItem(TASK_GANTT_VIEW_MODE_STORAGE_KEY);
+        return TASK_GANTT_VIEW_MODES.includes(stored) ? stored : null;
+    } catch {
+        return null;
+    }
+}
+
+function storeTaskGanttViewMode(mode) {
+    try {
+        localStorage.setItem(TASK_GANTT_VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+        // Storage unavailable (private mode, quota, ...) - silently skip.
+    }
+}
+
+function _isoDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+/** Same as _isoDate, but rounds to the nearest midnight instead of
+ * truncating - Frappe Gantt's "Day" view has no `snap_at` configured
+ * (only Month/Year do), so a dragged bar's pixel X/width - and the
+ * start/end dates on_date_change computes from them - are free-floating
+ * fractions of a day, not snapped to whole-day columns as it might look
+ * like on screen. Plain truncation of a fractional date always rounds
+ * toward the earlier day, so both endpoints would drift a little short
+ * on every drag, and each confirmed edit re-saves that shortened range
+ * as the next drag's baseline - compounding into a visibly shrinking
+ * task the more it gets moved. Shifting by 12h before truncating rounds
+ * to the nearer day instead, for both start and end. */
+function _isoDateRounded(d) {
+    const shifted = new Date(d.getTime() + 12 * 60 * 60 * 1000);
+    return _isoDate(shifted);
+}
+
+/** JS Date.getDay() is 0=Sunday..6=Saturday; hr.employee._work_weekdays
+ * (backend, see jacon_core) is 0=Monday..6=Sunday - convert so
+ * `work_weekdays` from the server can be compared directly. */
+function _pyWeekday(d) {
+    return (d.getDay() + 6) % 7;
+}
+
+/** Count of `weekdays`-matching days between two 'YYYY-MM-DD' strings,
+ * inclusive of both ends - e.g. a Mon-Fri task spanning Mon->Fri is 5,
+ * matching how the backend spreads allocated_hours across the same
+ * inclusive range (hr.employee.get_daily_load). */
+function _workingDaySpan(startIso, endIso, weekdays) {
+    let d = new Date(`${startIso}T00:00:00`);
+    const end = new Date(`${endIso}T00:00:00`);
+    let count = 0;
+    while (d <= end) {
+        if (weekdays.includes(_pyWeekday(d))) {
+            count++;
+        }
+        d.setDate(d.getDate() + 1);
+    }
+    return count;
+}
+
+/** Inverse of _workingDaySpan: the date `targetCount` working days after
+ * (and including, if it's itself a working day) `startIso`. Used to keep
+ * a dragged task's *working*-day length intact - a naive calendar-day
+ * count would silently shrink/grow it depending on how many weekends the
+ * new start position happens to straddle. */
+function _addWorkingDays(startIso, weekdays, targetCount) {
+    const d = new Date(`${startIso}T00:00:00`);
+    let count = 0;
+    while (count < targetCount) {
+        if (weekdays.includes(_pyWeekday(d))) {
+            count++;
+            if (count === targetCount) {
+                break;
+            }
+        }
+        d.setDate(d.getDate() + 1);
+    }
+    return _isoDate(d);
+}
 
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
@@ -16,6 +109,30 @@ const MAIN_VIEWS = [
     { key: "task_type", label: "Hour by Task Type" },
 ];
 
+// Remembers the filter bar (Year/Month/Project/Engineer/Task Type)
+// between visits, per browser - until the user explicitly changes it or
+// clicks "Reset filters". Not synced across users/devices on purpose,
+// same as any other client-side UI preference.
+const FILTERS_STORAGE_KEY = "jacon_project_dashboard.filters";
+
+function loadStoredFilters() {
+    try {
+        const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+function storeFilters(filters) {
+    try {
+        localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+    } catch {
+        // Storage unavailable (private mode, quota, ...) - silently skip,
+        // filters just won't persist for this session.
+    }
+}
+
 export class JaconProjectDashboard extends Component {
     static template = "jacon_project_dashboard.Dashboard";
     static props = ["*"];
@@ -23,13 +140,32 @@ export class JaconProjectDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.dialog = useService("dialog");
+        this.notification = useService("notification");
         this.mainViews = MAIN_VIEWS;
+        this.taskGanttViewModes = TASK_GANTT_VIEW_MODES;
         this.canvasRefs = {
             main: useRef("chart_main"),
             plannedActual: useRef("chart_planned_actual"),
             topProjects: useRef("chart_top_projects"),
             overdueByProject: useRef("chart_overdue_by_project"),
         };
+        this.taskGanttRef = useRef("task_gantt");
+        this.taskGantt = null;
+        // Frappe Gantt fires on_date_change on every mousemove while
+        // dragging, not just on drop - so on_date_change only records the
+        // latest position here, and the confirm popup opens once, on the
+        // next mouseup (real drag end), from _onGanttMouseUp below.
+        this._pendingGanttChange = null;
+        this._onGanttMouseUp = () => {
+            const change = this._pendingGanttChange;
+            this._pendingGanttChange = null;
+            if (change) {
+                this.confirmTaskGanttChange(change);
+            }
+        };
+        document.addEventListener("mouseup", this._onGanttMouseUp);
+        onWillUnmount(() => document.removeEventListener("mouseup", this._onGanttMouseUp));
         this.charts = {};
         this.state = useState({
             loading: true,
@@ -37,6 +173,8 @@ export class JaconProjectDashboard extends Component {
             options: { projects: [], employees: [], task_types: [], years: [], months: [] },
             data: null,
             lines: [],
+            taskGanttData: [],
+            taskGanttViewMode: loadStoredTaskGanttViewMode() || "Day",
             filters: {
                 years: [new Date().getFullYear()],
                 months: [],
@@ -51,13 +189,44 @@ export class JaconProjectDashboard extends Component {
             showMore: false,
         });
 
+        // useEffect (not rAF/onMounted like the canvas charts below) -
+        // runs after every DOM patch where taskGanttData actually changed,
+        // including ones triggered from inside the confirm dialog after a
+        // drag, where a plain rAF callback could fire before Owl finishes
+        // re-mounting the (loading-toggled) container div.
+        useEffect(
+            () => this.renderTaskGantt(),
+            () => [this.state.taskGanttData]
+        );
+
         onWillStart(async () => {
-            await loadBundle("web.chartjs_lib");
+            await Promise.all([
+                loadBundle("web.chartjs_lib"),
+                loadBundle("jacon_project_dashboard.frappe_gantt_lib"),
+            ]);
             this.state.options = await this.orm.call("jacon.project.dashboard", "get_filter_options", []);
-            if (this.state.options.current_year) {
+            const stored = loadStoredFilters();
+            if (stored) {
+                Object.assign(this.state.filters, stored);
+            } else if (this.state.options.current_year) {
                 this.state.filters.years = [this.state.options.current_year];
             }
             await this.fetchData();
+        });
+
+        // fetchData's own render (below) runs inside onWillStart on first
+        // load, i.e. before Owl has mounted the canvases for the first
+        // time - `requestAnimationFrame` isn't a reliable enough guard for
+        // that first paint, so re-render once mounting is guaranteed done.
+        // Subsequent filter/tab changes call fetchData after mount, where
+        // the rAF render already works fine.
+        onMounted(() => {
+            if (this.state.data) {
+                this.renderMainChart();
+                if (this.state.showMore) {
+                    this.renderMoreCharts();
+                }
+            }
         });
     }
 
@@ -65,10 +234,26 @@ export class JaconProjectDashboard extends Component {
     // Filters
     // ------------------------------------------------------------
     async fetchData() {
+        storeFilters(this.state.filters);
         this.state.loading = true;
-        this.state.data = await this.orm.call(
-            "jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters });
+        const [data, taskGanttData] = await Promise.all([
+            this.orm.call("jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters }),
+            this.fetchTaskTimeline(),
+        ]);
+        this.state.data = data;
         this.state.loading = false;
+        // Assign AFTER loading flips back to false (not inside
+        // fetchTaskTimeline, in parallel with the main fetch above) - the
+        // Task Timeline's container div is unmounted while state.loading
+        // is true (see the `t-if="state.loading"` in the template), so
+        // assigning taskGanttData any earlier fires the render useEffect
+        // while its ref is still null, silently no-op'ing renderTaskGantt.
+        // Since taskGanttData then never changes again afterward, the
+        // effect never re-fires and the chart stays empty until some
+        // unrelated later action happens to reassign it. Setting it here,
+        // in the same tick right after loading=false remounts the div,
+        // guarantees the effect's post-patch run sees a live ref.
+        this.state.taskGanttData = taskGanttData;
         requestAnimationFrame(() => {
             this.renderMainChart();
             if (this.state.showMore) {
@@ -76,6 +261,26 @@ export class JaconProjectDashboard extends Component {
             }
         });
         await this.fetchLines();
+    }
+
+    /** Task Timeline is fetched separately from the rest of the dashboard
+     * (its own fixed rolling previous/current/next month window,
+     * independent of the Year/Months filter up top - see
+     * get_task_timeline) - called from fetchData so Project/Engineer/Task
+     * Type filter changes still reach it. Returns the data rather than
+     * assigning it directly to state - see the ordering note in
+     * fetchData for why the assignment itself has to happen later. */
+    async fetchTaskTimeline() {
+        return this.orm.call(
+            "jacon.project.dashboard", "get_task_timeline", [], { filters: this.state.filters });
+    }
+
+    setTaskGanttViewMode(mode) {
+        this.state.taskGanttViewMode = mode;
+        storeTaskGanttViewMode(mode);
+        if (this.taskGantt) {
+            this.taskGantt.change_view_mode(mode);
+        }
     }
 
     async fetchLines() {
@@ -411,6 +616,146 @@ export class JaconProjectDashboard extends Component {
             return "o_pd_capacity_tight";
         }
         return "o_pd_capacity_free";
+    }
+
+    // ------------------------------------------------------------
+    // Task Timeline (Frappe Gantt, MIT-licensed, vendored locally under
+    // static/lib - this Odoo install is Community, the native Gantt
+    // view is Enterprise-only). Drag/resize a bar -> confirm popup ->
+    // only written to the real task if the user confirms; declined or
+    // dismissed snaps the bar back to where it was.
+    // ------------------------------------------------------------
+    renderTaskGantt() {
+        const el = this.taskGanttRef.el;
+        const rows = this.state.taskGanttData;
+        if (!el || !window.Gantt) {
+            return;
+        }
+        el.innerHTML = "";
+        this.taskGantt = null;
+        if (!rows || !rows.length) {
+            return;
+        }
+        const tasks = rows.map((row) => ({
+            id: String(row.id),
+            name: `${row.employee}: ${row.name}`,
+            start: row.start,
+            end: row.end,
+            progress: row.progress,
+            // Red bar = this task didn't finish on time under the
+            // priority queue (same flag as the Task form warning) - the
+            // progress fill (green, via SCSS) stays a separate,
+            // independent signal on top.
+            custom_class: row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
+        }));
+        this.taskGantt = new window.Gantt(el, tasks, {
+            view_mode: this.state.taskGanttViewMode,
+            scroll_to: "today",
+            readonly_progress: true,
+            // The date range is now explicit (the range picker above), so
+            // there's no "infinite" axis to extend into - disabling this
+            // also removes Frappe's own wheel listener that shifted the
+            // date range on scroll, which is what made plain mouse-wheel
+            // feel like it was jumping the chart around instead of just
+            // scrolling the page/panel.
+            infinite_padding: false,
+            // Fires on every mousemove while dragging, not just on drop -
+            // just record the latest position; _onGanttMouseUp (setup())
+            // opens the confirm popup once, on the actual drag end.
+            on_date_change: (task, start, end) => {
+                this._pendingGanttChange = { ganttTaskId: task.id, taskId: parseInt(task.id, 10), start, end };
+            },
+            popup: (ctx) => this.taskGanttPopup(ctx),
+        });
+    }
+
+/** Builds the whole popup body from scratch (task, project, assignee,
+     * dates, allocated hours, progress, overdue) instead of relying on
+     * Frappe's default popup, which only showed the bar's own overload
+     * line - a manager clicking a task wants the same key facts they'd see
+     * on the Task form without leaving the timeline. Overload/suggested
+     * deadline stays a separate block appended only when relevant. Rebuilt
+     * fully with set_details on every open (rather than appended to
+     * get_details' content) so it can't accumulate duplicate lines across
+     * repeated clicks on the same bar - the bug reported earlier. */
+    taskGanttPopup({ task, set_details, add_action }) {
+        const row = (this.state.taskGanttData || []).find((r) => String(r.id) === task.id);
+        if (!row) {
+            return;
+        }
+        const lines = [`<div class="o_pd_gantt_popup_info">`];
+        if (row.project) {
+            lines.push(`<div>Project: ${row.project}</div>`);
+        }
+        lines.push(`<div>Assignee: ${row.employee}</div>`);
+        lines.push(`<div>${row.start} &rarr; ${row.end}</div>`);
+        lines.push(`<div>Allocated: ${row.allocated_hours}h &middot; Progress: ${Math.round(row.progress)}%</div>`);
+        if (row.overdue) {
+            lines.push(`<div class="o_pd_gantt_popup_overdue">Overdue</div>`);
+        }
+        lines.push("</div>");
+        if (row.overloaded) {
+            lines.push(`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`);
+            if (row.suggested_deadline) {
+                lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
+            }
+            lines.push("</div>");
+        }
+        set_details(lines.join(""));
+        if (row.overloaded && row.suggested_deadline) {
+            add_action("Apply suggested deadline", () => this.applySuggestedDeadline(row));
+        }
+    }
+
+    async applySuggestedDeadline(row) {
+        await this.orm.write("project.task", [row.id], {
+            date_deadline: `${row.suggested_deadline} 23:59:59`,
+        });
+        this.notification.add(
+            `"${row.name}" deadline moved to ${row.suggested_deadline}.`, { type: "success" });
+        await this.fetchData();
+    }
+
+    confirmTaskGanttChange({ ganttTaskId, taskId, start }) {
+        const row = (this.state.taskGanttData || []).find((r) => r.id === taskId);
+        if (!row) {
+            return;
+        }
+        // Only the drop position's start date is trusted from the drag -
+        // Frappe Gantt's "Day" view isn't snapped to whole-day columns
+        // (see _isoDateRounded), so an independently-computed end from
+        // the same imprecise geometry kept drifting the task's length
+        // longer/shorter on every drag. Instead, the deadline always
+        // keeps the task's original length in *working* days (per the
+        // assignee's calendar, e.g. Mon-Fri) relative to the new start -
+        // a plain calendar-day count would silently change the number of
+        // working days covered depending on how many weekends the new
+        // position straddles, which is what actually matters here since
+        // that's what allocated_hours is scheduled against. Dragging only
+        // ever repositions the task, it never resizes it.
+        const newStartStr = _isoDateRounded(start);
+        const weekdays = row.work_weekdays && row.work_weekdays.length ? row.work_weekdays : [0, 1, 2, 3, 4];
+        const originalWorkDays = _workingDaySpan(row.start, row.end, weekdays);
+        const newEndStr = _addWorkingDays(newStartStr, weekdays, originalWorkDays);
+        const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
+        if (newStartStr === row.start) {
+            return;
+        }
+
+        this.dialog.add(ConfirmationDialog, {
+            title: "Move Task Dates?",
+            body: `"${row.name}" (${row.employee}): ${row.start} → ${row.end} becomes ` +
+                `${newStartStr} → ${newEndStr}. Apply this to the real task?`,
+            confirm: async () => {
+                await this.orm.write("project.task", [taskId], {
+                    date_start: newStartStr,
+                    date_deadline: `${newEndStr} 23:59:59`,
+                });
+                await this.fetchData();
+            },
+            cancel: revert,
+            dismiss: revert,
+        });
     }
 }
 

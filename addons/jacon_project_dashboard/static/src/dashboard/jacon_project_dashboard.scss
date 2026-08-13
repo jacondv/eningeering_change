@@ -260,4 +260,51 @@
     .o_pd_capacity_bottom {
         margin-top: 2px;
     }
+
+    // ------------------------------------------------------------
+    // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
+    // ------------------------------------------------------------
+    .o_pd_task_gantt {
+        height: 480px;
+        min-height: 200px;
+        max-height: 85vh;
+        overflow: auto;
+        // Native browser resize handle (bottom-right corner drag) - the
+        // default 480px is fine for a handful of tasks but way too
+        // short once an employee has many overlapping ones, and there's
+        // no single "right" height to hardcode for every user's data.
+        resize: vertical;
+
+        // Base bar color (default library theme is a near-white fill,
+        // too washed out against our panel background) - overload state
+        // overrides it to red; the progress fill is a separate, always-
+        // green signal layered on top of either color.
+        .bar-wrapper .bar { fill: #4e79a7; }
+        .bar-progress { fill: #2e7d32; }
+        .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
+
+        // Core facts block (project/assignee/dates/hours/progress) built
+        // from scratch in taskGanttPopup - shown for every task, not just
+        // overloaded ones.
+        .o_pd_gantt_popup_info {
+            font-size: .78rem;
+            line-height: 1.5;
+        }
+
+        .o_pd_gantt_popup_overdue {
+            color: #c62828;
+            font-weight: 500;
+        }
+
+        // Extra "over by Xh / suggested deadline" line appended to the
+        // popup for overloaded tasks (see taskGanttPopup in the JS).
+        .o_pd_gantt_popup_overload {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid #ebeff2;
+            color: #c62828;
+            font-size: .78rem;
+            font-weight: 500;
+        }
+    }
 }

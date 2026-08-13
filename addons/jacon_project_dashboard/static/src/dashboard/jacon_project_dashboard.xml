@@ -216,8 +216,8 @@
 
                     <div class="col-lg-4">
                         <div class="o_pd_panel h-100">
-                            <h4>Allocated Time &amp; Capacity</h4>
-                            <p class="text-muted small">Who still has room for more work</p>
+                            <h4>Capacity</h4>
+                            <p class="text-muted small">Who still has room this period (Year/Months filter above) - each open task's remaining hours vs. calendar capacity, holidays/leave not yet subtracted</p>
                             <t t-if="!state.data.capacity_by_employee.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
@@ -235,10 +235,32 @@
                                              t-att-style="capacityBarStyle(row)"/>
                                     </div>
                                     <div class="o_pd_capacity_bottom text-muted small">
-                                        <t t-esc="row.spent"/>h spent / <t t-esc="row.allocated"/>h allocated
+                                        <t t-esc="row.spent"/>h committed / <t t-esc="row.allocated"/>h capacity
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="o_pd_panel">
+                            <div class="o_pd_panel_head">
+                                <h4 class="mb-0">Task Timeline</h4>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button t-foreach="taskGanttViewModes" t-as="mode" t-key="mode"
+                                            t-att-class="'btn btn-outline-secondary' + (state.taskGanttViewMode === mode ? ' active' : '')"
+                                            t-on-click="() => this.setTaskGanttViewMode(mode)">
+                                        <t t-esc="mode"/>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize (nothing is saved until you confirm).</p>
+                            <t t-if="!state.taskGanttData.length">
+                                <p class="text-muted">No data for the current filters.</p>
+                            </t>
+                            <div class="o_pd_task_gantt" t-ref="task_gantt" t-else=""/>
                         </div>
                     </div>
                 </div>
