@@ -8,19 +8,27 @@ import { useService } from "@web/core/utils/hooks";
 
 const TASK_GANTT_VIEW_MODES = ["Day", "Week", "Month"];
 
-function _isoDate(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` +
-        `-${String(d.getDate()).padStart(2, "0")}`;
+// Remembers the Task Timeline's Day/Week/Month choice between visits,
+// per browser - the panel's own date window is always the rolling
+// previous/current/next month (server-side default in
+// get_task_timeline), only the zoom level is a saved preference.
+const TASK_GANTT_VIEW_MODE_STORAGE_KEY = "jacon_project_dashboard.task_gantt_view_mode";
+
+function loadStoredTaskGanttViewMode() {
+    try {
+        const stored = localStorage.getItem(TASK_GANTT_VIEW_MODE_STORAGE_KEY);
+        return TASK_GANTT_VIEW_MODES.includes(stored) ? stored : null;
+    } catch {
+        return null;
+    }
 }
 
-/** Default Task Timeline window: previous/current/next calendar month,
- * centered on today - a rolling 3-month view, independent of whatever
- * Year/Months the main dashboard filter happens to have selected. */
-function defaultTaskGanttRange() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-    return { start: _isoDate(start), end: _isoDate(end) };
+function storeTaskGanttViewMode(mode) {
+    try {
+        localStorage.setItem(TASK_GANTT_VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+        // Storage unavailable (private mode, quota, ...) - silently skip.
+    }
 }
 
 const CHART_COLORS = [
@@ -99,8 +107,7 @@ export class JaconProjectDashboard extends Component {
             data: null,
             lines: [],
             taskGanttData: [],
-            taskGanttViewMode: "Day",
-            taskGanttRange: defaultTaskGanttRange(),
+            taskGanttViewMode: loadStoredTaskGanttViewMode() || "Day",
             filters: {
                 years: [new Date().getFullYear()],
                 months: [],
@@ -178,39 +185,21 @@ export class JaconProjectDashboard extends Component {
     }
 
     /** Task Timeline is fetched separately from the rest of the dashboard
-     * (own Day/Week/Month range, independent of the Year/Months filter up
-     * top - see get_task_timeline) - called both from fetchData (so
-     * Project/Engineer/Task Type filter changes still reach it) and
-     * directly whenever its own range/view controls change. */
+     * (its own fixed rolling previous/current/next month window,
+     * independent of the Year/Months filter up top - see
+     * get_task_timeline) - called from fetchData so Project/Engineer/Task
+     * Type filter changes still reach it. */
     async fetchTaskTimeline() {
         this.state.taskGanttData = await this.orm.call(
-            "jacon.project.dashboard", "get_task_timeline", [], {
-                filters: this.state.filters,
-                range_start: this.state.taskGanttRange.start,
-                range_end: this.state.taskGanttRange.end,
-            });
+            "jacon.project.dashboard", "get_task_timeline", [], { filters: this.state.filters });
     }
 
     setTaskGanttViewMode(mode) {
         this.state.taskGanttViewMode = mode;
+        storeTaskGanttViewMode(mode);
         if (this.taskGantt) {
             this.taskGantt.change_view_mode(mode);
         }
-    }
-
-    setTaskGanttRangeStart(value) {
-        this.state.taskGanttRange.start = value;
-        this.fetchTaskTimeline();
-    }
-
-    setTaskGanttRangeEnd(value) {
-        this.state.taskGanttRange.end = value;
-        this.fetchTaskTimeline();
-    }
-
-    resetTaskGanttRange() {
-        this.state.taskGanttRange = defaultTaskGanttRange();
-        this.fetchTaskTimeline();
     }
 
     async fetchLines() {
