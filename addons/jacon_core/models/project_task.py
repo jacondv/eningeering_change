@@ -2,6 +2,8 @@ from datetime import datetime
 
 from odoo import api, fields, models
 
+from .hr_employee import _priority_value
+
 TASK_TYPE_SELECTION = [
     ('3d', '3D'),
     ('2d', '2D'),
@@ -72,7 +74,8 @@ class ProjectTask(models.Model):
         allocated = max(self.allocated_hours or 0.0, 0.0)
         if employee and allocated:
             suggested = employee.suggest_deadline_without_overload(
-                allocated, self.date_start, after_date=self.date_deadline, exclude_task_id=self.id)
+                allocated, self.date_start, after_date=self.date_deadline, exclude_task_id=self.id,
+                priority=_priority_value(self.priority))
             if suggested:
                 time_of_day = (self.date_deadline or fields.Datetime.now()).time()
                 return datetime.combine(suggested, time_of_day)
@@ -94,7 +97,7 @@ class ProjectTask(models.Model):
         for employee in self._get_assigned_employees():
             ranges = employee.get_overloaded_ranges(
                 start, self.date_deadline,
-                extra_remaining=[(allocated, start, self.date_deadline)],
+                extra_remaining=[(allocated, start, self.date_deadline, _priority_value(self.priority))],
                 exclude_task_id=exclude_id)
             result += [(employee, rng) for rng in ranges]
         return result
