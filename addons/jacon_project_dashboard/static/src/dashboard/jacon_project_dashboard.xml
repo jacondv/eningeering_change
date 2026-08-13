@@ -280,22 +280,12 @@
                         <div class="o_pd_panel">
                             <div class="o_pd_panel_head">
                                 <h4 class="mb-0">Task Timeline</h4>
-                                <div class="o_pd_timeline_controls">
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <button t-foreach="taskGanttViewModes" t-as="mode" t-key="mode"
-                                                t-att-class="'btn btn-outline-secondary' + (state.taskGanttViewMode === mode ? ' active' : '')"
-                                                t-on-click="() => this.setTaskGanttViewMode(mode)">
-                                            <t t-esc="mode"/>
-                                        </button>
-                                    </div>
-                                    <input type="date" class="form-control form-control-sm"
-                                           t-att-value="state.taskGanttRange.start"
-                                           t-on-change="(ev) => this.setTaskGanttRangeStart(ev.target.value)"/>
-                                    <span class="text-muted small">→</span>
-                                    <input type="date" class="form-control form-control-sm"
-                                           t-att-value="state.taskGanttRange.end"
-                                           t-on-change="(ev) => this.setTaskGanttRangeEnd(ev.target.value)"/>
-                                    <button class="btn btn-sm btn-link" t-on-click="resetTaskGanttRange">Reset</button>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button t-foreach="taskGanttViewModes" t-as="mode" t-key="mode"
+                                            t-att-class="'btn btn-outline-secondary' + (state.taskGanttViewMode === mode ? ' active' : '')"
+                                            t-on-click="() => this.setTaskGanttViewMode(mode)">
+                                        <t t-esc="mode"/>
+                                    </button>
                                 </div>
                             </div>
                             <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize (nothing is saved until you confirm).</p>

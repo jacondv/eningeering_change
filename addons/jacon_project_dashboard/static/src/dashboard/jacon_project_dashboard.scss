@@ -314,17 +314,6 @@
     // ------------------------------------------------------------
     // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
     // ------------------------------------------------------------
-    .o_pd_timeline_controls {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-
-        input[type="date"] {
-            width: 140px;
-        }
-    }
-
     .o_pd_task_gantt {
         height: 480px;
         min-height: 200px;
