@@ -54,6 +54,20 @@ function _isoDateRounded(d) {
     return _isoDate(shifted);
 }
 
+/** Calendar-day span between two 'YYYY-MM-DD' strings (end - start, so a
+ * same-day task is 0). Parsed as local midnight, matching _isoDate. */
+function _daySpan(startIso, endIso) {
+    const start = new Date(`${startIso}T00:00:00`);
+    const end = new Date(`${endIso}T00:00:00`);
+    return Math.round((end - start) / (24 * 60 * 60 * 1000));
+}
+
+function _addDays(isoStr, days) {
+    const d = new Date(`${isoStr}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return _isoDate(d);
+}
+
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
     "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
@@ -672,15 +686,24 @@ export class JaconProjectDashboard extends Component {
         await this.fetchData();
     }
 
-    confirmTaskGanttChange({ ganttTaskId, taskId, start, end }) {
+    confirmTaskGanttChange({ ganttTaskId, taskId, start }) {
         const row = (this.state.taskGanttData || []).find((r) => r.id === taskId);
         if (!row) {
             return;
         }
+        // Only the drop position's start date is trusted from the drag -
+        // Frappe Gantt's "Day" view isn't snapped to whole-day columns
+        // (see _isoDateRounded), so an independently-computed end from
+        // the same imprecise geometry kept drifting the task's length
+        // longer/shorter on every drag. Instead, the deadline always
+        // keeps the task's original length (in calendar days) relative
+        // to the new start - dragging only ever repositions the task,
+        // it never resizes it.
         const newStartStr = _isoDateRounded(start);
-        const newEndStr = _isoDateRounded(end);
+        const originalSpanDays = _daySpan(row.start, row.end);
+        const newEndStr = _addDays(newStartStr, originalSpanDays);
         const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
-        if (newStartStr === row.start && newEndStr === row.end) {
+        if (newStartStr === row.start) {
             return;
         }
 
