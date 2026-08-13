@@ -333,6 +333,19 @@
         .bar-progress { fill: #2e7d32; }
         .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
 
+        // Core facts block (project/assignee/dates/hours/progress) built
+        // from scratch in taskGanttPopup - shown for every task, not just
+        // overloaded ones.
+        .o_pd_gantt_popup_info {
+            font-size: .78rem;
+            line-height: 1.5;
+        }
+
+        .o_pd_gantt_popup_overdue {
+            color: #c62828;
+            font-weight: 500;
+        }
+
         // Extra "over by Xh / suggested deadline" line appended to the
         // popup for overloaded tasks (see taskGanttPopup in the JS).
         .o_pd_gantt_popup_overload {

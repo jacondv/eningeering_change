@@ -647,31 +647,40 @@ export class JaconProjectDashboard extends Component {
         });
     }
 
-    /** For overloaded tasks, append the exact numbers a manager needs to
-     * fix it - how many hours over and the nearest deadline that would
-     * clear it (same figures as the Task form warning) - plus a one-click
-     * action to apply that suggestion, instead of just flagging the bar
-     * red and leaving the "how much" and "to when" to guesswork. Frappe
-     * Gantt reuses the same popup DOM node across opens, so any earlier
-     * injected block is stripped first - otherwise it just keeps growing,
-     * one more "Over capacity by Xh" line per click. */
-    taskGanttPopup({ task, get_details, set_details, add_action }) {
+/** Builds the whole popup body from scratch (task, project, assignee,
+     * dates, allocated hours, progress, overdue) instead of relying on
+     * Frappe's default popup, which only showed the bar's own overload
+     * line - a manager clicking a task wants the same key facts they'd see
+     * on the Task form without leaving the timeline. Overload/suggested
+     * deadline stays a separate block appended only when relevant. Rebuilt
+     * fully with set_details on every open (rather than appended to
+     * get_details' content) so it can't accumulate duplicate lines across
+     * repeated clicks on the same bar - the bug reported earlier. */
+    taskGanttPopup({ task, set_details, add_action }) {
         const row = (this.state.taskGanttData || []).find((r) => String(r.id) === task.id);
-        if (!row || !row.overloaded) {
+        if (!row) {
             return;
         }
-        const detailsEl = get_details();
-        const existing = detailsEl.querySelector(".o_pd_gantt_popup_overload");
-        if (existing) {
-            existing.remove();
+        const lines = [`<div class="o_pd_gantt_popup_info">`];
+        if (row.project) {
+            lines.push(`<div>Project: ${row.project}</div>`);
         }
-        const lines = [`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`];
-        if (row.suggested_deadline) {
-            lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
+        lines.push(`<div>Assignee: ${row.employee}</div>`);
+        lines.push(`<div>${row.start} &rarr; ${row.end}</div>`);
+        lines.push(`<div>Allocated: ${row.allocated_hours}h &middot; Progress: ${Math.round(row.progress)}%</div>`);
+        if (row.overdue) {
+            lines.push(`<div class="o_pd_gantt_popup_overdue">Overdue</div>`);
         }
         lines.push("</div>");
-        set_details(detailsEl.innerHTML + lines.join(""));
-        if (row.suggested_deadline) {
+        if (row.overloaded) {
+            lines.push(`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`);
+            if (row.suggested_deadline) {
+                lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
+            }
+            lines.push("</div>");
+        }
+        set_details(lines.join(""));
+        if (row.overloaded && row.suggested_deadline) {
             add_action("Apply suggested deadline", () => this.applySuggestedDeadline(row));
         }
     }
