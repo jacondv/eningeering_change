@@ -277,6 +277,14 @@ class JaconProjectDashboard(models.AbstractModel):
                 'allocated_hours': task.allocated_hours,
                 'progress': round(task.progress or 0.0),
                 'overdue': deadline < today,
+                # Assignee's working weekdays (0=Monday..6=Sunday, see
+                # hr.employee._work_weekdays) - the frontend needs this to
+                # keep a task's *working*-day length intact when it's
+                # dragged to a new start date, rather than a naive
+                # calendar-day count that would silently shrink/grow
+                # depending on how many weekends the new position happens
+                # to straddle.
+                'work_weekdays': sorted(assignee._work_weekdays()),
             })
 
         # Overload detail per bar: did THIS task actually finish (all its
