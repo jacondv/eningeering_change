@@ -55,7 +55,8 @@ class EngineeringChange(models.Model):
         ('supplychain', 'SupplyChain'),
         ('safety', 'Safety'),
         ('improvement', 'Improvement'),
-        ('production', 'Production')
+        ('production', 'Production'),
+        ('Product Support', 'Product Support'),
     ], string='Change Source', tracking=True)
     title = fields.Char(required=True, tracking=True)
     description = fields.Html(required=True)
