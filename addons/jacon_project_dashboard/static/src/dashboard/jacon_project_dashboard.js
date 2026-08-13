@@ -39,18 +39,16 @@ function _isoDate(d) {
 }
 
 /** Same as _isoDate, but rounds to the nearest midnight instead of
- * truncating - for Frappe Gantt's `new_start_date`, which it computes
- * from the bar's pixel X position (bar.getX() / column_width). That
- * division can land a hair off an exact day boundary from sub-pixel/
- * floating-point drift, and a plain truncation always rounds toward the
- * PREVIOUS day on the unlucky side - each drag then saves that
- * already-shortened start as the next drag's baseline, so the task's
- * displayed range visibly shrinks a little more every time it's moved.
- * Shifting by 12h before truncating rounds to the nearer day instead,
- * which absorbs that jitter regardless of which side it falls on. Not
- * used for `new_end_date`: Frappe already hands that back as exactly
- * 1 second before the next day's midnight (deliberately, to represent
- * an inclusive end date), so plain truncation there is already exact. */
+ * truncating - Frappe Gantt's "Day" view has no `snap_at` configured
+ * (only Month/Year do), so a dragged bar's pixel X/width - and the
+ * start/end dates on_date_change computes from them - are free-floating
+ * fractions of a day, not snapped to whole-day columns as it might look
+ * like on screen. Plain truncation of a fractional date always rounds
+ * toward the earlier day, so both endpoints would drift a little short
+ * on every drag, and each confirmed edit re-saves that shortened range
+ * as the next drag's baseline - compounding into a visibly shrinking
+ * task the more it gets moved. Shifting by 12h before truncating rounds
+ * to the nearer day instead, for both start and end. */
 function _isoDateRounded(d) {
     const shifted = new Date(d.getTime() + 12 * 60 * 60 * 1000);
     return _isoDate(shifted);
@@ -680,7 +678,7 @@ export class JaconProjectDashboard extends Component {
             return;
         }
         const newStartStr = _isoDateRounded(start);
-        const newEndStr = _isoDate(end);
+        const newEndStr = _isoDateRounded(end);
         const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
         if (newStartStr === row.start && newEndStr === row.end) {
             return;
