@@ -184,14 +184,25 @@ class JaconProjectDashboard(models.AbstractModel):
             emp_domain.append(('id', 'in', employee_ids))
         employees = self.env['hr.employee'].search(emp_domain)
         segments = self._period_segments_from_today(filters)
+        if not segments:
+            return []
+        span_start = min(start for start, _end in segments)
+        span_end = max(end for _start, end in segments)
 
         capacity = []
         for emp in employees:
             period_capacity = sum(emp.get_period_capacity_hours(start, end) for start, end in segments)
+            # Simulated as ONE continuous span (not per-segment) even
+            # though only the selected months are summed below - the
+            # priority queue is stateful (unlike the old even-spread
+            # model), so splitting it into disjoint per-segment calls
+            # would forget everything scheduled in a skipped month
+            # (e.g. Aug + Nov selected, Sep/Oct skipped) and wrongly dump
+            # that work as fresh backlog at the start of the next segment.
+            all_days = emp.get_daily_load(span_start, span_end)
             committed = sum(
-                day['load']
-                for start, end in segments
-                for day in emp.get_daily_load(start, end)
+                day['load'] for day in all_days
+                if any(start <= day['date'] <= end for start, end in segments)
             )
             if not period_capacity and not committed:
                 continue
@@ -223,12 +234,23 @@ class JaconProjectDashboard(models.AbstractModel):
             emp_domain.append(('id', 'in', employee_ids))
         employees = self.env['hr.employee'].search(emp_domain)
         segments = self._period_segments_from_today(filters)
+        if not segments:
+            return []
+        span_start = min(start for start, _end in segments)
+        span_end = max(end for _start, end in segments)
 
         rows = []
         for emp in employees:
-            days = []
-            for start, end in segments:
-                days += emp.get_daily_load(start, end)
+            # One continuous simulation across the whole span, then keep
+            # only the days inside the selected segments - see the same
+            # note in _capacity_by_employee for why per-segment calls
+            # would corrupt the priority queue's state across a gap
+            # (e.g. Aug + Nov selected, Sep/Oct skipped).
+            all_days = emp.get_daily_load(span_start, span_end)
+            days = [
+                day for day in all_days
+                if any(start <= day['date'] <= end for start, end in segments)
+            ]
             if not days:
                 continue
             rows.append({
