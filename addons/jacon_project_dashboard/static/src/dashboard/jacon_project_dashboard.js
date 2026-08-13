@@ -38,6 +38,24 @@ function _isoDate(d) {
     return `${y}-${m}-${day}`;
 }
 
+/** Same as _isoDate, but rounds to the nearest midnight instead of
+ * truncating - for Frappe Gantt's `new_start_date`, which it computes
+ * from the bar's pixel X position (bar.getX() / column_width). That
+ * division can land a hair off an exact day boundary from sub-pixel/
+ * floating-point drift, and a plain truncation always rounds toward the
+ * PREVIOUS day on the unlucky side - each drag then saves that
+ * already-shortened start as the next drag's baseline, so the task's
+ * displayed range visibly shrinks a little more every time it's moved.
+ * Shifting by 12h before truncating rounds to the nearer day instead,
+ * which absorbs that jitter regardless of which side it falls on. Not
+ * used for `new_end_date`: Frappe already hands that back as exactly
+ * 1 second before the next day's midnight (deliberately, to represent
+ * an inclusive end date), so plain truncation there is already exact. */
+function _isoDateRounded(d) {
+    const shifted = new Date(d.getTime() + 12 * 60 * 60 * 1000);
+    return _isoDate(shifted);
+}
+
 const CHART_COLORS = [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
     "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
@@ -661,7 +679,7 @@ export class JaconProjectDashboard extends Component {
         if (!row) {
             return;
         }
-        const newStartStr = _isoDate(start);
+        const newStartStr = _isoDateRounded(start);
         const newEndStr = _isoDate(end);
         const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
         if (newStartStr === row.start && newEndStr === row.end) {
