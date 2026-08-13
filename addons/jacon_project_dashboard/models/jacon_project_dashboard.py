@@ -1,6 +1,8 @@
 import calendar
 from datetime import date
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 from odoo.fields import Domain
 
@@ -240,30 +242,30 @@ class JaconProjectDashboard(models.AbstractModel):
             })
         return rows
 
-    def _task_timeline(self, filters):
+    def _task_timeline(self, filters, window_start, window_end):
         """Individual open tasks as (start, end) bars, one per task, for the
         drag & drop Task Timeline panel (Frappe Gantt, MIT-licensed,
         vendored locally under static/lib - this Odoo install is
         Community, the native Gantt view is Enterprise-only).
 
         Dates are the task's *real*, unclamped date_start/date_deadline -
-        the selected Year/Months period is only used to decide which
-        tasks to include (must overlap the window), not to clip the bar
-        itself, because dragging a bar has to write back the task's
-        actual dates and a clipped starting position would silently
-        shift them on the first drag.
+        `window_start`/`window_end` only decide which tasks to include
+        (must overlap the window), not to clip the bar itself, because
+        dragging a bar has to write back the task's actual dates and a
+        clipped starting position would silently shift them on the first
+        drag. Unlike Capacity/Workload Gantt this window is caller-chosen
+        and NOT clamped to today - the Timeline is also meant to show
+        recently-past work (e.g. its default "previous/current/next
+        month"), not just what's still ahead.
         """
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
             emp_domain.append(('id', 'in', employee_ids))
         employees = self.env['hr.employee'].search(emp_domain)
-        segments = self._period_segments_from_today(filters)
-        if not segments or not employees:
+        if not employees:
             return []
 
-        window_start = min(start for start, _end in segments)
-        window_end = max(end for _start, end in segments)
         today = fields.Date.context_today(self)
         emp_by_user = {emp.user_id.id: emp for emp in employees}
 
@@ -336,6 +338,26 @@ class JaconProjectDashboard(models.AbstractModel):
 
         bars.sort(key=lambda b: (b['employee'], b['start']))
         return bars
+
+    @api.model
+    def get_task_timeline(self, filters=None, range_start=None, range_end=None):
+        """Task Timeline is decoupled from the main dashboard's Year/Months
+        filter on purpose - its default window is "previous/current/next
+        calendar month" (a rolling 3-month view centered on today, not
+        whatever Year/Months happens to be selected up top), and the panel
+        has its own Day/Week/Month/range controls that call this
+        separately rather than re-fetching the whole dashboard."""
+        filters = filters or {}
+        today = fields.Date.context_today(self)
+        if range_start:
+            window_start = fields.Date.to_date(range_start)
+        else:
+            window_start = today.replace(day=1) - relativedelta(months=1)
+        if range_end:
+            window_end = fields.Date.to_date(range_end)
+        else:
+            window_end = today.replace(day=1) + relativedelta(months=2) - relativedelta(days=1)
+        return self._task_timeline(filters, window_start, window_end)
 
     @api.model
     def get_dashboard_data(self, filters=None):
@@ -445,7 +467,6 @@ class JaconProjectDashboard(models.AbstractModel):
 
         capacity_by_employee = self._capacity_by_employee(filters)
         workload_gantt = self._workload_gantt(filters)
-        task_timeline = self._task_timeline(filters)
 
         return {
             'kpi': {
@@ -466,7 +487,6 @@ class JaconProjectDashboard(models.AbstractModel):
             'overdue_by_employee': overdue_by_employee,
             'capacity_by_employee': capacity_by_employee,
             'workload_gantt': workload_gantt,
-            'task_timeline': task_timeline,
         }
 
     @api.model
