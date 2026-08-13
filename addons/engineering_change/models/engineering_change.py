@@ -288,9 +288,16 @@ class EngineeringChange(models.Model):
         # field's docstring). So instead: delete the requests first (clearing
         # the reference project_id's restrict is guarding), then delete their
         # now-unreferenced projects as a deliberate side effect of this method.
+        # project.project (jacon_core) has its own, separate unlink() guard
+        # keyed on 'project_delete_password_confirmed' - the user already
+        # confirmed their password once to get here (via
+        # action_delete_with_password's check_identity), so that guard must
+        # be satisfied too, not just this model's own 'ec_delete_password_
+        # confirmed' key, or this second unlink() call fails right back with
+        # that guard's own "Invalid Operation" error.
         projects = self.project_id
         result = super().unlink()
-        projects.sudo().unlink()
+        projects.sudo().with_context(project_delete_password_confirmed=True).unlink()
         return result
 
     @check_identity
