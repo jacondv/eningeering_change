@@ -54,17 +54,47 @@ function _isoDateRounded(d) {
     return _isoDate(shifted);
 }
 
-/** Calendar-day span between two 'YYYY-MM-DD' strings (end - start, so a
- * same-day task is 0). Parsed as local midnight, matching _isoDate. */
-function _daySpan(startIso, endIso) {
-    const start = new Date(`${startIso}T00:00:00`);
-    const end = new Date(`${endIso}T00:00:00`);
-    return Math.round((end - start) / (24 * 60 * 60 * 1000));
+/** JS Date.getDay() is 0=Sunday..6=Saturday; hr.employee._work_weekdays
+ * (backend, see jacon_core) is 0=Monday..6=Sunday - convert so
+ * `work_weekdays` from the server can be compared directly. */
+function _pyWeekday(d) {
+    return (d.getDay() + 6) % 7;
 }
 
-function _addDays(isoStr, days) {
-    const d = new Date(`${isoStr}T00:00:00`);
-    d.setDate(d.getDate() + days);
+/** Count of `weekdays`-matching days between two 'YYYY-MM-DD' strings,
+ * inclusive of both ends - e.g. a Mon-Fri task spanning Mon->Fri is 5,
+ * matching how the backend spreads allocated_hours across the same
+ * inclusive range (hr.employee.get_daily_load). */
+function _workingDaySpan(startIso, endIso, weekdays) {
+    let d = new Date(`${startIso}T00:00:00`);
+    const end = new Date(`${endIso}T00:00:00`);
+    let count = 0;
+    while (d <= end) {
+        if (weekdays.includes(_pyWeekday(d))) {
+            count++;
+        }
+        d.setDate(d.getDate() + 1);
+    }
+    return count;
+}
+
+/** Inverse of _workingDaySpan: the date `targetCount` working days after
+ * (and including, if it's itself a working day) `startIso`. Used to keep
+ * a dragged task's *working*-day length intact - a naive calendar-day
+ * count would silently shrink/grow it depending on how many weekends the
+ * new start position happens to straddle. */
+function _addWorkingDays(startIso, weekdays, targetCount) {
+    const d = new Date(`${startIso}T00:00:00`);
+    let count = 0;
+    while (count < targetCount) {
+        if (weekdays.includes(_pyWeekday(d))) {
+            count++;
+            if (count === targetCount) {
+                break;
+            }
+        }
+        d.setDate(d.getDate() + 1);
+    }
     return _isoDate(d);
 }
 
@@ -696,12 +726,17 @@ export class JaconProjectDashboard extends Component {
         // (see _isoDateRounded), so an independently-computed end from
         // the same imprecise geometry kept drifting the task's length
         // longer/shorter on every drag. Instead, the deadline always
-        // keeps the task's original length (in calendar days) relative
-        // to the new start - dragging only ever repositions the task,
-        // it never resizes it.
+        // keeps the task's original length in *working* days (per the
+        // assignee's calendar, e.g. Mon-Fri) relative to the new start -
+        // a plain calendar-day count would silently change the number of
+        // working days covered depending on how many weekends the new
+        // position straddles, which is what actually matters here since
+        // that's what allocated_hours is scheduled against. Dragging only
+        // ever repositions the task, it never resizes it.
         const newStartStr = _isoDateRounded(start);
-        const originalSpanDays = _daySpan(row.start, row.end);
-        const newEndStr = _addDays(newStartStr, originalSpanDays);
+        const weekdays = row.work_weekdays && row.work_weekdays.length ? row.work_weekdays : [0, 1, 2, 3, 4];
+        const originalWorkDays = _workingDaySpan(row.start, row.end, weekdays);
+        const newEndStr = _addWorkingDays(newStartStr, weekdays, originalWorkDays);
         const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
         if (newStartStr === row.start) {
             return;
