@@ -545,58 +545,6 @@ export class JaconProjectDashboard extends Component {
     }
 
     // ------------------------------------------------------------
-    // Workload Gantt helpers
-    // ------------------------------------------------------------
-    /** Union of every employee's work-day dates, sorted - the column
-     * axis. Not every employee necessarily has a cell for every date
-     * (different calendars), missing = day off for that person. */
-    get ganttDates() {
-        const dates = new Set();
-        for (const row of this.state.data.workload_gantt) {
-            for (const day of row.days) {
-                dates.add(day.date);
-            }
-        }
-        return [...dates].sort();
-    }
-
-    ganttDateLabel(dateStr) {
-        const d = new Date(dateStr + "T00:00:00");
-        return `${d.getDate()}/${d.getMonth() + 1}`;
-    }
-
-    _ganttDay(row, dateStr) {
-        return row.days.find((day) => day.date === dateStr);
-    }
-
-    ganttCellClass(row, dateStr) {
-        const day = this._ganttDay(row, dateStr);
-        if (!day) {
-            return "o_pd_gantt_off";
-        }
-        if (day.overloaded) {
-            return "o_pd_gantt_over";
-        }
-        const pct = day.capacity ? (day.load / day.capacity) * 100 : 0;
-        if (pct >= 85) {
-            return "o_pd_gantt_tight";
-        }
-        if (pct > 0) {
-            return "o_pd_gantt_busy";
-        }
-        return "o_pd_gantt_free";
-    }
-
-    ganttCellTitle(row, dateStr) {
-        const day = this._ganttDay(row, dateStr);
-        if (!day) {
-            return `${row.name} - ${dateStr}: off`;
-        }
-        return `${row.name} - ${dateStr}: ${day.load}h / ${day.capacity}h` +
-            (day.overloaded ? " (overloaded)" : "");
-    }
-
-    // ------------------------------------------------------------
     // Task Timeline (Frappe Gantt, MIT-licensed, vendored locally under
     // static/lib - this Odoo install is Community, the native Gantt
     // view is Enterprise-only). Drag/resize a bar -> confirm popup ->
@@ -620,10 +568,10 @@ export class JaconProjectDashboard extends Component {
             start: row.start,
             end: row.end,
             progress: row.progress,
-            // Red bar = this task's own window contains a day where its
-            // assignee is over capacity (same flag as the Task form
-            // warning and Workload Gantt) - the progress fill (green,
-            // via SCSS) stays a separate, independent signal on top.
+            // Red bar = this task didn't finish on time under the
+            // priority queue (same flag as the Task form warning) - the
+            // progress fill (green, via SCSS) stays a separate,
+            // independent signal on top.
             custom_class: row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
