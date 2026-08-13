@@ -176,12 +176,24 @@ export class JaconProjectDashboard extends Component {
     async fetchData() {
         storeFilters(this.state.filters);
         this.state.loading = true;
-        const [data] = await Promise.all([
+        const [data, taskGanttData] = await Promise.all([
             this.orm.call("jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters }),
             this.fetchTaskTimeline(),
         ]);
         this.state.data = data;
         this.state.loading = false;
+        // Assign AFTER loading flips back to false (not inside
+        // fetchTaskTimeline, in parallel with the main fetch above) - the
+        // Task Timeline's container div is unmounted while state.loading
+        // is true (see the `t-if="state.loading"` in the template), so
+        // assigning taskGanttData any earlier fires the render useEffect
+        // while its ref is still null, silently no-op'ing renderTaskGantt.
+        // Since taskGanttData then never changes again afterward, the
+        // effect never re-fires and the chart stays empty until some
+        // unrelated later action happens to reassign it. Setting it here,
+        // in the same tick right after loading=false remounts the div,
+        // guarantees the effect's post-patch run sees a live ref.
+        this.state.taskGanttData = taskGanttData;
         requestAnimationFrame(() => {
             this.renderMainChart();
             if (this.state.showMore) {
@@ -195,9 +207,11 @@ export class JaconProjectDashboard extends Component {
      * (its own fixed rolling previous/current/next month window,
      * independent of the Year/Months filter up top - see
      * get_task_timeline) - called from fetchData so Project/Engineer/Task
-     * Type filter changes still reach it. */
+     * Type filter changes still reach it. Returns the data rather than
+     * assigning it directly to state - see the ordering note in
+     * fetchData for why the assignment itself has to happen later. */
     async fetchTaskTimeline() {
-        this.state.taskGanttData = await this.orm.call(
+        return this.orm.call(
             "jacon.project.dashboard", "get_task_timeline", [], { filters: this.state.filters });
     }
 
