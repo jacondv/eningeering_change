@@ -15,6 +15,17 @@
         <li><hr class="dropdown-divider"/></li>
     </t>
 
+    <!-- Type-to-filter search box for a multi-select dropdown menu -
+         caller sets `field` before t-call'ing this, same as
+         FilterMenuActions. Narrows which checkboxes are shown, not what's
+         actually selected. -->
+    <t t-name="jacon_project_dashboard.FilterMenuSearch">
+        <li class="o_pd_filter_search">
+            <input type="text" class="form-control form-control-sm" placeholder="Search..."
+                   t-model="state.filterSearch[field]"/>
+        </li>
+    </t>
+
     <t t-name="jacon_project_dashboard.Dashboard">
         <div class="o_pd_dashboard">
             <div class="o_pd_header">
@@ -81,7 +92,10 @@
                         <t t-call="jacon_project_dashboard.FilterMenuActions">
                             <t t-set="field" t-value="'project_ids'"/>
                         </t>
-                        <li t-foreach="state.options.projects" t-as="project" t-key="project.id">
+                        <t t-call="jacon_project_dashboard.FilterMenuSearch">
+                            <t t-set="field" t-value="'project_ids'"/>
+                        </t>
+                        <li t-foreach="filteredFilterOptions('project_ids')" t-as="project" t-key="project.id">
                             <label class="dropdown-item">
                                 <input type="checkbox"
                                        t-att-checked="isFilterActive('project_ids', project.id)"
@@ -89,6 +103,7 @@
                                 <t t-esc="project.name"/>
                             </label>
                         </li>
+                        <li t-if="!filteredFilterOptions('project_ids').length" class="dropdown-item-text text-muted">No matches</li>
                     </ul>
                 </div>
 
@@ -104,7 +119,10 @@
                         <t t-call="jacon_project_dashboard.FilterMenuActions">
                             <t t-set="field" t-value="'employee_ids'"/>
                         </t>
-                        <li t-foreach="state.options.employees" t-as="employee" t-key="employee.id">
+                        <t t-call="jacon_project_dashboard.FilterMenuSearch">
+                            <t t-set="field" t-value="'employee_ids'"/>
+                        </t>
+                        <li t-foreach="filteredFilterOptions('employee_ids')" t-as="employee" t-key="employee.id">
                             <label class="dropdown-item">
                                 <input type="checkbox"
                                        t-att-checked="isFilterActive('employee_ids', employee.id)"
@@ -112,6 +130,7 @@
                                 <t t-esc="employee.name"/>
                             </label>
                         </li>
+                        <li t-if="!filteredFilterOptions('employee_ids').length" class="dropdown-item-text text-muted">No matches</li>
                     </ul>
                 </div>
 
@@ -127,7 +146,10 @@
                         <t t-call="jacon_project_dashboard.FilterMenuActions">
                             <t t-set="field" t-value="'task_types'"/>
                         </t>
-                        <li t-foreach="state.options.task_types" t-as="tt" t-key="tt.key">
+                        <t t-call="jacon_project_dashboard.FilterMenuSearch">
+                            <t t-set="field" t-value="'task_types'"/>
+                        </t>
+                        <li t-foreach="filteredFilterOptions('task_types')" t-as="tt" t-key="tt.key">
                             <label class="dropdown-item">
                                 <input type="checkbox"
                                        t-att-checked="isFilterActive('task_types', tt.key)"
@@ -135,6 +157,7 @@
                                 <t t-esc="tt.label"/>
                             </label>
                         </li>
+                        <li t-if="!filteredFilterOptions('task_types').length" class="dropdown-item-text text-muted">No matches</li>
                     </ul>
                 </div>
 
@@ -256,11 +279,13 @@
                                     </button>
                                 </div>
                             </div>
-                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize (nothing is saved until you confirm).</p>
+                            <p class="text-muted small">Each open task as a bar from its Start Date to Deadline - drag to move, drag either edge to resize (nothing is saved until you confirm). The Project filter above narrows which tasks are shown here; overload is still calculated against each engineer's full workload, not just the filtered project.</p>
                             <t t-if="!state.taskGanttData.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
-                            <div class="o_pd_task_gantt" t-ref="task_gantt" t-else=""/>
+                            <div class="o_pd_task_gantt_outer" t-else="">
+                                <div class="o_pd_task_gantt" t-ref="task_gantt"/>
+                            </div>
                         </div>
                     </div>
                 </div>
