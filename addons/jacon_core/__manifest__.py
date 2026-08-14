@@ -1,6 +1,6 @@
 {
     'name': 'Jacon Core',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Hidden/Tools',
     'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
     'description': """
@@ -26,6 +26,8 @@ Currently provides:
 - Left-aligned number columns: the Project and Task List views left-align numeric columns and use a darker zebra striping.
 - Edit lock: existing Projects open read-only; an "Edit" button prompts for the current user's own password before unlocking the form, and it re-locks after every save/reload. New (unsaved) Projects are always fully editable.
 - Form layout: system-wide, widens the form sheet and gives the chatter side panel a narrower fixed width, so more of the form is visible without shrinking the chatter down to unreadable. Adds a handle to collapse/expand the chatter on demand.
+- Start Date: an explicit, editable Task field (defaults to the creation date) alongside Deadline - the window an engineer's remaining hours on that task are spread across.
+- Overload warning: assigning a Task (Engineer, Allocated Hours, Start Date, Deadline) warns right on the form if it would push that engineer's combined daily workload over their working-calendar capacity on any day between Start Date and Deadline, and links to a review wizard listing the other tasks contributing to it - each row's New Deadline opens pre-filled with the nearest date that engineer has room, editable before anything is actually saved to the tasks.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -35,6 +37,7 @@ Currently provides:
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
+        'wizard/task_deadline_wizard_views.xml',
     ],
     'assets': {
         'web.assets_backend': [

@@ -7,6 +7,52 @@
         <field name="model">project.task</field>
         <field name="inherit_id" ref="project.view_task_form2"/>
         <field name="arch" type="xml">
+            <!-- Non-blocking heads-up when assigning this task would push
+                 an engineer over daily capacity somewhere between its
+                 Start Date and Deadline - see
+                 project_task._compute_overload_warning. Odoo's stock form
+                 reserves this exact spot for inherited warnings. -->
+            <xpath expr="//t[@name='warning_section']" position="after">
+                <div class="alert alert-warning mb-0" role="alert" invisible="not overload_warning">
+                    <strong><i class="fa fa-exclamation-triangle"/> Schedule Overload Warning</strong>
+                    <field name="overload_warning" nolabel="1" readonly="1"/>
+                    <button name="action_view_overload_conflicts" type="object"
+                            string="View &amp; Resolve Conflicts" class="btn btn-sm btn-outline-warning mt-1"
+                            invisible="not id"/>
+                </div>
+                <!-- Separate from the warning above: that one flags a day
+                     somewhere in the window that's paying down unrelated
+                     debt, not whether THIS task's own hours actually fit -
+                     see project_task._compute_suggested_start. Applies
+                     even to a brand new, not-yet-saved task. -->
+                <div class="alert alert-info mb-0" role="alert" invisible="not suggested_start_notice">
+                    <strong><i class="fa fa-lightbulb-o"/> Suggested Start Date</strong>
+                    <field name="suggested_start_notice" nolabel="1" readonly="1"/>
+                    <button name="action_apply_suggested_start" type="object"
+                            string="Apply Suggested Start" class="btn btn-sm btn-outline-info mt-1"/>
+                </div>
+            </xpath>
+
+            <!-- Explicit Start Date (default: creation date, editable) -
+                 the overload calculation spreads remaining hours across
+                 working days from here to Deadline, a fixed window
+                 instead of always "today". -->
+            <xpath expr="//label[@for='date_deadline']" position="before">
+                <label for="date_start"/>
+                <field name="date_start" nolabel="1"/>
+            </xpath>
+
+            <!-- Turn the Deadline field itself red the moment the
+                 Start Date -> Deadline window can't physically fit
+                 Allocated Time (this task alone, or stacked with the
+                 assignee's other open tasks) - overload_warning already
+                 covers both cases, this just surfaces it right where
+                 the user is editing instead of only in the banner
+                 below. -->
+            <xpath expr="//div[@id='date_deadline_and_recurring_task']/field[@name='date_deadline']"
+                   position="attributes">
+                <attribute name="decoration-danger">(date_deadline and date_deadline &lt; current_date and state not in ['1_done', '1_canceled']) or overload_warning</attribute>
+            </xpath>
             <field name="tag_ids" position="after">
                 <field name="task_type"/>
             </field>
