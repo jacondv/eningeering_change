@@ -654,6 +654,12 @@ export class JaconProjectDashboard extends Component {
             view_mode: this.state.taskGanttViewMode,
             scroll_to: "today",
             readonly_progress: true,
+            // Default row height (30) + padding (18) wastes vertical
+            // space once an employee has more than a couple of tasks -
+            // shrunk both so more rows fit on screen before scrolling
+            // kicks in.
+            bar_height: 18,
+            padding: 10,
             // The date range is now explicit (the range picker above), so
             // there's no "infinite" axis to extend into - disabling this
             // also removes Frappe's own wheel listener that shifted the

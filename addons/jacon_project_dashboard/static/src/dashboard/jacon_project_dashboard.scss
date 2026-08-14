@@ -265,14 +265,25 @@
     // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
     // ------------------------------------------------------------
     .o_pd_task_gantt {
-        height: 480px;
-        min-height: 200px;
+        // No fixed height - Frappe Gantt already sizes its own SVG to
+        // fit however many task rows there are (container_height:
+        // "auto"), so let this wrapper grow with it instead of forcing
+        // every user's data into the same box regardless of row count.
+        // max-height only kicks in for a genuinely long task list, where
+        // it falls back to scrolling instead of pushing the rest of the
+        // dashboard off-screen.
+        min-height: 120px;
         max-height: 85vh;
-        overflow: auto;
-        // Native browser resize handle (bottom-right corner drag) - the
-        // default 480px is fine for a handful of tasks but way too
-        // short once an employee has many overlapping ones, and there's
-        // no single "right" height to hardcode for every user's data.
+        overflow-y: auto;
+        // Always reserve the horizontal scrollbar's height (rather than
+        // "auto", which only appears once content overflows) - with
+        // "auto" a task list that exactly fits max-height clips the
+        // scrollbar just past the visible edge, forcing the user to
+        // scroll the whole panel down first just to reach it.
+        overflow-x: scroll;
+        // Native browser resize handle (bottom-right corner drag) - for
+        // the rare case someone wants a shorter box than the content
+        // needs, even though it now sizes itself automatically.
         resize: vertical;
 
         // Base bar color (default library theme is a near-white fill,
