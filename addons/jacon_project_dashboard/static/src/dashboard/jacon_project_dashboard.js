@@ -182,6 +182,12 @@ export class JaconProjectDashboard extends Component {
                 employee_ids: [],
                 task_types: [],
             },
+            // Live search text typed into each multi-select dropdown's
+            // own search box (Project/Engineer/Task Type) - purely a
+            // client-side "narrow the visible checkbox list" aid, not
+            // part of the actual filters sent to the server (see
+            // filteredFilterOptions).
+            filterSearch: { project_ids: "", employee_ids: "", task_types: "" },
             mainView: "month",
             chartType: "bar",
             stacked: false,
@@ -344,8 +350,37 @@ export class JaconProjectDashboard extends Component {
             employee_ids: [],
             task_types: [],
         };
+        this.state.filterSearch = { project_ids: "", employee_ids: "", task_types: "" };
         this.state.drill = { employee_id: null, task_type: null, month: null, year: null };
         this.fetchData();
+    }
+
+    /** {list, label} for the multi-select `field`'s own options - one
+     * place that knows each options list's shape (projects/employees use
+     * `.name`, task_types use `.label`), so filteredFilterOptions doesn't
+     * need to. */
+    _filterOptionsSource(field) {
+        switch (field) {
+            case "project_ids": return { list: this.state.options.projects, label: (o) => o.name };
+            case "employee_ids": return { list: this.state.options.employees, label: (o) => o.name };
+            case "task_types": return { list: this.state.options.task_types, label: (o) => o.label };
+            default: return { list: [], label: () => "" };
+        }
+    }
+
+    /** `field`'s options narrowed by whatever the user typed into that
+     * dropdown's own search box (state.filterSearch) - a display-only
+     * aid for finding an entry to check/uncheck in a long list, separate
+     * from the actual checked values in state.filters. "Select all"
+     * still means literally all options, not just the currently visible
+     * (searched) ones. */
+    filteredFilterOptions(field) {
+        const { list, label } = this._filterOptionsSource(field);
+        const search = (this.state.filterSearch[field] || "").trim().toLowerCase();
+        if (!search) {
+            return list;
+        }
+        return list.filter((o) => label(o).toLowerCase().includes(search));
     }
 
     // ------------------------------------------------------------
@@ -655,11 +690,11 @@ export class JaconProjectDashboard extends Component {
             scroll_to: "today",
             readonly_progress: true,
             // Default row height (30) + padding (18) wastes vertical
-            // space once an employee has more than a couple of tasks -
-            // shrunk both so more rows fit on screen before scrolling
-            // kicks in.
+            // space once an employee has more than a couple of tasks, but
+            // shrinking it too far (18/10) made bar labels feel cramped
+            // and hard to read - this is a middle ground.
             bar_height: 18,
-            padding: 10,
+            padding: 5,
             // The date range is now explicit (the range picker above), so
             // there's no "infinite" axis to extend into - disabling this
             // also removes Frappe's own wheel listener that shifted the

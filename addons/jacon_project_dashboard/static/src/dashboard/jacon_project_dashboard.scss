@@ -81,6 +81,14 @@
         color: #ccc;
     }
 
+    .o_pd_filter_search {
+        padding: 0 4px 6px;
+
+        input {
+            width: 100%;
+        }
+    }
+
     .o_pd_months_menu {
         min-width: 260px;
     }
@@ -264,7 +272,17 @@
     // ------------------------------------------------------------
     // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
     // ------------------------------------------------------------
-    .o_pd_task_gantt {
+    // Two nested containers, not one, so vertical and horizontal
+    // scrolling don't fight over the same space: a "scroll" (not "auto")
+    // horizontal scrollbar always reserves its own thickness out of
+    // whichever element it's on, and reserving it on the SAME element
+    // that does vertical overflow used to shave just enough off the
+    // available height to make an exact-fit row count spill into an
+    // unwanted vertical scrollbar too, clipping the last row. Splitting
+    // them means the horizontal scrollbar's reserved space only ever
+    // eats into the inner element's WIDTH, never the outer element's
+    // HEIGHT.
+    .o_pd_task_gantt_outer {
         // No fixed height - Frappe Gantt already sizes its own SVG to
         // fit however many task rows there are (container_height:
         // "auto"), so let this wrapper grow with it instead of forcing
@@ -272,19 +290,48 @@
         // max-height only kicks in for a genuinely long task list, where
         // it falls back to scrolling instead of pushing the rest of the
         // dashboard off-screen.
-        min-height: 120px;
+        // Tall enough that even 1-2 rows still read as a proper Gantt
+        // panel instead of a cramped sliver - Frappe Gantt's own SVG
+        // height still only grows to fit its rows, this floor is purely
+        // about the wrapper never looking tinier than that.
+        min-height: 420px;
         max-height: 85vh;
         overflow-y: auto;
-        // Always reserve the horizontal scrollbar's height (rather than
-        // "auto", which only appears once content overflows) - with
-        // "auto" a task list that exactly fits max-height clips the
-        // scrollbar just past the visible edge, forcing the user to
-        // scroll the whole panel down first just to reach it.
-        overflow-x: scroll;
         // Native browser resize handle (bottom-right corner drag) - for
         // the rare case someone wants a shorter box than the content
         // needs, even though it now sizes itself automatically.
         resize: vertical;
+    }
+
+    .o_pd_task_gantt {
+        // Always reserve the horizontal scrollbar's height (rather than
+        // "auto", which only appears once content overflows) - with
+        // "auto" a task list that exactly fits the outer's max-height
+        // clips the scrollbar just past the visible edge, forcing the
+        // user to scroll the whole panel down first just to reach it.
+        overflow-x: scroll;
+
+        // Frappe Gantt's own inner element (it creates this, not us) sets
+        // an explicit `height` sized to the row count via a CSS var - our
+        // wrapper's min-height above doesn't reach it, so with very few
+        // tasks the actual chart stays tiny with dead space around it.
+        // min-height (unlike height) always wins over a smaller explicit
+        // height, so this floors it without fighting that var.
+        .gantt-container {
+            min-height: 340px;
+            // The library's own stylesheet sets `overflow: auto` here,
+            // which clips the task popup (also its own child - see
+            // frappe-gantt.css .gantt-container .popup-wrapper) at THIS
+            // element's tight bottom edge whenever it opens near the last
+            // row, well before there's actually no room left. Letting it
+            // spill out here means .o_pd_task_gantt_outer's much taller
+            // max-height (85vh) is the only real clip boundary left.
+            overflow: visible;
+            // Extra room below the last row specifically for its popup
+            // (opens downward from the bar) to have somewhere to sit
+            // without touching the very edge of the box.
+            padding-bottom: 70px;
+        }
 
         // Base bar color (default library theme is a near-white fill,
         // too washed out against our panel background) - overload state
