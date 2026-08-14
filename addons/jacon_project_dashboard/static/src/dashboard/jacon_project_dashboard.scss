@@ -311,6 +311,16 @@
         // user to scroll the whole panel down first just to reach it.
         overflow-x: scroll;
 
+        // Frappe Gantt's own inner element (it creates this, not us) sets
+        // an explicit `height` sized to the row count via a CSS var - our
+        // wrapper's min-height above doesn't reach it, so with very few
+        // tasks the actual chart stays tiny with dead space around it.
+        // min-height (unlike height) always wins over a smaller explicit
+        // height, so this floors it without fighting that var.
+        .gantt-container {
+            min-height: 340px;
+        }
+
         // Base bar color (default library theme is a near-white fill,
         // too washed out against our panel background) - overload state
         // overrides it to red; the progress fill is a separate, always-
