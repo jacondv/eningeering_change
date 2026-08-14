@@ -293,12 +293,13 @@ class JaconProjectDashboard(models.AbstractModel):
         # its window contain a red day" (a red day can be pure debt from a
         # different, unrelated overdue task - see hr.employee's
         # _simulate_schedule docstring). If overloaded, also surface how
-        # many hours never got scheduled in time and the nearest deadline
-        # that would clear it - the exact numbers a manager needs to
-        # decide how to fix it, not just that something's wrong. Batched
-        # one get_task_overload call per employee (spanning all of their
-        # bars) instead of one per task, since it re-queries that
-        # employee's whole open-task list internally.
+        # many hours never got scheduled in time and the nearest slot
+        # where the task, unchanged in length, would actually fit - the
+        # exact numbers a manager needs to decide how to fix it, not just
+        # that something's wrong. Batched one get_task_overload call per
+        # employee (spanning all of their bars) instead of one per task,
+        # since it re-queries that employee's whole open-task list
+        # internally.
         emp_by_id = {emp.id: emp for emp in employees}
         bars_by_employee = {}
         for bar in bars:
@@ -308,18 +309,30 @@ class JaconProjectDashboard(models.AbstractModel):
             span_start = min(date.fromisoformat(b['start']) for b in emp_bars)
             span_end = max(date.fromisoformat(b['end']) for b in emp_bars)
             task_overload = emp.get_task_overload(span_start, span_end)
+            weekdays = emp._work_weekdays()
             for bar in emp_bars:
                 info = task_overload.get(bar['id'])
                 bar['overloaded'] = bool(info and info['overloaded'])
                 bar['excess_hours'] = info['unfinished_hours'] if info else 0.0
+                bar['suggested_start'] = None
                 bar['suggested_deadline'] = None
                 if bar['overloaded']:
                     task = task_by_id[bar['id']]
-                    suggested = emp.suggest_deadline_without_overload(
-                        task.allocated_hours, task.date_start,
-                        after_date=task.date_deadline, exclude_task_id=task.id,
-                        priority=_priority_value(task.priority))
-                    bar['suggested_deadline'] = suggested.isoformat() if suggested else None
+                    b_start = date.fromisoformat(bar['start'])
+                    b_end = date.fromisoformat(bar['end'])
+                    # Repositioning must keep the task's own working-day
+                    # length (per the assignee's calendar), not calendar
+                    # days - same reasoning as the drag/drop write-back in
+                    # the frontend (see confirmTaskGanttChange).
+                    duration_work_days = emp._count_work_days(b_start, b_end, weekdays) or 1
+                    suggestion = emp.suggest_start_without_overload(
+                        task.allocated_hours, duration_work_days,
+                        priority=_priority_value(task.priority),
+                        after_date=b_start, exclude_task_id=task.id)
+                    if suggestion:
+                        new_start, new_deadline = suggestion
+                        bar['suggested_start'] = new_start.isoformat()
+                        bar['suggested_deadline'] = new_deadline.isoformat()
 
         bars.sort(key=lambda b: (b['employee'], b['start']))
         return bars

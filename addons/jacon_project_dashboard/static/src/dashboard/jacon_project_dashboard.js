@@ -696,23 +696,28 @@ export class JaconProjectDashboard extends Component {
         lines.push("</div>");
         if (row.overloaded) {
             lines.push(`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`);
-            if (row.suggested_deadline) {
-                lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
+            if (row.suggested_start) {
+                lines.push(`<br/>Suggested schedule: ${row.suggested_start} &rarr; ${row.suggested_deadline} (no overload)`);
             }
             lines.push("</div>");
         }
         set_details(lines.join(""));
-        if (row.overloaded && row.suggested_deadline) {
-            add_action("Apply suggested deadline", () => this.applySuggestedDeadline(row));
+        if (row.overloaded && row.suggested_start) {
+            add_action("Apply suggested schedule", () => this.applySuggestedSchedule(row));
         }
     }
 
-    async applySuggestedDeadline(row) {
+    /** Unlike a plain deadline push, this moves the WHOLE task (both
+     * Start Date and Deadline) to the next slot where it fits without
+     * overload, keeping its own length unchanged - see
+     * hr.employee.suggest_start_without_overload. */
+    async applySuggestedSchedule(row) {
         await this.orm.write("project.task", [row.id], {
+            date_start: row.suggested_start,
             date_deadline: `${row.suggested_deadline} 23:59:59`,
         });
         this.notification.add(
-            `"${row.name}" deadline moved to ${row.suggested_deadline}.`, { type: "success" });
+            `"${row.name}" rescheduled to ${row.suggested_start} → ${row.suggested_deadline}.`, { type: "success" });
         await this.fetchData();
     }
 
