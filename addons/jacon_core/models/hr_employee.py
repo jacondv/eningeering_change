@@ -340,19 +340,32 @@ class HrEmployee(models.Model):
         and instead moves the WHOLE task later to the next slot where it
         actually fits - the Task Timeline's "Apply suggested deadline"
         repositions a task rather than dragging its deadline out. None if
-        nothing works within `horizon_days`."""
+        nothing works within `horizon_days`.
+
+        Each candidate is simulated from TODAY (not from the candidate
+        start itself) through the candidate deadline - a window starting
+        at the candidate date would reset every other open task's
+        remaining hours back to their full amount as of that day, as if
+        no work had happened before it, making the same backlog look
+        freshly full on every single candidate and never leaving room for
+        this one. Starting from today each time lets that backlog
+        realistically clear via capacity spent on the days before the
+        candidate, exactly like `suggest_deadline_without_overload`
+        does by keeping its window's start fixed while only the end
+        grows."""
         self.ensure_one()
         if remaining_hours <= 0 or duration_work_days <= 0:
             return None
         weekdays = self._work_weekdays()
-        after_date = fields.Date.to_date(after_date) or fields.Date.context_today(self)
+        today = fields.Date.context_today(self)
+        after_date = fields.Date.to_date(after_date) or today
         d = after_date + timedelta(days=1)
         limit = after_date + timedelta(days=horizon_days)
         while d <= limit:
             if d.weekday() in weekdays:
                 candidate_deadline = self._add_work_days(d, weekdays, duration_work_days - 1)
                 _days, _task_results, extra_results = self._simulate_schedule(
-                    d, candidate_deadline,
+                    today, candidate_deadline,
                     extra_remaining=[(remaining_hours, d, candidate_deadline, priority)],
                     exclude_task_id=exclude_task_id)
                 if extra_results and not extra_results[0]['overloaded']:
