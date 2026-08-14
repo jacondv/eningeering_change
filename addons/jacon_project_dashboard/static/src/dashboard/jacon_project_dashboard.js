@@ -355,6 +355,46 @@ export class JaconProjectDashboard extends Component {
         this.fetchData();
     }
 
+    /** Every currently-selected filter value, resolved to a display
+     * label - {field, value, label} - so the UI can spell out exactly
+     * what's narrowing the data (e.g. which Project(s)) instead of only
+     * a "(N)" count on each dropdown's own button. */
+    get activeFilterChips() {
+        const chips = [];
+        for (const y of this.state.filters.years) {
+            chips.push({ field: "years", value: y, label: String(y) });
+        }
+        for (const m of this.state.filters.months) {
+            const opt = this.state.options.months.find((o) => o.key === m);
+            if (opt) {
+                chips.push({ field: "months", value: m, label: opt.label });
+            }
+        }
+        for (const p of this.state.filters.project_ids) {
+            const opt = this.state.options.projects.find((o) => o.id === p);
+            if (opt) {
+                chips.push({ field: "project_ids", value: p, label: opt.name });
+            }
+        }
+        for (const e of this.state.filters.employee_ids) {
+            const opt = this.state.options.employees.find((o) => o.id === e);
+            if (opt) {
+                chips.push({ field: "employee_ids", value: e, label: opt.name });
+            }
+        }
+        for (const t of this.state.filters.task_types) {
+            const opt = this.state.options.task_types.find((o) => o.key === t);
+            if (opt) {
+                chips.push({ field: "task_types", value: t, label: opt.label });
+            }
+        }
+        return chips;
+    }
+
+    removeFilterChip(field, value) {
+        this.toggleFilterValue(field, value);
+    }
+
     /** {list, label} for the multi-select `field`'s own options - one
      * place that knows each options list's shape (projects/employees use
      * `.name`, task_types use `.label`), so filteredFilterOptions doesn't

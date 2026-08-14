@@ -40,6 +40,38 @@
         margin-left: auto;
     }
 
+    .o_pd_active_filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: -8px 0 16px;
+        font-size: .8rem;
+    }
+
+    .o_pd_active_filters_label {
+        color: #888;
+    }
+
+    .o_pd_filter_chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eef0f5;
+        color: #444;
+        font-weight: 500;
+        font-size: .78rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+
+        .fa-times {
+            cursor: pointer;
+            color: #999;
+
+            &:hover { color: #c62828; }
+        }
+    }
+
     // Bootstrap's dropdown-menu already floats above in-flow content, but
     // force it explicitly (position/z-index) so it can never end up
     // visually behind a neighboring filter button in this toolbar.
