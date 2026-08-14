@@ -1,6 +1,6 @@
 {
     'name': 'Jacon Core',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Hidden/Tools',
     'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
     'description': """
