@@ -316,3 +316,46 @@ class HrEmployee(models.Model):
                     return d
             d += timedelta(days=1)
         return None
+
+    def _add_work_days(self, start_date, weekdays, count):
+        """`count` working days after (not including) `start_date`, per
+        `weekdays` - count=0 returns `start_date` itself unchanged."""
+        d = start_date
+        remaining = count
+        while remaining > 0:
+            d += timedelta(days=1)
+            if d.weekday() in weekdays:
+                remaining -= 1
+        return d
+
+    def suggest_start_without_overload(self, remaining_hours, duration_work_days, priority=0,
+                                        after_date=None, exclude_task_id=None, horizon_days=180):
+        """Nearest (start, deadline) pair - searching forward day by day
+        from `after_date` - such that a task needing `remaining_hours`
+        across exactly `duration_work_days` working days, queued by
+        `priority` alongside this employee's other open tasks, finishes
+        on time. Unlike `suggest_deadline_without_overload` (which keeps
+        the task's start fixed and stretches its deadline out, spreading
+        the same hours thinner), this keeps the task's own length fixed
+        and instead moves the WHOLE task later to the next slot where it
+        actually fits - the Task Timeline's "Apply suggested deadline"
+        repositions a task rather than dragging its deadline out. None if
+        nothing works within `horizon_days`."""
+        self.ensure_one()
+        if remaining_hours <= 0 or duration_work_days <= 0:
+            return None
+        weekdays = self._work_weekdays()
+        after_date = fields.Date.to_date(after_date) or fields.Date.context_today(self)
+        d = after_date + timedelta(days=1)
+        limit = after_date + timedelta(days=horizon_days)
+        while d <= limit:
+            if d.weekday() in weekdays:
+                candidate_deadline = self._add_work_days(d, weekdays, duration_work_days - 1)
+                _days, _task_results, extra_results = self._simulate_schedule(
+                    d, candidate_deadline,
+                    extra_remaining=[(remaining_hours, d, candidate_deadline, priority)],
+                    exclude_task_id=exclude_task_id)
+                if extra_results and not extra_results[0]['overloaded']:
+                    return d, candidate_deadline
+            d += timedelta(days=1)
+        return None
