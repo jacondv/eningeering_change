@@ -278,9 +278,11 @@ export class JaconProjectDashboard extends Component {
     setTaskGanttViewMode(mode) {
         this.state.taskGanttViewMode = mode;
         storeTaskGanttViewMode(mode);
-        if (this.taskGantt) {
-            this.taskGantt.change_view_mode(mode);
-        }
+        // A full rebuild (not change_view_mode) - readonly is only
+        // applied at construction time (it controls whether Frappe draws
+        // resize handles at all), so switching to/from Day needs a fresh
+        // instance to pick up the new value, not just a view change.
+        this.renderTaskGantt();
     }
 
     async fetchLines() {
@@ -652,6 +654,12 @@ export class JaconProjectDashboard extends Component {
             view_mode: this.state.taskGanttViewMode,
             scroll_to: "today",
             readonly_progress: true,
+            // Default row height (30) + padding (18) wastes vertical
+            // space once an employee has more than a couple of tasks -
+            // shrunk both so more rows fit on screen before scrolling
+            // kicks in.
+            bar_height: 18,
+            padding: 10,
             // The date range is now explicit (the range picker above), so
             // there's no "infinite" axis to extend into - disabling this
             // also removes Frappe's own wheel listener that shifted the
@@ -665,7 +673,18 @@ export class JaconProjectDashboard extends Component {
             on_date_change: (task, start, end) => {
                 this._pendingGanttChange = { ganttTaskId: task.id, taskId: parseInt(task.id, 10), start, end };
             },
+            on_double_click: (task) => this.openTaskForm(task),
             popup: (ctx) => this.taskGanttPopup(ctx),
+        });
+    }
+
+    openTaskForm(task) {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "project.task",
+            res_id: parseInt(task.id, 10),
+            views: [[false, "form"]],
+            target: "current",
         });
     }
 
@@ -696,49 +715,68 @@ export class JaconProjectDashboard extends Component {
         lines.push("</div>");
         if (row.overloaded) {
             lines.push(`<div class="o_pd_gantt_popup_overload">Over capacity by ${row.excess_hours}h`);
-            if (row.suggested_deadline) {
-                lines.push(`<br/>Suggested deadline: ${row.suggested_deadline} (no overload)`);
+            if (row.suggested_start) {
+                lines.push(`<br/>Suggested schedule: ${row.suggested_start} &rarr; ${row.suggested_deadline} (no overload)`);
             }
             lines.push("</div>");
         }
         set_details(lines.join(""));
-        if (row.overloaded && row.suggested_deadline) {
-            add_action("Apply suggested deadline", () => this.applySuggestedDeadline(row));
+        if (row.overloaded && row.suggested_start) {
+            add_action("Apply suggested schedule", () => this.applySuggestedSchedule(row));
         }
     }
 
-    async applySuggestedDeadline(row) {
+    /** Unlike a plain deadline push, this moves the WHOLE task (both
+     * Start Date and Deadline) to the next slot where it fits without
+     * overload, keeping its own length unchanged - see
+     * hr.employee.suggest_start_without_overload. */
+    async applySuggestedSchedule(row) {
         await this.orm.write("project.task", [row.id], {
+            date_start: row.suggested_start,
             date_deadline: `${row.suggested_deadline} 23:59:59`,
         });
         this.notification.add(
-            `"${row.name}" deadline moved to ${row.suggested_deadline}.`, { type: "success" });
+            `"${row.name}" rescheduled to ${row.suggested_start} → ${row.suggested_deadline}.`, { type: "success" });
         await this.fetchData();
     }
 
-    confirmTaskGanttChange({ ganttTaskId, taskId, start }) {
+    confirmTaskGanttChange({ ganttTaskId, taskId, start, end }) {
         const row = (this.state.taskGanttData || []).find((r) => r.id === taskId);
         if (!row) {
             return;
         }
-        // Only the drop position's start date is trusted from the drag -
-        // Frappe Gantt's "Day" view isn't snapped to whole-day columns
-        // (see _isoDateRounded), so an independently-computed end from
-        // the same imprecise geometry kept drifting the task's length
-        // longer/shorter on every drag. Instead, the deadline always
-        // keeps the task's original length in *working* days (per the
-        // assignee's calendar, e.g. Mon-Fri) relative to the new start -
-        // a plain calendar-day count would silently change the number of
-        // working days covered depending on how many weekends the new
-        // position straddles, which is what actually matters here since
-        // that's what allocated_hours is scheduled against. Dragging only
-        // ever repositions the task, it never resizes it.
-        const newStartStr = _isoDateRounded(start);
+        // Frappe Gantt's "Day" view isn't snapped to whole-day columns,
+        // so raw drag positions are free-floating fractions of a day -
+        // round both to the nearest day before trusting them (see
+        // _isoDateRounded).
+        const rawStartStr = _isoDateRounded(start);
+        const rawEndStr = _isoDateRounded(end);
         const weekdays = row.work_weekdays && row.work_weekdays.length ? row.work_weekdays : [0, 1, 2, 3, 4];
-        const originalWorkDays = _workingDaySpan(row.start, row.end, weekdays);
-        const newEndStr = _addWorkingDays(newStartStr, weekdays, originalWorkDays);
+
+        // Only one edge of the bar actually moves during a resize - the
+        // other lands back exactly where it started once rounded, which
+        // is how a resize is told apart from a move here (Frappe doesn't
+        // expose which handle was dragged to on_date_change directly). A
+        // pure move re-derives the end from the task's original working-
+        // day length (per the assignee's calendar) instead of trusting
+        // Frappe's independently-computed end for that gesture, since
+        // both edges come from the same imprecise geometry and drifted
+        // the task's length longer/shorter on every drag when both were
+        // taken at face value.
+        let newStartStr, newEndStr;
+        if (rawStartStr === row.start && rawEndStr !== row.end) {
+            newStartStr = row.start;
+            newEndStr = rawEndStr < newStartStr ? newStartStr : rawEndStr;
+        } else if (rawEndStr === row.end && rawStartStr !== row.start) {
+            newStartStr = rawStartStr > row.end ? row.end : rawStartStr;
+            newEndStr = row.end;
+        } else {
+            newStartStr = rawStartStr;
+            const originalWorkDays = _workingDaySpan(row.start, row.end, weekdays);
+            newEndStr = _addWorkingDays(newStartStr, weekdays, originalWorkDays);
+        }
         const revert = () => this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
-        if (newStartStr === row.start) {
+        if (newStartStr === row.start && newEndStr === row.end) {
             return;
         }
 
