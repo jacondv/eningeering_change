@@ -319,6 +319,14 @@
         // height, so this floors it without fighting that var.
         .gantt-container {
             min-height: 340px;
+            // The library's own stylesheet sets `overflow: auto` here,
+            // which clips the task popup (also its own child - see
+            // frappe-gantt.css .gantt-container .popup-wrapper) at THIS
+            // element's tight bottom edge whenever it opens near the last
+            // row, well before there's actually no room left. Letting it
+            // spill out here means .o_pd_task_gantt_outer's much taller
+            // max-height (85vh) is the only real clip boundary left.
+            overflow: visible;
         }
 
         // Base bar color (default library theme is a near-white fill,
