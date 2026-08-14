@@ -272,7 +272,17 @@
     // ------------------------------------------------------------
     // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
     // ------------------------------------------------------------
-    .o_pd_task_gantt {
+    // Two nested containers, not one, so vertical and horizontal
+    // scrolling don't fight over the same space: a "scroll" (not "auto")
+    // horizontal scrollbar always reserves its own thickness out of
+    // whichever element it's on, and reserving it on the SAME element
+    // that does vertical overflow used to shave just enough off the
+    // available height to make an exact-fit row count spill into an
+    // unwanted vertical scrollbar too, clipping the last row. Splitting
+    // them means the horizontal scrollbar's reserved space only ever
+    // eats into the inner element's WIDTH, never the outer element's
+    // HEIGHT.
+    .o_pd_task_gantt_outer {
         // No fixed height - Frappe Gantt already sizes its own SVG to
         // fit however many task rows there are (container_height:
         // "auto"), so let this wrapper grow with it instead of forcing
@@ -287,16 +297,19 @@
         min-height: 420px;
         max-height: 85vh;
         overflow-y: auto;
-        // Always reserve the horizontal scrollbar's height (rather than
-        // "auto", which only appears once content overflows) - with
-        // "auto" a task list that exactly fits max-height clips the
-        // scrollbar just past the visible edge, forcing the user to
-        // scroll the whole panel down first just to reach it.
-        overflow-x: scroll;
         // Native browser resize handle (bottom-right corner drag) - for
         // the rare case someone wants a shorter box than the content
         // needs, even though it now sizes itself automatically.
         resize: vertical;
+    }
+
+    .o_pd_task_gantt {
+        // Always reserve the horizontal scrollbar's height (rather than
+        // "auto", which only appears once content overflows) - with
+        // "auto" a task list that exactly fits the outer's max-height
+        // clips the scrollbar just past the visible edge, forcing the
+        // user to scroll the whole panel down first just to reach it.
+        overflow-x: scroll;
 
         // Base bar color (default library theme is a near-white fill,
         // too washed out against our panel background) - overload state
