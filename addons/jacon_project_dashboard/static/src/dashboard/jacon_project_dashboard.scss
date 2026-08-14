@@ -327,6 +327,10 @@
             // spill out here means .o_pd_task_gantt_outer's much taller
             // max-height (85vh) is the only real clip boundary left.
             overflow: visible;
+            // Extra room below the last row specifically for its popup
+            // (opens downward from the bar) to have somewhere to sit
+            // without touching the very edge of the box.
+            padding-bottom: 70px;
         }
 
         // Base bar color (default library theme is a near-white fill,
