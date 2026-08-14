@@ -86,6 +86,8 @@ class EngineeringChange(models.Model):
              "bypass the password confirmation required to delete a request.")
 
     image_ids = fields.One2many('engineering.change.image', 'change_id', string='Images')
+    approval_log_ids = fields.One2many(
+        'engineering.change.approval.log', 'change_id', string='Approval History')
     document_ids = fields.One2many('engineering.change.document', 'change_id', string='Related Drawings')
     task_ids = fields.One2many('project.task', 'change_id', string='Actions')
 

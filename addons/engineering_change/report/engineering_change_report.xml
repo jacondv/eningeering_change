@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- Same A4 geometry as base.paperformat_euro, but margin_left/right 0 so
+         the teal header band can bleed edge-to-edge (see the report
+         template's own note on neutralizing body.container), with enough
+         header_spacing to actually reserve room for it - same approach as
+         qc_checksheet's paperformat_qc_checksheet. Without a dedicated
+         paperformat here, wkhtmltopdf's default margins/header spacing
+         leave no room for the custom <div class="header"> and it's
+         silently dropped from the render. -->
+    <record id="paperformat_engineering_change" model="report.paperformat">
+        <field name="name">Engineering Change (A4, full-bleed header)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">40</field>
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="header_spacing">40</field>
+        <field name="header_line" eval="False"/>
+        <field name="dpi">90</field>
+        <field name="disable_shrinking" eval="True"/>
+    </record>
+
     <record id="action_report_engineering_change" model="ir.actions.report">
         <field name="name">Engineering Change Request</field>
         <field name="model">engineering.change</field>
@@ -8,6 +31,7 @@
         <field name="report_name">engineering_change.report_engineering_change_document</field>
         <field name="report_file">engineering_change.report_engineering_change_document</field>
         <field name="print_report_name">'EC - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_engineering_change"/>
         <field name="binding_model_id" ref="model_engineering_change"/>
         <field name="binding_type">report</field>
     </record>
