@@ -235,7 +235,17 @@ class JaconProjectDashboard(models.AbstractModel):
         and NOT clamped to today - the Timeline is also meant to show
         recently-past work (e.g. its default "previous/current/next
         month"), not just what's still ahead.
+
+        Project filter (`project_ids`) only narrows which bars are
+        *shown* - it's applied as the very last step, after overload/
+        suggestion is computed against each assignee's FULL open-task
+        list (all projects). Otherwise picking one project would make an
+        employee's overload look artificially lower (or vanish) just
+        because their other, unrelated overloaded tasks got filtered out
+        of the picture - the debt is real regardless of which project
+        someone is currently looking at.
         """
+        project_ids = filters.get('project_ids') or []
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
@@ -270,6 +280,7 @@ class JaconProjectDashboard(models.AbstractModel):
                 'id': task.id,
                 'name': task.name,
                 'project': task.project_id.name or '',
+                'project_id': task.project_id.id or None,
                 'employee': assignee.name,
                 'employee_id': assignee.id,
                 'start': start.isoformat(),
@@ -296,19 +307,24 @@ class JaconProjectDashboard(models.AbstractModel):
         # many hours never got scheduled in time and the nearest slot
         # where the task, unchanged in length, would actually fit - the
         # exact numbers a manager needs to decide how to fix it, not just
-        # that something's wrong. Batched one get_task_overload call per
-        # employee (spanning all of their bars) instead of one per task,
-        # since it re-queries that employee's whole open-task list
-        # internally.
+        # that something's wrong. base_queue (see hr.employee._task_queue)
+        # is built ONCE per employee here and reused for that
+        # get_task_overload call AND every suggest_start_without_overload
+        # call below (each of which would otherwise re-query the database
+        # on every iteration of its own internal day-by-day search loop) -
+        # without this, an employee with several overloaded bars could
+        # trigger hundreds of redundant searches on a single Task Timeline
+        # load.
         emp_by_id = {emp.id: emp for emp in employees}
         bars_by_employee = {}
         for bar in bars:
             bars_by_employee.setdefault(bar['employee_id'], []).append(bar)
         for emp_id, emp_bars in bars_by_employee.items():
             emp = emp_by_id[emp_id]
+            base_queue = emp._task_queue()
             span_start = min(date.fromisoformat(b['start']) for b in emp_bars)
             span_end = max(date.fromisoformat(b['end']) for b in emp_bars)
-            task_overload = emp.get_task_overload(span_start, span_end)
+            task_overload = emp.get_task_overload(span_start, span_end, base_queue=base_queue)
             weekdays = emp._work_weekdays()
             for bar in emp_bars:
                 info = task_overload.get(bar['id'])
@@ -328,12 +344,17 @@ class JaconProjectDashboard(models.AbstractModel):
                     suggestion = emp.suggest_start_without_overload(
                         task.allocated_hours, duration_work_days,
                         priority=_priority_value(task.priority),
-                        after_date=b_start, exclude_task_id=task.id)
+                        after_date=b_start, exclude_task_id=task.id, base_queue=base_queue)
                     if suggestion:
                         new_start, new_deadline = suggestion
                         bar['suggested_start'] = new_start.isoformat()
                         bar['suggested_deadline'] = new_deadline.isoformat()
 
+        # Project filter is applied here, LAST - see the docstring above
+        # for why it must not affect what was fed into the overload
+        # simulation above.
+        if project_ids:
+            bars = [b for b in bars if b['project_id'] in project_ids]
         bars.sort(key=lambda b: (b['employee'], b['start']))
         return bars
 
