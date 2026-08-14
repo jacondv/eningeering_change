@@ -283,7 +283,9 @@
                             <t t-if="!state.taskGanttData.length">
                                 <p class="text-muted">No data for the current filters.</p>
                             </t>
-                            <div class="o_pd_task_gantt" t-ref="task_gantt" t-else=""/>
+                            <div class="o_pd_task_gantt_outer" t-else="">
+                                <div class="o_pd_task_gantt" t-ref="task_gantt"/>
+                            </div>
                         </div>
                     </div>
                 </div>
