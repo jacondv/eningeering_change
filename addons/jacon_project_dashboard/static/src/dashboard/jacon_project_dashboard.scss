@@ -280,7 +280,11 @@
         // max-height only kicks in for a genuinely long task list, where
         // it falls back to scrolling instead of pushing the rest of the
         // dashboard off-screen.
-        min-height: 120px;
+        // Tall enough that even 1-2 rows still read as a proper Gantt
+        // panel instead of a cramped sliver - Frappe Gantt's own SVG
+        // height still only grows to fit its rows, this floor is purely
+        // about the wrapper never looking tinier than that.
+        min-height: 360px;
         max-height: 85vh;
         overflow-y: auto;
         // Always reserve the horizontal scrollbar's height (rather than
