@@ -55,6 +55,19 @@ class ProjectTask(models.Model):
     overload_warning = fields.Text(
         string='Overload Warning', compute='_compute_overload_warning', store=False)
 
+    # Never persisted, same reasoning as overload_warning above - a
+    # separate check from it, though: overload_warning flags a day in
+    # [date_start, date_deadline] that's paying down UNRELATED overdue
+    # debt (see hr.employee._simulate_schedule), which says nothing
+    # about whether THIS task's own hours actually fit in that window.
+    # This one answers that directly via check_task_overload, so a brand
+    # new task gets a concrete "here's a start date that works" instead
+    # of only a vague "somewhere in here is tight" warning.
+    suggested_start_notice = fields.Text(
+        string='Suggested Start Date', compute='_compute_suggested_start', store=False)
+    suggested_date_start = fields.Date(compute='_compute_suggested_start', store=False)
+    suggested_date_deadline = fields.Datetime(compute='_compute_suggested_start', store=False)
+
     @api.depends('evidence_ids')
     def _compute_evidence_count(self):
         for rec in self:
@@ -113,6 +126,52 @@ class ProjectTask(models.Model):
                 lines.append('%s - %s: over capacity by %.1fh' % (
                     employee.name, period, rng['excess_hours']))
             task.overload_warning = '\n'.join(lines) if lines else False
+
+    @api.depends('user_ids', 'allocated_hours', 'date_start', 'date_deadline', 'priority')
+    def _compute_suggested_start(self):
+        for task in self:
+            task.suggested_start_notice = False
+            task.suggested_date_start = False
+            task.suggested_date_deadline = False
+            allocated = max(task.allocated_hours or 0.0, 0.0)
+            if not (task.user_ids and allocated and task.date_deadline):
+                continue
+            employee = task._get_assigned_employees()[:1]
+            if not employee:
+                continue
+            start = task.date_start or fields.Date.context_today(task)
+            deadline = fields.Date.to_date(task.date_deadline)
+            if start > deadline:
+                start = deadline
+            exclude_id = task._origin.id or None
+            priority = _priority_value(task.priority)
+            if not employee.check_task_overload(
+                    allocated, start, deadline, priority=priority, exclude_task_id=exclude_id):
+                continue
+            weekdays = employee._work_weekdays()
+            duration_work_days = employee._count_work_days(start, deadline, weekdays) or 1
+            suggestion = employee.suggest_start_without_overload(
+                allocated, duration_work_days, priority=priority,
+                after_date=start, exclude_task_id=exclude_id)
+            if not suggestion:
+                continue
+            new_start, new_deadline = suggestion
+            task.suggested_date_start = new_start
+            time_of_day = (task.date_deadline or fields.Datetime.now()).time()
+            task.suggested_date_deadline = datetime.combine(new_deadline, time_of_day)
+            task.suggested_start_notice = (
+                'Starting %s would overload %s - they wouldn\'t finish this task in time. '
+                'Suggested: %s → %s (same length, next slot with room).' % (
+                    start.strftime('%d-%m-%Y'), employee.name,
+                    new_start.strftime('%d-%m'), new_deadline.strftime('%d-%m-%Y')))
+
+    def action_apply_suggested_start(self):
+        for task in self:
+            if task.suggested_date_start and task.suggested_date_deadline:
+                task.write({
+                    'date_start': task.suggested_date_start,
+                    'date_deadline': task.suggested_date_deadline,
+                })
 
     def action_view_overload_conflicts(self):
         """Open a review wizard (not a direct edit) for the other open
