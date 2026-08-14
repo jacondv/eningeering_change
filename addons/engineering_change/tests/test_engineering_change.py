@@ -65,7 +65,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(change.state, 'waiting_manager_approval')
         self.assertNotEqual(change.name, 'New')
 
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.state, 'implement')
 
     def test_submit_requires_change_category(self):
@@ -94,19 +94,70 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='dcr')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.state, 'bod_review')
 
-        change.with_user(self.user_bod).action_bod_approve()
+        change.with_user(self.user_bod)._apply_approve('Approved (test)', 'bod')
         self.assertEqual(change.state, 'implement')
         self.assertTrue(change.dcr_no)
         self.assertEqual(change.bod_approver_id, self.user_bod)
+
+    def test_approval_log_records_manager_and_bod_approve(self):
+        change = self._create_request(request_type='dcr')
+        change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
+        change.with_user(self.user_engineer).action_submit()
+
+        change.with_user(self.user_manager)._apply_approve('Looks good', 'manager')
+        change.with_user(self.user_bod)._apply_approve('Approved by BOD', 'bod')
+
+        self.assertEqual(len(change.approval_log_ids), 2)
+        manager_log = change.approval_log_ids.filtered(lambda log: log.role == 'manager')
+        bod_log = change.approval_log_ids.filtered(lambda log: log.role == 'bod')
+        self.assertEqual(manager_log.decision, 'approved')
+        self.assertEqual(manager_log.note, 'Looks good')
+        self.assertEqual(manager_log.user_id, self.user_manager)
+        self.assertEqual(bod_log.decision, 'approved')
+        self.assertEqual(bod_log.user_id, self.user_bod)
+
+    def test_approval_log_records_reject(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+
+        wizard = self.env['engineering.change.reject.wizard'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'reject_by': 'manager',
+            'reject_reason': 'Needs more detail',
+        })
+        wizard.action_confirm_reject()
+
+        self.assertEqual(len(change.approval_log_ids), 1)
+        self.assertEqual(change.approval_log_ids.decision, 'rejected')
+        self.assertEqual(change.approval_log_ids.note, 'Needs more detail')
+        self.assertEqual(change.approval_log_ids.user_id, self.user_manager)
+
+    def test_approve_wizard_flow(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+
+        action = change.with_user(self.user_manager).action_manager_approve()
+        self.assertEqual(action['res_model'], 'engineering.change.approve.wizard')
+        self.assertEqual(action['context']['default_approve_by'], 'manager')
+        self.assertEqual(change.state, 'waiting_manager_approval')
+
+        wizard = self.env['engineering.change.approve.wizard'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'approve_by': 'manager',
+            'note': 'All good',
+        })
+        wizard.action_confirm_approve()
+        self.assertEqual(change.state, 'implement')
+        self.assertEqual(change.approval_log_ids.note, 'All good')
 
     def test_bod_reject_sets_draft_with_reason(self):
         change = self._create_request(request_type='dcr')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         wizard = self.env['engineering.change.reject.wizard'].with_user(self.user_bod).create({
             'change_id': change.id,
@@ -120,7 +171,7 @@ class TestEngineeringChange(TransactionCase):
     def test_action_close_and_reopen(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -153,7 +204,7 @@ class TestEngineeringChange(TransactionCase):
             'implement_owner_id': self.user_general.id,
         })
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         with self.assertRaises(AccessError):
             change.with_user(self.user_engineer).action_confirm_production()
@@ -170,7 +221,7 @@ class TestEngineeringChange(TransactionCase):
     def test_only_manager_or_close_group_can_close_request(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         change.with_user(self.user_manager).action_confirm_production()
         change.with_user(self.user_manager).action_confirm_sale()
 
@@ -188,7 +239,7 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(UserError):
             change.with_user(self.user_engineer).action_revert_to_previous_state()
 
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.state, 'implement')
 
         change.with_user(self.user_manager).action_confirm_production()
@@ -217,10 +268,10 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='dcr')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.state, 'bod_review')
 
-        change.with_user(self.user_bod).action_bod_approve()
+        change.with_user(self.user_bod)._apply_approve('Approved (test)', 'bod')
         self.assertEqual(change.state, 'implement')
 
         change.with_user(self.user_manager).action_revert_to_previous_state()
@@ -229,7 +280,7 @@ class TestEngineeringChange(TransactionCase):
     def test_general_user_can_only_update_status(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -246,7 +297,7 @@ class TestEngineeringChange(TransactionCase):
     def test_affected_model_ids_tagging_and_rollup(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         model_a = self.env['equipment.model'].create({'name': 'Model A'})
         model_b = self.env['equipment.model'].create({'name': 'Model B'})
@@ -281,7 +332,7 @@ class TestEngineeringChange(TransactionCase):
     def test_delete_allowed_regardless_of_stage(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.state, 'implement')
 
         change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
@@ -377,7 +428,7 @@ class TestEngineeringChange(TransactionCase):
     def test_only_manager_or_owner_can_edit_task_details(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         # Reassign Implement Owner away from the default (the creating engineer)
         # so user_engineer below ends up neither Manager, Owner, nor unrelated.
         change.with_user(self.user_manager).write({
@@ -401,7 +452,7 @@ class TestEngineeringChange(TransactionCase):
     def test_implement_owner_can_create_edit_and_delete_tasks(self):
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_engineer).create({
             'change_id': change.id,
@@ -417,7 +468,7 @@ class TestEngineeringChange(TransactionCase):
     def test_non_owner_cannot_create_or_delete_task(self):
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         with self.assertRaises(AccessError):
             self.env['project.task'].with_user(self.user_bod).create({
@@ -436,7 +487,7 @@ class TestEngineeringChange(TransactionCase):
     def test_unrelated_user_cannot_write_task(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -451,7 +502,7 @@ class TestEngineeringChange(TransactionCase):
     def test_assignee_can_set_task_done_or_cancelled(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -467,7 +518,7 @@ class TestEngineeringChange(TransactionCase):
     def test_assignee_can_add_and_delete_own_evidence(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -486,7 +537,7 @@ class TestEngineeringChange(TransactionCase):
     def test_unrelated_user_cannot_delete_evidence(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -505,7 +556,7 @@ class TestEngineeringChange(TransactionCase):
     def test_archived_request_excluded_from_dashboard_and_task_action(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager).action_manager_approve()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
             'name': 'Do the thing',

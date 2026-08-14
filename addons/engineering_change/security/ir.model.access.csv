@@ -19,3 +19,8 @@ access_project_task_ec_bod,project.task.ec.bod,project.model_project_task,group_
 access_project_task_ec_manager,project.task.ec.manager,project.model_project_task,group_ec_manager,1,1,1,1
 access_engineering_change_reject_wizard_bod,engineering.change.reject.wizard.bod,model_engineering_change_reject_wizard,group_ec_bod,1,1,1,0
 access_engineering_change_reject_wizard_manager,engineering.change.reject.wizard.manager,model_engineering_change_reject_wizard,group_ec_manager,1,1,1,0
+access_engineering_change_approve_wizard_bod,engineering.change.approve.wizard.bod,model_engineering_change_approve_wizard,group_ec_bod,1,1,1,0
+access_engineering_change_approve_wizard_manager,engineering.change.approve.wizard.manager,model_engineering_change_approve_wizard,group_ec_manager,1,1,1,0
+access_engineering_change_approval_log_user,engineering.change.approval.log.user,model_engineering_change_approval_log,group_ec_user,1,0,0,0
+access_engineering_change_approval_log_manager,engineering.change.approval.log.manager,model_engineering_change_approval_log,group_ec_manager,1,0,1,0
+access_engineering_change_approval_log_bod,engineering.change.approval.log.bod,model_engineering_change_approval_log,group_ec_bod,1,0,1,0

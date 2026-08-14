@@ -58,43 +58,60 @@ class EngineeringChange(models.Model):
             rec.message_post(
                 body=_("Request submitted for Manager approval."), partner_ids=partners.ids)
 
-    def action_manager_approve(self):
-        for rec in self:
-            if rec.state != 'waiting_manager_approval':
+    def _apply_approve(self, note, approve_by):
+        """Runs the actual Manager/BOD approval side effects (called by the
+        Approve wizard, once a comment has been entered) and logs the
+        decision to approval_log_ids - the wizard step exists specifically
+        so every approval carries a comment, same as Reject already
+        requires a reason.
+        """
+        self.ensure_one()
+        if approve_by == 'manager':
+            if self.state != 'waiting_manager_approval':
                 raise UserError(_("Only requests waiting for Manager approval can be approved."))
-            if rec.request_type == 'dcr':
-                rec.with_context(ec_workflow_write=True).state = 'bod_review'
-                partners = rec._get_group_partners('engineering_change.group_ec_bod')
+            if self.request_type == 'dcr':
+                self.with_context(ec_workflow_write=True).state = 'bod_review'
+                partners = self._get_group_partners('engineering_change.group_ec_bod')
                 if partners:
-                    rec.message_subscribe(partner_ids=partners.ids)
-                rec._send_template('engineering_change.mail_template_bod_review', partners=partners)
-                rec.message_post(
+                    self.message_subscribe(partner_ids=partners.ids)
+                self._send_template('engineering_change.mail_template_bod_review', partners=partners)
+                self.message_post(
                     body=_("Approved by Manager, forwarded to BOD for review."),
                     partner_ids=partners.ids)
             else:
-                rec.with_context(ec_workflow_write=True).state = 'implement'
-                rec._notify_implement_team(
+                self.with_context(ec_workflow_write=True).state = 'implement'
+                self._notify_implement_team(
                     'engineering_change.mail_template_implement',
                     body=_("Approved by Manager. Moved to Implementation."))
-
-    def action_bod_approve(self):
-        for rec in self:
-            if rec.state != 'bod_review':
+        else:
+            if self.state != 'bod_review':
                 raise UserError(_("Only requests in BOD Review can be approved by BOD."))
-            if not rec.implement_team_ids:
+            if not self.implement_team_ids:
                 raise UserError(_("Implement Team cannot be empty before BOD approval."))
-            rec.with_context(ec_workflow_write=True).write({
+            self.with_context(ec_workflow_write=True).write({
                 'bod_approver_id': self.env.user.id,
-                'dcr_no': rec.dcr_no or rec._next_dcr_no() or False,
+                'dcr_no': self.dcr_no or self._next_dcr_no() or False,
                 'state': 'implement',
             })
-            rec._notify_implement_team(
+            self._notify_implement_team(
                 'engineering_change.mail_template_implement',
                 body=_("Approved by BOD (%s). Moved to Implementation.") % self.env.user.name)
+        self.env['engineering.change.approval.log'].create({
+            'change_id': self.id,
+            'role': approve_by,
+            'decision': 'approved',
+            'note': note,
+        })
 
     def _apply_reject(self, reason, reject_by):
         self.ensure_one()
         self.with_context(ec_workflow_write=True).write({'state': 'draft', 'reject_reason': reason})
+        self.env['engineering.change.approval.log'].create({
+            'change_id': self.id,
+            'role': reject_by,
+            'decision': 'rejected',
+            'note': reason,
+        })
         partners = self.engineer_id.partner_id
         template_xmlid = (
             'engineering_change.mail_template_bod_reject' if reject_by == 'bod'
@@ -244,3 +261,28 @@ class EngineeringChange(models.Model):
     def action_bod_reject(self):
         self.ensure_one()
         return self.action_open_reject_wizard('bod')
+
+    # ------------------------------------------------------------
+    # Approve wizard glue
+    # ------------------------------------------------------------
+    def action_open_approve_wizard(self, approve_by):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Approve Request'),
+            'res_model': 'engineering.change.approve.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_change_id': self.id,
+                'default_approve_by': approve_by,
+            },
+        }
+
+    def action_manager_approve(self):
+        self.ensure_one()
+        return self.action_open_approve_wizard('manager')
+
+    def action_bod_approve(self):
+        self.ensure_one()
+        return self.action_open_approve_wizard('bod')

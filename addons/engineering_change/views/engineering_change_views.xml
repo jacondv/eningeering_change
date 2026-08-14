@@ -14,14 +14,12 @@
                             groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
                     <button name="action_manager_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'waiting_manager_approval'"
-                            confirm="Approve this request?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_manager_reject" string="Reject" type="object"
                             invisible="state != 'waiting_manager_approval'"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_bod_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'bod_review'"
-                            confirm="Approve this request?"
                             groups="engineering_change.group_ec_bod"/>
                     <button name="action_bod_reject" string="Reject" type="object"
                             invisible="state != 'bod_review'"
@@ -211,6 +209,17 @@
                                     <field name="state" optional="show"/>
                                     <field name="is_overdue" column_invisible="1"/>
                                     <field name="evidence_count" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Comment" name="approval_log">
+                            <field name="approval_log_ids" create="0" delete="0" edit="0">
+                                <list decoration-danger="decision == 'rejected'" decoration-success="decision == 'approved'">
+                                    <field name="date"/>
+                                    <field name="role"/>
+                                    <field name="user_id"/>
+                                    <field name="decision" widget="badge"/>
+                                    <field name="note"/>
                                 </list>
                             </field>
                         </page>
