@@ -654,14 +654,6 @@ export class JaconProjectDashboard extends Component {
             view_mode: this.state.taskGanttViewMode,
             scroll_to: "today",
             readonly_progress: true,
-            // Drag/resize only make sense at day-level granularity - in
-            // Week/Month view a single pixel spans several days, so a
-            // drag would jump dates in coarse, surprising chunks. Locking
-            // the bars there (Frappe draws no resize handles and ignores
-            // move/resize when readonly is set at construction time) is
-            // simpler and more predictable than trying to snap those
-            // views to something sensible.
-            readonly: this.state.taskGanttViewMode !== "Day",
             // The date range is now explicit (the range picker above), so
             // there's no "infinite" axis to extend into - disabling this
             // also removes Frappe's own wheel listener that shifted the
