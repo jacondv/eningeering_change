@@ -277,6 +277,28 @@ class HrEmployee(models.Model):
             date_from, date_to, exclude_task_id=exclude_task_id)
         return task_results
 
+    def check_task_overload(self, remaining_hours, date_start, date_deadline, priority=0, exclude_task_id=None):
+        """Would a task needing `remaining_hours`, running [date_start,
+        date_deadline], finish on time once queued by `priority` alongside
+        this employee's other open tasks - the same task-level check
+        `get_task_overload` reports for tasks that already exist in the
+        database, exposed here for one that doesn't (e.g. still being
+        filled out on a form, not saved yet) so its own placement can be
+        validated before it's created. True if it wouldn't finish in
+        time."""
+        self.ensure_one()
+        if remaining_hours <= 0 or not date_deadline:
+            return False
+        date_start = fields.Date.to_date(date_start) or fields.Date.context_today(self)
+        date_deadline = fields.Date.to_date(date_deadline)
+        if date_start > date_deadline:
+            date_start = date_deadline
+        _days, _task_results, extra_results = self._simulate_schedule(
+            date_start, date_deadline,
+            extra_remaining=[(remaining_hours, date_start, date_deadline, priority)],
+            exclude_task_id=exclude_task_id)
+        return bool(extra_results and extra_results[0]['overloaded'])
+
     def get_overloaded_ranges(self, date_from, date_to, extra_remaining=None, exclude_task_id=None):
         """`get_daily_load` + grouped into contiguous overloaded (debt)
         ranges - what the warning banner and conflict wizard actually

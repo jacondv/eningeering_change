@@ -20,6 +20,17 @@
                             string="View &amp; Resolve Conflicts" class="btn btn-sm btn-outline-warning mt-1"
                             invisible="not id"/>
                 </div>
+                <!-- Separate from the warning above: that one flags a day
+                     somewhere in the window that's paying down unrelated
+                     debt, not whether THIS task's own hours actually fit -
+                     see project_task._compute_suggested_start. Applies
+                     even to a brand new, not-yet-saved task. -->
+                <div class="alert alert-info mb-0" role="alert" invisible="not suggested_start_notice">
+                    <strong><i class="fa fa-lightbulb-o"/> Suggested Start Date</strong>
+                    <field name="suggested_start_notice" nolabel="1" readonly="1"/>
+                    <button name="action_apply_suggested_start" type="object"
+                            string="Apply Suggested Start" class="btn btn-sm btn-outline-info mt-1"/>
+                </div>
             </xpath>
 
             <!-- Explicit Start Date (default: creation date, editable) -
