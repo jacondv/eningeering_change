@@ -145,14 +145,16 @@ class ProjectTask(models.Model):
                 start = deadline
             exclude_id = task._origin.id or None
             priority = _priority_value(task.priority)
+            base_queue = employee._task_queue()
             if not employee.check_task_overload(
-                    allocated, start, deadline, priority=priority, exclude_task_id=exclude_id):
+                    allocated, start, deadline, priority=priority, exclude_task_id=exclude_id,
+                    base_queue=base_queue):
                 continue
             weekdays = employee._work_weekdays()
             duration_work_days = employee._count_work_days(start, deadline, weekdays) or 1
             suggestion = employee.suggest_start_without_overload(
                 allocated, duration_work_days, priority=priority,
-                after_date=start, exclude_task_id=exclude_id)
+                after_date=start, exclude_task_id=exclude_id, base_queue=base_queue)
             if not suggestion:
                 continue
             new_start, new_deadline = suggestion
