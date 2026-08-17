@@ -13,10 +13,21 @@
                             confirm="Submit this request for Manager approval?"
                             groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
                     <button name="action_manager_approve" string="Approve" type="object"
-                            class="oe_highlight" invisible="state != 'waiting_manager_approval'"
+                            class="oe_highlight"
+                            invisible="state != 'waiting_manager_approval' or not can_manager_approve"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_manager_reject" string="Reject" type="object"
-                            invisible="state != 'waiting_manager_approval'"
+                            invisible="state != 'waiting_manager_approval' or not can_manager_approve"
+                            groups="engineering_change.group_ec_manager"/>
+                    <button name="action_head_office_approve" string="Approve" type="object"
+                            class="oe_highlight" invisible="state != 'waiting_head_office_approval'"
+                            groups="engineering_change.group_ec_head_office"/>
+                    <button name="action_head_office_reject" string="Reject" type="object"
+                            invisible="state != 'waiting_head_office_approval'"
+                            groups="engineering_change.group_ec_head_office"/>
+                    <button name="action_recall_approval" string="Recall" type="object"
+                            invisible="state != 'waiting_head_office_approval'"
+                            confirm="Recall your Line Manager approval and send this back for re-approval?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_bod_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'bod_review'"
@@ -24,6 +35,10 @@
                     <button name="action_bod_reject" string="Reject" type="object"
                             invisible="state != 'bod_review'"
                             groups="engineering_change.group_ec_bod"/>
+                    <button name="action_recall_approval" string="Recall" type="object"
+                            invisible="state != 'bod_review'"
+                            confirm="Recall your Head Manager approval and send this back for re-approval?"
+                            groups="engineering_change.group_ec_head_office"/>
                     <button name="action_confirm_production" string="Confirm Production" type="object"
                             class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"
                             confirm="Move this request to Production?"/>
@@ -44,8 +59,9 @@
                     <button name="action_send_email" string="Send Email" type="object" icon="fa-envelope"/>
                     <field name="can_confirm_production" invisible="1"/>
                     <field name="can_confirm_sale" invisible="1"/>
+                    <field name="can_manager_approve" invisible="1"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="draft,waiting_manager_approval,bod_review,implement,production,sale,done"/>
+                           statusbar_visible="draft,waiting_manager_approval,waiting_head_office_approval,bod_review,implement,production,sale,done"/>
                 </header>
                 <sheet>
                     <div name="button_box" class="oe_button_box">
@@ -153,7 +169,8 @@
                         </page>
 
                         <page string="Related Drawings" name="documents">
-                            <field name="document_ids" readonly="not can_edit_engineer_fields">
+                            <field name="can_edit_drawings" invisible="1"/>
+                            <field name="document_ids" readonly="not can_edit_drawings">
                                 <list editable="bottom">
                                     <field name="name"/>
                                     <field name="doc_type"/>
@@ -249,7 +266,7 @@
                 <field name="bod_approver_id" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
-                       decoration-info="state in ('waiting_manager_approval', 'bod_review')"
+                       decoration-info="state in ('waiting_manager_approval', 'waiting_head_office_approval', 'bod_review')"
                        decoration-warning="state in ('implement', 'production', 'sale')"/>
                 <field name="rpn" optional="hide"/>
                 <field name="rpn_level" widget="badge"
@@ -323,13 +340,15 @@
                 <filter string="Minor Only" name="minor_only" domain="[('request_type', '=', 'minor')]"/>
                 <filter string="Overdue Actions" name="overdue" domain="[('has_overdue_action', '=', True)]"/>
                 <filter string="Waiting Approval" name="waiting_my_approval"
-                        domain="['|', ('state', '=', 'waiting_manager_approval'), ('state', '=', 'bod_review')]"/>
+                        domain="[('state', 'in', ['waiting_manager_approval', 'waiting_head_office_approval', 'bod_review'])]"/>
                 <filter string="Closed" name="closed" domain="[('state', '=', 'done')]"/>
                 <separator/>
                 <filter string="Draft" name="state_draft" domain="[('state', '=', 'draft')]"/>
-                <filter string="Manager Approval" name="state_waiting_manager"
+                <filter string="Line Manager Approval" name="state_waiting_manager"
                         domain="[('state', '=', 'waiting_manager_approval')]"/>
-                <filter string="BOD Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
+                <filter string="Head Manager Approval" name="state_waiting_head_office"
+                        domain="[('state', '=', 'waiting_head_office_approval')]"/>
+                <filter string="BOC Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
                 <filter string="Design" name="state_implement" domain="[('state', '=', 'implement')]"/>
                 <filter string="Production" name="state_production" domain="[('state', '=', 'production')]"/>
                 <filter string="Sales" name="state_sale" domain="[('state', '=', 'sale')]"/>
@@ -393,7 +412,7 @@
         <field name="res_model">engineering.change</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_engineering_change_search"/>
-        <field name="domain">['|', ('state', '=', 'waiting_manager_approval'), ('state', '=', 'bod_review')]</field>
+        <field name="domain">[('state', 'in', ['waiting_manager_approval', 'waiting_head_office_approval', 'bod_review'])]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No request is waiting for your approval

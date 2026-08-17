@@ -11,7 +11,7 @@ proposal -> risk assessment -> approval -> implementation -> evidence closure.
 
 Features:
 - Minor Change and DCR (Design Change Request) request types
-- Two-level approval workflow: Manager -> BOD (for DCR)
+- Three-stage approval workflow: Line Manager -> Head Manager -> BOC (for DCR)
 - Risk assessment (RPN) with impact fields
 - Implementation actions/tasks with evidence upload
 - Followers & automatic email notifications

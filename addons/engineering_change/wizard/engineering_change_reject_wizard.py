@@ -8,8 +8,9 @@ class EngineeringChangeRejectWizard(models.TransientModel):
     change_id = fields.Many2one('engineering.change', required=True)
     reject_reason = fields.Text(required=True)
     reject_by = fields.Selection([
-        ('manager', 'Manager'),
-        ('bod', 'BOD'),
+        ('manager', 'Line Manager'),
+        ('head_office', 'Head Manager'),
+        ('bod', 'BOC'),
     ], required=True)
 
     def action_confirm_reject(self):

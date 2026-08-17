@@ -97,7 +97,7 @@
                             </thead>
                             <tbody>
                                 <tr t-foreach="o.approval_log_ids" t-as="log">
-                                    <td t-out="'Head Of Engineering' if log.role == 'manager' else 'Operations Manager'"/>
+                                    <td><span t-field="log.role"/></td>
                                     <td><span t-field="log.user_id.name"/></td>
                                     <td><span t-field="log.date"/></td>
                                     <td><span t-field="log.decision"/></td>
