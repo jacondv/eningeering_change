@@ -40,6 +40,38 @@
         margin-left: auto;
     }
 
+    .o_pd_active_filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: -8px 0 16px;
+        font-size: .8rem;
+    }
+
+    .o_pd_active_filters_label {
+        color: #888;
+    }
+
+    .o_pd_filter_chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eef0f5;
+        color: #444;
+        font-weight: 500;
+        font-size: .78rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+
+        .fa-times {
+            cursor: pointer;
+            color: #999;
+
+            &:hover { color: #c62828; }
+        }
+    }
+
     // Bootstrap's dropdown-menu already floats above in-flow content, but
     // force it explicitly (position/z-index) so it can never end up
     // visually behind a neighboring filter button in this toolbar.
@@ -304,32 +336,30 @@
     }
 
     .o_pd_task_gantt {
-        // Always reserve the horizontal scrollbar's height (rather than
-        // "auto", which only appears once content overflows) - with
-        // "auto" a task list that exactly fits the outer's max-height
-        // clips the scrollbar just past the visible edge, forcing the
-        // user to scroll the whole panel down first just to reach it.
-        overflow-x: scroll;
-
-        // Frappe Gantt's own inner element (it creates this, not us) sets
-        // an explicit `height` sized to the row count via a CSS var - our
-        // wrapper's min-height above doesn't reach it, so with very few
-        // tasks the actual chart stays tiny with dead space around it.
-        // min-height (unlike height) always wins over a smaller explicit
-        // height, so this floors it without fighting that var.
+        // No overflow-x here: Frappe Gantt's own `.gantt-container` child
+        // (created by the library, not us - see below) is ITSELF the
+        // real horizontal-scroll owner (fixed width:100%, wider SVG
+        // content inside), and its "Today" button/scroll_to option work
+        // by setting that specific element's scrollLeft. An earlier
+        // version of this rule put overflow-x:scroll here too, which
+        // seemed harmless but silently broke the Today button once
+        // .gantt-container's own overflow was touched below (nothing was
+        // listening on THIS element's scroll position).
+        //
+        // Frappe Gantt's own inner element sets an explicit `height`
+        // sized to the row count via a CSS var - our wrapper's
+        // min-height above doesn't reach it, so with very few tasks the
+        // actual chart stays tiny with dead space around it. min-height
+        // (unlike height) always wins over a smaller explicit height, so
+        // this floors it without fighting that var. padding-bottom gives
+        // the last row's popup some breathing room before this element's
+        // own (default, untouched) overflow:auto would otherwise clip it
+        // right at the edge - deliberately NOT overridden to `visible`
+        // anymore, since that's what disabled the Today button: it made
+        // this element un-scrollable, and Today/scroll_to both scroll
+        // THIS element specifically.
         .gantt-container {
             min-height: 340px;
-            // The library's own stylesheet sets `overflow: auto` here,
-            // which clips the task popup (also its own child - see
-            // frappe-gantt.css .gantt-container .popup-wrapper) at THIS
-            // element's tight bottom edge whenever it opens near the last
-            // row, well before there's actually no room left. Letting it
-            // spill out here means .o_pd_task_gantt_outer's much taller
-            // max-height (85vh) is the only real clip boundary left.
-            overflow: visible;
-            // Extra room below the last row specifically for its popup
-            // (opens downward from the bar) to have somewhere to sit
-            // without touching the very edge of the box.
             padding-bottom: 70px;
         }
 
