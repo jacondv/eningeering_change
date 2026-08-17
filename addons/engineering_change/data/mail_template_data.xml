@@ -21,16 +21,50 @@
     </record>
 
     <record id="mail_template_manager_reject" model="mail.template">
-        <field name="name">EC: Rejected by Manager</field>
+        <field name="name">EC: Rejected by Line Manager</field>
         <field name="model_id" ref="model_engineering_change"/>
-        <field name="subject">[{{ object.name }}] Request rejected by Manager</field>
+        <field name="subject">[{{ object.name }}] Request rejected by Line Manager</field>
         <field name="auto_delete" eval="True"/>
         <field name="body_html" type="html">
             <div style="margin: 0px; padding: 0px;">
                 <p>Dear <t t-out="object.engineer_id.name"/>,</p>
                 <p>
                     Your request <strong t-out="object.name"/> - <t t-out="object.title"/> has been rejected
-                    by the Engineering Manager.
+                    by the Line Manager.
+                </p>
+                <p>Reason: <t t-out="object.reject_reason"/></p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_head_office_review" model="mail.template">
+        <field name="name">EC: Waiting for Head Manager Review</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] Request waiting for Head Manager review</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear,</p>
+                <p>
+                    Request <strong t-out="object.name"/> - <t t-out="object.title"/> has been approved
+                    by the Line Manager and is now waiting for Head Manager review.
+                </p>
+                <p>RPN: <t t-out="object.rpn"/> (<t t-out="object.rpn_level"/>)</p>
+            </div>
+        </field>
+    </record>
+
+    <record id="mail_template_head_office_reject" model="mail.template">
+        <field name="name">EC: Rejected by Head Manager</field>
+        <field name="model_id" ref="model_engineering_change"/>
+        <field name="subject">[{{ object.name }}] Request rejected by Head Manager</field>
+        <field name="auto_delete" eval="True"/>
+        <field name="body_html" type="html">
+            <div style="margin: 0px; padding: 0px;">
+                <p>Dear <t t-out="object.engineer_id.name"/>,</p>
+                <p>
+                    Your request <strong t-out="object.name"/> - <t t-out="object.title"/> has been rejected
+                    by the Head Manager.
                 </p>
                 <p>Reason: <t t-out="object.reject_reason"/></p>
             </div>
@@ -38,16 +72,16 @@
     </record>
 
     <record id="mail_template_bod_review" model="mail.template">
-        <field name="name">EC: DCR Waiting for BOD Review</field>
+        <field name="name">EC: DCR Waiting for BOC Approval</field>
         <field name="model_id" ref="model_engineering_change"/>
-        <field name="subject">[{{ object.name }}] DCR request waiting for BOD review</field>
+        <field name="subject">[{{ object.name }}] DCR request waiting for BOC approval</field>
         <field name="auto_delete" eval="True"/>
         <field name="body_html" type="html">
             <div style="margin: 0px; padding: 0px;">
                 <p>Dear,</p>
                 <p>
                     DCR request <strong t-out="object.name"/> - <t t-out="object.title"/> has been approved
-                    by the Engineering Manager and is now waiting for BOD review.
+                    by the Head Manager and is now waiting for BOC approval.
                 </p>
                 <p>RPN: <t t-out="object.rpn"/> (<t t-out="object.rpn_level"/>)</p>
             </div>
@@ -55,15 +89,15 @@
     </record>
 
     <record id="mail_template_bod_reject" model="mail.template">
-        <field name="name">EC: Rejected by BOD</field>
+        <field name="name">EC: Rejected by BOC</field>
         <field name="model_id" ref="model_engineering_change"/>
-        <field name="subject">[{{ object.name }}] Request rejected by BOD</field>
+        <field name="subject">[{{ object.name }}] Request rejected by BOC</field>
         <field name="auto_delete" eval="True"/>
         <field name="body_html" type="html">
             <div style="margin: 0px; padding: 0px;">
                 <p>Dear <t t-out="object.engineer_id.name"/>,</p>
                 <p>
-                    Your request <strong t-out="object.name"/> - <t t-out="object.title"/> has been rejected by BOD.
+                    Your request <strong t-out="object.name"/> - <t t-out="object.title"/> has been rejected by BOC.
                 </p>
                 <p>Reason: <t t-out="object.reject_reason"/></p>
             </div>

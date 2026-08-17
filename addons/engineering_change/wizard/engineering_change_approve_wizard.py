@@ -6,10 +6,11 @@ class EngineeringChangeApproveWizard(models.TransientModel):
     _description = 'Engineering Change Approve Wizard'
 
     change_id = fields.Many2one('engineering.change', required=True)
-    note = fields.Text(required=True)
+    note = fields.Text()
     approve_by = fields.Selection([
-        ('manager', 'Manager'),
-        ('bod', 'BOD'),
+        ('manager', 'Line Manager'),
+        ('head_office', 'Head Manager'),
+        ('bod', 'BOC'),
     ], required=True)
 
     def action_confirm_approve(self):

@@ -16,6 +16,7 @@ class TestEngineeringChange(TransactionCase):
         cls.group_engineer = cls.env.ref('engineering_change.group_ec_engineer')
         cls.group_bod = cls.env.ref('engineering_change.group_ec_bod')
         cls.group_manager = cls.env.ref('engineering_change.group_ec_manager')
+        cls.group_head_office = cls.env.ref('engineering_change.group_ec_head_office')
         cls.group_delete = cls.env.ref('engineering_change.group_ec_delete')
 
         cls.user_general = Users.create({
@@ -31,16 +32,22 @@ class TestEngineeringChange(TransactionCase):
             'group_ids': [(6, 0, [cls.group_internal.id, cls.group_engineer.id])],
         })
         cls.user_bod = Users.create({
-            'name': 'BOD Member',
+            'name': 'BOC Member',
             'login': 'ec_bod',
             'email': 'ec_bod@example.com',
             'group_ids': [(6, 0, [cls.group_internal.id, cls.group_bod.id])],
         })
         cls.user_manager = Users.create({
-            'name': 'Engineering Manager',
+            'name': 'Line Manager',
             'login': 'ec_manager',
             'email': 'ec_manager@example.com',
             'group_ids': [(6, 0, [cls.group_internal.id, cls.group_manager.id])],
+        })
+        cls.user_head_office = Users.create({
+            'name': 'Head Manager',
+            'login': 'ec_head_office',
+            'email': 'ec_head_office@example.com',
+            'group_ids': [(6, 0, [cls.group_internal.id, cls.group_head_office.id])],
         })
         cls.user_deleter = Users.create({
             'name': 'Cleanup Operator',
@@ -66,6 +73,9 @@ class TestEngineeringChange(TransactionCase):
         self.assertNotEqual(change.name, 'New')
 
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         self.assertEqual(change.state, 'implement')
 
     def test_submit_requires_change_category(self):
@@ -95,6 +105,9 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         self.assertEqual(change.state, 'bod_review')
 
         change.with_user(self.user_bod)._apply_approve('Approved (test)', 'bod')
@@ -108,14 +121,19 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_engineer).action_submit()
 
         change.with_user(self.user_manager)._apply_approve('Looks good', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Also good', 'head_office')
         change.with_user(self.user_bod)._apply_approve('Approved by BOD', 'bod')
 
-        self.assertEqual(len(change.approval_log_ids), 2)
+        self.assertEqual(len(change.approval_log_ids), 3)
         manager_log = change.approval_log_ids.filtered(lambda log: log.role == 'manager')
+        head_office_log = change.approval_log_ids.filtered(lambda log: log.role == 'head_office')
         bod_log = change.approval_log_ids.filtered(lambda log: log.role == 'bod')
         self.assertEqual(manager_log.decision, 'approved')
         self.assertEqual(manager_log.note, 'Looks good')
         self.assertEqual(manager_log.user_id, self.user_manager)
+        self.assertEqual(head_office_log.decision, 'approved')
+        self.assertEqual(head_office_log.note, 'Also good')
+        self.assertEqual(head_office_log.user_id, self.user_head_office)
         self.assertEqual(bod_log.decision, 'approved')
         self.assertEqual(bod_log.user_id, self.user_bod)
 
@@ -150,14 +168,23 @@ class TestEngineeringChange(TransactionCase):
             'note': 'All good',
         })
         wizard.action_confirm_approve()
-        self.assertEqual(change.state, 'implement')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
         self.assertEqual(change.approval_log_ids.note, 'All good')
+
+        # Comment is optional on Approve (unlike Reject, which always requires one).
+        wizard2 = self.env['engineering.change.approve.wizard'].with_user(self.user_head_office).create({
+            'change_id': change.id,
+            'approve_by': 'head_office',
+        })
+        wizard2.action_confirm_approve()
+        self.assertEqual(change.state, 'implement')
 
     def test_bod_reject_sets_draft_with_reason(self):
         change = self._create_request(request_type='dcr')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         wizard = self.env['engineering.change.reject.wizard'].with_user(self.user_bod).create({
             'change_id': change.id,
@@ -172,6 +199,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -205,6 +233,7 @@ class TestEngineeringChange(TransactionCase):
         })
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         with self.assertRaises(AccessError):
             change.with_user(self.user_engineer).action_confirm_production()
@@ -222,6 +251,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         change.with_user(self.user_manager).action_confirm_production()
         change.with_user(self.user_manager).action_confirm_sale()
 
@@ -240,6 +270,9 @@ class TestEngineeringChange(TransactionCase):
             change.with_user(self.user_engineer).action_revert_to_previous_state()
 
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         self.assertEqual(change.state, 'implement')
 
         change.with_user(self.user_manager).action_confirm_production()
@@ -253,6 +286,9 @@ class TestEngineeringChange(TransactionCase):
 
         change.with_user(self.user_manager).action_revert_to_previous_state()
         self.assertEqual(change.state, 'implement')
+
+        change.with_user(self.user_manager).action_revert_to_previous_state()
+        self.assertEqual(change.state, 'waiting_head_office_approval')
 
         change.with_user(self.user_manager).action_revert_to_previous_state()
         self.assertEqual(change.state, 'waiting_manager_approval')
@@ -269,6 +305,9 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         self.assertEqual(change.state, 'bod_review')
 
         change.with_user(self.user_bod)._apply_approve('Approved (test)', 'bod')
@@ -281,6 +320,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -298,6 +338,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         model_a = self.env['equipment.model'].create({'name': 'Model A'})
         model_b = self.env['equipment.model'].create({'name': 'Model B'})
@@ -333,6 +374,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         self.assertEqual(change.state, 'implement')
 
         change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
@@ -429,6 +471,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         # Reassign Implement Owner away from the default (the creating engineer)
         # so user_engineer below ends up neither Manager, Owner, nor unrelated.
         change.with_user(self.user_manager).write({
@@ -453,6 +496,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_engineer).create({
             'change_id': change.id,
@@ -469,6 +513,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         with self.assertRaises(AccessError):
             self.env['project.task'].with_user(self.user_bod).create({
@@ -488,6 +533,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -503,6 +549,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -519,6 +566,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -538,6 +586,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
@@ -557,6 +606,7 @@ class TestEngineeringChange(TransactionCase):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         task = self.env['project.task'].with_user(self.user_manager).create({
             'change_id': change.id,
             'name': 'Do the thing',
@@ -592,7 +642,7 @@ class TestEngineeringChange(TransactionCase):
     def test_archive_permission_only_owner_or_manager(self):
         change = self._create_request(request_type='minor')
 
-        # BOD Approve has broad base write access to engineering.change, but
+        # BOC Approve has broad base write access to engineering.change, but
         # not the archive-specific permission on a request it doesn't own.
         with self.assertRaises(AccessError):
             change.with_user(self.user_bod).write({'active': False})
@@ -604,3 +654,105 @@ class TestEngineeringChange(TransactionCase):
         # Manager can always archive/unarchive, regardless of ownership.
         change.with_user(self.user_manager).write({'active': True})
         self.assertTrue(change.active)
+
+    def test_recall_approval_steps_back_one_stage(self):
+        change = self._create_request(request_type='dcr')
+        change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        # Line Manager recalls their own approval before Head Manager acts.
+        change.with_user(self.user_manager).action_recall_approval()
+        self.assertEqual(change.state, 'waiting_manager_approval')
+
+        # Re-approve and move on to Head Manager, then BOC.
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        self.assertEqual(change.state, 'bod_review')
+
+        # Head Manager recalls their own approval before BOC acts.
+        change.with_user(self.user_head_office).action_recall_approval()
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        # BOC holds neither Line Manager nor Head Manager group, so cannot
+        # recall at all.
+        with self.assertRaises(UserError):
+            change.with_user(self.user_bod).action_recall_approval()
+
+        # Move back to BOC Approval, then confirm Head Manager can no longer
+        # recall once BOC has actually approved (state has moved past them).
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        self.assertEqual(change.state, 'bod_review')
+        change.with_user(self.user_bod)._apply_approve('Approved (test)', 'bod')
+        self.assertEqual(change.state, 'implement')
+        with self.assertRaises(UserError):
+            change.with_user(self.user_head_office).action_recall_approval()
+
+    def test_engineer_and_implement_team_can_edit_drawings_at_design_stage(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_manager).write({
+            'implement_team_ids': [(4, self.user_general.id)],
+        })
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        self.assertEqual(change.state, 'implement')
+
+        # Engineer may still add Related Drawings at the Design stage...
+        change.with_user(self.user_engineer).write({
+            'document_ids': [(0, 0, {'name': 'Drawing A', 'doc_type': 'link', 'link': 'http://x'})],
+        })
+        self.assertEqual(len(change.document_ids), 1)
+
+        # ...as may an Implement Team member who holds no Approve role at all.
+        change.with_user(self.user_general).write({
+            'document_ids': [(0, 0, {'name': 'Drawing B', 'doc_type': 'link', 'link': 'http://y'})],
+        })
+        self.assertEqual(len(change.document_ids), 2)
+
+        # But other engineer-content fields are still locked at this stage.
+        with self.assertRaises(UserError):
+            change.with_user(self.user_engineer).write({'title': 'Too late'})
+
+    def test_approve_comment_is_optional(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        # No note passed - Approve, unlike Reject, doesn't require one.
+        change.with_user(self.user_manager)._apply_approve(False, 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+        self.assertEqual(change.approval_log_ids.note, '')
+
+    def test_line_manager_approve_restricted_to_own_reports(self):
+        Users = self.env['res.users'].with_context(no_reset_password=True)
+        other_manager = Users.create({
+            'name': 'Other Line Manager',
+            'login': 'ec_manager_other',
+            'email': 'ec_manager_other@example.com',
+            'group_ids': [(6, 0, [self.group_internal.id, self.group_manager.id])],
+        })
+
+        Employee = self.env['hr.employee']
+        manager_employee = Employee.create({'name': 'Line Manager', 'user_id': self.user_manager.id})
+        Employee.create({'name': 'Other Line Manager', 'user_id': other_manager.id})
+        engineer_employee = Employee.create({
+            'name': 'Engineer', 'user_id': self.user_engineer.id, 'parent_id': manager_employee.id,
+        })
+
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+
+        # Not this Engineer's assigned manager - blocked.
+        with self.assertRaises(AccessError):
+            change.with_user(other_manager)._apply_approve('Approved (test)', 'manager')
+
+        # The assigned manager can approve.
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+
+        # No manager assigned on the Employee record - any Line Manager may approve.
+        engineer_employee.parent_id = False
+        change2 = self._create_request(request_type='minor')
+        change2.with_user(self.user_engineer).action_submit()
+        change2.with_user(other_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change2.state, 'waiting_head_office_approval')

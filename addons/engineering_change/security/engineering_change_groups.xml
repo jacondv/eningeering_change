@@ -10,7 +10,7 @@
         <!-- Each capability below sits on its OWN privilege (1 group per privilege),
              so they render as independent checkboxes in Settings > Users > Access Rights
              instead of a mutually-exclusive radio set. Any combination can be granted to
-             a single user: e.g. a user can be both "Request" and "BOD Approve" at once,
+             a single user: e.g. a user can be both "Request" and "BOC Approve" at once,
              or hold "Delete" without being a full "Manager Approve". -->
 
         <record id="privilege_ec_view" model="res.groups.privilege">
@@ -26,15 +26,21 @@
         </record>
 
         <record id="privilege_ec_bod_approve" model="res.groups.privilege">
-            <field name="name">BOD Approve</field>
+            <field name="name">BOC Approve</field>
             <field name="category_id" ref="module_category_engineering_change"/>
             <field name="sequence">30</field>
         </record>
 
         <record id="privilege_ec_manager_approve" model="res.groups.privilege">
-            <field name="name">Manager Approve</field>
+            <field name="name">Line Manager Approve</field>
             <field name="category_id" ref="module_category_engineering_change"/>
             <field name="sequence">40</field>
+        </record>
+
+        <record id="privilege_ec_head_office_approve" model="res.groups.privilege">
+            <field name="name">Head Manager Approve</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">42</field>
         </record>
 
         <record id="privilege_ec_delete" model="res.groups.privilege">
@@ -69,17 +75,24 @@
         </record>
 
         <record id="group_ec_bod" model="res.groups">
-            <field name="name">BOD Approve</field>
+            <field name="name">BOC Approve</field>
             <field name="privilege_id" ref="privilege_ec_bod_approve"/>
             <field name="implied_ids" eval="[(4, ref('group_ec_user'))]"/>
-            <field name="comment">Can approve/reject DCR requests at the BOD Review stage.</field>
+            <field name="comment">Can approve/reject DCR requests at the final BOC Approval stage. View + Comment only - cannot edit request content directly.</field>
         </record>
 
         <record id="group_ec_manager" model="res.groups">
-            <field name="name">Manager Approve</field>
+            <field name="name">Line Manager Approve</field>
             <field name="privilege_id" ref="privilege_ec_manager_approve"/>
-            <field name="implied_ids" eval="[(4, ref('group_ec_bod'))]"/>
-            <field name="comment">Can approve/reject at the first (Manager) approval stage, close/reopen requests, and manage sequences/groups. Includes BOD Approve.</field>
+            <field name="implied_ids" eval="[(6, 0, [ref('group_ec_user')])]"/>
+            <field name="comment">Can approve/reject at the first (Line Manager) approval stage, close/reopen requests, and manage sequences/groups. BOC Approve is a fully independent privilege, not included here.</field>
+        </record>
+
+        <record id="group_ec_head_office" model="res.groups">
+            <field name="name">Head Manager Approve</field>
+            <field name="privilege_id" ref="privilege_ec_head_office_approve"/>
+            <field name="implied_ids" eval="[(4, ref('group_ec_manager'))]"/>
+            <field name="comment">Can approve/reject at the second (Head Manager) approval stage, between Line Manager and BOC. Includes every Line Manager Approve capability.</field>
         </record>
 
         <record id="group_ec_delete" model="res.groups">
@@ -99,7 +112,7 @@
             <field name="name">Edit DCR Number</field>
             <field name="privilege_id" ref="privilege_ec_edit_dcr_no"/>
             <field name="implied_ids" eval="[(4, ref('group_ec_user'))]"/>
-            <field name="comment">Can directly edit a request's DCR Number field, bypassing the normal rule that it's only ever set automatically (on BOD approval, or when Manager/Admin changes the Request Type after approval). For one-off manual corrections - e.g. fixing a typo or a number issued under an old numbering format. Independent of the other roles.</field>
+            <field name="comment">Can directly edit a request's DCR Number field, bypassing the normal rule that it's only ever set automatically (on BOC approval, or when Manager/Admin changes the Request Type after approval). For one-off manual corrections - e.g. fixing a typo or a number issued under an old numbering format. Independent of the other roles.</field>
         </record>
 
     </data>
