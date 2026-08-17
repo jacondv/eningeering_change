@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
 
 from .hr_employee import _priority_value
 
@@ -68,6 +69,20 @@ class ProjectTask(models.Model):
     suggested_date_start = fields.Date(compute='_compute_suggested_start', store=False)
     suggested_date_deadline = fields.Datetime(compute='_compute_suggested_start', store=False)
 
+    # Deadline-change self-service: an assignee proposes a new deadline
+    # (via the wizard below), their direct HR manager Approves/Rejects it.
+    # Only one pending proposal at a time - a new one overwrites the old
+    # rather than queuing, and these three fields are cleared back to
+    # blank the moment it's resolved either way (the decision itself is
+    # only kept in the chatter, same as everywhere else on this model).
+    proposed_deadline = fields.Datetime(string='Proposed Deadline', copy=False)
+    proposed_deadline_reason = fields.Text(string='Reason for Change', copy=False)
+    deadline_change_requested_by = fields.Many2one(
+        'res.users', string='Requested By', copy=False, readonly=True)
+
+    can_propose_deadline_change = fields.Boolean(compute='_compute_deadline_change_rights')
+    can_approve_deadline_change = fields.Boolean(compute='_compute_deadline_change_rights')
+
     @api.depends('evidence_ids')
     def _compute_evidence_count(self):
         for rec in self:
@@ -75,6 +90,80 @@ class ProjectTask(models.Model):
 
     def _get_assigned_employees(self):
         return self.env['hr.employee'].search([('user_id', 'in', self.user_ids.ids)])
+
+    def _get_deadline_change_managers(self):
+        """Direct HR manager(s) (hr.employee.parent_id.user_id) of every
+        employee currently assigned to this task - whoever may Approve/
+        Reject a pending deadline-change proposal. Same "direct manager"
+        pattern as engineering.change's Line Manager approval: the real
+        approver is whoever manages the person actually doing the work,
+        not a fixed role, and a task can have several assignees so this
+        can resolve to more than one manager."""
+        self.ensure_one()
+        return self._get_assigned_employees().mapped('parent_id.user_id')
+
+    @api.depends('user_ids', 'proposed_deadline')
+    def _compute_deadline_change_rights(self):
+        user = self.env.user
+        is_admin = user.has_group('base.group_system')
+        for task in self:
+            task.can_propose_deadline_change = bool(user in task.user_ids and not task.proposed_deadline)
+            task.can_approve_deadline_change = bool(
+                task.proposed_deadline and (is_admin or user in task._get_deadline_change_managers()))
+
+    def _check_can_approve_deadline_change(self):
+        self.ensure_one()
+        user = self.env.user
+        if user.has_group('base.group_system'):
+            return
+        if user not in self._get_deadline_change_managers():
+            raise AccessError(_(
+                "Only this task assignee's direct manager can approve or reject a deadline change."))
+
+    def action_propose_deadline_change(self):
+        self.ensure_one()
+        if self.env.user not in self.user_ids:
+            raise AccessError(_("Only an assignee of this task can propose a new deadline."))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Propose New Deadline',
+            'res_model': 'jacon.task.propose.deadline.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_task_id': self.id,
+                'default_new_deadline': self.date_deadline,
+            },
+        }
+
+    def action_approve_deadline_change(self):
+        for task in self:
+            task._check_can_approve_deadline_change()
+            old_deadline = task.date_deadline
+            new_deadline = task.proposed_deadline
+            task.write({
+                'date_deadline': new_deadline,
+                'proposed_deadline': False,
+                'proposed_deadline_reason': False,
+                'deadline_change_requested_by': False,
+            })
+            task.message_post(body=_(
+                "Deadline change approved by %(user)s: %(old)s → %(new)s.") % {
+                    'user': self.env.user.name, 'old': old_deadline, 'new': new_deadline,
+                })
+
+    def action_reject_deadline_change(self):
+        for task in self:
+            task._check_can_approve_deadline_change()
+            requester = task.deadline_change_requested_by
+            task.write({
+                'proposed_deadline': False,
+                'proposed_deadline_reason': False,
+                'deadline_change_requested_by': False,
+            })
+            task.message_post(
+                body=_("Deadline change request rejected by %s.") % self.env.user.name,
+                partner_ids=requester.partner_id.ids if requester else [])
 
     def _suggest_or_keep_deadline(self):
         """Nearest deadline this task's assignee has room for, or the
