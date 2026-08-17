@@ -17,6 +17,7 @@
             ref('engineering_change.group_ec_engineer'),
             ref('engineering_change.group_ec_bod'),
             ref('engineering_change.group_ec_manager'),
+            ref('engineering_change.group_ec_head_office'),
             ref('engineering_change.group_ec_delete'),
         ])]"/>
     </record>
@@ -53,7 +54,7 @@
     <menuitem id="menu_engineering_change_waiting_approval" name="Waiting Approval"
           parent="menu_engineering_change_root"
           action="action_engineering_change_waiting_approval"
-          groups="engineering_change.group_ec_engineer,engineering_change.group_ec_bod,engineering_change.group_ec_manager"
+          groups="engineering_change.group_ec_engineer,engineering_change.group_ec_bod,engineering_change.group_ec_manager,engineering_change.group_ec_head_office"
           sequence="30"/>
 
     <menuitem id="menu_engineering_change_action" name="Actions / Tasks"
