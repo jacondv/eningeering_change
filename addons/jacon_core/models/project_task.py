@@ -42,10 +42,10 @@ class ProjectTask(models.Model):
 
     # Defaults to today (creation date) but is editable - e.g. push it out
     # if the task can't realistically start right away. Drives the
-    # overload calculation below: allocated_hours spreads evenly across
-    # working days from here to date_deadline, a fixed window rather than
-    # always "today", so the answer for a given task doesn't shift
-    # depending on which day you happen to check it.
+    # overload calculation below: remaining_hours (allocated minus already
+    # logged) is scheduled across working days from here to date_deadline,
+    # a fixed window rather than always "today", so the answer for a given
+    # task doesn't shift depending on which day you happen to check it.
     date_start = fields.Date(string='Start Date', default=lambda self: fields.Date.context_today(self))
 
     # Never persisted - recomputed every time the form loads/reloads (not
@@ -173,10 +173,10 @@ class ProjectTask(models.Model):
         causing the overload."""
         self.ensure_one()
         employee = self._get_assigned_employees()[:1]
-        allocated = max(self.allocated_hours or 0.0, 0.0)
-        if employee and allocated:
+        remaining = max(self.remaining_hours or 0.0, 0.0)
+        if employee and remaining:
             suggested = employee.suggest_deadline_without_overload(
-                allocated, self.date_start, after_date=self.date_deadline, exclude_task_id=self.id,
+                remaining, self.date_start, after_date=self.date_deadline, exclude_task_id=self.id,
                 priority=_priority_value(self.priority))
             if suggested:
                 time_of_day = (self.date_deadline or fields.Datetime.now()).time()
@@ -186,12 +186,13 @@ class ProjectTask(models.Model):
     def _get_overloaded_ranges(self):
         """(employee, day-range) pairs where this task's assignee(s) would
         be over daily capacity somewhere between this task's start and
-        deadline, counting this task's own allocated hours on top of
-        their other open tasks - shared by the warning banner and the
-        conflict wizard so the two never disagree."""
+        deadline, counting this task's own remaining hours (allocated
+        minus already logged, see remaining_hours) on top of their other
+        open tasks - shared by the warning banner and the conflict wizard
+        so the two never disagree."""
         self.ensure_one()
-        allocated = max(self.allocated_hours or 0.0, 0.0)
-        if not (self.user_ids and allocated and self.date_deadline):
+        remaining = max(self.remaining_hours or 0.0, 0.0)
+        if not (self.user_ids and remaining and self.date_deadline):
             return []
         start = self.date_start or fields.Date.context_today(self)
         exclude_id = self._origin.id or None
@@ -199,12 +200,12 @@ class ProjectTask(models.Model):
         for employee in self._get_assigned_employees():
             ranges = employee.get_overloaded_ranges(
                 start, self.date_deadline,
-                extra_remaining=[(allocated, start, self.date_deadline, _priority_value(self.priority))],
+                extra_remaining=[(remaining, start, self.date_deadline, _priority_value(self.priority))],
                 exclude_task_id=exclude_id)
             result += [(employee, rng) for rng in ranges]
         return result
 
-    @api.depends('user_ids', 'allocated_hours', 'date_start', 'date_deadline')
+    @api.depends('user_ids', 'remaining_hours', 'date_start', 'date_deadline')
     def _compute_overload_warning(self):
         for task in self:
             lines = []
@@ -216,14 +217,14 @@ class ProjectTask(models.Model):
                     employee.name, period, rng['excess_hours']))
             task.overload_warning = '\n'.join(lines) if lines else False
 
-    @api.depends('user_ids', 'allocated_hours', 'date_start', 'date_deadline', 'priority')
+    @api.depends('user_ids', 'remaining_hours', 'date_start', 'date_deadline', 'priority')
     def _compute_suggested_start(self):
         for task in self:
             task.suggested_start_notice = False
             task.suggested_date_start = False
             task.suggested_date_deadline = False
-            allocated = max(task.allocated_hours or 0.0, 0.0)
-            if not (task.user_ids and allocated and task.date_deadline):
+            remaining = max(task.remaining_hours or 0.0, 0.0)
+            if not (task.user_ids and remaining and task.date_deadline):
                 continue
             employee = task._get_assigned_employees()[:1]
             if not employee:
@@ -236,13 +237,13 @@ class ProjectTask(models.Model):
             priority = _priority_value(task.priority)
             base_queue = employee._task_queue()
             if not employee.check_task_overload(
-                    allocated, start, deadline, priority=priority, exclude_task_id=exclude_id,
+                    remaining, start, deadline, priority=priority, exclude_task_id=exclude_id,
                     base_queue=base_queue):
                 continue
             weekdays = employee._work_weekdays()
             duration_work_days = employee._count_work_days(start, deadline, weekdays) or 1
             suggestion = employee.suggest_start_without_overload(
-                allocated, duration_work_days, priority=priority,
+                remaining, duration_work_days, priority=priority,
                 after_date=start, exclude_task_id=exclude_id, base_queue=base_queue)
             if not suggestion:
                 continue

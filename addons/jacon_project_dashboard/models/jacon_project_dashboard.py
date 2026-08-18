@@ -165,18 +165,18 @@ class JaconProjectDashboard(models.AbstractModel):
         counting it would only inflate the free% for periods partly
         behind us (e.g. viewing this month from the 20th).
 
-        Committed is NOT "hours already logged" (that's a backward-looking
-        fact that drops the instant someone logs a timesheet line, even
-        though the task's calendar slot hasn't actually changed) - it's
-        each open task's `allocated_hours` (the planned/booked hours)
-        spread across its own working days (date_start -> date_deadline)
-        and summed for whichever of those days fall in the selected
-        period, via the same day-by-day engine the Task overload warning
-        uses (hr.employee.get_daily_load). A task due next month but not
-        yet started still shows up here on the days it would need to be
-        worked; a task that finishes Done - on time or early, however
-        many hours it actually took - drops out entirely and frees up
-        the rest of its window immediately."""
+        Committed is each open task's `remaining_hours` (allocated hours
+        minus whatever's already been logged via timesheet, floored at 0
+        - see hr.employee._task_queue) spread across its own working days
+        (date_start -> date_deadline) and summed for whichever of those
+        days fall in the selected period, via the same day-by-day engine
+        the Task overload warning uses (hr.employee.get_daily_load). A
+        task due next month but not yet started still shows up here on
+        the days it would need to be worked; a task that finishes Done -
+        on time or early, however many hours it actually took - drops out
+        entirely and frees up the rest of its window immediately. A task
+        that's mostly logged already claims proportionally less room here
+        too, same as the Task form's own overload warning."""
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
@@ -286,7 +286,14 @@ class JaconProjectDashboard(models.AbstractModel):
                 'start': start.isoformat(),
                 'end': deadline.isoformat(),
                 'allocated_hours': task.allocated_hours,
-                'progress': round(task.progress or 0.0),
+                'remaining_hours': round(max(task.remaining_hours or 0.0, 0.0), 1),
+                # task.progress is a 0..1 fraction (see hr_timesheet's
+                # _compute_progress_hours); Frappe Gantt's own `progress`
+                # expects 0..100 (it clamps anything >100 to 100 - see
+                # prepare_values in frappe-gantt.umd.js), so without this
+                # *100 nearly every bar rounds down to 0% regardless of how
+                # much timesheet was actually logged.
+                'progress': round((task.progress or 0.0) * 100),
                 'overdue': deadline < today,
                 # Assignee's working weekdays (0=Monday..6=Sunday, see
                 # hr.employee._work_weekdays) - the frontend needs this to
@@ -342,7 +349,7 @@ class JaconProjectDashboard(models.AbstractModel):
                     # the frontend (see confirmTaskGanttChange).
                     duration_work_days = emp._count_work_days(b_start, b_end, weekdays) or 1
                     suggestion = emp.suggest_start_without_overload(
-                        task.allocated_hours, duration_work_days,
+                        max(task.remaining_hours or 0.0, 0.0), duration_work_days,
                         priority=_priority_value(task.priority),
                         after_date=b_start, exclude_task_id=task.id, base_queue=base_queue)
                     if suggestion:

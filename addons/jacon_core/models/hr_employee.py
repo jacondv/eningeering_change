@@ -63,13 +63,16 @@ class HrEmployee(models.Model):
     that doesn't get all its hours scheduled by its own deadline is
     "overloaded" - see `_simulate_schedule`.
 
-    `allocated_hours` is used on purpose instead of `remaining_hours`:
-    this is a *schedule* (how much of each day is booked), not a
-    progress tracker - logging timesheet hours against a task shouldn't
-    instantly "free up" days that are still booked on the calendar until
-    the task is actually closed (Done/Cancelled), at which point it
-    drops out of this calculation entirely, regardless of how many hours
-    it ended up taking.
+    Each task contributes `remaining_hours` (allocated_hours minus hours
+    already logged via timesheet, floored at 0 - see project.task's own
+    `remaining_hours`), not the full `allocated_hours` - a task that's
+    mostly done shouldn't keep claiming its original full booking once
+    real progress has been logged against it. This trusts timesheet
+    entries as a genuine progress signal; it does NOT distinguish "logged
+    hours that reflect real completed work" from "logged hours that
+    don't" (e.g. time booked against the wrong day) - if that ever
+    becomes a problem in practice, revisit this. A task only drops out of
+    this calculation entirely once it's actually closed (Done/Cancelled).
     """
     _inherit = 'hr.employee'
 
@@ -140,7 +143,7 @@ class HrEmployee(models.Model):
                 start = deadline
             queue.append({
                 'key': ('task', task.id),
-                'remaining': max(task.allocated_hours or 0.0, 0.0),
+                'remaining': max(task.remaining_hours or 0.0, 0.0),
                 'start': start,
                 'deadline': deadline,
                 'priority': _priority_value(task.priority),
