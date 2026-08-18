@@ -38,7 +38,7 @@
         </record>
 
         <record id="privilege_ec_head_office_approve" model="res.groups.privilege">
-            <field name="name">Head Manager Approve</field>
+            <field name="name">Engineering Manager Approve</field>
             <field name="category_id" ref="module_category_engineering_change"/>
             <field name="sequence">42</field>
         </record>
@@ -89,10 +89,10 @@
         </record>
 
         <record id="group_ec_head_office" model="res.groups">
-            <field name="name">Head Manager Approve</field>
+            <field name="name">Engineering Manager Approve</field>
             <field name="privilege_id" ref="privilege_ec_head_office_approve"/>
             <field name="implied_ids" eval="[(4, ref('group_ec_manager'))]"/>
-            <field name="comment">Can approve/reject at the second (Head Manager) approval stage, between Line Manager and BOC. Includes every Line Manager Approve capability.</field>
+            <field name="comment">Can approve/reject at the second (Engineering Manager) approval stage, between Line Manager and BOC. Includes every Line Manager Approve capability.</field>
         </record>
 
         <record id="group_ec_delete" model="res.groups">
