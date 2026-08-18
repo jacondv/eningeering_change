@@ -334,18 +334,21 @@ class EngineeringChange(models.Model):
     # ------------------------------------------------------------
     def action_recall_approval(self):
         """Lets Line Manager or Head Manager pull their own Approve back by
-        exactly one step, without going through the Reject wizard (which
-        always resets to Draft and requires a reason). Only reachable while
-        the next stage hasn't approved yet - once it has, the state has
-        already moved past the recallable window, so the button's own
-        invisible condition (tied to the current state) naturally disables
-        it.
+        exactly one step, or lets the Engineer pull their own Submit back to
+        Draft, without going through the Reject wizard (which always resets
+        to Draft and requires a reason). Only reachable while the next stage
+        hasn't approved/acted yet - once it has, the state has already moved
+        past the recallable window, so the button's own invisible condition
+        (tied to the current state) naturally disables it.
         """
         self.ensure_one()
         user = self.env.user
+        is_admin = user.has_group('base.group_system')
         is_manager = user.has_group('engineering_change.group_ec_manager')
         is_head_office = user.has_group('engineering_change.group_ec_head_office')
-        if self.state == 'waiting_head_office_approval' and is_manager:
+        if self.state == 'waiting_manager_approval' and (is_admin or self.engineer_id == user):
+            target_state = 'draft'
+        elif self.state == 'waiting_head_office_approval' and is_manager:
             target_state = 'waiting_manager_approval'
         elif self.state == 'bod_review' and is_head_office:
             target_state = 'waiting_head_office_approval'
