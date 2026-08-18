@@ -37,7 +37,7 @@
                             groups="engineering_change.group_ec_bod"/>
                     <button name="action_recall_approval" string="Undo" type="object"
                             invisible="state != 'bod_review'"
-                            confirm="Undo your Engineering Manager approval and send this back for re-approval?"
+                            confirm="Undo your Engineering Head approval and send this back for re-approval?"
                             groups="engineering_change.group_ec_head_office"/>
                     <button name="action_confirm_production" string="Confirm Production" type="object"
                             class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"
@@ -101,8 +101,6 @@
                                 <group>
                                     <field name="title" required="1" placeholder="Short title of the change..."
                                            readonly="not can_edit_engineer_fields"/>
-                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
-                                           readonly="not can_edit_request_type"/>
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
                                     <label for="default_affected_family_ids" class="text-nowrap"/>
@@ -116,6 +114,8 @@
                                            readonly="not can_edit_engineer_fields" nolabel="1"/>
                                 </group>
                                 <group>
+                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
+                                           readonly="not can_edit_request_type"/>
                                     <field name="dcr_no" readonly="not can_edit_dcr_no"/>
                                     <field name="project_id" invisible="not project_id"/>
                                     <field name="create_date" string="Created"/>
@@ -255,7 +255,7 @@
         <field name="name">engineering.change.list</field>
         <field name="model">engineering.change</field>
         <field name="arch" type="xml">
-            <list string="Engineering Changes" decoration-danger="has_overdue_action">
+            <list string="Engineering Changes" js_class="jacon_core_list" decoration-danger="has_overdue_action">
                 <field name="name"/>
                 <field name="title"/>
                 <field name="request_type" widget="badge"/>
