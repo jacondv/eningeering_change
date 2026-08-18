@@ -101,8 +101,6 @@
                                 <group>
                                     <field name="title" required="1" placeholder="Short title of the change..."
                                            readonly="not can_edit_engineer_fields"/>
-                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
-                                           readonly="not can_edit_request_type"/>
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
                                     <label for="default_affected_family_ids" class="text-nowrap"/>
@@ -116,6 +114,8 @@
                                            readonly="not can_edit_engineer_fields" nolabel="1"/>
                                 </group>
                                 <group>
+                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
+                                           readonly="not can_edit_request_type"/>
                                     <field name="dcr_no" readonly="not can_edit_dcr_no"/>
                                     <field name="project_id" invisible="not project_id"/>
                                     <field name="create_date" string="Created"/>
