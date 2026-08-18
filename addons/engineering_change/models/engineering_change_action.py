@@ -58,23 +58,24 @@ class ProjectTask(models.Model):
                 return change.bod_approver_id.id
         return self.env.user.id
 
-    @api.depends('change_id.implement_owner_id', 'change_id.implement_team_ids')
+    @api.depends('change_id.implement_owner_id')
     def _compute_can_edit_ec_task_details(self):
         """Drives the readonly state of the standard task fields shown on
         the EC task form (see `view_engineering_change_action_form`), so a
         plain assignee sees them as readonly instead of editing them only to
         have the whole save rejected by `_check_ec_write_access`.
 
-        can_assign_ec_task is the narrower case: an Implement Team member who
-        isn't Owner/Manager can't edit the rest of that readonly group, but
-        per `_check_ec_write_access` they CAN still set `user_ids` (assign the
-        task) - without this, the field would stay readonly in the UI even
-        though the write itself would be accepted server-side.
+        can_assign_ec_task is the narrower case: an Engineer who isn't
+        Owner/Manager can't edit the rest of that readonly group, but per
+        `_check_ec_write_access` they CAN still set `user_ids` (assign the
+        task, on any request) - without this, the field would stay readonly
+        in the UI even though the write itself would be accepted server-side.
         """
         is_manager = self._is_ec_manager()
+        is_engineer = self._is_ec_engineer()
         for rec in self:
             rec.can_edit_ec_task_details = not rec.change_id or rec._is_ec_owner_or_manager(is_manager)
-            rec.can_assign_ec_task = rec.can_edit_ec_task_details or rec._is_ec_team_member()
+            rec.can_assign_ec_task = rec.can_edit_ec_task_details or is_engineer
 
     @api.depends('date_deadline', 'state')
     def _compute_is_overdue(self):
@@ -164,42 +165,43 @@ class ProjectTask(models.Model):
             project = Project.create({'name': change.name})
         return project
 
-    def _is_ec_team_member(self):
-        """True if the current user is a member of this task's parent
-        request's Implement Team (not necessarily its Owner) - see
+    @api.model
+    def _is_ec_engineer(self):
+        """True if the current user holds the Request/Engineer role - see
         _check_ec_write_access, where this earns write access to `user_ids`
-        specifically (assigning the task to someone) on top of the usual
-        ASSIGNEE_EDITABLE_FIELDS."""
-        self.ensure_one()
-        return self.env.user in self.change_id.implement_team_ids
+        (assigning the task to someone, on any request) on top of the usual
+        ASSIGNEE_EDITABLE_FIELDS. Deliberately not scoped to this task's own
+        Implement Team/Owner: any Engineer can assign any EC task, per the
+        simplified permission model - the `ec_task_rule_engineer_assign`
+        record rule grants the matching record-level reachability."""
+        return self.env.user.has_group('engineering_change.group_ec_engineer')
 
     def _check_ec_write_access(self, vals, is_manager):
         """Guard editing an existing EC task's fields.
 
         Manager Approve and the request's Implement Owner may edit anything.
-        Any other Implement Team member may additionally assign the task
+        Any Engineer (Request role) may additionally assign the task
         (`user_ids`) on top of Status/Evidence/etc (ASSIGNEE_EDITABLE_FIELDS)
-        - the whole team decides amongst themselves who picks up which
-        action, not just the Owner. Everyone else (e.g. someone assigned to
-        the task but not on the Implement Team) is limited to
-        ASSIGNEE_EDITABLE_FIELDS only.
+        - assignment isn't restricted to the request's own Implement
+        Team/Owner. Everyone else (e.g. someone assigned to the task but not
+        an Engineer) is limited to ASSIGNEE_EDITABLE_FIELDS only.
 
         Note this only governs *which fields* may change - *which tasks* a
         given user can reach at all is a separate concern, already handled by
-        the `ec_task_rule_user_write` record rule and the base ACL.
+        the `ec_task_rule_user_write` / `ec_task_rule_engineer_assign` record
+        rules and the base ACL.
         """
         self.ensure_one()
         if self._is_ec_owner_or_manager(is_manager):
             return
         allowed_fields = self.ASSIGNEE_EDITABLE_FIELDS
-        if self._is_ec_team_member():
+        if self._is_ec_engineer():
             allowed_fields = allowed_fields | {'user_ids'}
         if set(vals) <= allowed_fields:
             return
         raise AccessError(_(
             "Only the Manager, the request's Implement Owner, or (for "
-            "assigning the task) another Implement Team member can edit "
-            "task details."))
+            "assigning the task) an Engineer can edit task details."))
 
     # ------------------------------------------------------------
     # CRUD

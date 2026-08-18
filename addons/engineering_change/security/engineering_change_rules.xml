@@ -179,6 +179,23 @@
             <field name="perm_unlink">0</field>
         </record>
 
+        <!-- Any Request/Engineer role holder may assign an EC task to anyone,
+             on any request - not just their own request's Implement Team/Owner.
+             Record-level reachability only; ProjectTask._check_ec_write_access
+             still limits them to touching `user_ids` (plus the usual
+             ASSIGNEE_EDITABLE_FIELDS) unless they're also the Implement Owner
+             or Manager Approve. -->
+        <record id="ec_task_rule_engineer_assign" model="ir.rule">
+            <field name="name">EC Task: any Engineer can assign tasks on any request</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">[('change_id','!=',False)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_engineer'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <!-- The request's Implement Owner (a per-record field, `change_id.implement_owner_id`,
              not a role) is the one who plans out the implementation - only they (or Manager
              Approve, below) may create/edit/delete tasks for their own request. Everyone else,
