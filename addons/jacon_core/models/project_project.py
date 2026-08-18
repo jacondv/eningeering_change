@@ -1,6 +1,6 @@
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.addons.base.models.res_users import check_identity
-from odoo.exceptions import AccessDenied, UserError
+from odoo.exceptions import AccessDenied, UserError, ValidationError
 
 
 class ProjectProject(models.Model):
@@ -37,6 +37,23 @@ class ProjectProject(models.Model):
         # help text. The client sets it in-memory (via the Edit button)
         # to unlock the form for the current editing session only.
         pass
+
+    @api.constrains('name', 'company_id', 'is_template')
+    def _check_name_unique(self):
+        for project in self:
+            if project.is_template or not project.name:
+                continue
+            duplicate = self.with_context(active_test=False).search([
+                ('id', '!=', project.id),
+                ('name', '=ilike', project.name),
+                ('company_id', '=', project.company_id.id),
+                ('is_template', '=', False),
+            ], limit=1)
+            if duplicate:
+                raise ValidationError(_(
+                    "A Project named '%(name)s' already exists. "
+                    "Project Name/Job # must be unique.",
+                    name=project.name))
 
     def unlink(self):
         if not self.env.context.get('project_delete_password_confirmed'):

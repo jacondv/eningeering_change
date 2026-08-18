@@ -715,7 +715,7 @@ export class JaconProjectDashboard extends Component {
         }
         const tasks = rows.map((row) => ({
             id: String(row.id),
-            name: `${row.employee}: ${row.name}`,
+            name: `${row.employee}: ${row.name} (${row.remaining_hours}h left)`,
             start: row.start,
             end: row.end,
             progress: row.progress,
@@ -783,7 +783,7 @@ export class JaconProjectDashboard extends Component {
         }
         lines.push(`<div>Assignee: ${row.employee}</div>`);
         lines.push(`<div>${row.start} &rarr; ${row.end}</div>`);
-        lines.push(`<div>Allocated: ${row.allocated_hours}h &middot; Progress: ${Math.round(row.progress)}%</div>`);
+        lines.push(`<div>Allocated: ${row.allocated_hours}h &middot; Remaining: ${row.remaining_hours}h &middot; Progress: ${Math.round(row.progress)}%</div>`);
         if (row.overdue) {
             lines.push(`<div class="o_pd_gantt_popup_overdue">Overdue</div>`);
         }
