@@ -105,6 +105,9 @@
                                            readonly="not can_edit_request_type"/>
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
+                                    <label for="default_affected_family_ids" class="text-nowrap"/>
+                                    <field name="default_affected_family_ids" widget="many2many_tags"
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
                                     <label for="default_affected_model_ids" class="text-nowrap"/>
                                     <field name="default_affected_model_ids" widget="many2many_tags"
                                            readonly="not can_edit_engineer_fields" nolabel="1"/>
@@ -273,7 +276,8 @@
                        decoration-danger="rpn_level == 'high'"
                        decoration-warning="rpn_level == 'medium'"
                        decoration-success="rpn_level == 'low'"/>
-                <field name="affected_model_ids" widget="many2many_tags" optional="hide"/>
+                <field name="affected_model_ids" widget="collapsible_many2many_tags"
+                       options="{'limit': 3}" optional="hide"/>
                 <field name="affected_project_ids" widget="many2many_tags" optional="hide"/>
                 <field name="action_count" optional="hide"/>
                 <field name="action_done_count" optional="hide"/>
