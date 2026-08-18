@@ -83,9 +83,10 @@ class ProjectTask(models.Model):
         """Manager Approve holders have unrestricted access to every EC task."""
         return self.env.user.has_group('engineering_change.group_ec_manager')
 
-    def _check_ec_manage_access(self, change, is_manager=None):
-        """Guard create/delete of an EC task: only Manager Approve or `change`'s
-        own Implement Owner may create or remove actions on it.
+    def _check_ec_create_access(self, change, is_manager=None):
+        """Guard creating an EC task: Manager Approve, `change`'s Implement
+        Owner, or any member of its Implement Team may add actions to it -
+        the whole team is doing the work, not just its Owner.
 
         Enforced here in Python rather than left to ir.rule alone: the core
         `project` module ships its own permissive rules for tasks with no
@@ -102,11 +103,25 @@ class ProjectTask(models.Model):
         """
         if is_manager is None:
             is_manager = self._is_ec_manager()
+        if is_manager or self.env.user in (change.implement_owner_id | change.implement_team_ids):
+            return
+        raise AccessError(_(
+            "Only the Manager or a member of the Implement Team can create "
+            "actions/tasks for this request."))
+
+    def _check_ec_delete_access(self, change, is_manager=None):
+        """Guard deleting an EC task: only Manager Approve or `change`'s own
+        Implement Owner - narrower than create access on purpose, so a
+        regular team member can add their own actions but not remove
+        someone else's. See _check_ec_create_access for why this is
+        enforced in Python rather than left to ir.rule alone."""
+        if is_manager is None:
+            is_manager = self._is_ec_manager()
         if is_manager or change.implement_owner_id == self.env.user:
             return
         raise AccessError(_(
-            "Only the Manager or the request's Implement Owner can create or "
-            "delete actions/tasks for this request."))
+            "Only the Manager or the request's Implement Owner can delete "
+            "actions/tasks for this request."))
 
     def _is_ec_owner_or_manager(self, is_manager=None):
         """True if the current user has unrestricted edit access to this EC
@@ -129,7 +144,7 @@ class ProjectTask(models.Model):
         request is actually submitted.
 
         sudo(): a plain assignee allowed to create an EC task (see
-        `_check_ec_manage_access`) may not otherwise have search/create
+        `_check_ec_create_access`) may not otherwise have search/create
         rights on project.project.
         """
         if change.project_id:
@@ -167,7 +182,7 @@ class ProjectTask(models.Model):
             change_id = vals.get('change_id')
             if change_id:
                 change = Change.browse(change_id)
-                self._check_ec_manage_access(change, is_manager=is_manager)
+                self._check_ec_create_access(change, is_manager=is_manager)
                 if not vals.get('project_id'):
                     vals['project_id'] = self._get_or_create_ec_project(change).id
         tasks = super().create(vals_list)
@@ -177,7 +192,7 @@ class ProjectTask(models.Model):
     def unlink(self):
         is_manager = self._is_ec_manager()
         for task in self.filtered('change_id'):
-            task._check_ec_manage_access(task.change_id, is_manager=is_manager)
+            task._check_ec_delete_access(task.change_id, is_manager=is_manager)
         return super().unlink()
 
     def write(self, vals):
@@ -202,8 +217,8 @@ class ProjectTask(models.Model):
         """Log a new action/task on its parent request's chatter, so anyone
         watching the request sees it show up even without opening the task.
 
-        sudo(): the Implement Owner allowed to create this task (see
-        `_check_ec_manage_access`) is not necessarily an Engineer/BOC/Manager
+        sudo(): the Implement Team member allowed to create this task (see
+        `_check_ec_create_access`) is not necessarily an Engineer/BOC/Manager
         Approve holder with write access of their own on engineering.change.
         """
         for task in self:
