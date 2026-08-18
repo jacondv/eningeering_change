@@ -47,6 +47,8 @@ Currently provides:
             'jacon_core/static/src/fields/date_or_na_field.js',
             'jacon_core/static/src/fields/date_or_na_field.xml',
             'jacon_core/static/src/fields/day_month_date_field.js',
+            'jacon_core/static/src/fields/task_title_autocomplete_field.js',
+            'jacon_core/static/src/fields/task_title_autocomplete_field.xml',
             'jacon_core/static/src/list/resizable_column_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.scss',

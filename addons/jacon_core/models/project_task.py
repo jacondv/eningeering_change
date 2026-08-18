@@ -88,6 +88,34 @@ class ProjectTask(models.Model):
         for rec in self:
             rec.evidence_count = len(rec.evidence_ids)
 
+    @api.model
+    def search_task_title_suggestions(self, query, limit=8):
+        """Distinct, previously-used Task titles containing `query`, each
+        paired with the Task Type of their most recent use - powers the
+        autocomplete dropdown on the Title field (see
+        task_title_autocomplete_field.js) so a user typing a few characters
+        can reuse a title they (or anyone else) already used before, with
+        its Task Type filled in too, instead of retyping both slightly
+        differently every time. Plain search(), not read_group/SQL, so it
+        still respects the normal project.task record rules (a user only
+        gets suggested titles from tasks they can actually see). Ordered
+        most-recently-updated first, so of several tasks sharing a title,
+        the Task Type offered is the one most recently actually used under
+        it."""
+        if not query or len(query) < 2:
+            return []
+        tasks = self.search([('name', 'ilike', query)], order='write_date desc', limit=200)
+        seen = set()
+        suggestions = []
+        for task in tasks:
+            if not task.name or task.name in seen:
+                continue
+            seen.add(task.name)
+            suggestions.append({'name': task.name, 'task_type': task.task_type})
+            if len(suggestions) >= limit:
+                break
+        return suggestions
+
     def _get_assigned_employees(self):
         return self.env['hr.employee'].search([('user_id', 'in', self.user_ids.ids)])
 

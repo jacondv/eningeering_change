@@ -54,6 +54,14 @@
                 </div>
             </xpath>
 
+            <!-- Suggest previously-used Task titles as the user types, so a
+                 recurring task name can be reused with one click instead of
+                 retyped slightly differently every time - see
+                 project.task.search_task_title_suggestions. -->
+            <xpath expr="//field[@name='name'][@widget='text']" position="attributes">
+                <attribute name="widget">task_title_autocomplete</attribute>
+            </xpath>
+
             <!-- Explicit Start Date (default: creation date, editable) -
                  the overload calculation spreads remaining hours across
                  working days from here to Deadline, a fixed window
