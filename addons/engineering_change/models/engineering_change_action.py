@@ -203,7 +203,7 @@ class ProjectTask(models.Model):
         watching the request sees it show up even without opening the task.
 
         sudo(): the Implement Owner allowed to create this task (see
-        `_check_ec_manage_access`) is not necessarily an Engineer/BOD/Manager
+        `_check_ec_manage_access`) is not necessarily an Engineer/BOC/Manager
         Approve holder with write access of their own on engineering.change.
         """
         for task in self:

@@ -20,7 +20,7 @@ class EngineeringChange(models.Model):
     #   role may touch them, and only while the request is still in Draft - once
     #   submitted (let alone approved), the content is frozen. If it needs correction,
     #   the approver rejects it back to Draft instead of editing it directly.
-    # - MANAGER_FIELDS: the operational/execution side. Only BOD/Manager Approve may
+    # - MANAGER_FIELDS: the operational/execution side. Only Manager Approve may
     #   touch them, and never once the request is Done (reopen first).
     # - request_type is the one deliberate exception: both Engineer and Manager may
     #   change it, and Manager may still change it up to the Manager approval step
@@ -32,11 +32,17 @@ class EngineeringChange(models.Model):
         'image_ids', 'document_ids', 'default_affected_model_ids',
         'default_affected_project_ids',
     })
+    # document_ids ("Related Drawings") also stays editable by the Implement
+    # Team/Engineer while the request is at the Design stage - a wider window
+    # than the rest of ENGINEER_FIELDS, which is only editable by the Request
+    # role in Draft or by whichever approver currently holds the request at
+    # their own approval stage. See _check_field_edit_permissions.
+    DRAWING_FIELDS = frozenset({'document_ids'})
     MANAGER_FIELDS = frozenset({'implement_team_ids', 'implement_owner_id'})
     # Fields only ever meant to change as a side effect of the workflow methods
     # below (Submit/Approve/Reject/Close/Reopen), never through a direct write().
     # Base ACL + the rules above already grant write=1 on the whole model to
-    # Request/BOD/Manager Approve, so without this guard any of them could set
+    # Request/BOC/Manager Approve, so without this guard any of them could set
     # state directly (e.g. skip straight to 'done'), bypassing the approval
     # sequence entirely.
     WORKFLOW_FIELDS = frozenset({
@@ -55,7 +61,8 @@ class EngineeringChange(models.Model):
         ('supplychain', 'SupplyChain'),
         ('safety', 'Safety'),
         ('improvement', 'Improvement'),
-        ('production', 'Production')
+        ('production', 'Production'),
+        ('Product Support', 'Product Support'),
     ], string='Change Source', tracking=True)
     title = fields.Char(required=True, tracking=True)
     description = fields.Html(required=True)
@@ -65,8 +72,9 @@ class EngineeringChange(models.Model):
     close_date = fields.Datetime(readonly=True, copy=False)
     state = fields.Selection([
         ('draft', 'Draft'),
-        ('waiting_manager_approval', 'Manager Approval'),
-        ('bod_review', 'BOD Approval'),
+        ('waiting_manager_approval', 'Line Manager Approval'),
+        ('waiting_head_office_approval', 'Head Manager Approval'),
+        ('bod_review', 'BOC Approval'),
         ('implement', 'Design'),
         ('production', 'Production'),
         ('sale', 'Sales'),
@@ -85,6 +93,8 @@ class EngineeringChange(models.Model):
              "bypass the password confirmation required to delete a request.")
 
     image_ids = fields.One2many('engineering.change.image', 'change_id', string='Images')
+    approval_log_ids = fields.One2many(
+        'engineering.change.approval.log', 'change_id', string='Approval History')
     document_ids = fields.One2many('engineering.change.document', 'change_id', string='Related Drawings')
     task_ids = fields.One2many('project.task', 'change_id', string='Actions')
 
@@ -103,7 +113,7 @@ class EngineeringChange(models.Model):
     impact_safety = fields.Text(string='Safety Impact', tracking=True)
     impact_compliance = fields.Text(string='Compliance Impact', tracking=True)
 
-    bod_approver_id = fields.Many2one('res.users', string='BOD Approver', readonly=True, copy=False)
+    bod_approver_id = fields.Many2one('res.users', string='BOC Approver', readonly=True, copy=False)
     reject_reason = fields.Text(readonly=True, copy=False)
 
     action_count = fields.Integer(compute='_compute_action_stats')
@@ -138,11 +148,13 @@ class EngineeringChange(models.Model):
     # UX hints for the view (readonly conditions). The write() guard below is the
     # actual enforcement; these just let the form grey fields out accordingly.
     can_edit_engineer_fields = fields.Boolean(compute='_compute_edit_rights')
+    can_edit_drawings = fields.Boolean(compute='_compute_edit_rights')
     can_edit_manager_fields = fields.Boolean(compute='_compute_edit_rights')
     can_edit_request_type = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_production = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
     can_edit_dcr_no = fields.Boolean(compute='_compute_edit_rights')
+    can_manager_approve = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -205,25 +217,41 @@ class EngineeringChange(models.Model):
             ).mapped('date_deadline')
             rec.next_action_deadline = fields.Date.to_date(min(deadlines)) if deadlines else False
 
-    @api.depends('state', 'implement_owner_id')
+    @api.depends('state', 'implement_owner_id', 'engineer_id', 'implement_team_ids')
     def _compute_edit_rights(self):
         user = self.env.user
+        is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        is_manager = user.has_group('engineering_change.group_ec_manager') \
-            or user.has_group('base.group_system')
-        is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
+        # is_manager is True for Line Manager AND Head Manager (group_ec_head_office
+        # implies group_ec_manager) - each own-stage clause below still keys off the
+        # record's actual state, so the two stages never overlap in practice.
+        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        is_bod = user.has_group('engineering_change.group_ec_bod')
         can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
-            rec.can_edit_engineer_fields = is_manager or (is_engineer and rec.state == 'draft')
-            rec.can_edit_manager_fields = is_approver and rec.state != 'done'
-            rec.can_edit_request_type = (
-                is_manager
+            own_stage_edit = (
+                is_admin
                 or (is_engineer and rec.state == 'draft')
-                or (is_approver and rec.state in ('draft', 'waiting_manager_approval'))
+                or (is_manager and rec.state == 'waiting_manager_approval')
+                or (is_head_office and rec.state == 'waiting_head_office_approval')
+                or (is_bod and rec.state == 'bod_review')
             )
+            rec.can_edit_engineer_fields = own_stage_edit
+            rec.can_edit_drawings = own_stage_edit or (
+                rec.state == 'implement'
+                and (rec.engineer_id == user or user in rec.implement_team_ids)
+            )
+            rec.can_edit_manager_fields = is_manager and rec.state != 'done'
+            rec.can_edit_request_type = is_manager or (is_engineer and rec.state == 'draft')
             rec.can_confirm_production = is_manager or rec.implement_owner_id == user
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
             rec.can_edit_dcr_no = can_edit_dcr_no
+            if rec.state == 'waiting_manager_approval' and is_manager:
+                direct_manager = rec._get_direct_manager_user()
+                rec.can_manager_approve = is_admin or not direct_manager or user == direct_manager
+            else:
+                rec.can_manager_approve = False
 
     # ------------------------------------------------------------
     # Project linking
@@ -288,9 +316,16 @@ class EngineeringChange(models.Model):
         # field's docstring). So instead: delete the requests first (clearing
         # the reference project_id's restrict is guarding), then delete their
         # now-unreferenced projects as a deliberate side effect of this method.
+        # project.project (jacon_core) has its own, separate unlink() guard
+        # keyed on 'project_delete_password_confirmed' - the user already
+        # confirmed their password once to get here (via
+        # action_delete_with_password's check_identity), so that guard must
+        # be satisfied too, not just this model's own 'ec_delete_password_
+        # confirmed' key, or this second unlink() call fails right back with
+        # that guard's own "Invalid Operation" error.
         projects = self.project_id
         result = super().unlink()
-        projects.sudo().unlink()
+        projects.sudo().with_context(project_delete_password_confirmed=True).unlink()
         return result
 
     @check_identity
@@ -336,14 +371,14 @@ class EngineeringChange(models.Model):
             self._sync_dcr_no_on_type_change()
         return result
 
-    # Once a request already went through BOD approval (state at/after
+    # Once a request already went through BOC approval (state at/after
     # 'implement'), the normal action_bod_approve() flow that assigns
     # dcr_no won't run again - only the Manager/Admin can still flip
     # request_type at that point (see can_edit_request_type), and this
     # keeps dcr_no consistent with the corrected type without requiring a
     # Reject-to-Draft round trip. Earlier states are left alone: dcr_no is
     # still assigned by action_bod_approve() once the request actually
-    # reaches BOD approval, same as always.
+    # reaches BOC approval, same as always.
     def _sync_dcr_no_on_type_change(self):
         for rec in self:
             if rec.request_type == 'dcr' and not rec.dcr_no and rec.state not in ('draft', 'waiting_manager_approval', 'bod_review'):
@@ -382,42 +417,60 @@ class EngineeringChange(models.Model):
     def _check_field_edit_permissions(self, keys):
         self.ensure_one()
         user = self.env.user
+        is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        # Manager Approve and Administrator may always edit any content of the
-        # request, regardless of state or role - they're trusted to correct it
-        # directly instead of going through the Reject-to-Draft round trip.
-        is_manager = user.has_group('engineering_change.group_ec_manager') \
-            or user.has_group('base.group_system')
-        is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
+        # is_manager is True for Line Manager AND Head Manager (implied group) -
+        # each clause below still keys off the record's actual state, so the
+        # two stages never overlap in practice. BOC (group_ec_bod) is
+        # deliberately excluded from MANAGER_FIELDS/request_type edit rights -
+        # View + Comment only, per the approval workflow design.
+        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        is_bod = user.has_group('engineering_change.group_ec_bod')
 
         engineer_keys = keys & self.ENGINEER_FIELDS
-        if engineer_keys and not is_manager:
-            if self.state != 'draft':
-                raise UserError(_(
-                    "The request content (%s) can only be edited while the request is in Draft. "
-                    "Reject it back to Draft first if it needs correction."
-                ) % ', '.join(sorted(engineer_keys)))
-            if not is_engineer:
-                raise AccessError(_("Only the Request role can edit the request content."))
+        drawing_keys = engineer_keys & self.DRAWING_FIELDS
+        other_engineer_keys = engineer_keys - self.DRAWING_FIELDS
+        own_stage_edit = (
+            is_admin
+            or (is_engineer and self.state == 'draft')
+            or (is_manager and self.state == 'waiting_manager_approval')
+            or (is_head_office and self.state == 'waiting_head_office_approval')
+            or (is_bod and self.state == 'bod_review')
+        )
+
+        if other_engineer_keys and not own_stage_edit:
+            raise UserError(_(
+                "The request content (%s) can only be edited by the Request role while in "
+                "Draft, or by the approver currently holding the request at their own "
+                "approval stage. Reject it back to Draft first if it needs correction "
+                "outside that window."
+            ) % ', '.join(sorted(other_engineer_keys)))
+
+        if drawing_keys and not (
+            own_stage_edit
+            or (self.state == 'implement'
+                and (self.engineer_id == user or user in self.implement_team_ids))
+        ):
+            raise UserError(_(
+                "Related Drawings can only be edited by the Request role while in Draft, "
+                "by the approver currently holding the request at their own approval "
+                "stage, or by the Engineer/Implement Team while at the Design stage."
+            ))
 
         manager_keys = keys & self.MANAGER_FIELDS
-        if manager_keys:
-            if not is_approver:
-                raise AccessError(_("Only BOD Approve / Manager Approve can edit the Implement Team fields."))
-            if self.state == 'done' and not is_manager:
-                raise UserError(_("Reopen the request before editing the Implement Team fields."))
+        if manager_keys and not is_manager:
+            raise AccessError(_("Only Line Manager / Head Manager Approve can edit the Implement Team fields."))
 
         if 'request_type' in keys and not is_manager:
-            if not (is_engineer or is_approver):
+            if not is_engineer:
                 raise AccessError(_("Only the Request or Approve roles can change the Request Type."))
-            if self.state not in ('draft', 'waiting_manager_approval'):
-                raise UserError(_("Request Type can only be changed before it reaches BOD Review / Implement."))
-            if is_engineer and not is_approver and self.state != 'draft':
+            if self.state != 'draft':
                 raise UserError(_("Request Type can only be changed by the Request role while in Draft."))
 
     def _check_archive_permission(self):
         """Only the request's own Engineer (its creator/owner) or Manager
-        Approve may archive/unarchive it - BOD Approve and other Engineers
+        Approve may archive/unarchive it - BOC Approve and other Engineers
         otherwise have unconditional base write access to the model, which
         would let them archive any request without this check.
         """

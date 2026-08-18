@@ -18,8 +18,8 @@ rem This script lives in C:\scripts - the Odoo project (docker-compose.yml)
 rem is elsewhere, so its path is hardcoded below rather than derived from
 rem the script's own location.
 
-set "PROJECT_DIR=C:\odoo-project"
-set "BACKUP_ROOT=C:\Users\JaconVNComet&JaconEq\OneDrive - MAAS Group Holdings\JACON ENGINEERING\12. App\Odoo\data_backup"
+set "PROJECT_DIR=C:\WORK\odoo-project"
+set "BACKUP_ROOT=C:\odoo_backup"
 
 set "BACKUP_DIR=%~1"
 set "DB_NAME=%~2"

@@ -1,9 +1,12 @@
 import calendar
 from datetime import date
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import api, fields, models
 from odoo.fields import Domain
 
+from odoo.addons.jacon_core.models.hr_employee import _priority_value
 from odoo.addons.jacon_core.models.project_task import TASK_TYPE_SELECTION
 
 DONE_TASK_STATES = ('1_done', '1_canceled')
@@ -95,6 +98,30 @@ class JaconProjectDashboard(models.AbstractModel):
         months = filters.get('months') or []
         return self._years_months_domain(years, months)
 
+    def _period_segments(self, filters):
+        """(start, end) date pairs for the currently selected Year/Month
+        filter - a list rather than one min..max span, because selected
+        months can be non-contiguous (e.g. Jan + Jul) or span several
+        years; summing capacity over a single wide range would wrongly
+        include unselected months in between."""
+        years = filters.get('years') or [fields.Date.context_today(self).year]
+        months = filters.get('months') or []
+        segments = []
+        for year in years:
+            if months:
+                segments += [_month_bounds(year, m) for m in months]
+            else:
+                segments.append((date(year, 1, 1), date(year, 12, 31)))
+        return segments
+
+    def _period_segments_from_today(self, filters):
+        """`_period_segments`, clamped so no segment starts before today -
+        used by Capacity, which is forward-looking ("who has room from
+        now on"), not a record of what already happened."""
+        today = fields.Date.context_today(self)
+        segments = [(max(start, today), end) for start, end in self._period_segments(filters)]
+        return [(start, end) for start, end in segments if start <= end]
+
     def _build_domains(self, filters):
         """Two separate domains: Spent (Timesheet, date-bounded) and Planned
         (Task, not date-bounded - `allocated_hours` is a single static
@@ -122,44 +149,234 @@ class JaconProjectDashboard(models.AbstractModel):
 
         return spent_domain, planned_domain
 
-    def _capacity_by_employee(self, filters, planned_domain, spent_by_employee):
-        """Allocated (planned) vs Spent hours per engineer, so a manager can
-        see at a glance who still has room to take on more work. Allocated
-        is not date-bound (see `_build_domains`); Spent follows the current
-        Year/Months filter, same trade-off as the KPI utilization figure."""
-        Task = self.env['project.task']
-        allocated_by_user = {
-            user.id: _num(total)
-            for user, total in Task._read_group(planned_domain, ['user_ids'], ['allocated_hours:sum'])
-            if user
-        }
+    def _capacity_by_employee(self, filters):
+        """Calendar capacity for the selected Year/Month period vs how much
+        of it is already committed to open tasks, so a manager can see who
+        still has room *this period* for MORE work - not who has been busy
+        in the past.
 
+        Capacity = daily hours x working days across the selected period
+        (Mon-Fri per each employee's calendar; company holidays and
+        personal leave aren't subtracted yet - see
+        hr.employee.get_period_capacity_hours - so this is currently a
+        ceiling, slightly optimistic until leave data exists). Any part of
+        the period that's already in the past is excluded from both sides
+        - a day that's gone can't be "still free for more work", so
+        counting it would only inflate the free% for periods partly
+        behind us (e.g. viewing this month from the 20th).
+
+        Committed is NOT "hours already logged" (that's a backward-looking
+        fact that drops the instant someone logs a timesheet line, even
+        though the task's calendar slot hasn't actually changed) - it's
+        each open task's `allocated_hours` (the planned/booked hours)
+        spread across its own working days (date_start -> date_deadline)
+        and summed for whichever of those days fall in the selected
+        period, via the same day-by-day engine the Task overload warning
+        uses (hr.employee.get_daily_load). A task due next month but not
+        yet started still shows up here on the days it would need to be
+        worked; a task that finishes Done - on time or early, however
+        many hours it actually took - drops out entirely and frees up
+        the rest of its window immediately."""
         employee_ids = filters.get('employee_ids') or []
         emp_domain = [('user_id', '!=', False)]
         if employee_ids:
             emp_domain.append(('id', 'in', employee_ids))
-        employees = self.env['hr.employee'].search_read(emp_domain, ['name', 'user_id'])
+        employees = self.env['hr.employee'].search(emp_domain)
+        segments = self._period_segments_from_today(filters)
+        if not segments:
+            return []
+        span_start = min(start for start, _end in segments)
+        span_end = max(end for _start, end in segments)
 
         capacity = []
         for emp in employees:
-            allocated = allocated_by_user.get(emp['user_id'][0], 0.0)
-            spent = spent_by_employee.get(emp['id'], 0.0)
-            if not allocated and not spent:
+            period_capacity = sum(emp.get_period_capacity_hours(start, end) for start, end in segments)
+            # Simulated as ONE continuous span (not per-segment) even
+            # though only the selected months are summed below - the
+            # priority queue is stateful (unlike the old even-spread
+            # model), so splitting it into disjoint per-segment calls
+            # would forget everything scheduled in a skipped month
+            # (e.g. Aug + Nov selected, Sep/Oct skipped) and wrongly dump
+            # that work as fresh backlog at the start of the next segment.
+            all_days = emp.get_daily_load(span_start, span_end)
+            committed = sum(
+                day['load'] for day in all_days
+                if any(start <= day['date'] <= end for start, end in segments)
+            )
+            if not period_capacity and not committed:
                 continue
-            if allocated:
-                free_pct = round((allocated - spent) / allocated * 100, 1)
+            if period_capacity:
+                free_pct = round((period_capacity - committed) / period_capacity * 100, 1)
             else:
-                free_pct = -100.0 if spent else 0.0
+                free_pct = -100.0 if committed else 0.0
             capacity.append({
-                'id': emp['id'],
-                'name': emp['name'],
-                'allocated': round(allocated, 1),
-                'spent': round(spent, 1),
-                'free_hours': round(allocated - spent, 1),
+                'id': emp.id,
+                'name': emp.name,
+                'allocated': round(period_capacity, 1),
+                'spent': round(committed, 1),
+                'free_hours': round(period_capacity - committed, 1),
                 'free_pct': free_pct,
             })
         capacity.sort(key=lambda r: r['free_pct'], reverse=True)
         return capacity
+
+    def _task_timeline(self, filters, window_start, window_end):
+        """Individual open tasks as (start, end) bars, one per task, for the
+        drag & drop Task Timeline panel (Frappe Gantt, MIT-licensed,
+        vendored locally under static/lib - this Odoo install is
+        Community, the native Gantt view is Enterprise-only).
+
+        Dates are the task's *real*, unclamped date_start/date_deadline -
+        `window_start`/`window_end` only decide which tasks to include
+        (must overlap the window), not to clip the bar itself, because
+        dragging a bar has to write back the task's actual dates and a
+        clipped starting position would silently shift them on the first
+        drag. Unlike Capacity this window is caller-chosen
+        and NOT clamped to today - the Timeline is also meant to show
+        recently-past work (e.g. its default "previous/current/next
+        month"), not just what's still ahead.
+
+        Project filter (`project_ids`) only narrows which bars are
+        *shown* - it's applied as the very last step, after overload/
+        suggestion is computed against each assignee's FULL open-task
+        list (all projects). Otherwise picking one project would make an
+        employee's overload look artificially lower (or vanish) just
+        because their other, unrelated overloaded tasks got filtered out
+        of the picture - the debt is real regardless of which project
+        someone is currently looking at.
+        """
+        project_ids = filters.get('project_ids') or []
+        employee_ids = filters.get('employee_ids') or []
+        emp_domain = [('user_id', '!=', False)]
+        if employee_ids:
+            emp_domain.append(('id', 'in', employee_ids))
+        employees = self.env['hr.employee'].search(emp_domain)
+        if not employees:
+            return []
+
+        today = fields.Date.context_today(self)
+        emp_by_user = {emp.user_id.id: emp for emp in employees}
+
+        tasks = self.env['project.task'].search([
+            ('user_ids', 'in', employees.user_id.ids),
+            ('state', 'not in', list(DONE_TASK_STATES)),
+            ('date_deadline', '!=', False),
+        ])
+
+        bars = []
+        task_by_id = {}
+        for task in tasks:
+            deadline = fields.Date.to_date(task.date_deadline)
+            start = fields.Date.to_date(task.date_start) or deadline
+            if start > deadline:
+                start = deadline
+            if deadline < window_start or start > window_end:
+                continue
+            assignee = next((emp_by_user[u.id] for u in task.user_ids if u.id in emp_by_user), None)
+            if not assignee:
+                continue
+            task_by_id[task.id] = task
+            bars.append({
+                'id': task.id,
+                'name': task.name,
+                'project': task.project_id.name or '',
+                'project_id': task.project_id.id or None,
+                'employee': assignee.name,
+                'employee_id': assignee.id,
+                'start': start.isoformat(),
+                'end': deadline.isoformat(),
+                'allocated_hours': task.allocated_hours,
+                'progress': round(task.progress or 0.0),
+                'overdue': deadline < today,
+                # Assignee's working weekdays (0=Monday..6=Sunday, see
+                # hr.employee._work_weekdays) - the frontend needs this to
+                # keep a task's *working*-day length intact when it's
+                # dragged to a new start date, rather than a naive
+                # calendar-day count that would silently shrink/grow
+                # depending on how many weekends the new position happens
+                # to straddle.
+                'work_weekdays': sorted(assignee._work_weekdays()),
+            })
+
+        # Overload detail per bar: did THIS task actually finish (all its
+        # allocated_hours scheduled) by its own deadline once queued
+        # against the assignee's other open tasks by priority - not "does
+        # its window contain a red day" (a red day can be pure debt from a
+        # different, unrelated overdue task - see hr.employee's
+        # _simulate_schedule docstring). If overloaded, also surface how
+        # many hours never got scheduled in time and the nearest slot
+        # where the task, unchanged in length, would actually fit - the
+        # exact numbers a manager needs to decide how to fix it, not just
+        # that something's wrong. base_queue (see hr.employee._task_queue)
+        # is built ONCE per employee here and reused for that
+        # get_task_overload call AND every suggest_start_without_overload
+        # call below (each of which would otherwise re-query the database
+        # on every iteration of its own internal day-by-day search loop) -
+        # without this, an employee with several overloaded bars could
+        # trigger hundreds of redundant searches on a single Task Timeline
+        # load.
+        emp_by_id = {emp.id: emp for emp in employees}
+        bars_by_employee = {}
+        for bar in bars:
+            bars_by_employee.setdefault(bar['employee_id'], []).append(bar)
+        for emp_id, emp_bars in bars_by_employee.items():
+            emp = emp_by_id[emp_id]
+            base_queue = emp._task_queue()
+            span_start = min(date.fromisoformat(b['start']) for b in emp_bars)
+            span_end = max(date.fromisoformat(b['end']) for b in emp_bars)
+            task_overload = emp.get_task_overload(span_start, span_end, base_queue=base_queue)
+            weekdays = emp._work_weekdays()
+            for bar in emp_bars:
+                info = task_overload.get(bar['id'])
+                bar['overloaded'] = bool(info and info['overloaded'])
+                bar['excess_hours'] = info['unfinished_hours'] if info else 0.0
+                bar['suggested_start'] = None
+                bar['suggested_deadline'] = None
+                if bar['overloaded']:
+                    task = task_by_id[bar['id']]
+                    b_start = date.fromisoformat(bar['start'])
+                    b_end = date.fromisoformat(bar['end'])
+                    # Repositioning must keep the task's own working-day
+                    # length (per the assignee's calendar), not calendar
+                    # days - same reasoning as the drag/drop write-back in
+                    # the frontend (see confirmTaskGanttChange).
+                    duration_work_days = emp._count_work_days(b_start, b_end, weekdays) or 1
+                    suggestion = emp.suggest_start_without_overload(
+                        task.allocated_hours, duration_work_days,
+                        priority=_priority_value(task.priority),
+                        after_date=b_start, exclude_task_id=task.id, base_queue=base_queue)
+                    if suggestion:
+                        new_start, new_deadline = suggestion
+                        bar['suggested_start'] = new_start.isoformat()
+                        bar['suggested_deadline'] = new_deadline.isoformat()
+
+        # Project filter is applied here, LAST - see the docstring above
+        # for why it must not affect what was fed into the overload
+        # simulation above.
+        if project_ids:
+            bars = [b for b in bars if b['project_id'] in project_ids]
+        bars.sort(key=lambda b: (b['employee'], b['start']))
+        return bars
+
+    @api.model
+    def get_task_timeline(self, filters=None, range_start=None, range_end=None):
+        """Task Timeline is decoupled from the main dashboard's Year/Months
+        filter on purpose - its default window is "previous/current/next
+        calendar month" (a rolling 3-month view centered on today, not
+        whatever Year/Months happens to be selected up top), and the panel
+        has its own Day/Week/Month/range controls that call this
+        separately rather than re-fetching the whole dashboard."""
+        filters = filters or {}
+        today = fields.Date.context_today(self)
+        if range_start:
+            window_start = fields.Date.to_date(range_start)
+        else:
+            window_start = today.replace(day=1) - relativedelta(months=1)
+        if range_end:
+            window_end = fields.Date.to_date(range_end)
+        else:
+            window_end = today.replace(day=1) + relativedelta(months=2) - relativedelta(days=1)
+        return self._task_timeline(filters, window_start, window_end)
 
     @api.model
     def get_dashboard_data(self, filters=None):
@@ -267,7 +484,7 @@ class JaconProjectDashboard(models.AbstractModel):
             if user
         ]
 
-        capacity_by_employee = self._capacity_by_employee(filters, planned_domain, spent_by_employee)
+        capacity_by_employee = self._capacity_by_employee(filters)
 
         return {
             'kpi': {
