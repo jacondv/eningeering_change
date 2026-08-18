@@ -64,7 +64,7 @@ class EngineeringChange(models.Model):
         ('production', 'Production'),
         ('Product Support', 'Product Support'),
     ], string='Change Source', tracking=True)
-    title = fields.Char(required=True, tracking=True)
+    title = fields.Char(required=True, tracking=True, size=100)
     description = fields.Html(required=True)
     engineer_id = fields.Many2one(
         'res.users', string='Engineer', required=True, index=True,
@@ -73,7 +73,7 @@ class EngineeringChange(models.Model):
     state = fields.Selection([
         ('draft', 'Draft'),
         ('waiting_manager_approval', 'Line Manager Approval'),
-        ('waiting_head_office_approval', 'Head Manager Approval'),
+        ('waiting_head_office_approval', 'Engineering Manager Approval'),
         ('bod_review', 'BOC Approval'),
         ('implement', 'Design'),
         ('production', 'Production'),
@@ -131,6 +131,14 @@ class EngineeringChange(models.Model):
              "this request, since most Actions typically affect the same "
              "Model(s). Each Action can still change or clear it afterward - "
              "this is only a starting value, not kept in sync.")
+    default_affected_family_ids = fields.Many2many(
+        'equipment.model.family', 'engineering_change_default_family_rel', 'change_id', 'family_id',
+        string='Default Impact Family',
+        help="Quick-select helper: picking a Family here adds every Model in "
+             "it to Default Impacted Model above (see _onchange_default_affected_family_ids) "
+             "instead of picking each Model one by one. Not kept in sync afterward - "
+             "removing a Family here does not remove its Models from Default "
+             "Impacted Model, same as everything else in that field.")
     affected_project_ids = fields.Many2many(
         'project.project', 'engineering_change_affected_project_rel', 'change_id', 'project_id',
         compute='_compute_affected_project_ids', store=True,
@@ -168,6 +176,14 @@ class EngineeringChange(models.Model):
         'UNIQUE(dcr_no)',
         'This DCR Number is already used by another request.',
     )
+
+    # ------------------------------------------------------------
+    # Onchange
+    # ------------------------------------------------------------
+    @api.onchange('default_affected_family_ids')
+    def _onchange_default_affected_family_ids(self):
+        for rec in self:
+            rec.default_affected_model_ids |= rec.default_affected_family_ids.model_ids
 
     # ------------------------------------------------------------
     # Computed fields
