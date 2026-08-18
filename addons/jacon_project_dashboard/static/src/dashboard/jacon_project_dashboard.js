@@ -722,8 +722,15 @@ export class JaconProjectDashboard extends Component {
             // Red bar = this task didn't finish on time under the
             // priority queue (same flag as the Task form warning) - the
             // progress fill (green, via SCSS) stays a separate,
-            // independent signal on top.
-            custom_class: row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
+            // independent signal on top. A locked bar (plain assignee,
+            // not their manager/PM/admin - see can_edit_schedule) gets its
+            // own class disabling drag/resize interaction entirely (see
+            // .o_pd_gantt_bar_locked in the SCSS) rather than letting the
+            // drag proceed only to fail server-side on drop.
+            custom_class: [
+                row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
+                row.can_edit_schedule ? "" : "o_pd_gantt_bar_locked",
+            ].filter(Boolean).join(" "),
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
             view_mode: this.state.taskGanttViewMode,
@@ -796,7 +803,7 @@ export class JaconProjectDashboard extends Component {
             lines.push("</div>");
         }
         set_details(lines.join(""));
-        if (row.overloaded && row.suggested_start) {
+        if (row.overloaded && row.suggested_start && row.can_edit_schedule) {
             add_action("Apply suggested schedule", () => this.applySuggestedSchedule(row));
         }
     }
@@ -818,6 +825,18 @@ export class JaconProjectDashboard extends Component {
     confirmTaskGanttChange({ ganttTaskId, taskId, start, end }) {
         const row = (this.state.taskGanttData || []).find((r) => r.id === taskId);
         if (!row) {
+            return;
+        }
+        if (!row.can_edit_schedule) {
+            // Belt-and-braces: the bar is already drag-disabled via CSS
+            // (.o_pd_gantt_bar_locked, see renderTaskGantt) so this
+            // shouldn't normally fire, but the write would be rejected
+            // server-side anyway (see project.task's SCHEDULE_FIELDS guard).
+            this.taskGantt.update_task(ganttTaskId, { start: row.start, end: row.end });
+            this.notification.add(
+                `Only ${row.employee}'s manager (or a Project Manager) can reschedule this task directly - ` +
+                    `ask them, or have ${row.employee} use Propose Schedule Change on the task.`,
+                { type: "warning" });
             return;
         }
         // Frappe Gantt's "Day" view isn't snapped to whole-day columns,

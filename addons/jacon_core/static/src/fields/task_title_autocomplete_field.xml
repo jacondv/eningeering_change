@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_core.TaskTitleAutocompleteField">
+        <span t-if="props.readonly" t-esc="value"/>
+        <AutoComplete
+            t-else=""
+            value="value"
+            sources="sources"
+            onInput.bind="onInput"
+            placeholder="props.placeholder || ''"
+            autoSelect="false"
+            resetOnSelect="false"
+            class="'o_task_name'"
+        />
+    </t>
+
+</templates>
