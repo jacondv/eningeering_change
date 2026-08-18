@@ -31,6 +31,27 @@
                     <button name="action_apply_suggested_start" type="object"
                             string="Apply Suggested Start" class="btn btn-sm btn-outline-info mt-1"/>
                 </div>
+                <!-- Pending deadline-change proposal from an assignee -
+                     shown to everyone (so the assignee can see it's still
+                     pending) but the Approve/Reject buttons only work for
+                     the assignee's direct manager (server-side check in
+                     action_approve_deadline_change/action_reject_deadline_change;
+                     can_approve_deadline_change just hides them for
+                     everyone else). See project_task._get_deadline_change_managers. -->
+                <div class="alert alert-info mb-0" role="alert" invisible="not proposed_deadline">
+                    <strong><i class="fa fa-calendar"/> Deadline Change Requested</strong>
+                    <div>
+                        <field name="deadline_change_requested_by" readonly="1" nolabel="1"/>
+                        proposed <field name="proposed_deadline" readonly="1" nolabel="1"/>
+                    </div>
+                    <div><field name="proposed_deadline_reason" readonly="1" nolabel="1"/></div>
+                    <button name="action_approve_deadline_change" type="object"
+                            string="Approve" class="btn btn-sm btn-outline-success mt-1"
+                            invisible="not can_approve_deadline_change"/>
+                    <button name="action_reject_deadline_change" type="object"
+                            string="Reject" class="btn btn-sm btn-outline-danger mt-1"
+                            invisible="not can_approve_deadline_change"/>
+                </div>
             </xpath>
 
             <!-- Explicit Start Date (default: creation date, editable) -
@@ -52,6 +73,19 @@
             <xpath expr="//div[@id='date_deadline_and_recurring_task']/field[@name='date_deadline']"
                    position="attributes">
                 <attribute name="decoration-danger">(date_deadline and date_deadline &lt; current_date and state not in ['1_done', '1_canceled']) or overload_warning</attribute>
+            </xpath>
+            <!-- Lets the task's own assignee ask for a new Deadline
+                 without editing the field directly - opens
+                 jacon.task.propose.deadline.wizard, visible only while
+                 there's no proposal already pending (see
+                 project_task.can_propose_deadline_change). -->
+            <xpath expr="//div[@id='date_deadline_and_recurring_task']/field[@name='date_deadline']"
+                   position="after">
+                <button name="action_propose_deadline_change" type="object"
+                        string="Propose New Deadline" class="btn btn-sm btn-link px-0"
+                        invisible="not can_propose_deadline_change"/>
+                <field name="can_propose_deadline_change" invisible="1"/>
+                <field name="can_approve_deadline_change" invisible="1"/>
             </xpath>
             <field name="tag_ids" position="after">
                 <field name="task_type"/>

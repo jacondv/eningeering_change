@@ -40,6 +40,38 @@
         margin-left: auto;
     }
 
+    .o_pd_active_filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin: -8px 0 16px;
+        font-size: .8rem;
+    }
+
+    .o_pd_active_filters_label {
+        color: #888;
+    }
+
+    .o_pd_filter_chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eef0f5;
+        color: #444;
+        font-weight: 500;
+        font-size: .78rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+
+        .fa-times {
+            cursor: pointer;
+            color: #999;
+
+            &:hover { color: #c62828; }
+        }
+    }
+
     // Bootstrap's dropdown-menu already floats above in-flow content, but
     // force it explicitly (position/z-index) so it can never end up
     // visually behind a neighboring filter button in this toolbar.
@@ -79,6 +111,14 @@
 
     .o_pd_filter_menu_sep {
         color: #ccc;
+    }
+
+    .o_pd_filter_search {
+        padding: 0 4px 6px;
+
+        input {
+            width: 100%;
+        }
     }
 
     .o_pd_months_menu {
@@ -264,7 +304,17 @@
     // ------------------------------------------------------------
     // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
     // ------------------------------------------------------------
-    .o_pd_task_gantt {
+    // Two nested containers, not one, so vertical and horizontal
+    // scrolling don't fight over the same space: a "scroll" (not "auto")
+    // horizontal scrollbar always reserves its own thickness out of
+    // whichever element it's on, and reserving it on the SAME element
+    // that does vertical overflow used to shave just enough off the
+    // available height to make an exact-fit row count spill into an
+    // unwanted vertical scrollbar too, clipping the last row. Splitting
+    // them means the horizontal scrollbar's reserved space only ever
+    // eats into the inner element's WIDTH, never the outer element's
+    // HEIGHT.
+    .o_pd_task_gantt_outer {
         // No fixed height - Frappe Gantt already sizes its own SVG to
         // fit however many task rows there are (container_height:
         // "auto"), so let this wrapper grow with it instead of forcing
@@ -272,19 +322,46 @@
         // max-height only kicks in for a genuinely long task list, where
         // it falls back to scrolling instead of pushing the rest of the
         // dashboard off-screen.
-        min-height: 120px;
+        // Tall enough that even 1-2 rows still read as a proper Gantt
+        // panel instead of a cramped sliver - Frappe Gantt's own SVG
+        // height still only grows to fit its rows, this floor is purely
+        // about the wrapper never looking tinier than that.
+        min-height: 420px;
         max-height: 85vh;
         overflow-y: auto;
-        // Always reserve the horizontal scrollbar's height (rather than
-        // "auto", which only appears once content overflows) - with
-        // "auto" a task list that exactly fits max-height clips the
-        // scrollbar just past the visible edge, forcing the user to
-        // scroll the whole panel down first just to reach it.
-        overflow-x: scroll;
         // Native browser resize handle (bottom-right corner drag) - for
         // the rare case someone wants a shorter box than the content
         // needs, even though it now sizes itself automatically.
         resize: vertical;
+    }
+
+    .o_pd_task_gantt {
+        // No overflow-x here: Frappe Gantt's own `.gantt-container` child
+        // (created by the library, not us - see below) is ITSELF the
+        // real horizontal-scroll owner (fixed width:100%, wider SVG
+        // content inside), and its "Today" button/scroll_to option work
+        // by setting that specific element's scrollLeft. An earlier
+        // version of this rule put overflow-x:scroll here too, which
+        // seemed harmless but silently broke the Today button once
+        // .gantt-container's own overflow was touched below (nothing was
+        // listening on THIS element's scroll position).
+        //
+        // Frappe Gantt's own inner element sets an explicit `height`
+        // sized to the row count via a CSS var - our wrapper's
+        // min-height above doesn't reach it, so with very few tasks the
+        // actual chart stays tiny with dead space around it. min-height
+        // (unlike height) always wins over a smaller explicit height, so
+        // this floors it without fighting that var. padding-bottom gives
+        // the last row's popup some breathing room before this element's
+        // own (default, untouched) overflow:auto would otherwise clip it
+        // right at the edge - deliberately NOT overridden to `visible`
+        // anymore, since that's what disabled the Today button: it made
+        // this element un-scrollable, and Today/scroll_to both scroll
+        // THIS element specifically.
+        .gantt-container {
+            min-height: 340px;
+            padding-bottom: 70px;
+        }
 
         // Base bar color (default library theme is a near-white fill,
         // too washed out against our panel background) - overload state

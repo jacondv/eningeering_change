@@ -111,7 +111,43 @@ class HrEmployee(models.Model):
         weekdays = self._work_weekdays()
         return self._daily_hours() * self._count_work_days(date_from, date_to, weekdays)
 
-    def _simulate_schedule(self, date_from, date_to, extra_remaining=None, exclude_task_id=None):
+    def _task_queue(self):
+        """Base priority-queue entries (task, remaining, start, deadline,
+        priority) for every one of this employee's open tasks with a
+        deadline - the same entries `_simulate_schedule` would build
+        itself, but independent of any date window or `exclude_task_id`,
+        so it's safe to compute ONCE and hand to many `_simulate_schedule`
+        calls via `base_queue` (see there) instead of re-querying the
+        database on every one - suggest_deadline_without_overload and
+        suggest_start_without_overload each call _simulate_schedule in a
+        day-by-day search loop (up to horizon_days times), and without
+        this a fresh `project.task.search()` fired on every single
+        iteration was the dominant cost of loading the Task Timeline
+        (one such loop per overloaded bar)."""
+        self.ensure_one()
+        queue = []
+        if not self.user_id:
+            return queue
+        domain = [
+            ('user_ids', 'in', self.user_id.id),
+            ('state', 'not in', list(DONE_TASK_STATES)),
+            ('date_deadline', '!=', False),
+        ]
+        for task in self.env['project.task'].search(domain):
+            deadline = fields.Date.to_date(task.date_deadline)
+            start = fields.Date.to_date(task.date_start) or deadline
+            if start > deadline:
+                start = deadline
+            queue.append({
+                'key': ('task', task.id),
+                'remaining': max(task.allocated_hours or 0.0, 0.0),
+                'start': start,
+                'deadline': deadline,
+                'priority': _priority_value(task.priority),
+            })
+        return queue
+
+    def _simulate_schedule(self, date_from, date_to, extra_remaining=None, exclude_task_id=None, base_queue=None):
         """Greedy, priority-ordered resource-leveling simulation - the
         single engine behind get_daily_load / get_overloaded_ranges /
         suggest_deadline_without_overload / get_task_overload.
@@ -147,6 +183,12 @@ class HrEmployee(models.Model):
         hypothetical deadline being tested) - priority defaults to 0
         (Low) if omitted. Returned as `extra_results`, a list in the same
         order, each {'unfinished_hours', 'overloaded'}.
+
+        `base_queue`: a pre-built `_task_queue()` result, reused instead
+        of querying the database again - see `_task_queue`'s docstring
+        for why. `exclude_task_id` is applied to it in-memory (cheap),
+        same effect as the domain-level exclude used when building the
+        queue fresh.
         """
         self.ensure_one()
         weekdays = self._work_weekdays()
@@ -154,27 +196,13 @@ class HrEmployee(models.Model):
         date_from = fields.Date.to_date(date_from)
         date_to = fields.Date.to_date(date_to)
 
-        queue = []
-        if self.user_id:
-            domain = [
-                ('user_ids', 'in', self.user_id.id),
-                ('state', 'not in', list(DONE_TASK_STATES)),
-                ('date_deadline', '!=', False),
-            ]
-            if exclude_task_id:
-                domain.append(('id', '!=', exclude_task_id))
-            for task in self.env['project.task'].search(domain):
-                deadline = fields.Date.to_date(task.date_deadline)
-                start = fields.Date.to_date(task.date_start) or deadline
-                if start > deadline:
-                    start = deadline
-                queue.append({
-                    'key': ('task', task.id),
-                    'remaining': max(task.allocated_hours or 0.0, 0.0),
-                    'start': start,
-                    'deadline': deadline,
-                    'priority': _priority_value(task.priority),
-                })
+        if base_queue is None:
+            base_queue = self._task_queue()
+        if exclude_task_id:
+            exclude_key = ('task', exclude_task_id)
+            queue = [dict(entry) for entry in base_queue if entry['key'] != exclude_key]
+        else:
+            queue = [dict(entry) for entry in base_queue]
 
         for index, entry in enumerate(extra_remaining or []):
             remaining, start, deadline = entry[0], entry[1], entry[2]
@@ -253,17 +281,18 @@ class HrEmployee(models.Model):
 
         return result_days, task_results, extra_results
 
-    def get_daily_load(self, date_from, date_to, extra_remaining=None, exclude_task_id=None):
+    def get_daily_load(self, date_from, date_to, extra_remaining=None, exclude_task_id=None, base_queue=None):
         """Day-level view of `_simulate_schedule` - one entry per working
         day in [date_from, date_to], each with load/capacity/free/
         overloaded/debt_hours/task_ids. See the class and
         `_simulate_schedule` docstrings for what 'overloaded' means under
         the priority-queue model."""
         days, _task_results, _extra_results = self._simulate_schedule(
-            date_from, date_to, extra_remaining=extra_remaining, exclude_task_id=exclude_task_id)
+            date_from, date_to, extra_remaining=extra_remaining, exclude_task_id=exclude_task_id,
+            base_queue=base_queue)
         return days
 
-    def get_task_overload(self, date_from, date_to, exclude_task_id=None):
+    def get_task_overload(self, date_from, date_to, exclude_task_id=None, base_queue=None):
         """Task-level view of `_simulate_schedule`: {task_id:
         {'unfinished_hours', 'overloaded'}} for every one of this
         employee's open tasks whose deadline falls within [date_from,
@@ -274,10 +303,11 @@ class HrEmployee(models.Model):
         red)."""
         self.ensure_one()
         _days, task_results, _extra_results = self._simulate_schedule(
-            date_from, date_to, exclude_task_id=exclude_task_id)
+            date_from, date_to, exclude_task_id=exclude_task_id, base_queue=base_queue)
         return task_results
 
-    def check_task_overload(self, remaining_hours, date_start, date_deadline, priority=0, exclude_task_id=None):
+    def check_task_overload(self, remaining_hours, date_start, date_deadline, priority=0, exclude_task_id=None,
+                             base_queue=None):
         """Would a task needing `remaining_hours`, running [date_start,
         date_deadline], finish on time once queued by `priority` alongside
         this employee's other open tasks - the same task-level check
@@ -296,18 +326,20 @@ class HrEmployee(models.Model):
         _days, _task_results, extra_results = self._simulate_schedule(
             date_start, date_deadline,
             extra_remaining=[(remaining_hours, date_start, date_deadline, priority)],
-            exclude_task_id=exclude_task_id)
+            exclude_task_id=exclude_task_id, base_queue=base_queue)
         return bool(extra_results and extra_results[0]['overloaded'])
 
-    def get_overloaded_ranges(self, date_from, date_to, extra_remaining=None, exclude_task_id=None):
+    def get_overloaded_ranges(self, date_from, date_to, extra_remaining=None, exclude_task_id=None, base_queue=None):
         """`get_daily_load` + grouped into contiguous overloaded (debt)
         ranges - what the warning banner and conflict wizard actually
         display."""
-        days = self.get_daily_load(date_from, date_to, extra_remaining=extra_remaining, exclude_task_id=exclude_task_id)
+        days = self.get_daily_load(
+            date_from, date_to, extra_remaining=extra_remaining, exclude_task_id=exclude_task_id,
+            base_queue=base_queue)
         return _group_overloaded_days(days)
 
     def suggest_deadline_without_overload(self, remaining_hours, date_start, after_date=None,
-                                           exclude_task_id=None, horizon_days=180, priority=0):
+                                           exclude_task_id=None, horizon_days=180, priority=0, base_queue=None):
         """Nearest deadline (searching forward day by day from `after_date`,
         or from `date_start` if not given) such that, queued alongside
         this employee's other open tasks by priority, `remaining_hours`
@@ -319,7 +351,12 @@ class HrEmployee(models.Model):
         priority so the search reflects how it will really queue against
         same/higher-priority work. None if nothing works within
         `horizon_days`. Only a suggestion: the caller decides whether to
-        apply it."""
+        apply it.
+
+        `base_queue`: precomputed once (via `_task_queue`) if not given,
+        then reused across every iteration of the day-by-day search below
+        instead of re-querying the database each time - see
+        `_task_queue`'s docstring."""
         self.ensure_one()
         if remaining_hours <= 0:
             return None
@@ -328,12 +365,14 @@ class HrEmployee(models.Model):
         search_from = fields.Date.to_date(after_date) or date_start
         d = search_from + timedelta(days=1)
         limit = search_from + timedelta(days=horizon_days)
+        if base_queue is None:
+            base_queue = self._task_queue()
         while d <= limit:
             if d.weekday() in weekdays:
                 _days, _task_results, extra_results = self._simulate_schedule(
                     date_start, d,
                     extra_remaining=[(remaining_hours, date_start, d, priority)],
-                    exclude_task_id=exclude_task_id)
+                    exclude_task_id=exclude_task_id, base_queue=base_queue)
                 if extra_results and not extra_results[0]['overloaded']:
                     return d
             d += timedelta(days=1)
@@ -351,7 +390,8 @@ class HrEmployee(models.Model):
         return d
 
     def suggest_start_without_overload(self, remaining_hours, duration_work_days, priority=0,
-                                        after_date=None, exclude_task_id=None, horizon_days=180):
+                                        after_date=None, exclude_task_id=None, horizon_days=180,
+                                        base_queue=None):
         """Nearest (start, deadline) pair - searching forward day by day
         from `after_date` - such that a task needing `remaining_hours`
         across exactly `duration_work_days` working days, queued by
@@ -374,7 +414,15 @@ class HrEmployee(models.Model):
         realistically clear via capacity spent on the days before the
         candidate, exactly like `suggest_deadline_without_overload`
         does by keeping its window's start fixed while only the end
-        grows."""
+        grows.
+
+        `base_queue`: precomputed once (via `_task_queue`) if not given,
+        then reused across every iteration of the day-by-day search below
+        instead of re-querying the database each time - see
+        `_task_queue`'s docstring. Especially important here: the Task
+        Timeline calls this once per overloaded bar, so without reuse
+        each employee could trigger dozens/hundreds of redundant
+        searches on a single dashboard load."""
         self.ensure_one()
         if remaining_hours <= 0 or duration_work_days <= 0:
             return None
@@ -383,13 +431,15 @@ class HrEmployee(models.Model):
         after_date = fields.Date.to_date(after_date) or today
         d = after_date + timedelta(days=1)
         limit = after_date + timedelta(days=horizon_days)
+        if base_queue is None:
+            base_queue = self._task_queue()
         while d <= limit:
             if d.weekday() in weekdays:
                 candidate_deadline = self._add_work_days(d, weekdays, duration_work_days - 1)
                 _days, _task_results, extra_results = self._simulate_schedule(
                     today, candidate_deadline,
                     extra_remaining=[(remaining_hours, d, candidate_deadline, priority)],
-                    exclude_task_id=exclude_task_id)
+                    exclude_task_id=exclude_task_id, base_queue=base_queue)
                 if extra_results and not extra_results[0]['overloaded']:
                     return d, candidate_deadline
             d += timedelta(days=1)
