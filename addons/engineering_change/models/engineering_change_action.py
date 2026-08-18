@@ -29,6 +29,7 @@ class ProjectTask(models.Model):
              "Change requests themselves, only real production jobs.")
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
+    can_assign_ec_task = fields.Boolean(compute='_compute_can_edit_ec_task_details')
 
     # Fields an EC task's own assignee may touch without being Manager Approve
     # or Implement Owner. Kept as a class constant (same style as ENGINEER_FIELDS
@@ -57,15 +58,23 @@ class ProjectTask(models.Model):
                 return change.bod_approver_id.id
         return self.env.user.id
 
-    @api.depends('change_id.implement_owner_id')
+    @api.depends('change_id.implement_owner_id', 'change_id.implement_team_ids')
     def _compute_can_edit_ec_task_details(self):
         """Drives the readonly state of the standard task fields shown on
         the EC task form (see `view_engineering_change_action_form`), so a
         plain assignee sees them as readonly instead of editing them only to
-        have the whole save rejected by `_check_ec_write_access`."""
+        have the whole save rejected by `_check_ec_write_access`.
+
+        can_assign_ec_task is the narrower case: an Implement Team member who
+        isn't Owner/Manager can't edit the rest of that readonly group, but
+        per `_check_ec_write_access` they CAN still set `user_ids` (assign the
+        task) - without this, the field would stay readonly in the UI even
+        though the write itself would be accepted server-side.
+        """
         is_manager = self._is_ec_manager()
         for rec in self:
             rec.can_edit_ec_task_details = not rec.change_id or rec._is_ec_owner_or_manager(is_manager)
+            rec.can_assign_ec_task = rec.can_edit_ec_task_details or rec._is_ec_team_member()
 
     @api.depends('date_deadline', 'state')
     def _compute_is_overdue(self):
