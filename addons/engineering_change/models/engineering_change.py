@@ -73,7 +73,7 @@ class EngineeringChange(models.Model):
     state = fields.Selection([
         ('draft', 'Draft'),
         ('waiting_manager_approval', 'Line Manager Approval'),
-        ('waiting_head_office_approval', 'Engineering Manager Approval'),
+        ('waiting_head_office_approval', 'Engineering Head Approval'),
         ('bod_review', 'BOC Approval'),
         ('implement', 'Design'),
         ('production', 'Production'),
