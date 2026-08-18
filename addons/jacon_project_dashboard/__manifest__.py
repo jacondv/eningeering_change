@@ -27,6 +27,13 @@ Restricted to Project Administrators (project.group_project_manager).
             'jacon_project_dashboard/static/src/dashboard/jacon_project_dashboard.xml',
             'jacon_project_dashboard/static/src/dashboard/jacon_project_dashboard.scss',
         ],
+        # Vendored Frappe Gantt (MIT, see static/lib/frappe_gantt/LICENSE.txt),
+        # lazy-loaded via loadBundle like web.chartjs_lib - only the Task
+        # Timeline panel needs it, no point shipping it in every backend page.
+        'jacon_project_dashboard.frappe_gantt_lib': [
+            'jacon_project_dashboard/static/lib/frappe_gantt/frappe-gantt.umd.js',
+            'jacon_project_dashboard/static/lib/frappe_gantt/frappe-gantt.css',
+        ],
     },
     'installable': True,
     'application': False,
