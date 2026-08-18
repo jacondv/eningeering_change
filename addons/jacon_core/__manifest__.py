@@ -28,7 +28,7 @@ Currently provides:
 - Form layout: system-wide, widens the form sheet and gives the chatter side panel a narrower fixed width, so more of the form is visible without shrinking the chatter down to unreadable. Adds a handle to collapse/expand the chatter on demand.
 - Start Date: an explicit, editable Task field (defaults to the creation date) alongside Deadline - the window an engineer's remaining hours on that task are spread across.
 - Overload warning: assigning a Task (Engineer, Allocated Hours, Start Date, Deadline) warns right on the form if it would push that engineer's combined daily workload over their working-calendar capacity on any day between Start Date and Deadline, and links to a review wizard listing the other tasks contributing to it - each row's New Deadline opens pre-filled with the nearest date that engineer has room, editable before anything is actually saved to the tasks.
-- Deadline change request: a Task's assignee can propose a new Deadline (with a reason) instead of editing it directly; their direct HR manager (Employee > Manager) sees an Approve/Reject banner on the task and is the only one who can apply it.
+- Schedule change request: a Task's assignee cannot edit Start Date/Deadline/Allocated Hours directly - only propose new values (with a reason) instead; their direct HR manager (Employee > Manager) sees an Approve/Reject banner on the task and is the only one who can apply it. Assigning a Task also notifies the assignee's manager.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
