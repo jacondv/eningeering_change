@@ -81,7 +81,7 @@ class TaskDeadlineWizard(models.TransientModel):
     def action_apply(self):
         for line in self.line_ids:
             if line.new_deadline and line.new_deadline != line.task_id.date_deadline:
-                line.task_id.date_deadline = line.new_deadline
+                line.task_id.with_context(schedule_write_allowed=True).date_deadline = line.new_deadline
         return {'type': 'ir.actions.act_window_close'}
 
 
