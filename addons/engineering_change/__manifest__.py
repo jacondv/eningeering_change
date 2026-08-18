@@ -11,7 +11,7 @@ proposal -> risk assessment -> approval -> implementation -> evidence closure.
 
 Features:
 - Minor Change and DCR (Design Change Request) request types
-- Three-stage approval workflow: Line Manager -> Head Manager -> BOC (for DCR)
+- Three-stage approval workflow: Line Manager -> Engineering Manager -> BOC (for DCR)
 - Risk assessment (RPN) with impact fields
 - Implementation actions/tasks with evidence upload
 - Followers & automatic email notifications
@@ -45,6 +45,7 @@ Features:
             'engineering_change/static/src/dashboard/engineering_change_dashboard.scss',
             'engineering_change/static/src/dashboard/engineering_change_dashboard.js',
             'engineering_change/static/src/dashboard/engineering_change_dashboard.xml',
+            'engineering_change/static/src/list/collapsible_many2many_tags_field.js',
         ],
     },
     'installable': True,
