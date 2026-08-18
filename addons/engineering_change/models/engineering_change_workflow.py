@@ -225,7 +225,7 @@ class EngineeringChange(models.Model):
         state_labels = dict(self._fields['state'].selection)
         for rec in self:
             if not self.env.user.has_group('engineering_change.group_ec_manager'):
-                raise UserError(_("Only Engineering Manager can revert a request to its previous state."))
+                raise UserError(_("Only Line Manager can revert a request to its previous state."))
             previous_state = rec._previous_workflow_state()
             if not previous_state:
                 raise UserError(_("This request has no previous state to revert to."))
@@ -246,7 +246,7 @@ class EngineeringChange(models.Model):
                 raise UserError(_("Only requests in Sales state can be closed."))
             if not (self.env.user.has_group('engineering_change.group_ec_manager')
                     or self.env.user.has_group('engineering_change.group_ec_close')):
-                raise UserError(_("Only Engineering Manager or a user granted Close rights can close a request."))
+                raise UserError(_("Only Line Manager or a user granted Close rights can close a request."))
             # sudo(): a Close-group-only user's write access is scoped to
             # state == 'sale' (see ec_change_rule_close_write) - once the
             # state flips to 'done' below, they'd lose write access to their own
@@ -262,7 +262,7 @@ class EngineeringChange(models.Model):
     def action_reopen(self):
         for rec in self:
             if not self.env.user.has_group('engineering_change.group_ec_manager'):
-                raise UserError(_("Only Engineering Manager can reopen a request."))
+                raise UserError(_("Only Line Manager can reopen a request."))
             if rec.state != 'done':
                 raise UserError(_("Only Done requests can be reopened."))
             rec.with_context(ec_workflow_write=True).write(
