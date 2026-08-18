@@ -371,6 +371,17 @@
         .bar-progress { fill: #2e7d32; }
         .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
 
+        // Plain assignee, not their manager/PM/admin (see can_edit_schedule
+        // in jacon_project_dashboard.py) - the write would be rejected
+        // server-side anyway, so disable drag/resize interaction on the bar
+        // entirely instead of letting the drag proceed only to fail on drop.
+        // The bar/handle group is what actually receives mouse events, not
+        // the outer .bar-wrapper, hence pointer-events on both.
+        .o_pd_gantt_bar_locked {
+            pointer-events: none;
+            .bar { fill: #9e9e9e; opacity: .6; }
+        }
+
         // Core facts block (project/assignee/dates/hours/progress) built
         // from scratch in taskGanttPopup - shown for every task, not just
         // overloaded ones.
