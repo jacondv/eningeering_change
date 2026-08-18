@@ -69,24 +69,61 @@ class ProjectTask(models.Model):
     suggested_date_start = fields.Date(compute='_compute_suggested_start', store=False)
     suggested_date_deadline = fields.Datetime(compute='_compute_suggested_start', store=False)
 
-    # Deadline-change self-service: an assignee proposes a new deadline
-    # (via the wizard below), their direct HR manager Approves/Rejects it.
-    # Only one pending proposal at a time - a new one overwrites the old
-    # rather than queuing, and these three fields are cleared back to
-    # blank the moment it's resolved either way (the decision itself is
-    # only kept in the chatter, same as everywhere else on this model).
-    proposed_deadline = fields.Datetime(string='Proposed Deadline', copy=False)
-    proposed_deadline_reason = fields.Text(string='Reason for Change', copy=False)
-    deadline_change_requested_by = fields.Many2one(
+    # Schedule-change self-service: an assignee proposes a new Start Date,
+    # Deadline and/or Allocated Hours (via the wizard below) instead of
+    # editing them directly - see SCHEDULE_FIELDS/write() below, which
+    # blocks a plain assignee from touching those 3 fields any other way.
+    # Their direct HR manager Approves/Rejects it. Only one pending
+    # proposal at a time - a new one overwrites the old rather than
+    # queuing, and these fields are cleared back to blank the moment it's
+    # resolved either way (the decision itself is only kept in the
+    # chatter, same as everywhere else on this model).
+    proposed_date_start = fields.Date(string='Proposed Start Date', copy=False)
+    proposed_date_deadline = fields.Datetime(string='Proposed Deadline', copy=False)
+    proposed_allocated_hours = fields.Float(string='Proposed Allocated Hours', copy=False)
+    proposed_schedule_reason = fields.Text(string='Reason for Change', copy=False)
+    schedule_change_requested_by = fields.Many2one(
         'res.users', string='Requested By', copy=False, readonly=True)
 
-    can_propose_deadline_change = fields.Boolean(compute='_compute_deadline_change_rights')
-    can_approve_deadline_change = fields.Boolean(compute='_compute_deadline_change_rights')
+    can_propose_schedule_change = fields.Boolean(compute='_compute_schedule_change_rights')
+    can_approve_schedule_change = fields.Boolean(compute='_compute_schedule_change_rights')
+
+    # Fields a plain assignee may never write directly (see write() below) -
+    # only through Propose Schedule Change + their manager's Approve.
+    SCHEDULE_FIELDS = frozenset({'date_start', 'date_deadline', 'allocated_hours'})
 
     @api.depends('evidence_ids')
     def _compute_evidence_count(self):
         for rec in self:
             rec.evidence_count = len(rec.evidence_ids)
+
+    @api.model
+    def search_task_title_suggestions(self, query, limit=8):
+        """Distinct, previously-used Task titles containing `query`, each
+        paired with the Task Type of their most recent use - powers the
+        autocomplete dropdown on the Title field (see
+        task_title_autocomplete_field.js) so a user typing a few characters
+        can reuse a title they (or anyone else) already used before, with
+        its Task Type filled in too, instead of retyping both slightly
+        differently every time. Plain search(), not read_group/SQL, so it
+        still respects the normal project.task record rules (a user only
+        gets suggested titles from tasks they can actually see). Ordered
+        most-recently-updated first, so of several tasks sharing a title,
+        the Task Type offered is the one most recently actually used under
+        it."""
+        if not query or len(query) < 2:
+            return []
+        tasks = self.search([('name', 'ilike', query)], order='write_date desc', limit=200)
+        seen = set()
+        suggestions = []
+        for task in tasks:
+            if not task.name or task.name in seen:
+                continue
+            seen.add(task.name)
+            suggestions.append({'name': task.name, 'task_type': task.task_type})
+            if len(suggestions) >= limit:
+                break
+        return suggestions
 
     def _get_assigned_employees(self):
         return self.env['hr.employee'].search([('user_id', 'in', self.user_ids.ids)])
@@ -94,76 +131,150 @@ class ProjectTask(models.Model):
     def _get_deadline_change_managers(self):
         """Direct HR manager(s) (hr.employee.parent_id.user_id) of every
         employee currently assigned to this task - whoever may Approve/
-        Reject a pending deadline-change proposal. Same "direct manager"
-        pattern as engineering.change's Line Manager approval: the real
-        approver is whoever manages the person actually doing the work,
-        not a fixed role, and a task can have several assignees so this
-        can resolve to more than one manager."""
+        Reject a pending schedule-change proposal, and who's exempt from
+        the SCHEDULE_FIELDS write-lock below (see _is_schedule_change_exempt).
+        Same "direct manager" pattern as engineering.change's Line Manager
+        approval: the real approver is whoever manages the person actually
+        doing the work, not a fixed role, and a task can have several
+        assignees so this can resolve to more than one manager."""
         self.ensure_one()
         return self._get_assigned_employees().mapped('parent_id.user_id')
 
-    @api.depends('user_ids', 'proposed_deadline')
-    def _compute_deadline_change_rights(self):
+    def _is_schedule_change_exempt(self):
+        """Whoever may write Start Date/Deadline/Allocated Hours directly,
+        without going through Propose Schedule Change + Approve - Project
+        Manager, Admin, or the assignee's own direct manager (who could
+        just approve a proposal anyway, so skipping that round trip
+        changes nothing)."""
+        self.ensure_one()
+        user = self.env.user
+        if user.has_group('base.group_system') or user.has_group('project.group_project_manager'):
+            return True
+        return user in self._get_deadline_change_managers()
+
+    @api.depends('user_ids', 'proposed_date_start', 'proposed_date_deadline', 'proposed_allocated_hours')
+    def _compute_schedule_change_rights(self):
         user = self.env.user
         is_admin = user.has_group('base.group_system')
         for task in self:
-            task.can_propose_deadline_change = bool(user in task.user_ids and not task.proposed_deadline)
-            task.can_approve_deadline_change = bool(
-                task.proposed_deadline and (is_admin or user in task._get_deadline_change_managers()))
+            has_proposal = bool(
+                task.proposed_date_start or task.proposed_date_deadline or task.proposed_allocated_hours)
+            task.can_propose_schedule_change = bool(user in task.user_ids and not has_proposal)
+            task.can_approve_schedule_change = bool(
+                has_proposal and (is_admin or user in task._get_deadline_change_managers()))
 
-    def _check_can_approve_deadline_change(self):
+    def _check_can_approve_schedule_change(self):
         self.ensure_one()
         user = self.env.user
         if user.has_group('base.group_system'):
             return
         if user not in self._get_deadline_change_managers():
             raise AccessError(_(
-                "Only this task assignee's direct manager can approve or reject a deadline change."))
+                "Only this task assignee's direct manager can approve or reject a schedule change."))
 
-    def action_propose_deadline_change(self):
+    def action_propose_schedule_change(self):
         self.ensure_one()
         if self.env.user not in self.user_ids:
-            raise AccessError(_("Only an assignee of this task can propose a new deadline."))
+            raise AccessError(_("Only an assignee of this task can propose a schedule change."))
         return {
             'type': 'ir.actions.act_window',
-            'name': 'Propose New Deadline',
-            'res_model': 'jacon.task.propose.deadline.wizard',
+            'name': 'Propose Schedule Change',
+            'res_model': 'jacon.task.propose.schedule.wizard',
             'view_mode': 'form',
             'target': 'new',
             'context': {
                 'default_task_id': self.id,
-                'default_new_deadline': self.date_deadline,
+                'default_new_date_start': self.date_start,
+                'default_new_date_deadline': self.date_deadline,
+                'default_new_allocated_hours': self.allocated_hours,
             },
         }
 
-    def action_approve_deadline_change(self):
+    def action_approve_schedule_change(self):
         for task in self:
-            task._check_can_approve_deadline_change()
-            old_deadline = task.date_deadline
-            new_deadline = task.proposed_deadline
-            task.write({
-                'date_deadline': new_deadline,
-                'proposed_deadline': False,
-                'proposed_deadline_reason': False,
-                'deadline_change_requested_by': False,
-            })
+            task._check_can_approve_schedule_change()
+            changes = []
+            vals = {
+                'proposed_date_start': False,
+                'proposed_date_deadline': False,
+                'proposed_allocated_hours': False,
+                'proposed_schedule_reason': False,
+                'schedule_change_requested_by': False,
+            }
+            if task.proposed_date_start and task.proposed_date_start != task.date_start:
+                changes.append(_('Start Date: %(old)s → %(new)s') % {
+                    'old': task.date_start, 'new': task.proposed_date_start})
+                vals['date_start'] = task.proposed_date_start
+            if task.proposed_date_deadline and task.proposed_date_deadline != task.date_deadline:
+                changes.append(_('Deadline: %(old)s → %(new)s') % {
+                    'old': task.date_deadline, 'new': task.proposed_date_deadline})
+                vals['date_deadline'] = task.proposed_date_deadline
+            if task.proposed_allocated_hours and task.proposed_allocated_hours != task.allocated_hours:
+                changes.append(_('Allocated Hours: %(old)s → %(new)s') % {
+                    'old': task.allocated_hours, 'new': task.proposed_allocated_hours})
+                vals['allocated_hours'] = task.proposed_allocated_hours
+            task.with_context(schedule_write_allowed=True).write(vals)
             task.message_post(body=_(
-                "Deadline change approved by %(user)s: %(old)s → %(new)s.") % {
-                    'user': self.env.user.name, 'old': old_deadline, 'new': new_deadline,
+                "Schedule change approved by %(user)s: %(changes)s.") % {
+                    'user': self.env.user.name, 'changes': '; '.join(changes) or _('no change'),
                 })
 
-    def action_reject_deadline_change(self):
+    def action_reject_schedule_change(self):
         for task in self:
-            task._check_can_approve_deadline_change()
-            requester = task.deadline_change_requested_by
+            task._check_can_approve_schedule_change()
+            requester = task.schedule_change_requested_by
             task.write({
-                'proposed_deadline': False,
-                'proposed_deadline_reason': False,
-                'deadline_change_requested_by': False,
+                'proposed_date_start': False,
+                'proposed_date_deadline': False,
+                'proposed_allocated_hours': False,
+                'proposed_schedule_reason': False,
+                'schedule_change_requested_by': False,
             })
             task.message_post(
-                body=_("Deadline change request rejected by %s.") % self.env.user.name,
+                body=_("Schedule change request rejected by %s.") % self.env.user.name,
                 partner_ids=requester.partner_id.ids if requester else [])
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        tasks = super().create(vals_list)
+        for task in tasks:
+            if task.user_ids:
+                task._notify_managers_of_assignment(task.user_ids)
+        return tasks
+
+    def write(self, vals):
+        schedule_keys = set(vals) & self.SCHEDULE_FIELDS
+        if schedule_keys and not self.env.context.get('schedule_write_allowed'):
+            for task in self:
+                if not task._is_schedule_change_exempt():
+                    raise AccessError(_(
+                        "%s can only be changed via 'Propose Schedule Change', approved by your manager."
+                    ) % ', '.join(sorted(schedule_keys)))
+        old_user_ids = {task.id: task.user_ids for task in self} if 'user_ids' in vals else {}
+        result = super().write(vals)
+        if 'user_ids' in vals:
+            for task in self:
+                new_users = task.user_ids - old_user_ids.get(task.id, self.env['res.users'])
+                if new_users:
+                    task._notify_managers_of_assignment(new_users)
+        return result
+
+    def _notify_managers_of_assignment(self, new_users):
+        """Notify each newly-assigned employee's direct HR manager
+        (Employee > Manager) that their report was just put on this task -
+        so the manager finds out from the task itself instead of only
+        noticing when a schedule-change proposal later needs their
+        approval."""
+        self.ensure_one()
+        employees = self.env['hr.employee'].search([('user_id', 'in', new_users.ids)])
+        for employee in employees:
+            manager_user = employee.parent_id.user_id
+            if not manager_user or manager_user == employee.user_id:
+                continue
+            self.message_subscribe(partner_ids=manager_user.partner_id.ids)
+            self.message_post(
+                body=_("%(employee)s was assigned to this task.") % {'employee': employee.name},
+                partner_ids=manager_user.partner_id.ids)
 
     def _suggest_or_keep_deadline(self):
         """Nearest deadline this task's assignee has room for, or the
@@ -260,7 +371,7 @@ class ProjectTask(models.Model):
     def action_apply_suggested_start(self):
         for task in self:
             if task.suggested_date_start and task.suggested_date_deadline:
-                task.write({
+                task.with_context(schedule_write_allowed=True).write({
                     'date_start': task.suggested_date_start,
                     'date_deadline': task.suggested_date_deadline,
                 })

@@ -2,4 +2,4 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_engineering_change_action_evidence_all_users,engineering.change.action.evidence.all.users,model_engineering_change_action_evidence,base.group_user,1,1,1,1
 access_jacon_task_deadline_wizard,jacon.task.deadline.wizard.all.users,model_jacon_task_deadline_wizard,base.group_user,1,1,1,1
 access_jacon_task_deadline_wizard_line,jacon.task.deadline.wizard.line.all.users,model_jacon_task_deadline_wizard_line,base.group_user,1,1,1,1
-access_jacon_task_propose_deadline_wizard,jacon.task.propose.deadline.wizard.all.users,model_jacon_task_propose_deadline_wizard,base.group_user,1,1,1,1
+access_jacon_task_propose_schedule_wizard,jacon.task.propose.schedule.wizard.all.users,model_jacon_task_propose_schedule_wizard,base.group_user,1,1,1,1
