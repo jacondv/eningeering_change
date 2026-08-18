@@ -155,21 +155,42 @@ class ProjectTask(models.Model):
             project = Project.create({'name': change.name})
         return project
 
+    def _is_ec_team_member(self):
+        """True if the current user is a member of this task's parent
+        request's Implement Team (not necessarily its Owner) - see
+        _check_ec_write_access, where this earns write access to `user_ids`
+        specifically (assigning the task to someone) on top of the usual
+        ASSIGNEE_EDITABLE_FIELDS."""
+        self.ensure_one()
+        return self.env.user in self.change_id.implement_team_ids
+
     def _check_ec_write_access(self, vals, is_manager):
         """Guard editing an existing EC task's fields.
 
-        Manager Approve and the request's Implement Owner may edit anything;
-        everyone else (e.g. a plain assignee) may only touch Status/Evidence.
+        Manager Approve and the request's Implement Owner may edit anything.
+        Any other Implement Team member may additionally assign the task
+        (`user_ids`) on top of Status/Evidence/etc (ASSIGNEE_EDITABLE_FIELDS)
+        - the whole team decides amongst themselves who picks up which
+        action, not just the Owner. Everyone else (e.g. someone assigned to
+        the task but not on the Implement Team) is limited to
+        ASSIGNEE_EDITABLE_FIELDS only.
+
         Note this only governs *which fields* may change - *which tasks* a
         given user can reach at all is a separate concern, already handled by
         the `ec_task_rule_user_write` record rule and the base ACL.
         """
         self.ensure_one()
-        if self._is_ec_owner_or_manager(is_manager) or set(vals) <= self.ASSIGNEE_EDITABLE_FIELDS:
+        if self._is_ec_owner_or_manager(is_manager):
+            return
+        allowed_fields = self.ASSIGNEE_EDITABLE_FIELDS
+        if self._is_ec_team_member():
+            allowed_fields = allowed_fields | {'user_ids'}
+        if set(vals) <= allowed_fields:
             return
         raise AccessError(_(
-            "Only the Manager or the request's Implement Owner can edit task "
-            "details. You can only update the Status and Evidence."))
+            "Only the Manager, the request's Implement Owner, or (for "
+            "assigning the task) another Implement Team member can edit "
+            "task details."))
 
     # ------------------------------------------------------------
     # CRUD
@@ -186,7 +207,10 @@ class ProjectTask(models.Model):
                 if not vals.get('project_id'):
                     vals['project_id'] = self._get_or_create_ec_project(change).id
         tasks = super().create(vals_list)
-        tasks.filtered('change_id')._post_creation_message()
+        ec_tasks = tasks.filtered('change_id')
+        ec_tasks._post_creation_message()
+        for task in ec_tasks.filtered('user_ids'):
+            task._post_assignment_message(task.user_ids)
         return tasks
 
     def unlink(self):
@@ -204,10 +228,16 @@ class ProjectTask(models.Model):
         tasks_being_completed = self.browse()
         if vals.get('state') == '1_done':
             tasks_being_completed = ec_tasks.filtered(lambda task: task.state != '1_done')
+        old_user_ids = {task.id: task.user_ids for task in ec_tasks} if 'user_ids' in vals else {}
 
         result = super().write(vals)
 
         tasks_being_completed._post_completion_message()
+        if 'user_ids' in vals:
+            for task in ec_tasks:
+                new_users = task.user_ids - old_user_ids.get(task.id, self.env['res.users'])
+                if new_users:
+                    task._post_assignment_message(new_users)
         return result
 
     # ------------------------------------------------------------
@@ -224,6 +254,40 @@ class ProjectTask(models.Model):
         for task in self:
             task.change_id.sudo().message_post(
                 body=_("New action '%s' created by %s.") % (task.name, self.env.user.name))
+
+    def _post_assignment_message(self, new_users):
+        """Notify everyone relevant to this action about a new assignment -
+        the request's Implement Owner and this task's own Manager (if
+        different from whoever just did the assigning), plus the newly
+        assigned user(s) themselves. Separate from jacon_core's generic
+        "notify the assignee's direct HR manager" hook (project_task.py's
+        write()), which fires for every project.task regardless of
+        change_id - this one is EC-specific, about keeping the request's
+        own stakeholders in the loop, not the assignee's line management.
+
+        sudo(): whoever is allowed to assign (see _check_ec_write_access -
+        could be a plain Implement Team member) isn't necessarily an
+        Engineer/BOC/Manager Approve holder with message_post access of
+        their own on this task/its request.
+        """
+        self.ensure_one()
+        owner = self.change_id.implement_owner_id
+        stakeholders = new_users | owner | self.manager_id
+        stakeholders = stakeholders - self.env.user
+        if not stakeholders:
+            return
+        partners = stakeholders.mapped('partner_id')
+        self.sudo().message_post(
+            body=_("%(user)s assigned this action to %(assignees)s.") % {
+                'user': self.env.user.name, 'assignees': ', '.join(new_users.mapped('name')),
+            },
+            partner_ids=partners.ids)
+        self.change_id.sudo().message_post(
+            body=_("%(user)s assigned action '%(task)s' to %(assignees)s.") % {
+                'user': self.env.user.name, 'task': self.name,
+                'assignees': ', '.join(new_users.mapped('name')),
+            },
+            partner_ids=partners.ids)
 
     def _post_completion_message(self):
         """Notify each task's parent request that the task was completed.
