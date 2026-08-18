@@ -303,6 +303,12 @@ class JaconProjectDashboard(models.AbstractModel):
                 # depending on how many weekends the new position happens
                 # to straddle.
                 'work_weekdays': sorted(assignee._work_weekdays()),
+                # Whether the CURRENT dashboard user may drag/resize this bar
+                # at all - Start Date/Deadline are locked behind Propose
+                # Schedule Change for a plain assignee (see project.task's
+                # SCHEDULE_FIELDS write guard); only their direct manager,
+                # a Project Manager or Admin may reschedule directly here.
+                'can_edit_schedule': task._is_schedule_change_exempt(),
             })
 
         # Overload detail per bar: did THIS task actually finish (all its
