@@ -60,6 +60,7 @@ Currently provides:
             'jacon_core/static/src/project_lock/project_field_readonly_patch.js',
             'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
             'jacon_core/static/src/chatter/chatter_collapse_toggle.js',
+            'jacon_core/static/src/project_stage_confirm/project_stage_confirm.js',
             'jacon_core/static/src/scss/form_layout.scss',
         ],
     },
