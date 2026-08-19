@@ -45,7 +45,18 @@ class ProjectTask(models.Model):
         # written automatically by project.task's own write() as a side effect
         # of a state change - not something the user is choosing to set.
         'date_last_stage_update',
-    })
+    }) | {
+        # jacon_core's Propose Schedule Change feature (own permission model:
+        # only the assignee may propose, only their direct HR manager may
+        # Approve/Reject/apply it - see project.task.write()/SCHEDULE_FIELDS/
+        # _check_can_approve_schedule_change in jacon_core). Exempted here
+        # rather than gated by EC role, since jacon_core's own write() guard
+        # is what actually authorizes these writes; this EC-specific guard
+        # must not be the one blocking a feature it knows nothing about.
+        'date_start', 'date_deadline', 'allocated_hours',
+        'proposed_date_start', 'proposed_date_deadline', 'proposed_allocated_hours',
+        'proposed_schedule_reason', 'schedule_change_requested_by',
+    }
 
     # ------------------------------------------------------------
     # Computed fields / defaults
@@ -107,18 +118,19 @@ class ProjectTask(models.Model):
         return
 
     def _check_ec_delete_access(self, change, is_manager=None):
-        """Guard deleting an EC task: only Manager Approve or `change`'s own
-        Implement Owner - narrower than create access on purpose, so a
-        regular team member can add their own actions but not remove
-        someone else's. See _check_ec_create_access for why this is
-        enforced in Python rather than left to ir.rule alone."""
+        """Guard deleting an EC task: Manager Approve, `change`'s own
+        Implement Owner, or whoever created this specific task (create_uid) -
+        narrower than create access on purpose otherwise, so a regular team
+        member can add their own actions but not remove someone else's.
+        See _check_ec_create_access for why this is enforced in Python
+        rather than left to ir.rule alone."""
         if is_manager is None:
             is_manager = self._is_ec_manager()
-        if is_manager or change.implement_owner_id == self.env.user:
+        if is_manager or change.implement_owner_id == self.env.user or self.create_uid == self.env.user:
             return
         raise AccessError(_(
-            "Only the Manager or the request's Implement Owner can delete "
-            "actions/tasks for this request."))
+            "Only the Manager, the request's Implement Owner, or whoever "
+            "created this action can delete it."))
 
     def _is_ec_owner_or_manager(self, is_manager=None):
         """True if the current user has unrestricted edit access to this EC
