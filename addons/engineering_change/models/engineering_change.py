@@ -162,6 +162,7 @@ class EngineeringChange(models.Model):
     can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
     can_edit_dcr_no = fields.Boolean(compute='_compute_edit_rights')
     can_manager_approve = fields.Boolean(compute='_compute_edit_rights')
+    can_recall_submission = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -262,6 +263,9 @@ class EngineeringChange(models.Model):
             rec.can_confirm_production = is_manager or rec.implement_owner_id == user
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
             rec.can_edit_dcr_no = can_edit_dcr_no
+            rec.can_recall_submission = (
+                rec.state == 'waiting_manager_approval'
+                and (is_admin or rec.engineer_id == user))
             if rec.state == 'waiting_manager_approval' and is_manager:
                 direct_manager = rec._get_direct_manager_user()
                 rec.can_manager_approve = is_admin or not direct_manager or user == direct_manager
