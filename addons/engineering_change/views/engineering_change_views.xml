@@ -21,10 +21,10 @@
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_head_office_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'waiting_head_office_approval'"
-                            groups="jacon_core.group_ec_head_office"/>
+                            groups="engineering_change.group_ec_head_office"/>
                     <button name="action_head_office_reject" string="Reject" type="object"
                             invisible="state != 'waiting_head_office_approval'"
-                            groups="jacon_core.group_ec_head_office"/>
+                            groups="engineering_change.group_ec_head_office"/>
                     <button name="action_recall_approval" string="Recall" type="object"
                             invisible="state != 'waiting_manager_approval' or not can_recall_submission"
                             confirm="Recall this request back to Draft?"/>
@@ -41,7 +41,7 @@
                     <button name="action_recall_approval" string="Recall" type="object"
                             invisible="state != 'bod_review'"
                             confirm="Recall your Engineering Head approval and send this back for re-approval?"
-                            groups="jacon_core.group_ec_head_office"/>
+                            groups="engineering_change.group_ec_head_office"/>
                     <button name="action_confirm_production" string="Confirm Production" type="object"
                             class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"
                             confirm="Move this request to Production?"/>

@@ -21,22 +21,23 @@
         <field name="perm_unlink">0</field>
     </record>
 
-    <!-- Changing a Project's Stage is restricted to the Engineering Head
-         (group_ec_head_office, defined in this module - see
-         jacon_core_groups.xml) or an Administrator - enforced in
+    <!-- Changing a Project's Stage is restricted to the Head Office role
+         (group_head_office, defined in this module - see
+         jacon_core_groups.xml; engineering_change's own "Engineering Head
+         Approve" privilege implies it) or an Administrator - enforced in
          models/project_project.py's write() override. The rule above only
-         lets a Project Manager write their own project, so the Engineering
-         Head - who isn't necessarily that project's own Manager - needs
-         their own reach to every project. The ACL row added in this
-         module's own ir.model.access.csv grants group_ec_head_office write
-         access; this rule keeps it unrestricted at the row level (any
-         project), while the Python guard narrows what they may actually
-         change to just `stage_id` on a project that isn't their own. -->
+         lets a Project Manager write their own project, so Head Office -
+         who isn't necessarily that project's own Manager - needs their own
+         reach to every project. The ACL row added in this module's own
+         ir.model.access.csv grants group_head_office write access; this
+         rule keeps it unrestricted at the row level (any project), while
+         the Python guard narrows what they may actually change to just
+         `stage_id` on a project that isn't their own. -->
     <record id="project_project_rule_head_office_write" model="ir.rule">
-        <field name="name">Project: Engineering Head can write any project (Stage change only, enforced in Python)</field>
+        <field name="name">Project: Head Office can write any project (Stage change only, enforced in Python)</field>
         <field name="model_id" ref="project.model_project_project"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('group_ec_head_office'))]"/>
+        <field name="groups" eval="[(6, 0, [ref('group_head_office')])]"/>
         <field name="perm_read">0</field>
         <field name="perm_write">1</field>
         <field name="perm_create">0</field>

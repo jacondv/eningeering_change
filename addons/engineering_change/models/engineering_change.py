@@ -239,12 +239,11 @@ class EngineeringChange(models.Model):
         user = self.env.user
         is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        # is_manager and is_head_office are independent groups (no implied_ids
-        # between them - group_ec_head_office moved to jacon_core, see that
-        # group's comment) - a user needing both Manager- and Head Office-
-        # level rights must be granted both groups explicitly.
+        # is_manager is True for Line Manager AND Head Manager (group_ec_head_office
+        # implies group_ec_manager) - each own-stage clause below still keys off the
+        # record's actual state, so the two stages never overlap in practice.
         is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
-        is_head_office = user.has_group('jacon_core.group_ec_head_office')
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
         is_bod = user.has_group('engineering_change.group_ec_bod')
         can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
@@ -444,12 +443,13 @@ class EngineeringChange(models.Model):
         user = self.env.user
         is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        # is_manager and is_head_office are independent groups - see the
-        # comment in _compute_edit_rights above. BOC (group_ec_bod) is
+        # is_manager is True for Line Manager AND Head Manager (implied group) -
+        # each clause below still keys off the record's actual state, so the
+        # two stages never overlap in practice. BOC (group_ec_bod) is
         # deliberately excluded from MANAGER_FIELDS/request_type edit rights -
         # View + Comment only, per the approval workflow design.
         is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
-        is_head_office = user.has_group('jacon_core.group_ec_head_office')
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
         is_bod = user.has_group('engineering_change.group_ec_bod')
 
         engineer_keys = keys & self.ENGINEER_FIELDS
