@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Odoo core only lets project.group_project_manager ("Project /
+         Administrator") write to project.project - a plain
+         project.group_project_user ("Project / User") has read-only ACL
+         (see project/security/ir.model.access.csv). The ACL row added
+         above in this module's own ir.model.access.csv grants that group
+         write access too, but only on the project(s) where they are the
+         assigned Project Manager (user_id) - everyone else's projects
+         stay read-only to them, matching what a "Project / User" is
+         normally allowed to touch. Field-level enforcement (which fields
+         they may actually change, and the fill-once-then-lock rule) is
+         handled separately in models/project_project.py. -->
+    <record id="project_project_rule_manager_write_own" model="ir.rule">
+        <field name="name">Project: assigned Project Manager can write their own project</field>
+        <field name="model_id" ref="project.model_project_project"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
+        <field name="perm_read">0</field>
+        <field name="perm_write">1</field>
+        <field name="perm_create">0</field>
+        <field name="perm_unlink">0</field>
+    </record>
+</odoo>
