@@ -1,6 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_engineering_change_user,engineering.change.user,model_engineering_change,group_ec_user,1,0,0,0
-access_engineering_change_user_implement,engineering.change.user.implement,model_engineering_change,group_ec_user,0,1,0,0
+access_engineering_change_user_implement,engineering.change.user.write.design-stage-drawings-only.scoped-by-ec_change_rule_implement_write,model_engineering_change,group_ec_user,0,1,0,0
 access_engineering_change_engineer,engineering.change.engineer,model_engineering_change,group_ec_engineer,1,1,1,0
 access_engineering_change_bod,engineering.change.bod,model_engineering_change,group_ec_bod,1,1,0,0
 access_engineering_change_manager,engineering.change.manager,model_engineering_change,group_ec_manager,1,1,1,0
@@ -11,7 +11,7 @@ access_engineering_change_image_engineer,engineering.change.image.engineer,model
 access_engineering_change_image_bod,engineering.change.image.bod,model_engineering_change_image,group_ec_bod,1,1,0,0
 access_engineering_change_image_manager,engineering.change.image.manager,model_engineering_change_image,group_ec_manager,1,1,1,1
 access_engineering_change_document_user,engineering.change.document.user,model_engineering_change_document,group_ec_user,1,0,0,0
-access_engineering_change_document_user_implement,engineering.change.document.user.implement,model_engineering_change_document,group_ec_user,0,1,1,1
+access_engineering_change_document_user_implement,engineering.change.document.user.write.design-stage-only.scoped-by-ec_document_rule_implement_write,model_engineering_change_document,group_ec_user,0,1,1,1
 access_engineering_change_document_engineer,engineering.change.document.engineer,model_engineering_change_document,group_ec_engineer,1,1,1,0
 access_engineering_change_document_bod,engineering.change.document.bod,model_engineering_change_document,group_ec_bod,1,1,0,0
 access_engineering_change_document_manager,engineering.change.document.manager,model_engineering_change_document,group_ec_manager,1,1,1,1

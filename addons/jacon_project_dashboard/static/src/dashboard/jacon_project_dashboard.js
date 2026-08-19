@@ -169,10 +169,8 @@ export class JaconProjectDashboard extends Component {
         this.charts = {};
         this.state = useState({
             loading: true,
-            linesLoading: false,
             options: { projects: [], employees: [], task_types: [], years: [], months: [] },
             data: null,
-            lines: [],
             taskGanttData: [],
             taskGanttViewMode: loadStoredTaskGanttViewMode() || "Day",
             filters: {
@@ -191,7 +189,6 @@ export class JaconProjectDashboard extends Component {
             mainView: "month",
             chartType: "bar",
             stacked: false,
-            drill: { employee_id: null, task_type: null, month: null, year: null },
             showMore: false,
         });
 
@@ -266,7 +263,6 @@ export class JaconProjectDashboard extends Component {
                 this.renderMoreCharts();
             }
         });
-        await this.fetchLines();
     }
 
     /** Task Timeline is fetched separately from the rest of the dashboard
@@ -289,14 +285,6 @@ export class JaconProjectDashboard extends Component {
         // resize handles at all), so switching to/from Day needs a fresh
         // instance to pick up the new value, not just a view change.
         this.renderTaskGantt();
-    }
-
-    async fetchLines() {
-        this.state.linesLoading = true;
-        this.state.lines = await this.orm.call(
-            "jacon.project.dashboard", "get_timesheet_lines", [],
-            { filters: this.state.filters, drill: this.state.drill });
-        this.state.linesLoading = false;
     }
 
     toggleFilterValue(field, value) {
@@ -351,7 +339,6 @@ export class JaconProjectDashboard extends Component {
             task_types: [],
         };
         this.state.filterSearch = { project_ids: "", employee_ids: "", task_types: "" };
-        this.state.drill = { employee_id: null, task_type: null, month: null, year: null };
         this.fetchData();
     }
 
@@ -442,27 +429,6 @@ export class JaconProjectDashboard extends Component {
         requestAnimationFrame(() => this.renderMainChart());
     }
 
-    setDrill(patch) {
-        this.state.drill = { employee_id: null, task_type: null, month: null, year: null, ...patch };
-        this.fetchLines();
-    }
-
-    /** 'YYYY-MM' chart label -> {year, month} drill patch. */
-    _monthDrillFromLabel(label) {
-        const [y, m] = (label || "").split("-");
-        return { year: y ? parseInt(y, 10) : null, month: m ? parseInt(m, 10) : null };
-    }
-
-    clearDrill() {
-        this.state.drill = { employee_id: null, task_type: null, month: null, year: null };
-        this.fetchLines();
-    }
-
-    get hasDrill() {
-        const d = this.state.drill;
-        return !!(d.employee_id || d.task_type || d.month);
-    }
-
     _renderChart(key, config) {
         const canvas = this.canvasRefs[key].el;
         if (!canvas) {
@@ -508,11 +474,6 @@ export class JaconProjectDashboard extends Component {
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: { x: { stacked: true }, y: { stacked: true } },
-                    onClick: (ev, elements) => {
-                        if (elements.length) {
-                            this.setDrill(this._monthDrillFromLabel(months[elements[0].index]));
-                        }
-                    },
                 },
             });
             return;
@@ -532,11 +493,6 @@ export class JaconProjectDashboard extends Component {
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                onClick: (ev, elements) => {
-                    if (elements.length) {
-                        this.setDrill(this._monthDrillFromLabel(data.by_month[elements[0].index].month));
-                    }
-                },
             },
         });
     }
@@ -554,11 +510,6 @@ export class JaconProjectDashboard extends Component {
             },
             options: {
                 responsive: true, maintainAspectRatio: false, indexAxis: "y",
-                onClick: (ev, elements) => {
-                    if (elements.length) {
-                        this.setDrill({ employee_id: data.by_employee[elements[0].index].id });
-                    }
-                },
             },
         });
     }
@@ -576,11 +527,6 @@ export class JaconProjectDashboard extends Component {
             },
             options: {
                 responsive: true, maintainAspectRatio: false, indexAxis: "y",
-                onClick: (ev, elements) => {
-                    if (elements.length) {
-                        this.setDrill({ task_type: data.by_task_type[elements[0].index].key });
-                    }
-                },
             },
         });
     }
