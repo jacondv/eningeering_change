@@ -54,7 +54,8 @@ class EngineeringChange(models.Model):
             partners = rec._get_group_partners('engineering_change.group_ec_manager')
             if partners:
                 rec.message_subscribe(partner_ids=partners.ids)
-            rec._send_template('engineering_change.mail_template_submit', partners=partners)
+            # No email on Submit (per request) - still logged to chatter/inbox
+            # below, so Line Manager still sees it without an outgoing email.
             rec.message_post(
                 body=_("Request submitted for Manager approval."), partner_ids=partners.ids)
 
