@@ -59,6 +59,7 @@ class ProjectTask(models.Model):
         return self.env.user.id
 
     @api.depends('change_id.implement_owner_id')
+    @api.depends_context('uid')
     def _compute_can_edit_ec_task_details(self):
         """Drives the readonly state of the standard task fields shown on
         the EC task form (see `view_engineering_change_action_form`), so a

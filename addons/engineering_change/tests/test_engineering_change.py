@@ -557,6 +557,26 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(AccessError):
             task.with_user(self.user_bod).unlink()
 
+    def test_can_create_action_matches_actual_create_access(self):
+        """can_create_action drives the Actions tab's "Add a line" visibility -
+        must agree with ProjectTask._check_ec_create_access (Manager Approve,
+        Implement Owner, or any Implement Team member) or the button would be
+        shown to someone who'd only get an AccessError trying to save."""
+        change = self._create_request(request_type='minor')  # owner defaults to user_engineer
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+
+        self.assertTrue(change.with_user(self.user_manager).can_create_action)
+        self.assertTrue(change.with_user(self.user_engineer).can_create_action)  # default Implement Owner
+        self.assertFalse(change.with_user(self.user_bod).can_create_action)
+
+        with self.assertRaises(AccessError):
+            self.env['project.task'].with_user(self.user_bod).create({
+                'change_id': change.id,
+                'name': 'Do the thing',
+            })
+
     def test_unrelated_user_cannot_write_task(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
