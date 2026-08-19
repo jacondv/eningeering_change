@@ -54,7 +54,6 @@
                             confirm="Reopen this closed request?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_delete_with_password" string="Delete Request" type="object"
-                            confirm="This will permanently delete this request. This cannot be undone. Continue?"
                             groups="engineering_change.group_ec_delete"/>
                     <button name="action_send_email" string="Send Email" type="object" icon="fa-envelope"/>
                     <field name="can_confirm_production" invisible="1"/>

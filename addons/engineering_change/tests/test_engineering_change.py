@@ -391,6 +391,34 @@ class TestEngineeringChange(TransactionCase):
         self.assertFalse(change.exists())
         self.assertFalse(project.exists())
 
+    def test_delete_password_wizard_requires_correct_password(self):
+        self.user_deleter.sudo().write({'password': 'ec_deleter_pwd'})
+
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        project = change.project_id
+
+        Wizard = self.env['jacon.delete.password.wizard'].with_user(self.user_deleter)
+        wrong = Wizard.create({
+            'res_model': 'engineering.change',
+            'res_id': change.id,
+            'redirect_action_xmlid': 'engineering_change.action_engineering_change_all',
+            'password': 'not-the-real-password',
+        })
+        with self.assertRaises(UserError):
+            wrong.action_confirm_delete()
+        self.assertTrue(change.exists())
+
+        correct = Wizard.create({
+            'res_model': 'engineering.change',
+            'res_id': change.id,
+            'redirect_action_xmlid': 'engineering_change.action_engineering_change_all',
+            'password': 'ec_deleter_pwd',
+        })
+        correct.action_confirm_delete()
+        self.assertFalse(change.exists())
+        self.assertFalse(project.exists())
+
     @mute_logger('odoo.sql_db')
     def test_cannot_delete_linked_project_directly(self):
         change = self._create_request(request_type='minor')

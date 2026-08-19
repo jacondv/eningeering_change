@@ -38,6 +38,7 @@ Currently provides:
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
+        'wizard/delete_password_wizard_views.xml',
         'wizard/task_deadline_wizard_views.xml',
         'wizard/task_propose_deadline_wizard_views.xml',
     ],
