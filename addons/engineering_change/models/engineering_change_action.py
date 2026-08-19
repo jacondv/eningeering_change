@@ -45,7 +45,18 @@ class ProjectTask(models.Model):
         # written automatically by project.task's own write() as a side effect
         # of a state change - not something the user is choosing to set.
         'date_last_stage_update',
-    })
+    }) | {
+        # jacon_core's Propose Schedule Change feature (own permission model:
+        # only the assignee may propose, only their direct HR manager may
+        # Approve/Reject/apply it - see project.task.write()/SCHEDULE_FIELDS/
+        # _check_can_approve_schedule_change in jacon_core). Exempted here
+        # rather than gated by EC role, since jacon_core's own write() guard
+        # is what actually authorizes these writes; this EC-specific guard
+        # must not be the one blocking a feature it knows nothing about.
+        'date_start', 'date_deadline', 'allocated_hours',
+        'proposed_date_start', 'proposed_date_deadline', 'proposed_allocated_hours',
+        'proposed_schedule_reason', 'schedule_change_requested_by',
+    }
 
     # ------------------------------------------------------------
     # Computed fields / defaults

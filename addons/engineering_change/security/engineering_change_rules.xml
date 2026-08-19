@@ -237,6 +237,24 @@
             <field name="perm_unlink">1</field>
         </record>
 
+        <!-- jacon_core's Propose Schedule Change feature: the assignee's own direct
+             HR manager (hr.employee.parent_id.user_id) Approves/Rejects a pending
+             proposal - that manager isn't necessarily this EC's own Manager/
+             Implement Owner/team, so without this rule they couldn't even reach
+             the task to write on it (jacon_core's own write() guard is what
+             actually authorizes which fields they may change - see
+             ASSIGNEE_EDITABLE_FIELDS on ProjectTask). -->
+        <record id="ec_task_rule_assignee_manager_write" model="ir.rule">
+            <field name="name">EC Task: assignee's direct HR manager can approve/reject a schedule change</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">['&amp;',('change_id','!=',False),('user_ids.employee_ids.parent_id.user_id','=',user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <!-- Manager Approve keeps unconditional full access to every EC task as an
              oversight/override capability, independent of who the Implement Owner is. -->
         <record id="ec_task_rule_manager_write" model="ir.rule">
