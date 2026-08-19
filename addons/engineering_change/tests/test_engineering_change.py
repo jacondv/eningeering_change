@@ -520,6 +520,50 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(AccessError):
             task.with_user(self.user_engineer).write({'name': 'Renamed by assignee'})
 
+    def test_propose_and_approve_schedule_change_not_blocked_by_ec_guard(self):
+        """jacon_core's Propose Schedule Change is its own permission system
+        (assignee proposes, their direct HR manager approves) - EC's own
+        _check_ec_write_access must not block it just because neither of
+        them is this EC's Manager/Implement Owner."""
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+
+        hr_manager_user = self.env['res.users'].with_context(no_reset_password=True).create({
+            'name': 'HR Manager', 'login': 'ec_hr_manager', 'email': 'ec_hr_manager@example.com',
+            'group_ids': [(6, 0, [self.group_internal.id, self.group_user.id])],
+        })
+        Employee = self.env['hr.employee']
+        manager_employee = Employee.create({'name': 'HR Manager', 'user_id': hr_manager_user.id})
+        Employee.create({
+            'name': 'General', 'user_id': self.user_general.id, 'parent_id': manager_employee.id,
+        })
+
+        task = self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'name': 'Do the thing',
+            'user_ids': [(6, 0, [self.user_general.id])],
+            'date_start': '2026-01-05',
+            'date_deadline': '2026-01-10 00:00:00',
+            'allocated_hours': 8,
+        })
+
+        wizard = self.env['jacon.task.propose.schedule.wizard'].with_user(self.user_general).create({
+            'task_id': task.id,
+            'new_date_start': '2026-01-06',
+            'new_date_deadline': '2026-01-12 00:00:00',
+            'new_allocated_hours': 10,
+            'reason': 'Need more time',
+        })
+        wizard.action_submit()
+        self.assertEqual(str(task.proposed_date_start), '2026-01-06')
+
+        task.with_user(hr_manager_user).action_approve_schedule_change()
+        self.assertEqual(str(task.date_start), '2026-01-06')
+        self.assertEqual(task.allocated_hours, 10)
+        self.assertFalse(task.proposed_date_start)
+
     def test_implement_owner_can_create_edit_and_delete_tasks(self):
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
