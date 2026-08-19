@@ -581,10 +581,11 @@ class TestEngineeringChange(TransactionCase):
         task.with_user(self.user_engineer).unlink()
         self.assertFalse(task.exists())
 
-    def test_any_user_can_create_but_only_owner_can_delete_task(self):
+    def test_any_user_can_create_and_the_creator_can_delete_their_own_task(self):
         """Creating an EC action has no role restriction (any internal user
-        may add one, per _check_ec_create_access) - only deleting stays
-        restricted to Manager/Implement Owner (_check_ec_delete_access)."""
+        may add one, per _check_ec_create_access). Deleting stays restricted
+        to Manager/Implement Owner/the task's own creator
+        (_check_ec_delete_access) - someone else entirely still can't."""
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
@@ -596,8 +597,13 @@ class TestEngineeringChange(TransactionCase):
         })
         self.assertTrue(task.exists())
 
+        # Someone else entirely (not creator, not Manager/Owner) still can't delete it.
         with self.assertRaises(AccessError):
-            task.with_user(self.user_bod).unlink()
+            task.with_user(self.user_general).unlink()
+
+        # The creator can delete their own action.
+        task.with_user(self.user_bod).unlink()
+        self.assertFalse(task.exists())
 
     def test_unrelated_user_cannot_write_task(self):
         change = self._create_request(request_type='minor')
