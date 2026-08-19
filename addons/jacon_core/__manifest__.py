@@ -34,6 +34,7 @@ Currently provides:
     'license': 'LGPL-3',
     'depends': ['base', 'project', 'hr_timesheet', 'equipment_model'],
     'data': [
+        'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
         'security/project_project_rules.xml',
         'views/project_task_views.xml',

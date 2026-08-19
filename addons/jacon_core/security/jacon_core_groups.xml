@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <record id="module_category_jacon_core" model="ir.module.category">
+            <field name="name">Jacon - Core</field>
+            <field name="sequence">29</field>
+        </record>
+
+        <record id="privilege_ec_head_office" model="res.groups.privilege">
+            <field name="name">Engineering Head</field>
+            <field name="category_id" ref="module_category_jacon_core"/>
+            <field name="sequence">10</field>
+        </record>
+
+        <!-- Lives here (not in engineering_change) because jacon_core is a
+             base/shared module that engineering_change depends on, not the
+             other way around - a Project-level permission (who may change
+             a project.project's Stage, see models/project_project.py and
+             security/project_project_rules.xml) has to be checkable from
+             jacon_core itself. Originally defined inside engineering_change
+             as "Engineering Head Approve" (still used that way for the EC
+             approval workflow - see engineering_change_workflow.py) - moved
+             here so both engineering_change and any future jacon_core-level
+             Project permission can reference the same group. Note: this
+             used to imply engineering_change's own group_ec_manager
+             automatically; that implication couldn't move along with it
+             (jacon_core can't depend back on engineering_change), so anyone
+             who needs both must now be granted both groups explicitly. -->
+        <record id="group_ec_head_office" model="res.groups">
+            <field name="name">Engineering Head</field>
+            <field name="privilege_id" ref="privilege_ec_head_office"/>
+            <field name="comment">Engineering Head - approves Engineering Change requests at the second approval stage, and is the only role (besides Administrators) allowed to change a Project's Stage.</field>
+        </record>
+
+    </data>
+</odoo>

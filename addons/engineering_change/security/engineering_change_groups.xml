@@ -37,12 +37,6 @@
             <field name="sequence">40</field>
         </record>
 
-        <record id="privilege_ec_head_office_approve" model="res.groups.privilege">
-            <field name="name">Engineering Head Approve</field>
-            <field name="category_id" ref="module_category_engineering_change"/>
-            <field name="sequence">42</field>
-        </record>
-
         <record id="privilege_ec_delete" model="res.groups.privilege">
             <field name="name">Delete</field>
             <field name="category_id" ref="module_category_engineering_change"/>
@@ -88,12 +82,11 @@
             <field name="comment">Can approve/reject at the first (Line Manager) approval stage, close/reopen requests, and manage sequences/groups. BOC Approve is a fully independent privilege, not included here.</field>
         </record>
 
-        <record id="group_ec_head_office" model="res.groups">
-            <field name="name">Engineering Head Approve</field>
-            <field name="privilege_id" ref="privilege_ec_head_office_approve"/>
-            <field name="implied_ids" eval="[(4, ref('group_ec_manager'))]"/>
-            <field name="comment">Can approve/reject at the second (Engineering Head) approval stage, between Line Manager and BOC. Includes every Line Manager Approve capability.</field>
-        </record>
+        <!-- "Engineering Head" (group_ec_head_office) now lives in
+             jacon_core - see jacon_core/security/jacon_core_groups.xml for
+             why. It no longer implies group_ec_manager automatically (that
+             cross-module implication isn't possible in this direction) -
+             grant both groups explicitly to anyone who needs both. -->
 
         <record id="group_ec_delete" model="res.groups">
             <field name="name">Delete</field>
