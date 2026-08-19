@@ -175,6 +175,22 @@
             <field name="perm_unlink">0</field>
         </record>
 
+        <!-- Creating an action has no role restriction (see ProjectTask.
+             _check_ec_create_access, now a no-op) - any EC user may add one
+             to any request. Kept separate from ec_task_rule_view_all (which
+             deliberately grants no create) so write/unlink stay governed by
+             the narrower rules below (Implement Owner / Manager Approve). -->
+        <record id="ec_task_rule_user_create" model="ir.rule">
+            <field name="name">EC Task: any EC user can create an action on any request</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">[('change_id','!=',False)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">0</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <record id="ec_task_rule_user_write" model="ir.rule">
             <field name="name">EC Task: assignee can update status/evidence on their own tasks</field>
             <field name="model_id" ref="project.model_project_task"/>
@@ -204,11 +220,12 @@
         </record>
 
         <!-- The request's Implement Owner (a per-record field, `change_id.implement_owner_id`,
-             not a role) is the one who plans out the implementation - only they (or Manager
-             Approve, below) may create/edit/delete tasks for their own request. Everyone else,
-             including plain assignees and Request/BOC Approve holders, cannot create or delete
-             tasks at all; `ec_task_rule_user_write` above still lets an assignee update
-             Status/Evidence only (enforced in ProjectTask.write()). -->
+             not a role) is the one who plans out the implementation - they (or Manager Approve,
+             below) may fully edit/delete tasks on their own request. Everyone else, including
+             plain assignees and Request/BOC Approve holders, cannot edit/delete tasks (though
+             anyone can still CREATE one, per ec_task_rule_user_create above);
+             `ec_task_rule_user_write` above still lets an assignee update Status/Evidence only
+             (enforced in ProjectTask.write()). -->
         <record id="ec_task_rule_implement_owner_write" model="ir.rule">
             <field name="name">EC Task: Implement Owner manages tasks on their own request</field>
             <field name="model_id" ref="project.model_project_task"/>

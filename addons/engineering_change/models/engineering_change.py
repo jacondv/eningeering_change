@@ -162,7 +162,6 @@ class EngineeringChange(models.Model):
     can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
     can_edit_dcr_no = fields.Boolean(compute='_compute_edit_rights')
     can_manager_approve = fields.Boolean(compute='_compute_edit_rights')
-    can_create_action = fields.Boolean(compute='_compute_edit_rights')
     can_recall_submission = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
@@ -268,11 +267,6 @@ class EngineeringChange(models.Model):
             rec.can_recall_submission = (
                 rec.state == 'waiting_manager_approval'
                 and (is_admin or rec.engineer_id == user))
-            # Matches ProjectTask._check_ec_create_access exactly (Manager Approve,
-            # Implement Owner, or any Implement Team member) - drives the Actions
-            # tab's "Add a line" visibility so it isn't shown to users who'd only
-            # get an AccessError trying to actually save a new task.
-            rec.can_create_action = is_manager or user in (rec.implement_owner_id | rec.implement_team_ids)
             if rec.state == 'waiting_manager_approval' and is_manager:
                 direct_manager = rec._get_direct_manager_user()
                 rec.can_manager_approve = is_admin or not direct_manager or user == direct_manager
