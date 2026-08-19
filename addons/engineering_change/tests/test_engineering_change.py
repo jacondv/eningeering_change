@@ -391,6 +391,34 @@ class TestEngineeringChange(TransactionCase):
         self.assertFalse(change.exists())
         self.assertFalse(project.exists())
 
+    def test_delete_password_wizard_requires_correct_password(self):
+        self.user_deleter.sudo().write({'password': 'ec_deleter_pwd'})
+
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        project = change.project_id
+
+        Wizard = self.env['jacon.delete.password.wizard'].with_user(self.user_deleter)
+        wrong = Wizard.create({
+            'res_model': 'engineering.change',
+            'res_id': change.id,
+            'redirect_action_xmlid': 'engineering_change.action_engineering_change_all',
+            'password': 'not-the-real-password',
+        })
+        with self.assertRaises(UserError):
+            wrong.action_confirm_delete()
+        self.assertTrue(change.exists())
+
+        correct = Wizard.create({
+            'res_model': 'engineering.change',
+            'res_id': change.id,
+            'redirect_action_xmlid': 'engineering_change.action_engineering_change_all',
+            'password': 'ec_deleter_pwd',
+        })
+        correct.action_confirm_delete()
+        self.assertFalse(change.exists())
+        self.assertFalse(project.exists())
+
     @mute_logger('odoo.sql_db')
     def test_cannot_delete_linked_project_directly(self):
         change = self._create_request(request_type='minor')
@@ -509,23 +537,21 @@ class TestEngineeringChange(TransactionCase):
         task.with_user(self.user_engineer).unlink()
         self.assertFalse(task.exists())
 
-    def test_non_owner_cannot_create_or_delete_task(self):
+    def test_any_user_can_create_but_only_owner_can_delete_task(self):
+        """Creating an EC action has no role restriction (any internal user
+        may add one, per _check_ec_create_access) - only deleting stays
+        restricted to Manager/Implement Owner (_check_ec_delete_access)."""
         change = self._create_request(request_type='minor')  # owner defaults to user_engineer
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
 
-        with self.assertRaises(AccessError):
-            self.env['project.task'].with_user(self.user_bod).create({
-                'change_id': change.id,
-                'name': 'Do the thing',
-            })
-
-        task = self.env['project.task'].with_user(self.user_engineer).create({
+        task = self.env['project.task'].with_user(self.user_bod).create({
             'change_id': change.id,
             'name': 'Do the thing',
-            'user_ids': [(6, 0, [self.user_bod.id])],
         })
+        self.assertTrue(task.exists())
+
         with self.assertRaises(AccessError):
             task.with_user(self.user_bod).unlink()
 

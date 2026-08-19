@@ -54,7 +54,8 @@ class EngineeringChange(models.Model):
             partners = rec._get_group_partners('engineering_change.group_ec_manager')
             if partners:
                 rec.message_subscribe(partner_ids=partners.ids)
-            rec._send_template('engineering_change.mail_template_submit', partners=partners)
+            # No email on Submit (per request) - still logged to chatter/inbox
+            # below, so Line Manager still sees it without an outgoing email.
             rec.message_post(
                 body=_("Request submitted for Manager approval."), partner_ids=partners.ids)
 
@@ -356,7 +357,11 @@ class EngineeringChange(models.Model):
             raise UserError(_("You cannot recall approval at the current stage."))
         state_labels = dict(self._fields['state'].selection)
         from_label = state_labels[self.state]
-        self.with_context(ec_workflow_write=True).state = target_state
+        # sudo(): the Engineer allowed through the first branch above (self.engineer_id
+        # == user) is not necessarily a group_ec_engineer holder with base write access
+        # on engineering.change (e.g. engineer_id was reassigned to a plain viewer) -
+        # the checks above are the real gate, same reasoning as action_confirm_production.
+        self.sudo().with_context(ec_workflow_write=True).state = target_state
         self.message_post(
             body=_("Approval recalled by %(user)s: sent back from %(from_state)s to %(to_state)s.") % {
                 'user': user.name,

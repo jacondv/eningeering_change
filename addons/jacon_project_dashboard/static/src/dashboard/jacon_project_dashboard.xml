@@ -244,9 +244,6 @@
                             <div class="o_pd_chart_wrap o_pd_chart_wrap_lg">
                                 <canvas t-ref="chart_main"/>
                             </div>
-                            <p class="text-muted small mb-0 mt-1">
-                                <i class="fa fa-info-circle"/> Click a bar to filter the table below.
-                            </p>
                         </div>
                     </div>
 
@@ -298,46 +295,6 @@
                             </t>
                             <div class="o_pd_task_gantt_outer" t-else="">
                                 <div class="o_pd_task_gantt" t-ref="task_gantt"/>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <div class="o_pd_panel">
-                            <div class="o_pd_panel_head">
-                                <h4 class="mb-0">
-                                    Timesheet Detail
-                                    <t t-if="hasDrill">
-                                        <button class="btn btn-sm btn-link" t-on-click="clearDrill">
-                                            (clear filter <i class="fa fa-times-circle"/>)
-                                        </button>
-                                    </t>
-                                </h4>
-                            </div>
-                            <div class="o_pd_table_wrap">
-                                <table class="table table-sm table-hover o_pd_table">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th><th>Project</th><th>Engineer</th>
-                                            <th>Task Type</th><th>Task</th><th class="text-end">Hours</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr t-foreach="state.lines" t-as="line" t-key="line_index">
-                                            <td><t t-esc="line.date"/></td>
-                                            <td><t t-esc="line.project"/></td>
-                                            <td><t t-esc="line.employee"/></td>
-                                            <td><t t-esc="line.task_type"/></td>
-                                            <td><t t-esc="line.task"/></td>
-                                            <td class="text-end"><t t-esc="line.hours"/></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                                <t t-if="!state.linesLoading and !state.lines.length">
-                                    <p class="text-muted text-center p-3">No timesheet lines for the current filters.</p>
-                                </t>
                             </div>
                         </div>
                     </div>

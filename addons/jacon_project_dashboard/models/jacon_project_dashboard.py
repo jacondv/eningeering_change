@@ -185,15 +185,25 @@ class JaconProjectDashboard(models.AbstractModel):
         segments = self._period_segments_from_today(filters)
         if not segments:
             return []
-        span_start = min(start for start, _end in segments)
+        today = fields.Date.context_today(self)
+        # Simulation always starts TODAY, never at the selected segment's own
+        # start - e.g. picking only September while today is in August must
+        # still walk the queue day-by-day from today through September, so
+        # whatever's already backlogged gets consumed on the days between
+        # today and September first, same as it would in reality. Starting
+        # the simulation at September 1st instead would wrongly treat the
+        # employee as having done nothing before then, dumping the ENTIRE
+        # backlog into September's total instead of just the slice of it
+        # that's still outstanding by the time September actually arrives.
+        span_start = min(today, min(start for start, _end in segments))
         span_end = max(end for _start, end in segments)
 
         capacity = []
         for emp in employees:
             period_capacity = sum(emp.get_period_capacity_hours(start, end) for start, end in segments)
-            # Simulated as ONE continuous span (not per-segment) even
-            # though only the selected months are summed below - the
-            # priority queue is stateful (unlike the old even-spread
+            # Simulated as ONE continuous span from today (not one per
+            # segment) even though only the selected months are summed below
+            # - the priority queue is stateful (unlike the old even-spread
             # model), so splitting it into disjoint per-segment calls
             # would forget everything scheduled in a skipped month
             # (e.g. Aug + Nov selected, Sep/Oct skipped) and wrongly dump
@@ -518,36 +528,3 @@ class JaconProjectDashboard(models.AbstractModel):
             'overdue_by_employee': overdue_by_employee,
             'capacity_by_employee': capacity_by_employee,
         }
-
-    @api.model
-    def get_timesheet_lines(self, filters=None, drill=None, limit=200):
-        """Detail rows backing the drill-down table: the current global
-        filters narrowed further by whatever the user just clicked on the
-        main chart (a single employee, task type, or month)."""
-        filters = filters or {}
-        drill = drill or {}
-        Timesheet = self.env['account.analytic.line']
-        spent_domain, _ = self._build_domains(filters)
-
-        if drill.get('employee_id'):
-            spent_domain = Domain.AND([spent_domain, [('employee_id', '=', drill['employee_id'])]])
-        if drill.get('task_type'):
-            spent_domain = Domain.AND([spent_domain, [('task_type', '=', drill['task_type'])]])
-        if drill.get('month'):
-            year = drill.get('year') or (filters.get('years') or [fields.Date.context_today(self).year])[0]
-            start, end = _month_bounds(year, drill['month'])
-            spent_domain = Domain.AND(
-                [spent_domain, [('date', '>=', start.isoformat()), ('date', '<=', end.isoformat())]])
-
-        lines = Timesheet.search_read(
-            spent_domain,
-            ['date', 'project_id', 'employee_id', 'task_type', 'task_id', 'unit_amount'],
-            order='date desc', limit=limit)
-        return [{
-            'date': line['date'],
-            'project': line['project_id'][1] if line['project_id'] else '',
-            'employee': line['employee_id'][1] if line['employee_id'] else '',
-            'task_type': TASK_TYPE_LABELS.get(line['task_type'], 'Undefined'),
-            'task': line['task_id'][1] if line['task_id'] else '',
-            'hours': line['unit_amount'],
-        } for line in lines]

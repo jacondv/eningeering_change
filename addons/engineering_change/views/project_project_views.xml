@@ -28,4 +28,20 @@
         <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False)]</field>
     </record>
 
+    <!-- jacon_core's own Delete button (project_project_views.xml) has no group
+         restriction of its own - jacon_core doesn't depend on engineering_change,
+         so it can't reference group_ec_delete directly. Restricted here instead,
+         same holder as the "Delete Request" button on the EC form itself, since
+         engineering_change already depends on jacon_core and can inherit its view. -->
+    <record id="edit_project_inherit_equipment_model_delete_group" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.equipment.model.delete.group</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="jacon_core.edit_project_inherit_equipment_model"/>
+        <field name="arch" type="xml">
+            <button name="action_delete_with_password" position="attributes">
+                <attribute name="groups">engineering_change.group_ec_delete</attribute>
+            </button>
+        </field>
+    </record>
+
 </odoo>

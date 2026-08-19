@@ -1,5 +1,4 @@
 from odoo import _, api, fields, models
-from odoo.addons.base.models.res_users import check_identity
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 
@@ -235,6 +234,7 @@ class EngineeringChange(models.Model):
             rec.next_action_deadline = fields.Date.to_date(min(deadlines)) if deadlines else False
 
     @api.depends('state', 'implement_owner_id', 'engineer_id', 'implement_team_ids')
+    @api.depends_context('uid')
     def _compute_edit_rights(self):
         user = self.env.user
         is_admin = user.has_group('base.group_system')
@@ -337,33 +337,37 @@ class EngineeringChange(models.Model):
         # the reference project_id's restrict is guarding), then delete their
         # now-unreferenced projects as a deliberate side effect of this method.
         # project.project (jacon_core) has its own, separate unlink() guard
-        # keyed on 'project_delete_password_confirmed' - the user already
-        # confirmed their password once to get here (via
-        # action_delete_with_password's check_identity), so that guard must
-        # be satisfied too, not just this model's own 'ec_delete_password_
-        # confirmed' key, or this second unlink() call fails right back with
-        # that guard's own "Invalid Operation" error.
+        # keyed on 'project_delete_password_confirmed' - the shared delete
+        # password wizard (jacon.delete.password.wizard) already sets both
+        # context flags together, so that guard is satisfied too, not just
+        # this model's own 'ec_delete_password_confirmed' key.
         projects = self.project_id
         result = super().unlink()
         projects.sudo().with_context(project_delete_password_confirmed=True).unlink()
         return result
 
-    @check_identity
     def action_delete_with_password(self):
-        """Permanently delete this request, regardless of its stage. Wrapped
-        in Odoo's standard password re-check (`check_identity`): the first
-        call pops up the core "Access Control" wizard instead of running this
-        method, and only calls back into it once the user's password has been
-        confirmed - see `res.users.identitycheck` in the `base` module.
-        Deletion is otherwise irreversible, unlike Archive, so this is
-        intentionally harder to trigger than the plain Action > Delete menu
-        (which unlink() above refuses outright).
+        """Opens the shared jacon.delete.password.wizard (from jacon_core),
+        which asks for the current user's own password - every single time,
+        never cached (see the wizard's own docstring for why this isn't the
+        core `check_identity` decorator) - before permanently deleting this
+        request. Deletion is otherwise irreversible, unlike Archive, so this
+        is intentionally harder to trigger than the plain Action > Delete
+        menu (which unlink() above refuses outright).
         """
-        self.with_context(ec_delete_password_confirmed=True).unlink()
-        # Redirect back to the list instead of ir.actions.act_window_close:
-        # this button lives on a full-page form (not a dialog), so closing
-        # alone leaves the client trying to reload the now-deleted record.
-        return self.env['ir.actions.act_window']._for_xml_id('engineering_change.action_engineering_change_all')
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Confirm Deletion'),
+            'res_model': 'jacon.delete.password.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_res_model': self._name,
+                'default_res_id': self.id,
+                'default_redirect_action_xmlid': 'engineering_change.action_engineering_change_all',
+            },
+        }
 
     def write(self, vals):
         keys = set(vals.keys())
