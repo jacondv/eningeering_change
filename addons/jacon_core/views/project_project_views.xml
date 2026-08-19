@@ -18,7 +18,6 @@
             <xpath expr="//header" position="inside">
                 <field name="is_unlocked" widget="project_edit_lock_button" nolabel="1"/>
                 <button name="action_delete_with_password" string="Delete" type="object"
-                        confirm="This will permanently delete this Project. This cannot be undone. Continue?"
                         invisible="not id"/>
             </xpath>
         </field>
