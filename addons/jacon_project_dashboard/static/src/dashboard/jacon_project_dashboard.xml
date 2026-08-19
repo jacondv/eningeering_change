@@ -165,19 +165,19 @@
                     <label>&#160;</label>
                     <button class="btn btn-sm btn-link" t-on-click="resetAllFilters">Reset filters</button>
                 </div>
-            </div>
 
-            <!-- What's actually narrowing the data right now, spelled out
-                 by name (not just the "(N)" count on each dropdown
-                 button) - e.g. which Project(s) are selected. Click a
-                 chip's x to drop just that one value. -->
-            <div class="o_pd_active_filters" t-if="activeFilterChips.length">
-                <span class="o_pd_active_filters_label">Filtering by:</span>
-                <span class="badge o_pd_filter_chip" t-foreach="activeFilterChips" t-as="chip"
-                      t-key="chip.field + ':' + chip.value">
-                    <t t-esc="chip.label"/>
-                    <i class="fa fa-times" t-on-click="() => this.removeFilterChip(chip.field, chip.value)"/>
-                </span>
+                <!-- What's actually narrowing the data right now, spelled out
+                     by name (not just the "(N)" count on each dropdown
+                     button) - e.g. which Project(s) are selected. Click a
+                     chip's x to drop just that one value. -->
+                <div class="o_pd_active_filters" t-if="activeFilterChips.length">
+                    <span class="o_pd_active_filters_label">Filtering by:</span>
+                    <span class="badge o_pd_filter_chip" t-foreach="activeFilterChips" t-as="chip"
+                          t-key="chip.field + ':' + chip.value">
+                        <t t-esc="chip.label"/>
+                        <i class="fa fa-times" t-on-click="() => this.removeFilterChip(chip.field, chip.value)"/>
+                    </span>
+                </div>
             </div>
 
             <t t-if="state.loading">
