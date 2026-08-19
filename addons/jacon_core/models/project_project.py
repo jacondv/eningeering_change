@@ -1,17 +1,5 @@
 from odoo import _, api, fields, models
-from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
-
-# Fields that stay freely editable regardless of the fill-once-then-lock
-# rule below - operational/workflow controls (stage, active, tags, who's
-# on the project) are meant to change repeatedly over a project's life,
-# unlike one-off data entry fields (PO number, serials, release dates...).
-FIELD_LOCK_EXEMPT_FIELDS = frozenset({
-    'active', 'stage_id', 'kanban_state', 'kanban_state_label',
-    'tag_ids', 'color', 'sequence', 'priority', 'favorite_user_ids',
-    'user_id', 'member_ids', 'is_favorite', 'privacy_visibility',
-    'is_unlocked', 'task_count', 'open_task_count', 'label_tasks',
-    'access_token', 'access_url', 'access_warning',
-})
+from odoo.exceptions import AccessDenied, UserError, ValidationError
 
 
 class ProjectProject(models.Model):
@@ -65,40 +53,6 @@ class ProjectProject(models.Model):
                     "A Project named '%(name)s' already exists. "
                     "Project Name/Job # must be unique.",
                     name=project.name))
-
-    def _check_field_fill_once_access(self, vals):
-        """Data-entry fields (PO number, serials, release dates, notes...)
-        can only be filled in by the project's own Project Manager
-        (`user_id`) while still empty; once a field has a value, it is
-        locked for everyone (including that same Project Manager) except
-        Administrators. Operational/workflow fields are exempt - see
-        FIELD_LOCK_EXEMPT_FIELDS."""
-        if self.env.su or self.env.user.has_group('base.group_system'):
-            return
-        for project in self:
-            for field_name in vals:
-                if field_name in FIELD_LOCK_EXEMPT_FIELDS:
-                    continue
-                if field_name not in project._fields:
-                    continue
-                current_value = project[field_name]
-                if isinstance(current_value, models.BaseModel):
-                    current_value = current_value.id
-                if current_value:
-                    raise AccessError(_(
-                        "The field '%(field)s' has already been filled in "
-                        "and can no longer be changed (only an "
-                        "Administrator can).",
-                        field=project._fields[field_name].string))
-                if self.env.user != project.user_id:
-                    raise AccessError(_(
-                        "Only this project's Project Manager can fill in "
-                        "'%(field)s'.",
-                        field=project._fields[field_name].string))
-
-    def write(self, vals):
-        self._check_field_fill_once_access(vals)
-        return super().write(vals)
 
     def unlink(self):
         if not self.env.context.get('project_delete_password_confirmed'):
