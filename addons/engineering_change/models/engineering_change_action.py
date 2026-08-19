@@ -118,18 +118,19 @@ class ProjectTask(models.Model):
         return
 
     def _check_ec_delete_access(self, change, is_manager=None):
-        """Guard deleting an EC task: only Manager Approve or `change`'s own
-        Implement Owner - narrower than create access on purpose, so a
-        regular team member can add their own actions but not remove
-        someone else's. See _check_ec_create_access for why this is
-        enforced in Python rather than left to ir.rule alone."""
+        """Guard deleting an EC task: Manager Approve, `change`'s own
+        Implement Owner, or whoever created this specific task (create_uid) -
+        narrower than create access on purpose otherwise, so a regular team
+        member can add their own actions but not remove someone else's.
+        See _check_ec_create_access for why this is enforced in Python
+        rather than left to ir.rule alone."""
         if is_manager is None:
             is_manager = self._is_ec_manager()
-        if is_manager or change.implement_owner_id == self.env.user:
+        if is_manager or change.implement_owner_id == self.env.user or self.create_uid == self.env.user:
             return
         raise AccessError(_(
-            "Only the Manager or the request's Implement Owner can delete "
-            "actions/tasks for this request."))
+            "Only the Manager, the request's Implement Owner, or whoever "
+            "created this action can delete it."))
 
     def _is_ec_owner_or_manager(self, is_manager=None):
         """True if the current user has unrestricted edit access to this EC
