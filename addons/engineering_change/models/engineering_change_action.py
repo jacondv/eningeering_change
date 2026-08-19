@@ -95,30 +95,16 @@ class ProjectTask(models.Model):
         return self.env.user.has_group('engineering_change.group_ec_manager')
 
     def _check_ec_create_access(self, change, is_manager=None):
-        """Guard creating an EC task: Manager Approve, `change`'s Implement
-        Owner, or any member of its Implement Team may add actions to it -
-        the whole team is doing the work, not just its Owner.
-
-        Enforced here in Python rather than left to ir.rule alone: the core
-        `project` module ships its own permissive rules for tasks with no
-        project_id (e.g. "Project: See private tasks", "...employees: Full
-        access to own private task only") granting create/unlink to any
-        internal user. ir.rule domains are OR'd together across every
-        installed module, so those pre-existing rules would silently override
-        any narrower domain declared on our side - only a hard Python check
-        can actually restrict below what they already allow.
-
-        :param is_manager: pass the already-computed result of `_is_ec_manager()`
-            when checking several records/vals in a loop, to avoid re-querying
-            group membership for each one.
+        """Creating an EC task/action has no role restriction of its own -
+        any internal user may add an action to any request (not just its
+        Manager/Owner/Implement Team). Kept as its own method, even though
+        it's currently a no-op, so the create() override below has one
+        single place to call into if this ever needs restricting again -
+        see _post_creation_message/_notify_creator_manager_toast for what
+        actually happens on creation instead: the creator's own direct
+        manager gets a toast notification.
         """
-        if is_manager is None:
-            is_manager = self._is_ec_manager()
-        if is_manager or self.env.user in (change.implement_owner_id | change.implement_team_ids):
-            return
-        raise AccessError(_(
-            "Only the Manager or a member of the Implement Team can create "
-            "actions/tasks for this request."))
+        return
 
     def _check_ec_delete_access(self, change, is_manager=None):
         """Guard deleting an EC task: only Manager Approve or `change`'s own
@@ -193,6 +179,12 @@ class ProjectTask(models.Model):
         rules and the base ACL.
         """
         self.ensure_one()
+        if self.env.su:
+            # Framework-internal writes done via sudo() (e.g. project/portal's
+            # own _portal_ensure_token generating access_token on every task
+            # create) aren't the acting user choosing to edit task details -
+            # same reasoning as every sudo() call elsewhere in this file.
+            return
         if self._is_ec_owner_or_manager(is_manager):
             return
         allowed_fields = self.ASSIGNEE_EDITABLE_FIELDS
@@ -257,15 +249,39 @@ class ProjectTask(models.Model):
     # ------------------------------------------------------------
     def _post_creation_message(self):
         """Log a new action/task on its parent request's chatter, so anyone
-        watching the request sees it show up even without opening the task.
+        watching the request sees it show up even without opening the task,
+        and pop a toast at the creator's own direct manager (if online).
 
-        sudo(): the Implement Team member allowed to create this task (see
-        `_check_ec_create_access`) is not necessarily an Engineer/BOC/Manager
-        Approve holder with write access of their own on engineering.change.
+        sudo(): the creator (any internal user, see `_check_ec_create_access`)
+        is not necessarily an Engineer/BOC/Manager Approve holder with write
+        access of their own on engineering.change.
         """
         for task in self:
             task.change_id.sudo().message_post(
                 body=_("New action '%s' created by %s.") % (task.name, self.env.user.name))
+            task._notify_creator_manager_toast()
+
+    def _notify_creator_manager_toast(self):
+        """Pops a small, auto-dismissing toast (bottom-right corner - Odoo's
+        standard `simple_notification` bus behavior) at the task creator's
+        own direct manager (hr.employee.parent_id.user_id), if they're
+        online right now - a quick heads-up, not a persistent record like
+        the chatter message above. Silently does nothing if the creator has
+        no Employee record, no manager set on it, or manages themselves.
+        """
+        self.ensure_one()
+        employee = self.env['hr.employee'].sudo().search(
+            [('user_id', '=', self.env.user.id)], limit=1)
+        manager_user = employee.parent_id.user_id if employee else False
+        if not manager_user or manager_user == self.env.user:
+            return
+        self.env['bus.bus']._sendone(manager_user.partner_id, 'simple_notification', {
+            'type': 'info',
+            'title': _("New Action Created"),
+            'message': _("%(user)s created a new action \"%(task)s\" on %(request)s.") % {
+                'user': self.env.user.name, 'task': self.name, 'request': self.change_id.name,
+            },
+        })
 
     def _post_assignment_message(self, new_users):
         """Notify everyone relevant to this action about a new assignment -

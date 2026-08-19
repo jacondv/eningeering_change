@@ -216,9 +216,8 @@
                         </page>
 
                         <page string="Actions" name="actions">
-                            <field name="can_create_action" invisible="1"/>
                             <field name="task_ids" context="{'default_change_id': id, 'default_affected_model_ids': default_affected_model_ids, 'default_affected_project_ids': default_affected_project_ids}">
-                                <list editable="bottom" decoration-danger="is_overdue" create="can_create_action">
+                                <list editable="bottom" decoration-danger="is_overdue">
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>
                                     <field name="name"/>
