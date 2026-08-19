@@ -115,7 +115,14 @@
 
         <!-- ============================================================
              MODEL: engineering.change.action.evidence
-             ============================================================ -->
+             ============================================================
+             The model itself and its base ir.model.access.csv row (granting
+             base.group_user full CRUD) live in jacon_core, not here - see that
+             row's cross-reference comment on EngineeringChangeActionEvidence.
+             The rules below are the real restriction: a plain base.group_user
+             holder with none of the EC groups matches none of them and gets
+             no rows at all, despite jacon_core's own ACL looking permissive. -->
+
         <record id="ec_evidence_rule_assignee" model="ir.rule">
             <field name="name">EC Evidence: assignee manages evidence on their own task</field>
             <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
