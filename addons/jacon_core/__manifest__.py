@@ -35,6 +35,7 @@ Currently provides:
     'depends': ['base', 'project', 'hr_timesheet', 'equipment_model'],
     'data': [
         'security/ir.model.access.csv',
+        'security/project_project_rules.xml',
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
