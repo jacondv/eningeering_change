@@ -55,6 +55,12 @@
             <field name="sequence">47</field>
         </record>
 
+        <record id="privilege_ec_head_office_approve" model="res.groups.privilege">
+            <field name="name">Engineering Head Approve</field>
+            <field name="category_id" ref="module_category_engineering_change"/>
+            <field name="sequence">42</field>
+        </record>
+
         <record id="group_ec_user" model="res.groups">
             <field name="name">View</field>
             <field name="privilege_id" ref="privilege_ec_view"/>
@@ -75,18 +81,28 @@
             <field name="comment">Can approve/reject DCR requests at the final BOC Approval stage. View + Comment only - cannot edit request content directly.</field>
         </record>
 
+        <!-- Both roles below also imply the matching base organizational-role
+             group in jacon_core (group_line_manager / group_head_office -
+             see jacon_core/security/jacon_core_groups.xml) - a valid
+             direction since this module depends on jacon_core. That lets
+             jacon_core-level permissions (e.g. who may change a Project's
+             Stage) check the role directly without depending on this
+             module, while these stay their own separately-toggleable
+             "Line Manager Approve"/"Engineering Head Approve" checkboxes
+             here, same as before. -->
         <record id="group_ec_manager" model="res.groups">
             <field name="name">Line Manager Approve</field>
             <field name="privilege_id" ref="privilege_ec_manager_approve"/>
-            <field name="implied_ids" eval="[(6, 0, [ref('group_ec_user')])]"/>
+            <field name="implied_ids" eval="[(6, 0, [ref('group_ec_user'), ref('jacon_core.group_line_manager')])]"/>
             <field name="comment">Can approve/reject at the first (Line Manager) approval stage, close/reopen requests, and manage sequences/groups. BOC Approve is a fully independent privilege, not included here.</field>
         </record>
 
-        <!-- "Engineering Head" (group_ec_head_office) now lives in
-             jacon_core - see jacon_core/security/jacon_core_groups.xml for
-             why. It no longer implies group_ec_manager automatically (that
-             cross-module implication isn't possible in this direction) -
-             grant both groups explicitly to anyone who needs both. -->
+        <record id="group_ec_head_office" model="res.groups">
+            <field name="name">Engineering Head Approve</field>
+            <field name="privilege_id" ref="privilege_ec_head_office_approve"/>
+            <field name="implied_ids" eval="[(4, ref('group_ec_manager')), (4, ref('jacon_core.group_head_office'))]"/>
+            <field name="comment">Can approve/reject at the second (Engineering Head) approval stage, between Line Manager and BOC. Includes every Line Manager Approve capability.</field>
+        </record>
 
         <record id="group_ec_delete" model="res.groups">
             <field name="name">Delete</field>

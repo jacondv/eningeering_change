@@ -16,7 +16,7 @@ class TestEngineeringChange(TransactionCase):
         cls.group_engineer = cls.env.ref('engineering_change.group_ec_engineer')
         cls.group_bod = cls.env.ref('engineering_change.group_ec_bod')
         cls.group_manager = cls.env.ref('engineering_change.group_ec_manager')
-        cls.group_head_office = cls.env.ref('jacon_core.group_ec_head_office')
+        cls.group_head_office = cls.env.ref('engineering_change.group_ec_head_office')
         cls.group_delete = cls.env.ref('engineering_change.group_ec_delete')
 
         cls.user_general = Users.create({

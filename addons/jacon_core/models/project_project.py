@@ -57,7 +57,7 @@ class ProjectProject(models.Model):
     def write(self, vals):
         if 'stage_id' in vals and not self.env.su:
             is_admin = self.env.user.has_group('base.group_system')
-            is_head_office = self.env.user.has_group('jacon_core.group_ec_head_office')
+            is_head_office = self.env.user.has_group('jacon_core.group_head_office')
             if not (is_admin or is_head_office):
                 raise AccessError(_(
                     "Only the Engineering Head or an Administrator can "
