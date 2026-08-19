@@ -5,3 +5,4 @@ access_jacon_task_deadline_wizard,jacon.task.deadline.wizard.all.users,model_jac
 access_jacon_task_deadline_wizard_line,jacon.task.deadline.wizard.line.all.users,model_jacon_task_deadline_wizard_line,base.group_user,1,1,1,1
 access_jacon_task_propose_schedule_wizard,jacon.task.propose.schedule.wizard.all.users,model_jacon_task_propose_schedule_wizard,base.group_user,1,1,1,1
 access_project_project_user_write,project.project.user.write.own,project.model_project_project,project.group_project_user,0,1,0,0
+access_project_project_ec_head_office,project.project.ec.head.office.write.stage-only.scoped-by-project_project_rule_head_office_write,project.model_project_project,group_ec_head_office,0,1,0,0

@@ -91,7 +91,7 @@ class EngineeringChange(models.Model):
                     "Employee record), can approve this request."
                 ) % direct_manager.name)
             self.with_context(ec_workflow_write=True).state = 'waiting_head_office_approval'
-            partners = self._get_group_partners('engineering_change.group_ec_head_office')
+            partners = self._get_group_partners('jacon_core.group_ec_head_office')
             if partners:
                 self.message_subscribe(partner_ids=partners.ids)
             self._send_template('engineering_change.mail_template_head_office_review', partners=partners)
@@ -346,7 +346,7 @@ class EngineeringChange(models.Model):
         user = self.env.user
         is_admin = user.has_group('base.group_system')
         is_manager = user.has_group('engineering_change.group_ec_manager')
-        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        is_head_office = user.has_group('jacon_core.group_ec_head_office')
         if self.state == 'waiting_manager_approval' and (is_admin or self.engineer_id == user):
             target_state = 'draft'
         elif self.state == 'waiting_head_office_approval' and is_manager:

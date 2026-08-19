@@ -24,7 +24,6 @@ Features:
     'data': [
         'security/engineering_change_groups.xml',
         'security/engineering_change_rules.xml',
-        'security/project_project_rules.xml',
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
         'data/mail_template_data.xml',
