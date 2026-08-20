@@ -248,7 +248,7 @@ class EngineeringChange(models.Model):
         can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
             own_stage_edit = (
-                is_admin
+                (is_admin and rec.state != 'done')
                 or (is_engineer and rec.state == 'draft')
                 or (is_manager and rec.state == 'waiting_manager_approval')
                 or (is_head_office and rec.state == 'waiting_head_office_approval')
@@ -456,7 +456,7 @@ class EngineeringChange(models.Model):
         drawing_keys = engineer_keys & self.DRAWING_FIELDS
         other_engineer_keys = engineer_keys - self.DRAWING_FIELDS
         own_stage_edit = (
-            is_admin
+            (is_admin and self.state != 'done')
             or (is_engineer and self.state == 'draft')
             or (is_manager and self.state == 'waiting_manager_approval')
             or (is_head_office and self.state == 'waiting_head_office_approval')
