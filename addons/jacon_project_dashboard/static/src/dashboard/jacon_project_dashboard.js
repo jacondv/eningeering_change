@@ -172,6 +172,7 @@ export class JaconProjectDashboard extends Component {
             options: { projects: [], employees: [], task_types: [], years: [], months: [] },
             data: null,
             taskGanttData: [],
+            taskGanttHolidays: [],
             taskGanttViewMode: loadStoredTaskGanttViewMode() || "Day",
             filters: {
                 years: [new Date().getFullYear()],
@@ -239,12 +240,14 @@ export class JaconProjectDashboard extends Component {
     async fetchData() {
         storeFilters(this.state.filters);
         this.state.loading = true;
-        const [data, taskGanttData] = await Promise.all([
+        const [data, taskTimeline] = await Promise.all([
             this.orm.call("jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters }),
             this.fetchTaskTimeline(),
         ]);
         this.state.data = data;
         this.state.loading = false;
+        const taskGanttData = taskTimeline.bars;
+        this.state.taskGanttHolidays = taskTimeline.holidays || [];
         // Assign AFTER loading flips back to false (not inside
         // fetchTaskTimeline, in parallel with the main fetch above) - the
         // Task Timeline's container div is unmounted while state.loading
@@ -703,7 +706,29 @@ export class JaconProjectDashboard extends Component {
             },
             on_double_click: (task) => this.openTaskForm(task),
             popup: (ctx) => this.taskGanttPopup(ctx),
+            // Public holidays and (when the Engineer filter narrows to one
+            // person) that person's own approved/pending time off, shaded
+            // as vertical strips like Frappe's own weekend highlight - see
+            // _task_timeline_holidays for why personal leave only shows up
+            // once the ambiguity of "whose leave is this" is gone.
+            holidays: this.taskGanttHolidaysOption(),
         });
+    }
+
+    taskGanttHolidaysOption() {
+        const holidays = this.state.taskGanttHolidays || [];
+        const option = { "var(--g-weekend-highlight-color)": "weekend" };
+        const byType = { public: [], leave: [] };
+        for (const h of holidays) {
+            (byType[h.type] || byType.public).push({ date: h.date, name: h.name });
+        }
+        if (byType.public.length) {
+            option["var(--o-pd-holiday-public-color)"] = byType.public;
+        }
+        if (byType.leave.length) {
+            option["var(--o-pd-holiday-leave-color)"] = byType.leave;
+        }
+        return option;
     }
 
     openTaskForm(task) {

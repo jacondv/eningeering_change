@@ -1,9 +1,9 @@
 import calendar
-from datetime import date
+from datetime import date, datetime, time, timedelta
 
 from dateutil.relativedelta import relativedelta
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 from odoo.fields import Domain
 
 from odoo.addons.jacon_core.models.hr_employee import _priority_value
@@ -379,7 +379,49 @@ class JaconProjectDashboard(models.AbstractModel):
         if project_ids:
             bars = [b for b in bars if b['project_id'] in project_ids]
         bars.sort(key=lambda b: (b['employee'], b['start']))
-        return bars
+        holidays = self._task_timeline_holidays(employees, employee_ids, window_start, window_end)
+        return {'bars': bars, 'holidays': holidays}
+
+    def _task_timeline_holidays(self, employees, employee_ids, window_start, window_end):
+        """Dates to shade on the Task Timeline as non-working: company
+        public holidays (always shown - unambiguous no matter which
+        employees are on screen) plus one specific employee's own time
+        off (approved + pending - see hr.employee._unavailable_hours_by_day)
+        when the Engineer filter narrows the panel down to exactly one
+        person. With several employees mixed into one timeline, a single
+        person's leave can't be shaded as one vertical strip across every
+        row without falsely implying everyone else is off that day too -
+        so it's only shown once that ambiguity is gone."""
+        holidays = []
+        seen_public = set()
+        calendars = employees.mapped('resource_calendar_id')
+        public = self.env['resource.calendar.leaves'].search([
+            ('resource_id', '=', False),
+            ('calendar_id', 'in', [False] + calendars.ids),
+            ('date_from', '<=', datetime.combine(window_end, time.max)),
+            ('date_to', '>=', datetime.combine(window_start, time.min)),
+        ])
+        for leave in public:
+            d = max(fields.Date.to_date(leave.date_from), window_start)
+            last = min(fields.Date.to_date(leave.date_to), window_end)
+            while d <= last:
+                if d not in seen_public:
+                    seen_public.add(d)
+                    holidays.append({'date': d.isoformat(), 'name': leave.name or _('Public Holiday'), 'type': 'public'})
+                d += timedelta(days=1)
+
+        if len(employee_ids) == 1:
+            emp = employees.filtered(lambda e: e.id == employee_ids[0])
+            if emp:
+                leave_hours = emp._unavailable_hours_by_day(window_start, window_end)
+                for d, hours in leave_hours.items():
+                    if hours > 0.01 and d not in seen_public:
+                        holidays.append({
+                            'date': d.isoformat(),
+                            'name': _('%s: Time Off', emp.name),
+                            'type': 'leave',
+                        })
+        return holidays
 
     @api.model
     def get_task_timeline(self, filters=None, range_start=None, range_end=None):
