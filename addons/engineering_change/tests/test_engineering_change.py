@@ -556,6 +556,30 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(AccessError):
             task.with_user(self.user_engineer).write({'name': 'Renamed by assignee'})
 
+    def test_any_assignee_can_edit_task_description(self):
+        # Description is part of ASSIGNEE_EDITABLE_FIELDS - unlike `name`
+        # above, any assignee may edit it, not just Manager/Owner.
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        change.with_user(self.user_manager).write({
+            'implement_team_ids': [(4, self.user_manager.id)],
+            'implement_owner_id': self.user_manager.id,
+        })
+        task = self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'name': 'Do the thing',
+            'user_ids': [(6, 0, [self.user_engineer.id])],
+        })
+        self.assertTrue(task.with_user(self.user_engineer).can_edit_ec_task_description)
+        task.with_user(self.user_engineer).write({'description': '<p>Updated by assignee</p>'})
+        self.assertIn('Updated by assignee', task.description)
+
+        # Someone not assigned to the task at all is still blocked.
+        with self.assertRaises(AccessError):
+            task.with_user(self.user_general).write({'description': '<p>Should fail</p>'})
+
     def test_propose_and_approve_schedule_change_not_blocked_by_ec_guard(self):
         """jacon_core's Propose Schedule Change is its own permission system
         (assignee proposes, their direct HR manager approves) - EC's own
