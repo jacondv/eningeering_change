@@ -1,4 +1,7 @@
-from datetime import timedelta
+from collections import defaultdict
+from datetime import datetime, time, timedelta
+
+from pytz import timezone, utc
 
 from odoo import fields, models
 
@@ -104,15 +107,81 @@ class HrEmployee(models.Model):
     def get_period_capacity_hours(self, date_from, date_to):
         """Total working-hour capacity for this employee between
         date_from and date_to (inclusive) - daily hours x working days
-        per their calendar (Mon-Fri unless configured otherwise).
-        Company holidays and personal leave are not subtracted yet (no
-        leave data in the system to subtract from) - this is a ceiling,
-        not yet a true "how much room is left" figure."""
+        per their calendar (Mon-Fri unless configured otherwise), minus
+        public holidays and personal time off - see
+        `_unavailable_hours_by_day`."""
         self.ensure_one()
         date_from = fields.Date.to_date(date_from)
         date_to = fields.Date.to_date(date_to)
         weekdays = self._work_weekdays()
-        return self._daily_hours() * self._count_work_days(date_from, date_to, weekdays)
+        daily_hours = self._daily_hours()
+        leave_hours = self._unavailable_hours_by_day(date_from, date_to)
+        total = 0.0
+        d = date_from
+        while d <= date_to:
+            if d.weekday() in weekdays:
+                total += max(daily_hours - leave_hours.get(d, 0.0), 0.0)
+            d += timedelta(days=1)
+        return total
+
+    def _unavailable_hours_by_day(self, date_from, date_to):
+        """{date: hours unavailable that day} for public holidays and
+        this employee's personal time off in [date_from, date_to] - fed
+        into `_simulate_schedule` so both the overload warning and the
+        Task Timeline stop assuming every working day is fully open.
+
+        Two sources, because Odoo only materializes a
+        `resource.calendar.leaves` row (the exact, hour-precise
+        record - half-days included) once a request is actually
+        APPROVED (`hr.leave.action_validate` -> `_create_resource_leave`):
+        - Public holidays (no resource_id) and this employee's own
+          already-approved leave (state 'validate') both come from
+          `resource.calendar.leaves` via `_leave_intervals_batch`,
+          hour-exact.
+        - Requests still awaiting approval ('confirm'/'validate1') have
+          no such row yet, so they're read straight from `hr.leave` and
+          treated as a full day off for each working day they touch -
+          the exact half-day split isn't final until approved anyway,
+          and this is a forward-looking warning, not payroll. Draft and
+          refused/cancelled requests are ignored either way."""
+        self.ensure_one()
+        calendar = self.resource_calendar_id
+        if not calendar or not self.resource_id:
+            return {}
+        tz = timezone(calendar.tz or self.tz or 'UTC')
+        start_dt = tz.localize(datetime.combine(date_from, time.min))
+        end_dt = tz.localize(datetime.combine(date_to + timedelta(days=1), time.min))
+
+        hours = defaultdict(float)
+        intervals = calendar._leave_intervals_batch(
+            start_dt, end_dt, resources=self.resource_id, tz=tz,
+        ).get(self.resource_id.id, [])
+        for start, stop, _leave in intervals:
+            d = start.date()
+            while d <= stop.date():
+                day_start = max(start, tz.localize(datetime.combine(d, time.min)))
+                day_end = min(stop, tz.localize(datetime.combine(d + timedelta(days=1), time.min)))
+                if day_end > day_start:
+                    hours[d] += (day_end - day_start).total_seconds() / 3600
+                d += timedelta(days=1)
+
+        weekdays = self._work_weekdays()
+        daily_hours = self._daily_hours()
+        pending = self.env['hr.leave'].search([
+            ('employee_id', '=', self.id),
+            ('state', 'in', ('confirm', 'validate1')),
+            ('date_from', '<=', end_dt.astimezone(utc).replace(tzinfo=None)),
+            ('date_to', '>=', start_dt.astimezone(utc).replace(tzinfo=None)),
+        ])
+        for leave in pending:
+            d = max(fields.Date.to_date(leave.date_from), date_from)
+            last = min(fields.Date.to_date(leave.date_to), date_to)
+            while d <= last:
+                if d.weekday() in weekdays:
+                    hours[d] = max(hours[d], daily_hours)
+                d += timedelta(days=1)
+
+        return hours
 
     def _task_queue(self):
         """Base priority-queue entries (task, remaining, start, deadline,
@@ -150,7 +219,8 @@ class HrEmployee(models.Model):
             })
         return queue
 
-    def _simulate_schedule(self, date_from, date_to, extra_remaining=None, exclude_task_id=None, base_queue=None):
+    def _simulate_schedule(self, date_from, date_to, extra_remaining=None, exclude_task_id=None, base_queue=None,
+                            leave_hours=None):
         """Greedy, priority-ordered resource-leveling simulation - the
         single engine behind get_daily_load / get_overloaded_ranges /
         suggest_deadline_without_overload / get_task_overload.
@@ -192,6 +262,15 @@ class HrEmployee(models.Model):
         for why. `exclude_task_id` is applied to it in-memory (cheap),
         same effect as the domain-level exclude used when building the
         queue fresh.
+
+        `leave_hours`: a pre-built `_unavailable_hours_by_day()` result,
+        reused for the same reason as `base_queue` - callers that run
+        this in a day-by-day search loop (suggest_deadline/
+        suggest_start_without_overload) compute it once for the whole
+        horizon instead of re-querying leaves on every iteration. Each
+        working day's capacity is `daily_hours` minus that day's
+        unavailable hours (floored at 0) - see
+        `_unavailable_hours_by_day` for what counts as unavailable.
         """
         self.ensure_one()
         weekdays = self._work_weekdays()
@@ -218,6 +297,8 @@ class HrEmployee(models.Model):
 
         if base_queue is None:
             base_queue = self._task_queue()
+        if leave_hours is None:
+            leave_hours = self._unavailable_hours_by_day(date_from, date_to)
         if exclude_task_id:
             exclude_key = ('task', exclude_task_id)
             queue = [dict(entry) for entry in base_queue if entry['key'] != exclude_key]
@@ -252,7 +333,8 @@ class HrEmployee(models.Model):
 
         finish = {}
         for d in sorted(days):
-            capacity = daily_hours
+            capacity = max(daily_hours - leave_hours.get(d, 0.0), 0.0)
+            days[d]['capacity'] = capacity
             for entry in queue:
                 if capacity <= 0.0001:
                     break
@@ -282,10 +364,10 @@ class HrEmployee(models.Model):
         result_days = []
         for d in sorted(days):
             day = days[d]
-            day['capacity'] = daily_hours
+            day['capacity'] = round(day['capacity'], 1)
             day['load'] = round(day['load'], 1)
             day['debt_hours'] = round(day['debt_hours'], 1)
-            day['free'] = round(max(daily_hours - day['load'], 0.0), 1)
+            day['free'] = round(max(day['capacity'] - day['load'], 0.0), 1)
             day['overloaded'] = day['debt_hours'] > 0.01
             day['task_ids'] = list(day['task_ids'])
             result_days.append(day)
@@ -387,12 +469,13 @@ class HrEmployee(models.Model):
         limit = search_from + timedelta(days=horizon_days)
         if base_queue is None:
             base_queue = self._task_queue()
+        leave_hours = self._unavailable_hours_by_day(date_start, limit)
         while d <= limit:
             if d.weekday() in weekdays:
                 _days, _task_results, extra_results = self._simulate_schedule(
                     date_start, d,
                     extra_remaining=[(remaining_hours, date_start, d, priority)],
-                    exclude_task_id=exclude_task_id, base_queue=base_queue)
+                    exclude_task_id=exclude_task_id, base_queue=base_queue, leave_hours=leave_hours)
                 if extra_results and not extra_results[0]['overloaded']:
                     return d
             d += timedelta(days=1)
@@ -453,13 +536,17 @@ class HrEmployee(models.Model):
         limit = after_date + timedelta(days=horizon_days)
         if base_queue is None:
             base_queue = self._task_queue()
+        # duration_work_days worth of extra slack so a candidate deadline
+        # near the horizon's edge still has its leave data available.
+        leave_hours = self._unavailable_hours_by_day(
+            today, limit + timedelta(days=duration_work_days * 2 + 7))
         while d <= limit:
             if d.weekday() in weekdays:
                 candidate_deadline = self._add_work_days(d, weekdays, duration_work_days - 1)
                 _days, _task_results, extra_results = self._simulate_schedule(
                     today, candidate_deadline,
                     extra_remaining=[(remaining_hours, d, candidate_deadline, priority)],
-                    exclude_task_id=exclude_task_id, base_queue=base_queue)
+                    exclude_task_id=exclude_task_id, base_queue=base_queue, leave_hours=leave_hours)
                 if extra_results and not extra_results[0]['overloaded']:
                     return d, candidate_deadline
             d += timedelta(days=1)
