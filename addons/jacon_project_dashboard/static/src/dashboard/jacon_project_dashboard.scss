@@ -4,6 +4,12 @@
     height: 100%;
     background: #f7f7fb;
 
+    // Task Timeline holiday shading (see taskGanttHolidaysOption in the
+    // JS / _task_timeline_holidays in the model) - distinct from Frappe
+    // Gantt's own default --g-weekend-highlight-color (light grey).
+    --o-pd-holiday-public-color: #fde3cf;
+    --o-pd-holiday-leave-color: #d8e6fb;
+
     .o_pd_header h2 {
         margin-bottom: 16px;
     }
