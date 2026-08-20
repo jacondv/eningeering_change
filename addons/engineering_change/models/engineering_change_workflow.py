@@ -54,52 +54,102 @@ class EngineeringChange(models.Model):
             partners = rec._get_group_partners('engineering_change.group_ec_manager')
             if partners:
                 rec.message_subscribe(partner_ids=partners.ids)
-            rec._send_template('engineering_change.mail_template_submit', partners=partners)
+            # No email on Submit (per request) - still logged to chatter/inbox
+            # below, so Line Manager still sees it without an outgoing email.
             rec.message_post(
                 body=_("Request submitted for Manager approval."), partner_ids=partners.ids)
 
-    def action_manager_approve(self):
-        for rec in self:
-            if rec.state != 'waiting_manager_approval':
-                raise UserError(_("Only requests waiting for Manager approval can be approved."))
-            if rec.request_type == 'dcr':
-                rec.with_context(ec_workflow_write=True).state = 'bod_review'
-                partners = rec._get_group_partners('engineering_change.group_ec_bod')
+    def _get_direct_manager_user(self):
+        """The res.users who is this request's Engineer's direct manager, via
+        hr.employee.parent_id -> the parent employee's own user_id. Returns
+        False if the Engineer has no hr.employee record, or has one but no
+        manager assigned on it - callers treat False as "not enough HR data
+        to restrict, let any Line Manager approve" (see _apply_approve).
+        """
+        self.ensure_one()
+        employee = self.env['hr.employee'].sudo().search(
+            [('user_id', '=', self.engineer_id.id)], limit=1)
+        if not employee or not employee.parent_id or not employee.parent_id.user_id:
+            return False
+        return employee.parent_id.user_id
+
+    def _apply_approve(self, note, approve_by):
+        """Runs the actual Line Manager/Head Manager/BOC approval side effects
+        (called by the Approve wizard) and logs the decision to
+        approval_log_ids. Comment is optional on Approve (unlike Reject,
+        which always requires a reason).
+        """
+        self.ensure_one()
+        if approve_by == 'manager':
+            if self.state != 'waiting_manager_approval':
+                raise UserError(_("Only requests waiting for Line Manager approval can be approved."))
+            direct_manager = self._get_direct_manager_user()
+            if (direct_manager and self.env.user != direct_manager
+                    and not self.env.user.has_group('base.group_system')):
+                raise AccessError(_(
+                    "Only %s, this Engineer's direct Line Manager (set on their "
+                    "Employee record), can approve this request."
+                ) % direct_manager.name)
+            self.with_context(ec_workflow_write=True).state = 'waiting_head_office_approval'
+            partners = self._get_group_partners('engineering_change.group_ec_head_office')
+            if partners:
+                self.message_subscribe(partner_ids=partners.ids)
+            self._send_template('engineering_change.mail_template_head_office_review', partners=partners)
+            self.message_post(
+                body=_("Approved by Line Manager, forwarded to Head Manager for review."),
+                partner_ids=partners.ids)
+        elif approve_by == 'head_office':
+            if self.state != 'waiting_head_office_approval':
+                raise UserError(_("Only requests waiting for Head Manager approval can be approved."))
+            if self.request_type == 'dcr':
+                self.with_context(ec_workflow_write=True).state = 'bod_review'
+                partners = self._get_group_partners('engineering_change.group_ec_bod')
                 if partners:
-                    rec.message_subscribe(partner_ids=partners.ids)
-                rec._send_template('engineering_change.mail_template_bod_review', partners=partners)
-                rec.message_post(
-                    body=_("Approved by Manager, forwarded to BOD for review."),
+                    self.message_subscribe(partner_ids=partners.ids)
+                self._send_template('engineering_change.mail_template_bod_review', partners=partners)
+                self.message_post(
+                    body=_("Approved by Head Manager, forwarded to BOC for review."),
                     partner_ids=partners.ids)
             else:
-                rec.with_context(ec_workflow_write=True).state = 'implement'
-                rec._notify_implement_team(
+                self.with_context(ec_workflow_write=True).state = 'implement'
+                self._notify_implement_team(
                     'engineering_change.mail_template_implement',
-                    body=_("Approved by Manager. Moved to Implementation."))
-
-    def action_bod_approve(self):
-        for rec in self:
-            if rec.state != 'bod_review':
-                raise UserError(_("Only requests in BOD Review can be approved by BOD."))
-            if not rec.implement_team_ids:
-                raise UserError(_("Implement Team cannot be empty before BOD approval."))
-            rec.with_context(ec_workflow_write=True).write({
+                    body=_("Approved by Head Manager. Moved to Implementation."))
+        else:
+            if self.state != 'bod_review':
+                raise UserError(_("Only requests in BOC Approval can be approved by BOC."))
+            if not self.implement_team_ids:
+                raise UserError(_("Implement Team cannot be empty before BOC approval."))
+            self.with_context(ec_workflow_write=True).write({
                 'bod_approver_id': self.env.user.id,
-                'dcr_no': rec.dcr_no or self.env['ir.sequence'].next_by_code('engineering.change.dcr') or False,
+                'dcr_no': self.dcr_no or self._next_dcr_no() or False,
                 'state': 'implement',
             })
-            rec._notify_implement_team(
+            self._notify_implement_team(
                 'engineering_change.mail_template_implement',
-                body=_("Approved by BOD (%s). Moved to Implementation.") % self.env.user.name)
+                body=_("Approved by BOC (%s). Moved to Implementation.") % self.env.user.name)
+        self.env['engineering.change.approval.log'].create({
+            'change_id': self.id,
+            'role': approve_by,
+            'decision': 'approved',
+            'note': note or '',
+        })
 
     def _apply_reject(self, reason, reject_by):
         self.ensure_one()
         self.with_context(ec_workflow_write=True).write({'state': 'draft', 'reject_reason': reason})
+        self.env['engineering.change.approval.log'].create({
+            'change_id': self.id,
+            'role': reject_by,
+            'decision': 'rejected',
+            'note': reason,
+        })
         partners = self.engineer_id.partner_id
-        template_xmlid = (
-            'engineering_change.mail_template_bod_reject' if reject_by == 'bod'
-            else 'engineering_change.mail_template_manager_reject'
-        )
+        template_xmlid = {
+            'bod': 'engineering_change.mail_template_bod_reject',
+            'head_office': 'engineering_change.mail_template_head_office_reject',
+            'manager': 'engineering_change.mail_template_manager_reject',
+        }[reject_by]
         if partners:
             self.message_subscribe(partner_ids=partners.ids)
         self._send_template(template_xmlid, partners=partners)
@@ -114,7 +164,7 @@ class EngineeringChange(models.Model):
                 raise AccessError(_(
                     "Only the Manager or the request's Implement Owner can confirm Production."))
             # sudo(): the Implement Owner allowed through the check above is not
-            # necessarily an Engineer/BOD/Manager Approve holder with base write
+            # necessarily an Engineer/BOC/Manager Approve holder with base write
             # access on engineering.change (e.g. a plain team member) - the
             # can_confirm_production check just above is the real gate.
             rec_sudo = rec.sudo()
@@ -134,7 +184,7 @@ class EngineeringChange(models.Model):
                 raise AccessError(_(
                     "Only the Manager or the request's Implement Owner can confirm Sales."))
             # sudo(): the Implement Owner allowed through the check above is not
-            # necessarily an Engineer/BOD/Manager Approve holder with base write
+            # necessarily an Engineer/BOC/Manager Approve holder with base write
             # access on engineering.change (e.g. a plain team member) - the
             # can_confirm_sale check just above is the real gate.
             rec_sudo = rec.sudo()
@@ -155,10 +205,12 @@ class EngineeringChange(models.Model):
         self.ensure_one()
         if self.state == 'waiting_manager_approval':
             return 'draft'
-        if self.state == 'bod_review':
+        if self.state == 'waiting_head_office_approval':
             return 'waiting_manager_approval'
+        if self.state == 'bod_review':
+            return 'waiting_head_office_approval'
         if self.state == 'implement':
-            return 'bod_review' if self.request_type == 'dcr' else 'waiting_manager_approval'
+            return 'bod_review' if self.request_type == 'dcr' else 'waiting_head_office_approval'
         if self.state == 'production':
             return 'implement'
         if self.state == 'sale':
@@ -174,7 +226,7 @@ class EngineeringChange(models.Model):
         state_labels = dict(self._fields['state'].selection)
         for rec in self:
             if not self.env.user.has_group('engineering_change.group_ec_manager'):
-                raise UserError(_("Only Engineering Manager can revert a request to its previous state."))
+                raise UserError(_("Only Line Manager can revert a request to its previous state."))
             previous_state = rec._previous_workflow_state()
             if not previous_state:
                 raise UserError(_("This request has no previous state to revert to."))
@@ -195,7 +247,7 @@ class EngineeringChange(models.Model):
                 raise UserError(_("Only requests in Sales state can be closed."))
             if not (self.env.user.has_group('engineering_change.group_ec_manager')
                     or self.env.user.has_group('engineering_change.group_ec_close')):
-                raise UserError(_("Only Engineering Manager or a user granted Close rights can close a request."))
+                raise UserError(_("Only Line Manager or a user granted Close rights can close a request."))
             # sudo(): a Close-group-only user's write access is scoped to
             # state == 'sale' (see ec_change_rule_close_write) - once the
             # state flips to 'done' below, they'd lose write access to their own
@@ -211,7 +263,7 @@ class EngineeringChange(models.Model):
     def action_reopen(self):
         for rec in self:
             if not self.env.user.has_group('engineering_change.group_ec_manager'):
-                raise UserError(_("Only Engineering Manager can reopen a request."))
+                raise UserError(_("Only Line Manager can reopen a request."))
             if rec.state != 'done':
                 raise UserError(_("Only Done requests can be reopened."))
             rec.with_context(ec_workflow_write=True).write(
@@ -241,6 +293,78 @@ class EngineeringChange(models.Model):
         self.ensure_one()
         return self.action_open_reject_wizard('manager')
 
+    def action_head_office_reject(self):
+        self.ensure_one()
+        return self.action_open_reject_wizard('head_office')
+
     def action_bod_reject(self):
         self.ensure_one()
         return self.action_open_reject_wizard('bod')
+
+    # ------------------------------------------------------------
+    # Approve wizard glue
+    # ------------------------------------------------------------
+    def action_open_approve_wizard(self, approve_by):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Approve Request'),
+            'res_model': 'engineering.change.approve.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_change_id': self.id,
+                'default_approve_by': approve_by,
+            },
+        }
+
+    def action_manager_approve(self):
+        self.ensure_one()
+        return self.action_open_approve_wizard('manager')
+
+    def action_head_office_approve(self):
+        self.ensure_one()
+        return self.action_open_approve_wizard('head_office')
+
+    def action_bod_approve(self):
+        self.ensure_one()
+        return self.action_open_approve_wizard('bod')
+
+    # ------------------------------------------------------------
+    # Recall (self-service undo of one's own Approve)
+    # ------------------------------------------------------------
+    def action_recall_approval(self):
+        """Lets Line Manager or Head Manager pull their own Approve back by
+        exactly one step, or lets the Engineer pull their own Submit back to
+        Draft, without going through the Reject wizard (which always resets
+        to Draft and requires a reason). Only reachable while the next stage
+        hasn't approved/acted yet - once it has, the state has already moved
+        past the recallable window, so the button's own invisible condition
+        (tied to the current state) naturally disables it.
+        """
+        self.ensure_one()
+        user = self.env.user
+        is_admin = user.has_group('base.group_system')
+        is_manager = user.has_group('engineering_change.group_ec_manager')
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        if self.state == 'waiting_manager_approval' and (is_admin or self.engineer_id == user):
+            target_state = 'draft'
+        elif self.state == 'waiting_head_office_approval' and is_manager:
+            target_state = 'waiting_manager_approval'
+        elif self.state == 'bod_review' and is_head_office:
+            target_state = 'waiting_head_office_approval'
+        else:
+            raise UserError(_("You cannot recall approval at the current stage."))
+        state_labels = dict(self._fields['state'].selection)
+        from_label = state_labels[self.state]
+        # sudo(): the Engineer allowed through the first branch above (self.engineer_id
+        # == user) is not necessarily a group_ec_engineer holder with base write access
+        # on engineering.change (e.g. engineer_id was reassigned to a plain viewer) -
+        # the checks above are the real gate, same reasoning as action_confirm_production.
+        self.sudo().with_context(ec_workflow_write=True).state = target_state
+        self.message_post(
+            body=_("Approval recalled by %(user)s: sent back from %(from_state)s to %(to_state)s.") % {
+                'user': user.name,
+                'from_state': from_label,
+                'to_state': state_labels[target_state],
+            })

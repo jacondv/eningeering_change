@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_equipment_model_family_list" model="ir.ui.view">
+        <field name="name">equipment.model.family.list</field>
+        <field name="model">equipment.model.family</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="category_id"/>
+                <field name="model_count"/>
+                <field name="description"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_equipment_model_family_form" model="ir.ui.view">
+        <field name="name">equipment.model.family.form</field>
+        <field name="model">equipment.model.family</field>
+        <field name="arch" type="xml">
+            <form string="Product Family">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Family name..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <field name="category_id"/>
+                    </group>
+                    <field name="description" placeholder="Description..."/>
+                    <notebook>
+                        <page string="Models" name="models">
+                            <field name="model_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="parent_id"/>
+                                    <field name="description"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_equipment_model_family_search" model="ir.ui.view">
+        <field name="name">equipment.model.family.search</field>
+        <field name="model">equipment.model.family</field>
+        <field name="arch" type="xml">
+            <search string="Search Product Families">
+                <field name="name"/>
+                <field name="category_id"/>
+                <group>
+                    <filter string="Category" name="group_category" context="{'group_by': 'category_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_equipment_model_family" model="ir.actions.act_window">
+        <field name="name">Product Families</field>
+        <field name="res_model">equipment.model.family</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_equipment_model_family_search"/>
+    </record>
+
+</odoo>

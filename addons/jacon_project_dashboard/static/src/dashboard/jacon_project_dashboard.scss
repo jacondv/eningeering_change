@@ -1,0 +1,419 @@
+.o_pd_dashboard {
+    padding: 16px 24px;
+    overflow: auto;
+    height: 100%;
+    background: #f7f7fb;
+
+    // Task Timeline holiday shading (see taskGanttHolidaysOption in the
+    // JS / _task_timeline_holidays in the model) - distinct from Frappe
+    // Gantt's own default --g-weekend-highlight-color (light grey).
+    --o-pd-holiday-public-color: #fde3cf;
+    --o-pd-holiday-leave-color: #d8e6fb;
+
+    .o_pd_header h2 {
+        margin-bottom: 16px;
+    }
+
+    .o_pd_filter_bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 12px;
+        background: #ffffff;
+        border: 1px solid #ebebf0;
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+    }
+
+    .o_pd_filter_item {
+        display: flex;
+        flex-direction: column;
+
+        label {
+            font-size: .75rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        select {
+            min-width: 90px;
+        }
+    }
+
+    .o_pd_filter_reset {
+        margin-left: auto;
+    }
+
+    .o_pd_active_filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        font-size: .8rem;
+    }
+
+    .o_pd_active_filters_label {
+        color: #888;
+    }
+
+    .o_pd_filter_chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eef0f5;
+        color: #444;
+        font-weight: 500;
+        font-size: .78rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+
+        .fa-times {
+            cursor: pointer;
+            color: #999;
+
+            &:hover { color: #c62828; }
+        }
+    }
+
+    // Bootstrap's dropdown-menu already floats above in-flow content, but
+    // force it explicitly (position/z-index) so it can never end up
+    // visually behind a neighboring filter button in this toolbar.
+    .o_pd_filter_bar .dropdown-menu {
+        position: absolute !important;
+        z-index: 1070 !important;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, .15);
+    }
+
+    .o_pd_filter_menu {
+        max-height: 320px;
+        overflow-y: auto;
+        min-width: 220px;
+
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+    }
+
+    .o_pd_filter_menu_actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px 6px;
+        font-size: .78rem;
+
+        .btn-link {
+            font-size: .78rem;
+            text-decoration: none;
+
+            &:disabled { opacity: .4; text-decoration: none; }
+        }
+    }
+
+    .o_pd_filter_menu_sep {
+        color: #ccc;
+    }
+
+    .o_pd_filter_search {
+        padding: 0 4px 6px;
+
+        input {
+            width: 100%;
+        }
+    }
+
+    .o_pd_months_menu {
+        min-width: 260px;
+    }
+
+    .o_pd_months_grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 2px 4px;
+        padding: 0 !important;
+
+        .dropdown-item {
+            padding: 4px 6px;
+            border-radius: 4px;
+        }
+    }
+
+    .o_pd_kpi_row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .o_pd_kpi_card {
+        flex: 1 1 140px;
+        min-width: 140px;
+        background: #ffffff;
+        border: 1px solid #ebebf0;
+        border-left: 4px solid #4e79a7;
+        border-radius: 6px;
+        padding: 12px 16px;
+
+        .o_pd_kpi_value {
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        .o_pd_kpi_label {
+            font-size: .85rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        &.o_pd_kpi_overdue { border-left-color: #e15759; }
+    }
+
+    .o_pd_panel {
+        background: #ffffff;
+        border: 1px solid #ebebf0;
+        border-radius: 6px;
+        padding: 14px 18px;
+
+        h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+    }
+
+    .o_pd_panel_head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    .o_pd_view_tabs .btn {
+        white-space: nowrap;
+    }
+
+    .o_pd_chart_tools {
+        display: flex;
+        gap: 8px;
+    }
+
+    .o_pd_chart_wrap {
+        position: relative;
+        height: 280px;
+    }
+
+    .o_pd_chart_wrap_lg {
+        height: 340px;
+    }
+
+    .o_pd_table_wrap {
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
+    .o_pd_table {
+        font-size: .85rem;
+    }
+
+    .o_pd_more_toggle {
+        width: 100%;
+        text-align: left;
+    }
+
+    .o_pd_heatmap_wrap {
+        overflow-x: auto;
+    }
+
+    .o_pd_heatmap {
+        th, td {
+            text-align: center;
+            white-space: nowrap;
+            font-size: .8rem;
+            padding: 6px 10px;
+        }
+
+        thead th {
+            color: #888;
+            font-weight: 500;
+        }
+
+        tbody th {
+            text-align: left;
+            font-weight: 500;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // Capacity / Allocated Time panel
+    // ------------------------------------------------------------
+    .o_pd_capacity_list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .o_pd_capacity_row {
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f0f4;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    .o_pd_capacity_top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 4px;
+    }
+
+    .o_pd_capacity_name {
+        font-weight: 500;
+        font-size: .9rem;
+    }
+
+    .o_pd_capacity_pct {
+        font-size: .75rem;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 10px;
+
+        &.o_pd_capacity_free { color: #2e7d32; background: #e8f5e9; }
+        &.o_pd_capacity_tight { color: #8a6d00; background: #fff8e1; }
+        &.o_pd_capacity_over { color: #c62828; background: #ffebee; }
+    }
+
+    .o_pd_capacity_bar_bg {
+        height: 8px;
+        border-radius: 4px;
+        background: #eef0f5;
+        overflow: hidden;
+    }
+
+    .o_pd_capacity_bar_fill {
+        height: 100%;
+        border-radius: 4px;
+
+        &.o_pd_capacity_free { background: #59a14f; }
+        &.o_pd_capacity_tight { background: #edc948; }
+        &.o_pd_capacity_over { background: #e15759; }
+    }
+
+    .o_pd_capacity_bottom {
+        margin-top: 2px;
+    }
+
+    // ------------------------------------------------------------
+    // Task Timeline panel (Frappe Gantt - see static/lib/frappe_gantt)
+    // ------------------------------------------------------------
+    // Two nested containers, not one, so vertical and horizontal
+    // scrolling don't fight over the same space: a "scroll" (not "auto")
+    // horizontal scrollbar always reserves its own thickness out of
+    // whichever element it's on, and reserving it on the SAME element
+    // that does vertical overflow used to shave just enough off the
+    // available height to make an exact-fit row count spill into an
+    // unwanted vertical scrollbar too, clipping the last row. Splitting
+    // them means the horizontal scrollbar's reserved space only ever
+    // eats into the inner element's WIDTH, never the outer element's
+    // HEIGHT.
+    .o_pd_task_gantt_outer {
+        // No fixed height - Frappe Gantt already sizes its own SVG to
+        // fit however many task rows there are (container_height:
+        // "auto"), so let this wrapper grow with it instead of forcing
+        // every user's data into the same box regardless of row count.
+        // max-height only kicks in for a genuinely long task list, where
+        // it falls back to scrolling instead of pushing the rest of the
+        // dashboard off-screen.
+        // Tall enough that even 1-2 rows still read as a proper Gantt
+        // panel instead of a cramped sliver - Frappe Gantt's own SVG
+        // height still only grows to fit its rows, this floor is purely
+        // about the wrapper never looking tinier than that.
+        min-height: 420px;
+        max-height: 85vh;
+        overflow-y: auto;
+        // Native browser resize handle (bottom-right corner drag) - for
+        // the rare case someone wants a shorter box than the content
+        // needs, even though it now sizes itself automatically.
+        resize: vertical;
+    }
+
+    .o_pd_task_gantt {
+        // No overflow-x here: Frappe Gantt's own `.gantt-container` child
+        // (created by the library, not us - see below) is ITSELF the
+        // real horizontal-scroll owner (fixed width:100%, wider SVG
+        // content inside), and its "Today" button/scroll_to option work
+        // by setting that specific element's scrollLeft. An earlier
+        // version of this rule put overflow-x:scroll here too, which
+        // seemed harmless but silently broke the Today button once
+        // .gantt-container's own overflow was touched below (nothing was
+        // listening on THIS element's scroll position).
+        //
+        // Frappe Gantt's own inner element sets an explicit `height`
+        // sized to the row count via a CSS var - our wrapper's
+        // min-height above doesn't reach it, so with very few tasks the
+        // actual chart stays tiny with dead space around it. min-height
+        // (unlike height) always wins over a smaller explicit height, so
+        // this floors it without fighting that var. padding-bottom gives
+        // the last row's popup some breathing room before this element's
+        // own (default, untouched) overflow:auto would otherwise clip it
+        // right at the edge - deliberately NOT overridden to `visible`
+        // anymore, since that's what disabled the Today button: it made
+        // this element un-scrollable, and Today/scroll_to both scroll
+        // THIS element specifically.
+        .gantt-container {
+            min-height: 340px;
+            padding-bottom: 70px;
+        }
+
+        // Base bar color (default library theme is a near-white fill,
+        // too washed out against our panel background) - overload state
+        // overrides it to red; the progress fill is a separate, always-
+        // green signal layered on top of either color.
+        .bar-wrapper .bar { fill: #4e79a7; }
+        .bar-progress { fill: #2e7d32; }
+        .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
+        // SVG text uses `fill`, not `color` - the label (task name/hours,
+        // drawn as its own <text class="bar-label">) otherwise stays the
+        // library's default dark grey even on a red overloaded bar.
+        .o_pd_gantt_bar_overloaded .bar-label { fill: #c62828; font-weight: 600; }
+
+        // Plain assignee, not their manager/PM/admin (see can_edit_schedule
+        // in jacon_project_dashboard.py) - the write would be rejected
+        // server-side anyway, so disable drag/resize interaction on the bar
+        // entirely instead of letting the drag proceed only to fail on drop.
+        // The bar/handle group is what actually receives mouse events, not
+        // the outer .bar-wrapper, hence pointer-events on both.
+        .o_pd_gantt_bar_locked {
+            pointer-events: none;
+            .bar { fill: #9e9e9e; opacity: .6; }
+        }
+
+        // Core facts block (project/assignee/dates/hours/progress) built
+        // from scratch in taskGanttPopup - shown for every task, not just
+        // overloaded ones.
+        .o_pd_gantt_popup_info {
+            font-size: .78rem;
+            line-height: 1.5;
+        }
+
+        .o_pd_gantt_popup_overdue {
+            color: #c62828;
+            font-weight: 500;
+        }
+
+        // Extra "over by Xh / suggested deadline" line appended to the
+        // popup for overloaded tasks (see taskGanttPopup in the JS).
+        .o_pd_gantt_popup_overload {
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px solid #ebeff2;
+            color: #c62828;
+            font-size: .78rem;
+            font-weight: 500;
+        }
+    }
+}

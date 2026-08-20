@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="edit_project_inherit_equipment_model" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.equipment.model</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="before">
+                <field name="model_id" options="{'no_create': True}"/>
+                <field name="machine_serial" placeholder="e.g. S30-2106-163"/>
+                <field name="engine_serial" placeholder="e.g. 12190634"/>
+                <field name="vin_tin" placeholder="e.g. 6U9VSS00000244099"/>
+            </field>
+            <xpath expr="//group//field[@name='label_tasks']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <field name="is_unlocked" widget="project_edit_lock_button" nolabel="1"/>
+                <button name="action_delete_with_password" string="Delete" type="object"
+                        invisible="not id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Customer is normally only shown when the project has "Billable"
+         enabled (Sales integration, see sale_project's own inherit of this
+         same field) - other jacon_core fields (Project Events, Equipment
+         Serials) don't depend on Billable, so drop that condition here
+         (still hidden for templates). High priority so this is combined
+         last and reliably wins over other addons' own attribute overrides
+         on the same field, regardless of view/module install order. -->
+    <record id="edit_project_partner_id_always_visible" model="ir.ui.view">
+        <field name="name">project.project.form.partner.always.visible</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="attributes">
+                <attribute name="invisible">is_template</attribute>
+            </field>
+        </field>
+    </record>
+
+    <record id="edit_project_inherit_project_events" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.project.events</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='description']" position="after">
+                <page name="project_events" string="Project Events">
+                    <group>
+                        <group>
+                            <field name="po_number" placeholder="e.g. PO132511"/>
+                            <field name="po_received_date" widget="date_or_na" options="{'numeric': True}"/>
+                            <field name="iof_release_date" widget="date_or_na" options="{'numeric': True}"/>
+                            <field name="bom_release_date" widget="date_or_na" options="{'numeric': True}"/>
+                        </group>
+                        <group>
+                            <field name="drawing_release_date" widget="date_or_na" options="{'numeric': True}"/>
+                            <field name="qc_checksheet_date" widget="date_or_na" options="{'numeric': True}"/>
+                            <field name="photo_taken_date" widget="date_or_na" options="{'numeric': True}"/>
+                            <field name="dispatch_date" widget="date_or_na" options="{'numeric': True}"/>
+                        </group>
+                    </group>
+                    <field name="project_events_note" placeholder="Notes..."/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_project_inherit_project_events" model="ir.ui.view">
+        <field name="name">project.project.list.inherit.project.events</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.view_project"/>
+        <field name="arch" type="xml">
+            <!-- Left-align numeric columns + darker zebra striping (see
+                 static/src/list/left_align_number_list_view.js) -->
+            <xpath expr="//list" position="attributes">
+                <attribute name="js_class">jacon_core_project_list</attribute>
+            </xpath>
+            <!-- "Tasks" button: drop it from its original spot (after Stage)
+                 and re-add it before Name, renamed from "View Tasks". -->
+            <xpath expr="//button[@name='action_view_tasks']" position="replace"/>
+            <field name="name" position="before">
+                <button string="Tasks" name="action_view_tasks" type="object"/>
+            </field>
+            <field name="stage_id" position="after">
+                <field name="po_number" optional="hide"/>
+                <field name="po_received_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="iof_release_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="bom_release_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="drawing_release_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="qc_checksheet_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="photo_taken_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="dispatch_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
+                <field name="project_events_note" optional="hide"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="project_project_view_form_simplified_inherit_equipment_model" model="ir.ui.view">
+        <field name="name">project.project.view.form.simplified.inherit.equipment.model</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.project_project_view_form_simplified"/>
+        <field name="arch" type="xml">
+            <div name="alias_def" position="before">
+                <group>
+                    <field name="model_id" options="{'no_create': True}"/>
+                </group>
+            </div>
+        </field>
+    </record>
+
+</odoo>

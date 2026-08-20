@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_core.ProjectEditLockField">
+        <div class="d-inline-block">
+            <button t-if="isNewRecord"
+                class="btn btn-sm btn-outline-secondary"
+                type="button"
+                disabled="disabled">
+                <i class="fa fa-unlock-alt me-1"/>Unlocked
+            </button>
+            <button t-elif="isUnlocked" class="btn btn-sm btn-outline-secondary"
+                type="button"
+                t-on-click="lock">
+                <i class="fa fa-unlock-alt me-1"/>Unlocked - click to lock
+            </button>
+            <button t-else="" class="btn btn-sm btn-outline-primary"
+                type="button"
+                t-on-click="openUnlockDialog">
+                <i class="fa fa-lock me-1"/>Edit
+            </button>
+        </div>
+    </t>
+
+</templates>

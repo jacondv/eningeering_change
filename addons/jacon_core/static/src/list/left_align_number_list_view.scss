@@ -1,0 +1,28 @@
+// Odoo right-aligns numeric-typed columns (e.g. Allocated Hours) by default
+// via .o_list_number. Scoped to just the lists using our custom js_class
+// (see resizable_column_list_view.js) rather than overriding it everywhere.
+table.o_jacon_core_left_align_list {
+    th.o_list_number,
+    td.o_list_number,
+    .o_list_number_th {
+        text-align: left !important;
+    }
+
+    // Bootstrap's default table-striped accent (--bs-table-accent-bg) is
+    // very light and hard to tell apart row-to-row; darken it a bit.
+    // Counted only among .o_data_row (the ":nth-child(... of ...)" syntax),
+    // not plain :nth-of-type, so group header rows (tr.o_group_header) -
+    // which sit as siblings of data rows in the same <tbody> when the list
+    // is grouped - don't throw off the alternating count or get tinted
+    // themselves.
+    //
+    // Not gated on ".table-striped": Odoo only puts that class on the
+    // table when the list is NOT grouped (grouped lists get
+    // "o_list_table_grouped" instead, no "table-striped" at all), so a
+    // "&.table-striped" prefix here would silently stop matching anything
+    // as soon as the list is grouped.
+    > tbody > tr.o_data_row:nth-child(odd of .o_data_row) > * {
+        --bs-table-accent-bg: #dfe3e8;
+        background-color: var(--bs-table-accent-bg);
+    }
+}

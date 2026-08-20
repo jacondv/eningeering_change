@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Top-level item under the Project app's own menu bar, sibling to
+         Projects/Tasks/Reporting/Configuration - one click away rather than
+         nested inside Reporting, per explicit user preference. -->
+    <menuitem id="menu_jacon_project_dashboard"
+              name="Hours Dashboard"
+              parent="project.menu_main_pm"
+              action="action_jacon_project_dashboard"
+              groups="project.group_project_manager"
+              sequence="99"/>
+
+</odoo>

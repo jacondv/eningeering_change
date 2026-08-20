@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_core.ProjectUnlockDialog">
+        <Dialog size="'sm'" title="title">
+            <div class="mb-2">
+                <label class="form-label" for="jacon_core_unlock_password">Password</label>
+                <input id="jacon_core_unlock_password"
+                    type="password"
+                    class="form-control"
+                    t-att-class="{ 'is-invalid': state.error }"
+                    t-model="state.password"
+                    t-on-keydown="onKeydown"
+                    autofocus="autofocus"/>
+                <div t-if="state.error" class="invalid-feedback d-block" t-esc="state.error"/>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="confirm" t-att-disabled="state.checking">
+                    Unlock
+                </button>
+                <button class="btn btn-secondary" t-on-click="() => props.close()">
+                    Cancel
+                </button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

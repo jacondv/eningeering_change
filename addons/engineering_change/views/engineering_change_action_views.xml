@@ -22,6 +22,8 @@
         <field name="arch" type="xml">
             <field name="is_template" position="after">
                 <field name="can_edit_ec_task_details" invisible="1"/>
+                <field name="can_assign_ec_task" invisible="1"/>
+                <field name="can_edit_ec_task_description" invisible="1"/>
             </field>
 
             <field name="task_properties" position="before">
@@ -29,6 +31,8 @@
                     <field name="change_id" readonly="1"/>
                     <field name="manager_id" readonly="change_id and not can_edit_ec_task_details"/>
                     <field name="affected_model_ids" widget="many2many_tags"/>
+                    <field name="affected_project_ids" widget="many2many_tags"/>
+                    <field name="task_type"/>
                 </group>
             </field>
 
@@ -41,29 +45,19 @@
             <xpath expr="//field[@name='project_id']/ancestor::group[2]" position="attributes">
                 <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
             </xpath>
+            <!-- Narrower override: an Implement Team member who isn't Owner/Manager
+                 still can't touch the rest of that group (readonly above), but they
+                 CAN assign the task - see can_assign_ec_task / _check_ec_write_access. -->
+            <xpath expr="//field[@name='user_ids']" position="attributes">
+                <attribute name="readonly">change_id and not can_assign_ec_task</attribute>
+            </xpath>
             <field name="task_properties" position="attributes">
                 <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
             </field>
             <xpath expr="//page[@name='description_page']/field[@name='description']" position="attributes">
-                <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
+                <attribute name="readonly">change_id and not can_edit_ec_task_description</attribute>
+                <attribute name="class">o_ec_action_description</attribute>
             </xpath>
-
-            <page name="description_page" position="after">
-                <page string="Evidence" name="evidence" invisible="not change_id">
-                    <field name="evidence_ids">
-                        <list editable="bottom">
-                            <button name="action_open_attachment" type="object"
-                                    icon="fa-external-link" title="Open File"
-                                    invisible="not attachment"/>
-                            <field name="attachment" filename="attachment_filename"/>
-                            <field name="attachment_filename" column_invisible="1"/>
-                            <field name="description"/>
-                            <field name="upload_uid" readonly="1"/>
-                            <field name="upload_date" readonly="1"/>
-                        </list>
-                    </field>
-                </page>
-            </page>
         </field>
     </record>
 
@@ -73,12 +67,16 @@
         <field name="model">project.task</field>
         <field name="arch" type="xml">
             <list string="Engineering Change Actions" decoration-danger="is_overdue">
-                <field name="change_id"/>
+                <field name="change_id" optional="show"/>
                 <field name="name"/>
-                <field name="user_ids" widget="many2many_tags"/>
-                <field name="manager_id"/>
+                <field name="user_ids" widget="many2many_tags" optional="show"/>
+                <field name="manager_id" optional="show"/>
                 <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
-                <field name="date_deadline"/>
+                <field name="affected_project_ids" widget="many2many_tags" optional="show"/>
+                <field name="task_type" optional="hide"/>
+                <field name="date_deadline" optional="show"/>
+                <field name="allocated_hours" optional="show"/>
+                <field name="evidence_count" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == '1_done'"
                        decoration-info="state == '01_in_progress'"
@@ -98,6 +96,7 @@
                 <field name="change_id"/>
                 <field name="user_ids"/>
                 <field name="affected_model_ids"/>
+                <field name="affected_project_ids"/>
                 <filter string="My Tasks" name="my_tasks" domain="[('user_ids', 'in', [uid])]"/>
                 <filter string="Overdue" name="overdue" domain="[('is_overdue', '=', True)]"/>
                 <separator/>
@@ -112,6 +111,8 @@
                     <filter string="Assignee" name="group_assignee" context="{'group_by': 'user_ids'}"/>
                     <filter string="Request" name="group_change" context="{'group_by': 'change_id'}"/>
                     <filter string="Impacted Model" name="group_affected_model" context="{'group_by': 'affected_model_ids'}"/>
+                    <filter string="Impacted Job Number" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
+                    <filter string="Task Type" name="group_task_type" context="{'group_by': 'task_type'}"/>
                 </group>
             </search>
         </field>

@@ -20,9 +20,9 @@
                         <div class="o_ec_kpi_value"><t t-esc="countOf(state.data.state_counts, 'draft')"/></div>
                         <div class="o_ec_kpi_label">Draft</div>
                     </div>
-                    <div class="o_ec_kpi_card o_ec_kpi_pending" t-on-click="() => this.openRequests([['state','in',['waiting_manager_approval','bod_review']]], 'Pending Approval')">
+                    <div class="o_ec_kpi_card o_ec_kpi_pending" t-on-click="() => this.openRequests([['state','in',['waiting_manager_approval','waiting_head_office_approval','bod_review']]], 'Pending Approval')">
                         <div class="o_ec_kpi_value">
-                            <t t-esc="countOf(state.data.state_counts, 'waiting_manager_approval') + countOf(state.data.state_counts, 'bod_review')"/>
+                            <t t-esc="countOf(state.data.state_counts, 'waiting_manager_approval') + countOf(state.data.state_counts, 'waiting_head_office_approval') + countOf(state.data.state_counts, 'bod_review')"/>
                         </div>
                         <div class="o_ec_kpi_label">Pending Approval</div>
                     </div>

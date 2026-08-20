@@ -1,11 +1,12 @@
 {
     'name': 'Equipment Model',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     'category': 'Manufacturing',
     'summary': 'Manage the company\'s equipment/machine Model hierarchy',
     'description': """
 Equipment Model
 ================
+Product structure: Model Category (product line) > Product Family > Model.
 A Model is the abstract product design for one of the company's off-highway
 machines (e.g. a specific machine model), which may inherit from a parent
 Model. A Project (Job Number) is a concrete customer order - one production
@@ -21,6 +22,8 @@ business logic.
     'data': [
         'security/equipment_model_groups.xml',
         'security/ir.model.access.csv',
+        'views/equipment_model_category_views.xml',
+        'views/equipment_model_family_views.xml',
         'views/equipment_model_views.xml',
         'views/equipment_model_menus.xml',
     ],

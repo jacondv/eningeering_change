@@ -1,0 +1,48 @@
+// Widen the form sheet and give the chatter side panel a narrower fixed
+// width, system-wide (every form view with a chatter, not just Project).
+//
+// Odoo's defaults ($o-form-view-sheet-max-width: 1400px, $o-mail-Chatter-
+// minWidth: 530px) are SCSS variables compiled inside web/mail's own
+// bundles, so they can't be overridden from a separate addon - only the
+// resulting CSS rules can be re-declared here, hence !important.
+.o_form_sheet_bg {
+    max-width: 2000px !important;
+}
+
+// Only the "aside" (side-by-side) chatter layout is widened - the
+// below-sheet layout used on narrow screens is left alone so mobile/small
+// windows keep using the full width instead of a cramped fixed column.
+.o-mail-Form-chatter.o-aside {
+    flex: 0 0 450px !important;
+    width: 450px !important;
+    overflow: hidden;
+    transition: flex-basis 0.2s ease, width 0.2s ease;
+
+    // Collapsed via the handle injected by chatter_collapse_toggle.js
+    &.o_chatter_collapsed {
+        flex: 0 0 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+}
+
+// The collapse/expand handle itself - a thin strip between the sheet and
+// the chatter, always visible (even while the chatter is collapsed) since
+// it's a flex sibling, not a child, of the chatter.
+.o_chatter_collapse_toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 16px;
+    align-self: stretch;
+    cursor: pointer;
+    color: var(--o-webclient-color, #8f8f8f);
+    background-color: var(--o-view-background-color, #fff);
+    border-left: 1px solid var(--border-color, #e0e0e0);
+
+    &:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+}

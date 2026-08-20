@@ -2,3 +2,9 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_equipment_model_user,equipment.model.user,model_equipment_model,group_equipment_model_user,1,0,0,0
 access_equipment_model_manager,equipment.model.manager,model_equipment_model,group_equipment_model_manager,1,1,1,1
 access_equipment_model_all_users,equipment.model.all_users,model_equipment_model,base.group_user,1,0,0,0
+access_equipment_model_category_user,equipment.model.category.user,model_equipment_model_category,group_equipment_model_user,1,0,0,0
+access_equipment_model_category_manager,equipment.model.category.manager,model_equipment_model_category,group_equipment_model_manager,1,1,1,1
+access_equipment_model_category_all_users,equipment.model.category.all_users,model_equipment_model_category,base.group_user,1,0,0,0
+access_equipment_model_family_user,equipment.model.family.user,model_equipment_model_family,group_equipment_model_user,1,0,0,0
+access_equipment_model_family_manager,equipment.model.family.manager,model_equipment_model_family,group_equipment_model_manager,1,1,1,1
+access_equipment_model_family_all_users,equipment.model.family.all_users,model_equipment_model_family,base.group_user,1,0,0,0
