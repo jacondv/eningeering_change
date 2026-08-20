@@ -827,6 +827,33 @@ class TestEngineeringChange(TransactionCase):
         with self.assertRaises(UserError):
             change.with_user(self.user_engineer).write({'title': 'Too late'})
 
+    def test_admin_can_edit_documents_outside_design_stage_but_not_once_closed(self):
+        # Admin is neither the Engineer nor on the Implement Team, and the
+        # request isn't even at the Design stage yet - ec_document_rule_
+        # implement_write alone (scoped to group_ec_user) would block this at
+        # the ir.rule layer regardless of ACL; ec_document_rule_admin_write
+        # should still let Admin through (see engineering_change_rules.xml).
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_admin).write({
+            'document_ids': [(0, 0, {'name': 'Drawing A', 'doc_type': 'link', 'link': 'http://x'})],
+        })
+        self.assertEqual(len(change.document_ids), 1)
+        document = change.document_ids
+
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        change.with_user(self.user_manager).action_confirm_production()
+        change.with_user(self.user_manager).action_confirm_sale()
+        change.with_user(self.user_manager).action_close_request()
+        self.assertEqual(change.state, 'done')
+        # Write directly on the child document record (bypassing the
+        # parent's own _check_field_edit_permissions, which would otherwise
+        # raise its own UserError first) to isolate and confirm the ir.rule
+        # itself also cuts Admin off once Closed.
+        with self.assertRaises(AccessError):
+            document.with_user(self.user_admin).write({'name': 'Renamed'})
+
     def test_approve_comment_is_optional(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
