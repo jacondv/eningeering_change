@@ -115,6 +115,28 @@
             <field name="perm_unlink">1</field>
         </record>
 
+        <!-- Admin gets the same free-edit bypass here as on the parent
+             record's content fields (see EngineeringChange._check_field_edit_
+             permissions' is_admin clause) - blocked only once Closed, not
+             pinned to the Design stage/Engineer/Implement Team like the rule
+             above. This is a separate LOCAL rule (scoped to base.group_system,
+             not group_ec_user), so it ORs with ec_document_rule_implement_write
+             above for any user who also belongs to group_ec_user (e.g. via
+             group_ec_manager's implied_ids) rather than replacing it - see
+             the ir.rule OR-combination note in project_project_rules.xml
+             (jacon_core) for why a same-group local rule can't just be
+             widened here without affecting non-admin members of that group. -->
+        <record id="ec_document_rule_admin_write" model="ir.rule">
+            <field name="name">EC Document: Admin can edit at any stage before Closed</field>
+            <field name="model_id" ref="model_engineering_change_document"/>
+            <field name="domain_force">[('change_id.state', '!=', 'done')]</field>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">1</field>
+        </record>
+
         <!-- ============================================================
              MODEL: engineering.change.action.evidence
              ============================================================
