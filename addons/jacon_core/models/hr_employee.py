@@ -199,6 +199,23 @@ class HrEmployee(models.Model):
         date_from = fields.Date.to_date(date_from)
         date_to = fields.Date.to_date(date_to)
 
+        # A future-looking window (date_to hasn't passed yet) has to start
+        # simulating from today, not from date_from if that's later still -
+        # otherwise days between today and date_from are silently skipped,
+        # and any overdue backlog in the queue (which keeps consuming
+        # capacity on every day until finished, per the class docstring)
+        # gets dumped entirely into date_from..date_to instead of being
+        # worked off during the weeks in between like it really would be.
+        # A brand new task starting a month from now would otherwise look
+        # "overloaded" today by someone else's small, already-stale debt
+        # that will obviously be cleared long before that task's own
+        # window even begins. Purely historical windows (date_to already
+        # in the past) are left alone - there's nothing to simulate ahead
+        # of them.
+        today = fields.Date.context_today(self)
+        if date_to >= today and date_from > today:
+            date_from = today
+
         if base_queue is None:
             base_queue = self._task_queue()
         if exclude_task_id:
