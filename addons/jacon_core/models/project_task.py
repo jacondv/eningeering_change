@@ -299,8 +299,11 @@ class ProjectTask(models.Model):
         be over daily capacity somewhere between this task's start and
         deadline, counting this task's own remaining hours (allocated
         minus already logged, see remaining_hours) on top of their other
-        open tasks - shared by the warning banner and the conflict wizard
-        so the two never disagree."""
+        open tasks - day-level debt, used by action_view_overload_conflicts
+        to list which other tasks are contributing to that debt. NOT used
+        by the warning banner (see _compute_overload_warning) - a day can
+        be in debt purely from a *different*, unrelated overdue task, which
+        this task's own deadline doesn't cause and moving it wouldn't fix."""
         self.ensure_one()
         remaining = max(self.remaining_hours or 0.0, 0.0)
         if not (self.user_ids and remaining and self.date_deadline):
@@ -316,16 +319,38 @@ class ProjectTask(models.Model):
             result += [(employee, rng) for rng in ranges]
         return result
 
-    @api.depends('user_ids', 'remaining_hours', 'date_start', 'date_deadline')
+    @api.depends('user_ids', 'remaining_hours', 'date_start', 'date_deadline', 'priority')
     def _compute_overload_warning(self):
+        """Task-level: would THIS task's own remaining hours fail to
+        finish by its own deadline once queued by priority alongside the
+        assignee's other open tasks - the same definition Task Timeline
+        uses to flag a bar as overloaded (hr.employee.get_task_overload)
+        and suggested_start_notice below already uses, so the banner never
+        disagrees with either of those for the same task. Deliberately NOT
+        day-level debt (see _get_overloaded_ranges) - that can fire from a
+        colleague's unrelated overdue task and confusingly implicate this
+        one instead."""
         for task in self:
+            remaining = max(task.remaining_hours or 0.0, 0.0)
+            if not (task.user_ids and remaining and task.date_deadline):
+                task.overload_warning = False
+                continue
+            start = task.date_start or fields.Date.context_today(task)
+            deadline = fields.Date.to_date(task.date_deadline)
+            if start > deadline:
+                start = deadline
+            exclude_id = task._origin.id or None
+            priority = _priority_value(task.priority)
             lines = []
-            for employee, rng in task._get_overloaded_ranges():
-                period = (
-                    rng['start'].strftime('%d-%m') if rng['start'] == rng['end']
-                    else '%s → %s' % (rng['start'].strftime('%d-%m'), rng['end'].strftime('%d-%m')))
-                lines.append('%s - %s: over capacity by %.1fh' % (
-                    employee.name, period, rng['excess_hours']))
+            for employee in task._get_assigned_employees():
+                _days, _task_results, extra_results = employee._simulate_schedule(
+                    start, deadline,
+                    extra_remaining=[(remaining, start, deadline, priority)],
+                    exclude_task_id=exclude_id)
+                if extra_results and extra_results[0]['overloaded']:
+                    lines.append('%s: %.1fh of this task would not be finished by %s' % (
+                        employee.name, extra_results[0]['unfinished_hours'],
+                        deadline.strftime('%d-%m-%Y')))
             task.overload_warning = '\n'.join(lines) if lines else False
 
     @api.depends('user_ids', 'remaining_hours', 'date_start', 'date_deadline', 'priority')
