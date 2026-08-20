@@ -473,6 +473,38 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager).write({'title': 'Manager corrected this'})
         self.assertEqual(change.title, 'Manager corrected this')
 
+    def test_manager_and_head_office_can_edit_at_any_open_stage(self):
+        # Line Manager / Engineering Head are management-level roles - they
+        # get free edit rights at any stage short of Closed, not just while
+        # the request happens to be sitting at their own approval step.
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_manager).write({'title': 'Manager edited at Draft'})
+        self.assertEqual(change.title, 'Manager edited at Draft')
+        change.with_user(self.user_head_office).write({'title': 'Head Office edited at Draft'})
+        self.assertEqual(change.title, 'Head Office edited at Draft')
+
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'waiting_manager_approval')
+        change.with_user(self.user_head_office).write({'title': 'Head Office edited before own stage'})
+        self.assertEqual(change.title, 'Head Office edited before own stage')
+
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.state, 'waiting_head_office_approval')
+        change.with_user(self.user_manager).write({'title': 'Manager edited after own stage'})
+        self.assertEqual(change.title, 'Manager edited after own stage')
+
+    def test_manager_cannot_edit_content_once_closed(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        change.with_user(self.user_manager).action_confirm_production()
+        change.with_user(self.user_manager).action_confirm_sale()
+        change.with_user(self.user_manager).action_close_request()
+        self.assertEqual(change.state, 'done')
+        with self.assertRaises(UserError):
+            change.with_user(self.user_manager).write({'title': 'Too late'})
+
     def test_request_type_exception_for_manager(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
