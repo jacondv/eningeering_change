@@ -376,6 +376,10 @@
         .bar-wrapper .bar { fill: #4e79a7; }
         .bar-progress { fill: #2e7d32; }
         .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
+        // SVG text uses `fill`, not `color` - the label (task name/hours,
+        // drawn as its own <text class="bar-label">) otherwise stays the
+        // library's default dark grey even on a red overloaded bar.
+        .o_pd_gantt_bar_overloaded .bar-label { fill: #c62828; font-weight: 600; }
 
         // Plain assignee, not their manager/PM/admin (see can_edit_schedule
         // in jacon_project_dashboard.py) - the write would be rejected
