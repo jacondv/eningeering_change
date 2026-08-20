@@ -23,6 +23,7 @@
             <field name="is_template" position="after">
                 <field name="can_edit_ec_task_details" invisible="1"/>
                 <field name="can_assign_ec_task" invisible="1"/>
+                <field name="can_edit_ec_task_description" invisible="1"/>
             </field>
 
             <field name="task_properties" position="before">
@@ -54,7 +55,8 @@
                 <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
             </field>
             <xpath expr="//page[@name='description_page']/field[@name='description']" position="attributes">
-                <attribute name="readonly">change_id and not can_edit_ec_task_details</attribute>
+                <attribute name="readonly">change_id and not can_edit_ec_task_description</attribute>
+                <attribute name="class">o_ec_action_description</attribute>
             </xpath>
         </field>
     </record>

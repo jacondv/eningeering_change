@@ -30,6 +30,7 @@ class ProjectTask(models.Model):
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
     can_assign_ec_task = fields.Boolean(compute='_compute_can_edit_ec_task_details')
+    can_edit_ec_task_description = fields.Boolean(compute='_compute_can_edit_ec_task_details')
 
     # Fields an EC task's own assignee may touch without being Manager Approve
     # or Implement Owner. Kept as a class constant (same style as ENGINEER_FIELDS
@@ -37,6 +38,7 @@ class ProjectTask(models.Model):
     # reused by both the write guard and its error message.
     ASSIGNEE_EDITABLE_FIELDS = frozenset({
         'state',
+        'description',
         'evidence_ids',
         'affected_model_ids',
         'affected_project_ids',
@@ -69,7 +71,7 @@ class ProjectTask(models.Model):
                 return change.bod_approver_id.id
         return self.env.user.id
 
-    @api.depends('change_id.implement_owner_id')
+    @api.depends('change_id.implement_owner_id', 'user_ids')
     @api.depends_context('uid')
     def _compute_can_edit_ec_task_details(self):
         """Drives the readonly state of the standard task fields shown on
@@ -82,12 +84,20 @@ class ProjectTask(models.Model):
         `_check_ec_write_access` they CAN still set `user_ids` (assign the
         task, on any request) - without this, the field would stay readonly
         in the UI even though the write itself would be accepted server-side.
+
+        can_edit_ec_task_description is wider still: Description is part of
+        ASSIGNEE_EDITABLE_FIELDS, so ANY assignee (not just Owner/Manager/
+        Engineer) may edit it - the current user just needs to be in
+        `user_ids`, matching who `_check_ec_write_access` would actually let
+        write it.
         """
         is_manager = self._is_ec_manager()
         is_engineer = self._is_ec_engineer()
+        uid = self.env.uid
         for rec in self:
             rec.can_edit_ec_task_details = not rec.change_id or rec._is_ec_owner_or_manager(is_manager)
             rec.can_assign_ec_task = rec.can_edit_ec_task_details or is_engineer
+            rec.can_edit_ec_task_description = rec.can_edit_ec_task_details or uid in rec.user_ids.ids
 
     @api.depends('date_deadline', 'state')
     def _compute_is_overdue(self):
@@ -344,10 +354,13 @@ class ProjectTask(models.Model):
     # ------------------------------------------------------------
     def action_open_ec_task_form(self):
         """Open this task's own EC-specific form (with the Evidence tab and
-        chatter) as a dialog, for use as an "Open" button on rows of the
+        chatter) full-screen, for use as an "Open" button on rows of the
         Actions tab's embedded task list - that list is editable="bottom",
         so clicking a row otherwise just starts inline editing instead of
-        opening the full form.
+        opening the full form. target='fullscreen' (not 'new') replaces the
+        whole page rather than opening a small dialog on top of the EC
+        form, with a breadcrumb to go back - there's more room to work with
+        a task's Description/Evidence than a popup allows.
         """
         self.ensure_one()
         return {
@@ -356,7 +369,7 @@ class ProjectTask(models.Model):
             'res_id': self.id,
             'view_mode': 'form',
             'views': [(self.env.ref('engineering_change.view_engineering_change_action_form').id, 'form')],
-            'target': 'new',
+            'target': 'fullscreen',
         }
 
     # ------------------------------------------------------------
