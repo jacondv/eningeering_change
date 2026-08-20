@@ -19,7 +19,9 @@
              needs to include BOC must list group_ec_bod explicitly (see
              ec_change_rule_approve_write below). group_ec_delete is likewise an
              intentionally independent capability, listed explicitly wherever it needs to
-             participate. -->
+             participate. group_ec_head_office implies group_ec_manager, so a rule scoped
+             to group_ec_manager already covers Head Office too - it does NOT need to be
+             listed separately anywhere in this file. -->
         <record id="ec_change_rule_view_all" model="ir.rule">
             <field name="name">EC Change: everyone sees every request</field>
             <field name="model_id" ref="model_engineering_change"/>
@@ -35,7 +37,7 @@
             <field name="name">EC Change: Request holders can create and edit</field>
             <field name="model_id" ref="model_engineering_change"/>
             <field name="domain_force">[(1,'=',1)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_engineer')), (4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_engineer'), ref('group_ec_manager')])]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>
@@ -46,7 +48,7 @@
             <field name="name">EC Change: BOC/Manager Approve holders can edit (approve/reject)</field>
             <field name="model_id" ref="model_engineering_change"/>
             <field name="domain_force">[(1,'=',1)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_bod')), (4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_bod'), ref('group_ec_manager')])]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>
             <field name="perm_create">0</field>
@@ -152,7 +154,7 @@
             <field name="name">EC Evidence: Manager Approve full access</field>
             <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[(1,'=',1)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_manager')])]"/>
             <field name="perm_read">1</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>
@@ -276,7 +278,7 @@
             <field name="name">EC Task: Manager Approve full write access to EC tasks</field>
             <field name="model_id" ref="project.model_project_task"/>
             <field name="domain_force">[('change_id','!=',False)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_manager')])]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>

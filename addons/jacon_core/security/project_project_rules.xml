@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Odoo core only lets project.group_project_manager ("Project /
+         Administrator") write to project.project - a plain
+         project.group_project_user ("Project / User") has read-only ACL
+         (see project/security/ir.model.access.csv). The ACL row added
+         above in this module's own ir.model.access.csv grants that group
+         write access too, but only on the project(s) where they are the
+         assigned Project Manager (user_id), and only while the project
+         hasn't reached a folded/closed stage (Done, Cancelled, ...) -
+         everyone else's projects, and any project already closed, stay
+         read-only to them. -->
+    <record id="project_project_rule_manager_write_own" model="ir.rule">
+        <field name="name">Project: assigned Project Manager can write their own open project</field>
+        <field name="model_id" ref="project.model_project_project"/>
+        <field name="domain_force">['&amp;', ('user_id', '=', user.id), ('stage_id.fold', '=', False)]</field>
+        <field name="groups" eval="[(4, ref('project.group_project_user'))]"/>
+        <field name="perm_read">0</field>
+        <field name="perm_write">1</field>
+        <field name="perm_create">0</field>
+        <field name="perm_unlink">0</field>
+    </record>
+
+    <!-- Changing a Project's Stage is restricted to the Head Office role
+         (group_head_office, defined in this module - see
+         jacon_core_groups.xml; engineering_change's own "Engineering Head
+         Approve" privilege implies it) or an Administrator - enforced in
+         models/project_project.py's write() override. The rule above only
+         lets a Project Manager write their own project, so Head Office -
+         who isn't necessarily that project's own Manager - needs their own
+         reach to every project. The ACL row added in this module's own
+         ir.model.access.csv grants group_head_office write access; this
+         rule keeps it unrestricted at the row level (any project), while
+         the Python guard narrows what they may actually change to just
+         `stage_id` on a project that isn't their own. -->
+    <record id="project_project_rule_head_office_write" model="ir.rule">
+        <field name="name">Project: Head Office can write any project (Stage change only, enforced in Python)</field>
+        <field name="model_id" ref="project.model_project_project"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(6, 0, [ref('group_head_office')])]"/>
+        <field name="perm_read">0</field>
+        <field name="perm_write">1</field>
+        <field name="perm_create">0</field>
+        <field name="perm_unlink">0</field>
+    </record>
+
+    <!-- Core's own project_public_members_rule (base.group_user, "employees:
+         following required for follower-only projects") is declared with
+         no perm_* restriction, so it defaults to applying to write too -
+         harmless in stock Odoo since a plain Project User never had any
+         write ACL on project.project to begin with, but it silently OR's
+         together with every other group-scoped rule on write (same-model
+         local rules combine with OR, not AND - see ir_rule.py), which
+         would let it override/bypass the restrictive rule above the
+         moment write access exists at all. Scope it back down to read
+         only, which is all it was ever actually used for. -->
+    <record id="project.project_public_members_rule" model="ir.rule">
+        <field name="perm_read">1</field>
+        <field name="perm_write">0</field>
+        <field name="perm_create">0</field>
+        <field name="perm_unlink">0</field>
+    </record>
+</odoo>

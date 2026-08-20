@@ -34,7 +34,9 @@ Currently provides:
     'license': 'LGPL-3',
     'depends': ['base', 'project', 'hr_timesheet', 'equipment_model'],
     'data': [
+        'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
+        'security/project_project_rules.xml',
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
@@ -60,6 +62,7 @@ Currently provides:
             'jacon_core/static/src/project_lock/project_edit_lock_field.xml',
             'jacon_core/static/src/project_lock/project_field_readonly_patch.js',
             'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
+            'jacon_core/static/src/project_lock/project_stage_confirm_patch.js',
             'jacon_core/static/src/chatter/chatter_collapse_toggle.js',
             'jacon_core/static/src/project_stage_confirm/project_stage_confirm.js',
             'jacon_core/static/src/scss/form_layout.scss',
