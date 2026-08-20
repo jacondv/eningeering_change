@@ -10,7 +10,7 @@
                     class="form-control"
                     t-att-class="{ 'is-invalid': state.error }"
                     t-model="state.password"
-                    t-on-keydown="(ev) => ev.key === 'Enter' &amp;&amp; confirm()"
+                    t-on-keydown="onKeydown"
                     autofocus="autofocus"/>
                 <div t-if="state.error" class="invalid-feedback d-block" t-esc="state.error"/>
             </div>
