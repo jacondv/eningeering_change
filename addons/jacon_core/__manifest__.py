@@ -32,7 +32,7 @@ Currently provides:
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'project', 'hr_timesheet', 'equipment_model'],
+    'depends': ['base', 'project', 'hr_timesheet', 'hr_holidays', 'equipment_model'],
     'data': [
         'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
