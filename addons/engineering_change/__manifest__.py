@@ -11,7 +11,7 @@ proposal -> risk assessment -> approval -> implementation -> evidence closure.
 
 Features:
 - Minor Change and DCR (Design Change Request) request types
-- Two-level approval workflow: Manager -> BOD (for DCR)
+- Three-stage approval workflow: Line Manager -> Engineering Head -> BOC (for DCR)
 - Risk assessment (RPN) with impact fields
 - Implementation actions/tasks with evidence upload
 - Followers & automatic email notifications
@@ -20,7 +20,7 @@ Features:
 """,
     'author': 'DCR Project',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'web', 'project', 'equipment_model'],
+    'depends': ['base', 'mail', 'web', 'project', 'equipment_model', 'jacon_core', 'jacon_customer_site'],
     'data': [
         'security/engineering_change_groups.xml',
         'security/engineering_change_rules.xml',
@@ -29,6 +29,7 @@ Features:
         'data/mail_template_data.xml',
         'data/ir_cron_data.xml',
         'wizard/engineering_change_reject_wizard_views.xml',
+        'wizard/engineering_change_approve_wizard_views.xml',
         'views/engineering_change_views.xml',
         'views/engineering_change_action_views.xml',
         'views/engineering_change_action_evidence_views.xml',
@@ -44,6 +45,7 @@ Features:
             'engineering_change/static/src/dashboard/engineering_change_dashboard.scss',
             'engineering_change/static/src/dashboard/engineering_change_dashboard.js',
             'engineering_change/static/src/dashboard/engineering_change_dashboard.xml',
+            'engineering_change/static/src/list/collapsible_many2many_tags_field.js',
         ],
     },
     'installable': True,

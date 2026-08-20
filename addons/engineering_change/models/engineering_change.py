@@ -1,5 +1,4 @@
 from odoo import _, api, fields, models
-from odoo.addons.base.models.res_users import check_identity
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 
@@ -20,7 +19,7 @@ class EngineeringChange(models.Model):
     #   role may touch them, and only while the request is still in Draft - once
     #   submitted (let alone approved), the content is frozen. If it needs correction,
     #   the approver rejects it back to Draft instead of editing it directly.
-    # - MANAGER_FIELDS: the operational/execution side. Only BOD/Manager Approve may
+    # - MANAGER_FIELDS: the operational/execution side. Only Manager Approve may
     #   touch them, and never once the request is Done (reopen first).
     # - request_type is the one deliberate exception: both Engineer and Manager may
     #   change it, and Manager may still change it up to the Manager approval step
@@ -29,13 +28,20 @@ class EngineeringChange(models.Model):
     ENGINEER_FIELDS = frozenset({
         'title', 'description', 'engineer_id', 'rpn', 'change_category',
         'impact_lead_time', 'impact_safety', 'impact_compliance',
-        'image_ids', 'document_ids',
+        'image_ids', 'document_ids', 'default_affected_model_ids',
+        'default_affected_project_ids',
     })
+    # document_ids ("Related Drawings") also stays editable by the Implement
+    # Team/Engineer while the request is at the Design stage - a wider window
+    # than the rest of ENGINEER_FIELDS, which is only editable by the Request
+    # role in Draft or by whichever approver currently holds the request at
+    # their own approval stage. See _check_field_edit_permissions.
+    DRAWING_FIELDS = frozenset({'document_ids'})
     MANAGER_FIELDS = frozenset({'implement_team_ids', 'implement_owner_id'})
     # Fields only ever meant to change as a side effect of the workflow methods
     # below (Submit/Approve/Reject/Close/Reopen), never through a direct write().
     # Base ACL + the rules above already grant write=1 on the whole model to
-    # Request/BOD/Manager Approve, so without this guard any of them could set
+    # Request/BOC/Manager Approve, so without this guard any of them could set
     # state directly (e.g. skip straight to 'done'), bypassing the approval
     # sequence entirely.
     WORKFLOW_FIELDS = frozenset({
@@ -53,10 +59,11 @@ class EngineeringChange(models.Model):
         ('client_feedback', 'Client Feedback'),
         ('supplychain', 'SupplyChain'),
         ('safety', 'Safety'),
-        ('productivity', 'Productivity'),
-        ('production', 'Production')
+        ('improvement', 'Improvement'),
+        ('production', 'Production'),
+        ('Product Support', 'Product Support'),
     ], string='Change Source', tracking=True)
-    title = fields.Char(required=True, tracking=True)
+    title = fields.Char(required=True, tracking=True, size=100)
     description = fields.Html(required=True)
     engineer_id = fields.Many2one(
         'res.users', string='Engineer', required=True, index=True,
@@ -64,8 +71,9 @@ class EngineeringChange(models.Model):
     close_date = fields.Datetime(readonly=True, copy=False)
     state = fields.Selection([
         ('draft', 'Draft'),
-        ('waiting_manager_approval', 'Manager Approval'),
-        ('bod_review', 'BOD Approval'),
+        ('waiting_manager_approval', 'Line Manager Approval'),
+        ('waiting_head_office_approval', 'Engineering Head Approval'),
+        ('bod_review', 'BOC Approval'),
         ('implement', 'Design'),
         ('production', 'Production'),
         ('sale', 'Sales'),
@@ -84,6 +92,8 @@ class EngineeringChange(models.Model):
              "bypass the password confirmation required to delete a request.")
 
     image_ids = fields.One2many('engineering.change.image', 'change_id', string='Images')
+    approval_log_ids = fields.One2many(
+        'engineering.change.approval.log', 'change_id', string='Approval History')
     document_ids = fields.One2many('engineering.change.document', 'change_id', string='Related Drawings')
     task_ids = fields.One2many('project.task', 'change_id', string='Actions')
 
@@ -102,7 +112,7 @@ class EngineeringChange(models.Model):
     impact_safety = fields.Text(string='Safety Impact', tracking=True)
     impact_compliance = fields.Text(string='Compliance Impact', tracking=True)
 
-    bod_approver_id = fields.Many2one('res.users', string='BOD Approver', readonly=True, copy=False)
+    bod_approver_id = fields.Many2one('res.users', string='BOC Approver', readonly=True, copy=False)
     reject_reason = fields.Text(readonly=True, copy=False)
 
     action_count = fields.Integer(compute='_compute_action_stats')
@@ -110,18 +120,49 @@ class EngineeringChange(models.Model):
     progress = fields.Float(compute='_compute_action_stats', string='Progress (%)')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
     affected_model_ids = fields.Many2many(
-        'equipment.model', compute='_compute_affected_model_ids',
+        'equipment.model', 'engineering_change_affected_model_rel', 'change_id', 'model_id',
+        compute='_compute_affected_model_ids', store=True,
         string='Impacted Models')
+    default_affected_model_ids = fields.Many2many(
+        'equipment.model', 'engineering_change_default_model_rel', 'change_id', 'model_id',
+        string='Default Impacted Model',
+        help="Pre-fills each new Action's own Impacted Model when created under "
+             "this request, since most Actions typically affect the same "
+             "Model(s). Each Action can still change or clear it afterward - "
+             "this is only a starting value, not kept in sync.")
+    default_affected_family_ids = fields.Many2many(
+        'equipment.model.family', 'engineering_change_default_family_rel', 'change_id', 'family_id',
+        string='Default Impact Family',
+        help="Quick-select helper: picking a Family here adds every Model in "
+             "it to Default Impacted Model above (see _onchange_default_affected_family_ids) "
+             "instead of picking each Model one by one. Not kept in sync afterward - "
+             "removing a Family here does not remove its Models from Default "
+             "Impacted Model, same as everything else in that field.")
+    affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_affected_project_rel', 'change_id', 'project_id',
+        compute='_compute_affected_project_ids', store=True,
+        string='Impacted Job Numbers')
+    default_affected_project_ids = fields.Many2many(
+        'project.project', 'engineering_change_default_project_rel', 'change_id', 'project_id',
+        string='Default Impacted Job Number', domain=[('is_ec_project', '=', False)],
+        help="Pre-fills each new Action's own Impacted Job Number when created "
+             "under this request, since most Actions typically affect the same "
+             "Job Number(s). Each Action can still change or clear it afterward - "
+             "this is only a starting value, not kept in sync.")
     has_overdue_action = fields.Boolean(compute='_compute_has_overdue', store=True)
     next_action_deadline = fields.Date(compute='_compute_next_action_deadline', store=True, string='Next Deadline')
 
     # UX hints for the view (readonly conditions). The write() guard below is the
     # actual enforcement; these just let the form grey fields out accordingly.
     can_edit_engineer_fields = fields.Boolean(compute='_compute_edit_rights')
+    can_edit_drawings = fields.Boolean(compute='_compute_edit_rights')
     can_edit_manager_fields = fields.Boolean(compute='_compute_edit_rights')
     can_edit_request_type = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_production = fields.Boolean(compute='_compute_edit_rights')
     can_confirm_sale = fields.Boolean(compute='_compute_edit_rights')
+    can_edit_dcr_no = fields.Boolean(compute='_compute_edit_rights')
+    can_manager_approve = fields.Boolean(compute='_compute_edit_rights')
+    can_recall_submission = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -131,6 +172,18 @@ class EngineeringChange(models.Model):
         'UNIQUE(project_id)',
         'Each Project can only be linked to one Engineering Change request.',
     )
+    _dcr_no_unique = models.Constraint(
+        'UNIQUE(dcr_no)',
+        'This DCR Number is already used by another request.',
+    )
+
+    # ------------------------------------------------------------
+    # Onchange
+    # ------------------------------------------------------------
+    @api.onchange('default_affected_family_ids')
+    def _onchange_default_affected_family_ids(self):
+        for rec in self:
+            rec.default_affected_model_ids |= rec.default_affected_family_ids.model_ids
 
     # ------------------------------------------------------------
     # Computed fields
@@ -162,6 +215,11 @@ class EngineeringChange(models.Model):
         for rec in self:
             rec.affected_model_ids = rec.task_ids.affected_model_ids
 
+    @api.depends('task_ids.affected_project_ids')
+    def _compute_affected_project_ids(self):
+        for rec in self:
+            rec.affected_project_ids = rec.task_ids.affected_project_ids
+
     @api.depends('task_ids.is_overdue')
     def _compute_has_overdue(self):
         for rec in self:
@@ -175,23 +233,45 @@ class EngineeringChange(models.Model):
             ).mapped('date_deadline')
             rec.next_action_deadline = fields.Date.to_date(min(deadlines)) if deadlines else False
 
-    @api.depends('state', 'implement_owner_id')
+    @api.depends('state', 'implement_owner_id', 'engineer_id', 'implement_team_ids')
+    @api.depends_context('uid')
     def _compute_edit_rights(self):
         user = self.env.user
+        is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        is_manager = user.has_group('engineering_change.group_ec_manager') \
-            or user.has_group('base.group_system')
-        is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
+        # is_manager is True for Line Manager AND Head Manager (group_ec_head_office
+        # implies group_ec_manager) - each own-stage clause below still keys off the
+        # record's actual state, so the two stages never overlap in practice.
+        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        is_bod = user.has_group('engineering_change.group_ec_bod')
+        can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
-            rec.can_edit_engineer_fields = is_manager or (is_engineer and rec.state == 'draft')
-            rec.can_edit_manager_fields = is_approver and rec.state != 'done'
-            rec.can_edit_request_type = (
-                is_manager
+            own_stage_edit = (
+                (is_admin and rec.state != 'done')
                 or (is_engineer and rec.state == 'draft')
-                or (is_approver and rec.state in ('draft', 'waiting_manager_approval'))
+                or (is_manager and rec.state == 'waiting_manager_approval')
+                or (is_head_office and rec.state == 'waiting_head_office_approval')
+                or (is_bod and rec.state == 'bod_review')
             )
+            rec.can_edit_engineer_fields = own_stage_edit
+            rec.can_edit_drawings = own_stage_edit or (
+                rec.state == 'implement'
+                and (rec.engineer_id == user or user in rec.implement_team_ids)
+            )
+            rec.can_edit_manager_fields = is_manager and rec.state != 'done'
+            rec.can_edit_request_type = is_manager or (is_engineer and rec.state == 'draft')
             rec.can_confirm_production = is_manager or rec.implement_owner_id == user
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
+            rec.can_edit_dcr_no = can_edit_dcr_no
+            rec.can_recall_submission = (
+                rec.state == 'waiting_manager_approval'
+                and (is_admin or rec.engineer_id == user))
+            if rec.state == 'waiting_manager_approval' and is_manager:
+                direct_manager = rec._get_direct_manager_user()
+                rec.can_manager_approve = is_admin or not direct_manager or user == direct_manager
+            else:
+                rec.can_manager_approve = False
 
     # ------------------------------------------------------------
     # Project linking
@@ -256,27 +336,38 @@ class EngineeringChange(models.Model):
         # field's docstring). So instead: delete the requests first (clearing
         # the reference project_id's restrict is guarding), then delete their
         # now-unreferenced projects as a deliberate side effect of this method.
+        # project.project (jacon_core) has its own, separate unlink() guard
+        # keyed on 'project_delete_password_confirmed' - the shared delete
+        # password wizard (jacon.delete.password.wizard) already sets both
+        # context flags together, so that guard is satisfied too, not just
+        # this model's own 'ec_delete_password_confirmed' key.
         projects = self.project_id
         result = super().unlink()
-        projects.sudo().unlink()
+        projects.sudo().with_context(project_delete_password_confirmed=True).unlink()
         return result
 
-    @check_identity
     def action_delete_with_password(self):
-        """Permanently delete this request, regardless of its stage. Wrapped
-        in Odoo's standard password re-check (`check_identity`): the first
-        call pops up the core "Access Control" wizard instead of running this
-        method, and only calls back into it once the user's password has been
-        confirmed - see `res.users.identitycheck` in the `base` module.
-        Deletion is otherwise irreversible, unlike Archive, so this is
-        intentionally harder to trigger than the plain Action > Delete menu
-        (which unlink() above refuses outright).
+        """Opens the shared jacon.delete.password.wizard (from jacon_core),
+        which asks for the current user's own password - every single time,
+        never cached (see the wizard's own docstring for why this isn't the
+        core `check_identity` decorator) - before permanently deleting this
+        request. Deletion is otherwise irreversible, unlike Archive, so this
+        is intentionally harder to trigger than the plain Action > Delete
+        menu (which unlink() above refuses outright).
         """
-        self.with_context(ec_delete_password_confirmed=True).unlink()
-        # Redirect back to the list instead of ir.actions.act_window_close:
-        # this button lives on a full-page form (not a dialog), so closing
-        # alone leaves the client trying to reload the now-deleted record.
-        return self.env['ir.actions.act_window']._for_xml_id('engineering_change.action_engineering_change_all')
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Confirm Deletion'),
+            'res_model': 'jacon.delete.password.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_res_model': self._name,
+                'default_res_id': self.id,
+                'default_redirect_action_xmlid': 'engineering_change.action_engineering_change_all',
+            },
+        }
 
     def write(self, vals):
         keys = set(vals.keys())
@@ -285,6 +376,12 @@ class EngineeringChange(models.Model):
             for rec in self:
                 rec._check_field_edit_permissions(keys)
         workflow_keys = keys & self.WORKFLOW_FIELDS
+        if 'dcr_no' in workflow_keys and self.env.user.has_group('engineering_change.group_ec_edit_dcr_no'):
+            # Edit DCR Number holders may correct dcr_no directly (e.g. fixing
+            # a typo, or a number issued under an old numbering format) -
+            # everything else in WORKFLOW_FIELDS still requires going through
+            # the workflow buttons below.
+            workflow_keys = workflow_keys - {'dcr_no'}
         if workflow_keys and not self.env.context.get('ec_workflow_write'):
             raise UserError(_(
                 "%s can only change via the workflow buttons (Submit / Approve / "
@@ -293,47 +390,111 @@ class EngineeringChange(models.Model):
         if 'active' in keys:
             for rec in self:
                 rec._check_archive_permission()
-        return super().write(vals)
+        result = super().write(vals)
+        if 'request_type' in keys:
+            self._sync_dcr_no_on_type_change()
+        return result
+
+    # Once a request already went through BOC approval (state at/after
+    # 'implement'), the normal action_bod_approve() flow that assigns
+    # dcr_no won't run again - only the Manager/Admin can still flip
+    # request_type at that point (see can_edit_request_type), and this
+    # keeps dcr_no consistent with the corrected type without requiring a
+    # Reject-to-Draft round trip. Earlier states are left alone: dcr_no is
+    # still assigned by action_bod_approve() once the request actually
+    # reaches BOC approval, same as always.
+    def _sync_dcr_no_on_type_change(self):
+        for rec in self:
+            if rec.request_type == 'dcr' and not rec.dcr_no and rec.state not in ('draft', 'waiting_manager_approval', 'bod_review'):
+                rec.with_context(ec_workflow_write=True).dcr_no = rec._next_dcr_no() or False
+            elif rec.request_type == 'minor' and rec.dcr_no:
+                rec.with_context(ec_workflow_write=True).dcr_no = False
+
+    # Tracks (in ir.config_parameter, not a field on this model) the last
+    # year-month _next_dcr_no() generated a number for, so it knows when to
+    # reset the counter below.
+    _DCR_PERIOD_PARAM = 'engineering_change.dcr_period'
+
+    def _next_dcr_no(self):
+        """Next DCR No, formatted yymmDCxx (e.g. 2608DC01) - the 2-digit
+        counter resets to 01 every calendar month. ir.sequence's own
+        use_date_range only resets yearly (see _create_date_range_seq in
+        Odoo core, which always buckets Jan 1 - Dec 31 regardless of what
+        date codes the prefix uses), so instead of a prefix/date_range
+        Odoo doesn't support, a single bare counter sequence
+        (seq_engineering_change_dcr, no prefix, use_date_range=False) is
+        reused forever - its counter is simply reset back to 1 here
+        whenever the current year-month differs from the last one it was
+        used for, and the "yymmDC" part is prepended in Python. This
+        avoids creating a new ir.sequence record every month just to get
+        a fresh counter.
+        """
+        self.ensure_one()
+        period = fields.Date.context_today(self).strftime('%y%m')
+        IrConfigParameter = self.env['ir.config_parameter'].sudo()
+        if IrConfigParameter.get_param(self._DCR_PERIOD_PARAM) != period:
+            self.env.ref('engineering_change.seq_engineering_change_dcr').sudo().number_next_actual = 1
+            IrConfigParameter.set_param(self._DCR_PERIOD_PARAM, period)
+        number = self.env['ir.sequence'].sudo().next_by_code('engineering.change.dcr')
+        return f'{period}DC{number}' if number else False
 
     def _check_field_edit_permissions(self, keys):
         self.ensure_one()
         user = self.env.user
+        is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        # Manager Approve and Administrator may always edit any content of the
-        # request, regardless of state or role - they're trusted to correct it
-        # directly instead of going through the Reject-to-Draft round trip.
-        is_manager = user.has_group('engineering_change.group_ec_manager') \
-            or user.has_group('base.group_system')
-        is_approver = user.has_group('engineering_change.group_ec_bod') or is_manager
+        # is_manager is True for Line Manager AND Head Manager (implied group) -
+        # each clause below still keys off the record's actual state, so the
+        # two stages never overlap in practice. BOC (group_ec_bod) is
+        # deliberately excluded from MANAGER_FIELDS/request_type edit rights -
+        # View + Comment only, per the approval workflow design.
+        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        is_bod = user.has_group('engineering_change.group_ec_bod')
 
         engineer_keys = keys & self.ENGINEER_FIELDS
-        if engineer_keys and not is_manager:
-            if self.state != 'draft':
-                raise UserError(_(
-                    "The request content (%s) can only be edited while the request is in Draft. "
-                    "Reject it back to Draft first if it needs correction."
-                ) % ', '.join(sorted(engineer_keys)))
-            if not is_engineer:
-                raise AccessError(_("Only the Request role can edit the request content."))
+        drawing_keys = engineer_keys & self.DRAWING_FIELDS
+        other_engineer_keys = engineer_keys - self.DRAWING_FIELDS
+        own_stage_edit = (
+            (is_admin and self.state != 'done')
+            or (is_engineer and self.state == 'draft')
+            or (is_manager and self.state == 'waiting_manager_approval')
+            or (is_head_office and self.state == 'waiting_head_office_approval')
+            or (is_bod and self.state == 'bod_review')
+        )
+
+        if other_engineer_keys and not own_stage_edit:
+            raise UserError(_(
+                "The request content (%s) can only be edited by the Request role while in "
+                "Draft, or by the approver currently holding the request at their own "
+                "approval stage. Reject it back to Draft first if it needs correction "
+                "outside that window."
+            ) % ', '.join(sorted(other_engineer_keys)))
+
+        if drawing_keys and not (
+            own_stage_edit
+            or (self.state == 'implement'
+                and (self.engineer_id == user or user in self.implement_team_ids))
+        ):
+            raise UserError(_(
+                "Related Drawings can only be edited by the Request role while in Draft, "
+                "by the approver currently holding the request at their own approval "
+                "stage, or by the Engineer/Implement Team while at the Design stage."
+            ))
 
         manager_keys = keys & self.MANAGER_FIELDS
-        if manager_keys:
-            if not is_approver:
-                raise AccessError(_("Only BOD Approve / Manager Approve can edit the Implement Team fields."))
-            if self.state == 'done' and not is_manager:
-                raise UserError(_("Reopen the request before editing the Implement Team fields."))
+        if manager_keys and not is_manager:
+            raise AccessError(_("Only Line Manager / Head Manager Approve can edit the Implement Team fields."))
 
         if 'request_type' in keys and not is_manager:
-            if not (is_engineer or is_approver):
+            if not is_engineer:
                 raise AccessError(_("Only the Request or Approve roles can change the Request Type."))
-            if self.state not in ('draft', 'waiting_manager_approval'):
-                raise UserError(_("Request Type can only be changed before it reaches BOD Review / Implement."))
-            if is_engineer and not is_approver and self.state != 'draft':
+            if self.state != 'draft':
                 raise UserError(_("Request Type can only be changed by the Request role while in Draft."))
 
     def _check_archive_permission(self):
         """Only the request's own Engineer (its creator/owner) or Manager
-        Approve may archive/unarchive it - BOD Approve and other Engineers
+        Approve may archive/unarchive it - BOC Approve and other Engineers
         otherwise have unconditional base write access to the model, which
         would let them archive any request without this check.
         """

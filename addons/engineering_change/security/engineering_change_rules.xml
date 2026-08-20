@@ -12,13 +12,16 @@
              are just writes to `state` via the workflow methods, guarded further in
              EngineeringChange.write()) and deletion.
 
-             Group membership note used throughout this file: Request/BOD/Manager Approve
-             all imply View (group_ec_user) via `implied_ids`, and Manager Approve implies
-             BOD Approve - a Manager really is a member of group_ec_bod/group_ec_user, not
-             just "equivalent" to one. So a rule scoped to group_ec_user already covers
-             every role below it; only group_ec_delete stands outside that chain (it's an
-             intentionally independent capability) and must be listed explicitly wherever
-             it needs to participate. -->
+             Group membership note used throughout this file: Request/BOC/Line Manager Approve
+             each imply View (group_ec_user) via `implied_ids`, so a rule scoped to
+             group_ec_user already covers all of them. BOC Approve is a fully independent
+             privilege - Line Manager/Head Manager Approve do NOT imply it, so any rule that
+             needs to include BOC must list group_ec_bod explicitly (see
+             ec_change_rule_approve_write below). group_ec_delete is likewise an
+             intentionally independent capability, listed explicitly wherever it needs to
+             participate. group_ec_head_office implies group_ec_manager, so a rule scoped
+             to group_ec_manager already covers Head Office too - it does NOT need to be
+             listed separately anywhere in this file. -->
         <record id="ec_change_rule_view_all" model="ir.rule">
             <field name="name">EC Change: everyone sees every request</field>
             <field name="model_id" ref="model_engineering_change"/>
@@ -34,7 +37,7 @@
             <field name="name">EC Change: Request holders can create and edit</field>
             <field name="model_id" ref="model_engineering_change"/>
             <field name="domain_force">[(1,'=',1)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_engineer')), (4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_engineer'), ref('group_ec_manager')])]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>
@@ -42,10 +45,10 @@
         </record>
 
         <record id="ec_change_rule_approve_write" model="ir.rule">
-            <field name="name">EC Change: BOD/Manager Approve holders can edit (approve/reject)</field>
+            <field name="name">EC Change: BOC/Manager Approve holders can edit (approve/reject)</field>
             <field name="model_id" ref="model_engineering_change"/>
             <field name="domain_force">[(1,'=',1)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_bod')), (4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_bod'), ref('group_ec_manager')])]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>
             <field name="perm_create">0</field>
@@ -66,6 +69,23 @@
             <field name="perm_unlink">0</field>
         </record>
 
+        <!-- Related Drawings (document_ids) stay editable by the Engineer or any
+             Implement Team member while the request is at the Design stage - even
+             if they hold no Approve role at all (just group_ec_user/group_ec_engineer).
+             The field-level guard in EngineeringChange.write() (_check_field_edit_
+             permissions) still restricts this to document_ids only; every other
+             field remains gated as before. -->
+        <record id="ec_change_rule_implement_write" model="ir.rule">
+            <field name="name">EC Change: Engineer/Implement Team can edit Related Drawings at Design stage</field>
+            <field name="model_id" ref="model_engineering_change"/>
+            <field name="domain_force">['&amp;',('state','=','implement'),'|',('engineer_id','=',user.id),('implement_team_ids','in',[user.id])]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <record id="ec_change_rule_delete" model="ir.rule">
             <field name="name">EC Change: Delete holders can delete</field>
             <field name="model_id" ref="model_engineering_change"/>
@@ -78,11 +98,58 @@
         </record>
 
         <!-- ============================================================
+             MODEL: engineering.change.document
+             ============================================================
+             Same Design-stage carve-out as ec_change_rule_implement_write above,
+             on the child model itself - the parent-record rule alone isn't
+             enough to let a plain Implement Team member add/edit/remove lines
+             in the Related Drawings one2many. -->
+        <record id="ec_document_rule_implement_write" model="ir.rule">
+            <field name="name">EC Document: Engineer/Implement Team can edit at Design stage</field>
+            <field name="model_id" ref="model_engineering_change_document"/>
+            <field name="domain_force">['&amp;',('change_id.state','=','implement'),'|',('change_id.engineer_id','=',user.id),('change_id.implement_team_ids','in',[user.id])]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">1</field>
+        </record>
+
+        <!-- Admin gets the same free-edit bypass here as on the parent
+             record's content fields (see EngineeringChange._check_field_edit_
+             permissions' is_admin clause) - blocked only once Closed, not
+             pinned to the Design stage/Engineer/Implement Team like the rule
+             above. This is a separate LOCAL rule (scoped to base.group_system,
+             not group_ec_user), so it ORs with ec_document_rule_implement_write
+             above for any user who also belongs to group_ec_user (e.g. via
+             group_ec_manager's implied_ids) rather than replacing it - see
+             the ir.rule OR-combination note in project_project_rules.xml
+             (jacon_core) for why a same-group local rule can't just be
+             widened here without affecting non-admin members of that group. -->
+        <record id="ec_document_rule_admin_write" model="ir.rule">
+            <field name="name">EC Document: Admin can edit at any stage before Closed</field>
+            <field name="model_id" ref="model_engineering_change_document"/>
+            <field name="domain_force">[('change_id.state', '!=', 'done')]</field>
+            <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">1</field>
+        </record>
+
+        <!-- ============================================================
              MODEL: engineering.change.action.evidence
-             ============================================================ -->
+             ============================================================
+             The model itself and its base ir.model.access.csv row (granting
+             base.group_user full CRUD) live in jacon_core, not here - see that
+             row's cross-reference comment on EngineeringChangeActionEvidence.
+             The rules below are the real restriction: a plain base.group_user
+             holder with none of the EC groups matches none of them and gets
+             no rows at all, despite jacon_core's own ACL looking permissive. -->
+
         <record id="ec_evidence_rule_assignee" model="ir.rule">
             <field name="name">EC Evidence: assignee manages evidence on their own task</field>
-            <field name="model_id" ref="model_engineering_change_action_evidence"/>
+            <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[('task_id.user_ids','in',[user.id])]</field>
             <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
             <field name="perm_read">1</field>
@@ -91,12 +158,12 @@
             <field name="perm_unlink">1</field>
         </record>
 
-        <!-- Request/BOD Approve can see and add evidence on any EC task, but hard-delete
+        <!-- Request/BOC Approve can see and add evidence on any EC task, but hard-delete
              is reserved for the task's own assignee (their own evidence, handled by
              ec_evidence_rule_assignee above) or Manager Approve (any evidence, below). -->
         <record id="ec_evidence_rule_engineer" model="ir.rule">
-            <field name="name">EC Evidence: Request/BOD full visibility (no delete)</field>
-            <field name="model_id" ref="model_engineering_change_action_evidence"/>
+            <field name="name">EC Evidence: Request/BOC full visibility (no delete)</field>
+            <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[(1,'=',1)]</field>
             <field name="groups" eval="[(4, ref('group_ec_engineer')), (4, ref('group_ec_bod'))]"/>
             <field name="perm_read">1</field>
@@ -107,9 +174,9 @@
 
         <record id="ec_evidence_rule_manager" model="ir.rule">
             <field name="name">EC Evidence: Manager Approve full access</field>
-            <field name="model_id" ref="model_engineering_change_action_evidence"/>
+            <field name="model_id" ref="jacon_core.model_engineering_change_action_evidence"/>
             <field name="domain_force">[(1,'=',1)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_manager')])]"/>
             <field name="perm_read">1</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>
@@ -132,6 +199,22 @@
             <field name="perm_unlink">0</field>
         </record>
 
+        <!-- Creating an action has no role restriction (see ProjectTask.
+             _check_ec_create_access, now a no-op) - any EC user may add one
+             to any request. Kept separate from ec_task_rule_view_all (which
+             deliberately grants no create) so write/unlink stay governed by
+             the narrower rules below (Implement Owner / Manager Approve). -->
+        <record id="ec_task_rule_user_create" model="ir.rule">
+            <field name="name">EC Task: any EC user can create an action on any request</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">[('change_id','!=',False)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">0</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <record id="ec_task_rule_user_write" model="ir.rule">
             <field name="name">EC Task: assignee can update status/evidence on their own tasks</field>
             <field name="model_id" ref="project.model_project_task"/>
@@ -143,12 +226,30 @@
             <field name="perm_unlink">0</field>
         </record>
 
+        <!-- Any Request/Engineer role holder may assign an EC task to anyone,
+             on any request - not just their own request's Implement Team/Owner.
+             Record-level reachability only; ProjectTask._check_ec_write_access
+             still limits them to touching `user_ids` (plus the usual
+             ASSIGNEE_EDITABLE_FIELDS) unless they're also the Implement Owner
+             or Manager Approve. -->
+        <record id="ec_task_rule_engineer_assign" model="ir.rule">
+            <field name="name">EC Task: any Engineer can assign tasks on any request</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">[('change_id','!=',False)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_engineer'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <!-- The request's Implement Owner (a per-record field, `change_id.implement_owner_id`,
-             not a role) is the one who plans out the implementation - only they (or Manager
-             Approve, below) may create/edit/delete tasks for their own request. Everyone else,
-             including plain assignees and Request/BOD Approve holders, cannot create or delete
-             tasks at all; `ec_task_rule_user_write` above still lets an assignee update
-             Status/Evidence only (enforced in ProjectTask.write()). -->
+             not a role) is the one who plans out the implementation - they (or Manager Approve,
+             below) may fully edit/delete tasks on their own request. Everyone else, including
+             plain assignees and Request/BOC Approve holders, cannot edit/delete tasks (though
+             anyone can still CREATE one, per ec_task_rule_user_create above);
+             `ec_task_rule_user_write` above still lets an assignee update Status/Evidence only
+             (enforced in ProjectTask.write()). -->
         <record id="ec_task_rule_implement_owner_write" model="ir.rule">
             <field name="name">EC Task: Implement Owner manages tasks on their own request</field>
             <field name="model_id" ref="project.model_project_task"/>
@@ -160,13 +261,46 @@
             <field name="perm_unlink">1</field>
         </record>
 
+        <!-- Whoever created a given task may also delete that same one (in
+             addition to Manager Approve / Implement Owner, granted below by
+             ec_task_rule_implement_owner_write / ec_task_rule_manager_write) -
+             matches ProjectTask._check_ec_delete_access. -->
+        <record id="ec_task_rule_creator_unlink" model="ir.rule">
+            <field name="name">EC Task: the creator can delete their own action</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">['&amp;',('change_id','!=',False),('create_uid','=',user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">0</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">1</field>
+        </record>
+
+        <!-- jacon_core's Propose Schedule Change feature: the assignee's own direct
+             HR manager (hr.employee.parent_id.user_id) Approves/Rejects a pending
+             proposal - that manager isn't necessarily this EC's own Manager/
+             Implement Owner/team, so without this rule they couldn't even reach
+             the task to write on it (jacon_core's own write() guard is what
+             actually authorizes which fields they may change - see
+             ASSIGNEE_EDITABLE_FIELDS on ProjectTask). -->
+        <record id="ec_task_rule_assignee_manager_write" model="ir.rule">
+            <field name="name">EC Task: assignee's direct HR manager can approve/reject a schedule change</field>
+            <field name="model_id" ref="project.model_project_task"/>
+            <field name="domain_force">['&amp;',('change_id','!=',False),('user_ids.employee_ids.parent_id.user_id','=',user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
         <!-- Manager Approve keeps unconditional full access to every EC task as an
              oversight/override capability, independent of who the Implement Owner is. -->
         <record id="ec_task_rule_manager_write" model="ir.rule">
             <field name="name">EC Task: Manager Approve full write access to EC tasks</field>
             <field name="model_id" ref="project.model_project_task"/>
             <field name="domain_force">[('change_id','!=',False)]</field>
-            <field name="groups" eval="[(4, ref('group_ec_manager'))]"/>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_manager')])]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>

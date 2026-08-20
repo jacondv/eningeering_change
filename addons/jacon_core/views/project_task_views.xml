@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================= FORM VIEW ================= -->
+    <record id="view_task_form2_task_type" model="ir.ui.view">
+        <field name="name">project.task.form.task.type</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <!-- Non-blocking heads-up when assigning this task would push
+                 an engineer over daily capacity somewhere between its
+                 Start Date and Deadline - see
+                 project_task._compute_overload_warning. Odoo's stock form
+                 reserves this exact spot for inherited warnings. -->
+            <xpath expr="//t[@name='warning_section']" position="after">
+                <div class="alert alert-warning mb-0" role="alert" invisible="not overload_warning">
+                    <strong><i class="fa fa-exclamation-triangle"/> Schedule Overload Warning</strong>
+                    <field name="overload_warning" nolabel="1" readonly="1"/>
+                    <button name="action_view_overload_conflicts" type="object"
+                            string="View &amp; Resolve Conflicts" class="btn btn-sm btn-outline-warning mt-1"
+                            invisible="not id"/>
+                </div>
+                <!-- Separate from the warning above: that one flags a day
+                     somewhere in the window that's paying down unrelated
+                     debt, not whether THIS task's own hours actually fit -
+                     see project_task._compute_suggested_start. Applies
+                     even to a brand new, not-yet-saved task. -->
+                <div class="alert alert-info mb-0" role="alert" invisible="not suggested_start_notice">
+                    <strong><i class="fa fa-lightbulb-o"/> Suggested Start Date</strong>
+                    <field name="suggested_start_notice" nolabel="1" readonly="1"/>
+                    <button name="action_apply_suggested_start" type="object"
+                            string="Apply Suggested Start" class="btn btn-sm btn-outline-info mt-1"/>
+                </div>
+                <!-- Pending schedule-change proposal from an assignee -
+                     shown to everyone (so the assignee can see it's still
+                     pending) but the Approve/Reject buttons only work for
+                     the assignee's direct manager (server-side check in
+                     action_approve_schedule_change/action_reject_schedule_change;
+                     can_approve_schedule_change just hides them for
+                     everyone else). See project_task._get_deadline_change_managers. -->
+                <div class="alert alert-info mb-0" role="alert"
+                     invisible="not proposed_date_start and not proposed_date_deadline and not proposed_allocated_hours">
+                    <strong><i class="fa fa-calendar"/> Schedule Change Requested</strong>
+                    <div>
+                        <field name="schedule_change_requested_by" readonly="1" nolabel="1"/> proposed:
+                    </div>
+                    <div invisible="not proposed_date_start">
+                        Start Date → <field name="proposed_date_start" readonly="1" nolabel="1"/>
+                    </div>
+                    <div invisible="not proposed_date_deadline">
+                        Deadline → <field name="proposed_date_deadline" readonly="1" nolabel="1"/>
+                    </div>
+                    <div invisible="not proposed_allocated_hours">
+                        Allocated Hours → <field name="proposed_allocated_hours" readonly="1" nolabel="1"/>
+                    </div>
+                    <div><field name="proposed_schedule_reason" readonly="1" nolabel="1"/></div>
+                    <button name="action_approve_schedule_change" type="object"
+                            string="Approve" class="btn btn-sm btn-outline-success mt-1"
+                            invisible="not can_approve_schedule_change"/>
+                    <button name="action_reject_schedule_change" type="object"
+                            string="Reject" class="btn btn-sm btn-outline-danger mt-1"
+                            invisible="not can_approve_schedule_change"/>
+                </div>
+            </xpath>
+
+            <!-- Suggest previously-used Task titles as the user types, so a
+                 recurring task name can be reused with one click instead of
+                 retyped slightly differently every time - see
+                 project.task.search_task_title_suggestions. -->
+            <xpath expr="//field[@name='name'][@widget='text']" position="attributes">
+                <attribute name="widget">task_title_autocomplete</attribute>
+            </xpath>
+
+            <!-- Explicit Start Date (default: creation date, editable) -
+                 the overload calculation spreads remaining hours across
+                 working days from here to Deadline, a fixed window
+                 instead of always "today". -->
+            <xpath expr="//label[@for='date_deadline']" position="before">
+                <label for="date_start"/>
+                <field name="date_start" nolabel="1"/>
+            </xpath>
+
+            <!-- Turn the Deadline field itself red the moment the
+                 Start Date -> Deadline window can't physically fit
+                 Allocated Time (this task alone, or stacked with the
+                 assignee's other open tasks) - overload_warning already
+                 covers both cases, this just surfaces it right where
+                 the user is editing instead of only in the banner
+                 below. -->
+            <xpath expr="//div[@id='date_deadline_and_recurring_task']/field[@name='date_deadline']"
+                   position="attributes">
+                <attribute name="decoration-danger">(date_deadline and date_deadline &lt; current_date and state not in ['1_done', '1_canceled']) or overload_warning</attribute>
+            </xpath>
+            <!-- Lets the task's own assignee ask for a new Start Date/
+                 Deadline/Allocated Hours without editing those fields
+                 directly (blocked for them - see project_task.write's
+                 SCHEDULE_FIELDS guard) - opens
+                 jacon.task.propose.schedule.wizard, visible only while
+                 there's no proposal already pending (see
+                 project_task.can_propose_schedule_change). -->
+            <xpath expr="//div[@id='date_deadline_and_recurring_task']/field[@name='date_deadline']"
+                   position="after">
+                <button name="action_propose_schedule_change" type="object"
+                        string="Propose Schedule Change" class="btn btn-sm btn-link px-0"
+                        invisible="not can_propose_schedule_change"/>
+                <field name="can_propose_schedule_change" invisible="1"/>
+                <field name="can_approve_schedule_change" invisible="1"/>
+            </xpath>
+            <field name="tag_ids" position="after">
+                <field name="task_type"/>
+            </field>
+            <xpath expr="//page[@name='sub_tasks_page']//list/field[@name='project_id']" position="before">
+                <field name="task_type" optional="hide"/>
+            </xpath>
+            <page name="description_page" position="after">
+                <page string="Evidence" name="evidence">
+                    <field name="evidence_ids">
+                        <list editable="bottom">
+                            <button name="action_open_attachment" type="object"
+                                    icon="fa-external-link" title="Open File"
+                                    invisible="not attachment"/>
+                            <field name="attachment" filename="attachment_filename"/>
+                            <field name="attachment_filename" column_invisible="1"/>
+                            <field name="description"/>
+                            <field name="upload_uid" readonly="1"/>
+                            <field name="upload_date" readonly="1"/>
+                        </list>
+                    </field>
+                </page>
+            </page>
+        </field>
+    </record>
+
+    <!-- ================= LIST VIEW ================= -->
+    <record id="view_task_tree2_task_type" model="ir.ui.view">
+        <field name="name">project.task.list.task.type</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_tree2"/>
+        <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="task_type" optional="hide"/>
+            </field>
+            <!-- Show the actual date ("5 Aug, 2026") instead of the
+                 default relative wording ("Tomorrow", "6 days ago") - the
+                 red-when-overdue coloring came from the remaining_days
+                 widget we just replaced, so it has to be re-declared here. -->
+            <field name="date_deadline" position="attributes">
+                <attribute name="widget">day_month_date</attribute>
+                <attribute name="decoration-danger">date_deadline and date_deadline &lt; current_date and state not in ['1_done', '1_canceled']</attribute>
+            </field>
+            <!-- Left-align numeric columns + darker zebra striping (see
+                 static/src/list/left_align_number_list_view.js) -->
+            <xpath expr="//list" position="attributes">
+                <attribute name="js_class">jacon_core_task_list</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================= KANBAN VIEW ================= -->
+    <record id="view_task_kanban_deadline_date" model="ir.ui.view">
+        <field name="name">project.task.kanban.deadline.date</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_kanban"/>
+        <field name="arch" type="xml">
+            <!-- Show the actual date ("5 Aug, 2026") instead of the
+                 default relative wording ("Tomorrow", "In 26 days") -->
+            <field name="date_deadline" position="attributes">
+                <attribute name="widget">day_month_date</attribute>
+            </field>
+        </field>
+    </record>
+
+    <!-- ================= SEARCH VIEW ================= -->
+    <record id="view_task_search_form_task_type" model="ir.ui.view">
+        <field name="name">project.task.search.task.type</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_search_form"/>
+        <field name="arch" type="xml">
+            <field name="task_properties" position="after">
+                <field name="task_type"/>
+            </field>
+            <filter name="stage" position="after">
+                <filter string="Task Type" name="group_task_type" context="{'group_by': 'task_type'}"/>
+            </filter>
+        </field>
+    </record>
+
+</odoo>

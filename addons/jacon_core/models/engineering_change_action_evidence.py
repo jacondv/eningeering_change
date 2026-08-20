@@ -2,11 +2,27 @@ from odoo import _, api, fields, models
 
 
 class EngineeringChangeActionEvidence(models.Model):
+    """Proof-of-completion file attached to a project.task. Keeps its
+    original technical name (from when it was EC-only, defined in the
+    engineering_change addon) even though it's now usable by any Task -
+    renaming it would rename its DB table and require migrating existing
+    production data for no user-visible benefit.
+
+    Access control note: this module's own ir.model.access.csv row
+    (access_engineering_change_action_evidence_all_users) grants every
+    base.group_user the full ACL bits - that's not the real restriction.
+    Because jacon_core has no dependency on engineering_change, the actual
+    row-level gating lives entirely in engineering_change's own ir.rule
+    records (ec_evidence_rule_assignee/_engineer/_manager, scoped to
+    group_ec_user/group_ec_engineer/group_ec_bod/group_ec_manager). A user
+    who is base.group_user but holds none of those EC groups matches none
+    of those rules and therefore sees/can touch no evidence rows at all,
+    despite this module's own ACL row looking permissive in isolation.
+    """
     _name = 'engineering.change.action.evidence'
     _description = 'Engineering Change Action Evidence'
 
-    task_id = fields.Many2one('project.task', required=True, ondelete='cascade',
-                               domain=[('change_id', '!=', False)])
+    task_id = fields.Many2one('project.task', required=True, ondelete='cascade')
     attachment = fields.Binary(required=True)
     attachment_filename = fields.Char(string='File Name')
     description = fields.Char(required=True, help='Explain what this evidence demonstrates.')

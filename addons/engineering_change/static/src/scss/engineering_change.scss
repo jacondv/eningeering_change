@@ -8,3 +8,35 @@
 .o_list_view tr.o_data_row.o_decoration_danger {
     font-weight: 500;
 }
+
+// EC Action (project.task) form: Description - wide content (a long
+// unwrapped line, a wide table...) makes the editor's own horizontal
+// scrollbar sit right at the bottom of the block. Left unbounded, that
+// block can grow far taller than the viewport, so the scrollbar ends up
+// far below whatever part of the content the user is actually looking
+// at - reaching it means scrolling the whole page down first. Capping
+// the block's own height and letting IT scroll (both axes) instead of
+// the page keeps that scrollbar always right where the content is.
+.o_ec_action_description {
+    max-height: 60vh;
+    overflow: auto;
+}
+
+// Collapse/expand box for the Impacted Models / Impacted Job Numbers tag
+// lists on the EC form header (native <details>/<summary>, no JS needed).
+.o_ec_tag_collapse {
+    > summary {
+        cursor: pointer;
+        font-size: 0.9em;
+        user-select: none;
+    }
+
+    &[open] > summary {
+        margin-bottom: 4px;
+    }
+
+    .o_field_many2many_tags {
+        max-height: 20em;
+        overflow-y: auto;
+    }
+}

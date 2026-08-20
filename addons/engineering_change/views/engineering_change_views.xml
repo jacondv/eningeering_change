@@ -13,19 +13,35 @@
                             confirm="Submit this request for Manager approval?"
                             groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
                     <button name="action_manager_approve" string="Approve" type="object"
-                            class="oe_highlight" invisible="state != 'waiting_manager_approval'"
-                            confirm="Approve this request?"
+                            class="oe_highlight"
+                            invisible="state != 'waiting_manager_approval' or not can_manager_approve"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_manager_reject" string="Reject" type="object"
-                            invisible="state != 'waiting_manager_approval'"
+                            invisible="state != 'waiting_manager_approval' or not can_manager_approve"
+                            groups="engineering_change.group_ec_manager"/>
+                    <button name="action_head_office_approve" string="Approve" type="object"
+                            class="oe_highlight" invisible="state != 'waiting_head_office_approval'"
+                            groups="engineering_change.group_ec_head_office"/>
+                    <button name="action_head_office_reject" string="Reject" type="object"
+                            invisible="state != 'waiting_head_office_approval'"
+                            groups="engineering_change.group_ec_head_office"/>
+                    <button name="action_recall_approval" string="Recall" type="object"
+                            invisible="state != 'waiting_manager_approval' or not can_recall_submission"
+                            confirm="Recall this request back to Draft?"/>
+                    <button name="action_recall_approval" string="Recall" type="object"
+                            invisible="state != 'waiting_head_office_approval'"
+                            confirm="Recall your Line Manager approval and send this back for re-approval?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_bod_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'bod_review'"
-                            confirm="Approve this request?"
                             groups="engineering_change.group_ec_bod"/>
                     <button name="action_bod_reject" string="Reject" type="object"
                             invisible="state != 'bod_review'"
                             groups="engineering_change.group_ec_bod"/>
+                    <button name="action_recall_approval" string="Recall" type="object"
+                            invisible="state != 'bod_review'"
+                            confirm="Recall your Engineering Head approval and send this back for re-approval?"
+                            groups="engineering_change.group_ec_head_office"/>
                     <button name="action_confirm_production" string="Confirm Production" type="object"
                             class="oe_highlight" invisible="state != 'implement' or not can_confirm_production"
                             confirm="Move this request to Production?"/>
@@ -41,12 +57,13 @@
                             confirm="Reopen this closed request?"
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_delete_with_password" string="Delete Request" type="object"
-                            confirm="This will permanently delete this request. This cannot be undone. Continue?"
                             groups="engineering_change.group_ec_delete"/>
+                    <button name="action_send_email" string="Send Email" type="object" icon="fa-envelope"/>
                     <field name="can_confirm_production" invisible="1"/>
                     <field name="can_confirm_sale" invisible="1"/>
+                    <field name="can_manager_approve" invisible="1"/>
                     <field name="state" widget="statusbar"
-                           statusbar_visible="draft,waiting_manager_approval,bod_review,implement,production,sale,done"/>
+                           statusbar_visible="draft,waiting_manager_approval,waiting_head_office_approval,bod_review,implement,production,sale,done"/>
                 </header>
                 <sheet>
                     <div name="button_box" class="oe_button_box">
@@ -64,8 +81,20 @@
                         <h1>
                             <field name="name" readonly="1"/>
                         </h1>
-                        <field name="affected_model_ids" widget="many2many_tags" readonly="1"
-                               invisible="not affected_model_ids"/>
+                    </div>
+                    <div class="row">
+                        <div class="col-6" invisible="not affected_model_ids">
+                            <details class="o_ec_tag_collapse">
+                                <summary class="text-muted">Impacted Models</summary>
+                                <field name="affected_model_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </details>
+                        </div>
+                        <div class="col-6" invisible="not affected_project_ids">
+                            <details class="o_ec_tag_collapse">
+                                <summary class="text-muted">Impacted Job Numbers</summary>
+                                <field name="affected_project_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </details>
+                        </div>
                     </div>
 
                     <notebook>
@@ -74,14 +103,22 @@
                                 <group>
                                     <field name="title" required="1" placeholder="Short title of the change..."
                                            readonly="not can_edit_engineer_fields"/>
-                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
-                                           readonly="not can_edit_request_type"/>
                                     <field name="change_category" required="1"
                                            readonly="not can_edit_engineer_fields"/>
-                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
+                                    <label for="default_affected_family_ids" class="text-nowrap"/>
+                                    <field name="default_affected_family_ids" widget="many2many_tags"
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
+                                    <label for="default_affected_model_ids" class="text-nowrap"/>
+                                    <field name="default_affected_model_ids" widget="many2many_tags"
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
+                                    <label for="default_affected_project_ids" class="text-nowrap"/>
+                                    <field name="default_affected_project_ids" widget="many2many_tags"
+                                           readonly="not can_edit_engineer_fields" nolabel="1"/>
                                 </group>
                                 <group>
-                                    <field name="dcr_no"/>
+                                    <field name="request_type" widget="radio" options="{'horizontal': true}"
+                                           readonly="not can_edit_request_type"/>
+                                    <field name="dcr_no" readonly="not can_edit_dcr_no"/>
                                     <field name="project_id" invisible="not project_id"/>
                                     <field name="create_date" string="Created"/>
                                     <field name="close_date" invisible="not close_date"/>
@@ -89,9 +126,11 @@
                                            decoration-danger="rpn_level == 'high'"
                                            decoration-warning="rpn_level == 'medium'"
                                            decoration-success="rpn_level == 'low'"/>
+                                    <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
                                     <field name="can_edit_engineer_fields" invisible="1"/>
                                     <field name="can_edit_manager_fields" invisible="1"/>
                                     <field name="can_edit_request_type" invisible="1"/>
+                                    <field name="can_edit_dcr_no" invisible="1"/>
                                 </group>
                             </group>
                             <field name="description" required="1" placeholder="Describe the engineering change..."
@@ -127,7 +166,7 @@
                                 </kanban>
                                 <form>
                                     <group>
-                                        <field name="image" widget="image"/>
+                                        <field name="image" widget="clipboard_image"/>
                                         <field name="caption"/>
                                     </group>
                                 </form>
@@ -135,7 +174,8 @@
                         </page>
 
                         <page string="Related Drawings" name="documents">
-                            <field name="document_ids" readonly="not can_edit_engineer_fields">
+                            <field name="can_edit_drawings" invisible="1"/>
+                            <field name="document_ids" readonly="not can_edit_drawings">
                                 <list editable="bottom">
                                     <field name="name"/>
                                     <field name="doc_type"/>
@@ -176,18 +216,32 @@
                         </page>
 
                         <page string="Actions" name="actions">
-                            <field name="task_ids" context="{'default_change_id': id}">
+                            <field name="task_ids" context="{'default_change_id': id, 'default_affected_model_ids': default_affected_model_ids, 'default_affected_project_ids': default_affected_project_ids}">
                                 <list editable="bottom" decoration-danger="is_overdue">
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>
                                     <field name="name"/>
-                                    <field name="user_ids" widget="many2many_tags"/>
-                                    <field name="manager_id"/>
-                                    <field name="affected_model_ids" widget="many2many_tags"/>
-                                    <field name="date_deadline"/>
-                                    <field name="state"/>
+                                    <field name="user_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="manager_id" optional="show"/>
+                                    <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="affected_project_ids" widget="many2many_tags" optional="show"/>
+                                    <field name="task_type" optional="hide"/>
+                                    <field name="date_deadline" optional="show"/>
+                                    <field name="allocated_hours" optional="show"/>
+                                    <field name="state" optional="show"/>
                                     <field name="is_overdue" column_invisible="1"/>
-                                    <field name="evidence_count"/>
+                                    <field name="evidence_count" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Comment" name="approval_log">
+                            <field name="approval_log_ids" create="0" delete="0" edit="0">
+                                <list decoration-danger="decision == 'rejected'" decoration-success="decision == 'approved'">
+                                    <field name="date"/>
+                                    <field name="role"/>
+                                    <field name="user_id"/>
+                                    <field name="decision" widget="badge"/>
+                                    <field name="note"/>
                                 </list>
                             </field>
                         </page>
@@ -203,7 +257,7 @@
         <field name="name">engineering.change.list</field>
         <field name="model">engineering.change</field>
         <field name="arch" type="xml">
-            <list string="Engineering Changes" decoration-danger="has_overdue_action">
+            <list string="Engineering Changes" js_class="jacon_core_list" decoration-danger="has_overdue_action">
                 <field name="name"/>
                 <field name="title"/>
                 <field name="request_type" widget="badge"/>
@@ -212,15 +266,28 @@
                 <field name="project_id" optional="hide"/>
                 <field name="create_date" string="Created"/>
                 <field name="engineer_id"/>
+                <field name="implement_owner_id" optional="hide"/>
+                <field name="implement_team_ids" widget="many2many_tags" optional="hide"/>
+                <field name="bod_approver_id" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
-                       decoration-info="state in ('waiting_manager_approval', 'bod_review')"
+                       decoration-info="state in ('waiting_manager_approval', 'waiting_head_office_approval', 'bod_review')"
                        decoration-warning="state in ('implement', 'production', 'sale')"/>
+                <field name="rpn" optional="hide"/>
                 <field name="rpn_level" widget="badge"
                        decoration-danger="rpn_level == 'high'"
                        decoration-warning="rpn_level == 'medium'"
                        decoration-success="rpn_level == 'low'"/>
+                <field name="affected_model_ids" widget="collapsible_many2many_tags"
+                       options="{'limit': 3}" optional="hide"/>
+                <field name="affected_project_ids" widget="many2many_tags" optional="hide"/>
+                <field name="action_count" optional="hide"/>
+                <field name="action_done_count" optional="hide"/>
+                <field name="progress" optional="hide" widget="progressbar"/>
+                <field name="evidence_count" optional="hide"/>
                 <field name="next_action_deadline"/>
+                <field name="close_date" optional="hide"/>
+                <field name="company_id" optional="hide" groups="base.group_multi_company"/>
                 <field name="has_overdue_action" column_invisible="1"/>
             </list>
         </field>
@@ -270,6 +337,7 @@
                 <field name="engineer_id"/>
                 <field name="implement_team_ids"/>
                 <field name="affected_model_ids"/>
+                <field name="affected_project_ids"/>
                 <field name="change_category"/>
                 <field name="project_id"/>
                 <separator/>
@@ -278,13 +346,15 @@
                 <filter string="Minor Only" name="minor_only" domain="[('request_type', '=', 'minor')]"/>
                 <filter string="Overdue Actions" name="overdue" domain="[('has_overdue_action', '=', True)]"/>
                 <filter string="Waiting Approval" name="waiting_my_approval"
-                        domain="['|', ('state', '=', 'waiting_manager_approval'), ('state', '=', 'bod_review')]"/>
+                        domain="[('state', 'in', ['waiting_manager_approval', 'waiting_head_office_approval', 'bod_review'])]"/>
                 <filter string="Closed" name="closed" domain="[('state', '=', 'done')]"/>
                 <separator/>
                 <filter string="Draft" name="state_draft" domain="[('state', '=', 'draft')]"/>
-                <filter string="Manager Approval" name="state_waiting_manager"
+                <filter string="Line Manager Approval" name="state_waiting_manager"
                         domain="[('state', '=', 'waiting_manager_approval')]"/>
-                <filter string="BOD Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
+                <filter string="Head Manager Approval" name="state_waiting_head_office"
+                        domain="[('state', '=', 'waiting_head_office_approval')]"/>
+                <filter string="BOC Approval" name="state_bod_review" domain="[('state', '=', 'bod_review')]"/>
                 <filter string="Design" name="state_implement" domain="[('state', '=', 'implement')]"/>
                 <filter string="Production" name="state_production" domain="[('state', '=', 'production')]"/>
                 <filter string="Sales" name="state_sale" domain="[('state', '=', 'sale')]"/>
@@ -296,6 +366,7 @@
                     <filter string="RPN Level" name="group_rpn_level" context="{'group_by': 'rpn_level'}"/>
                     <filter string="Change Category" name="group_change_category" context="{'group_by': 'change_category'}"/>
                     <filter string="Impacted Model" name="group_affected_model" context="{'group_by': 'affected_model_ids'}"/>
+                    <filter string="Impacted Job Number" name="group_affected_project" context="{'group_by': 'affected_project_ids'}"/>
                 </group>
             </search>
         </field>
@@ -347,7 +418,7 @@
         <field name="res_model">engineering.change</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_engineering_change_search"/>
-        <field name="domain">['|', ('state', '=', 'waiting_manager_approval'), ('state', '=', 'bod_review')]</field>
+        <field name="domain">[('state', 'in', ['waiting_manager_approval', 'waiting_head_office_approval', 'bod_review'])]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No request is waiting for your approval

@@ -1,0 +1,15 @@
+// Render the Task list's overdue Deadline as a red pill/badge instead of
+// just red text. `text-danger` is the class Odoo's decoration-danger
+// attribute adds - for fields with a custom widget (like our
+// day_month_date), it lands on the inner ".o_field_widget" wrapper, not
+// the <td> itself. `name="..."` is the column identifier Odoo's list
+// renderer always sets on <td>, used here to scope this to the Deadline
+// column only - other decoration-danger cells elsewhere keep the plain
+// red-text look.
+td.o_data_cell[name="date_deadline"] .o_field_widget.text-danger {
+    display: inline-block;
+    background-color: var(--bs-danger, #d9534f);
+    color: #fff !important;
+    border-radius: 10px;
+    padding: 2px 10px;
+}
