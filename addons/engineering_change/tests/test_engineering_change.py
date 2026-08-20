@@ -55,6 +55,21 @@ class TestEngineeringChange(TransactionCase):
             'email': 'ec_deleter@example.com',
             'group_ids': [(6, 0, [cls.group_internal.id, cls.group_delete.id])],
         })
+        cls.user_admin = Users.create({
+            'name': 'Test Admin',
+            'login': 'ec_admin',
+            'email': 'ec_admin@example.com',
+            # base.group_system alone doesn't grant base ACL access to this
+            # model (no ir.model.access.csv row for it - see
+            # ir.model.access.csv) - it only relaxes the field-level
+            # stage-lock in _check_field_edit_permissions. A real admin
+            # account also needs one of the EC-specific groups for base
+            # CRUD, same as any other user; group_ec_manager here mirrors
+            # how the actual production admin account is set up.
+            'group_ids': [(6, 0, [
+                cls.group_internal.id, cls.env.ref('base.group_system').id, cls.group_manager.id,
+            ])],
+        })
 
     def _create_request(self, request_type='minor', rpn=50, change_category='standard'):
         return self.env['engineering.change'].with_user(self.user_engineer).create({
@@ -472,6 +487,27 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager).write({'title': 'Manager corrected this'})
         self.assertEqual(change.title, 'Manager corrected this')
+
+    def test_admin_can_edit_content_at_any_open_stage_but_not_once_closed(self):
+        # Admin gets free edit rights throughout the whole workflow (not
+        # gated to a single approval stage like the other roles), but is
+        # still locked out once the request reaches Closed.
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_admin).write({'title': 'Admin edited at Draft'})
+        self.assertEqual(change.title, 'Admin edited at Draft')
+
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_admin).write({'title': 'Admin edited while waiting on manager'})
+        self.assertEqual(change.title, 'Admin edited while waiting on manager')
+
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        change.with_user(self.user_manager).action_confirm_production()
+        change.with_user(self.user_manager).action_confirm_sale()
+        change.with_user(self.user_manager).action_close_request()
+        self.assertEqual(change.state, 'done')
+        with self.assertRaises(UserError):
+            change.with_user(self.user_admin).write({'title': 'Too late'})
 
     def test_request_type_exception_for_manager(self):
         change = self._create_request(request_type='minor')
