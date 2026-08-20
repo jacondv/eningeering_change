@@ -153,18 +153,6 @@
             <xpath expr="//list" position="attributes">
                 <attribute name="js_class">jacon_core_task_list</attribute>
             </xpath>
-            <!-- Core's own Parent Task column exists but is dev-mode-only
-                 (groups="base.group_no_one") and hidden by default - the
-                 only way anyone had to move a task under another was to
-                 open its form and hunt for the field there. Dropping the
-                 group restriction and showing it by default turns it into
-                 a plain inline-editable column: click the cell, pick a
-                 task, done - no code needed for the actual move, this was
-                 always just a visibility gap. -->
-            <field name="parent_id" position="attributes">
-                <attribute name="groups"></attribute>
-                <attribute name="optional">show</attribute>
-            </field>
         </field>
     </record>
 
