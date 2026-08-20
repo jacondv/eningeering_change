@@ -240,18 +240,17 @@ class EngineeringChange(models.Model):
         is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
         # is_manager is True for Line Manager AND Head Manager (group_ec_head_office
-        # implies group_ec_manager) - each own-stage clause below still keys off the
-        # record's actual state, so the two stages never overlap in practice.
+        # implies group_ec_manager) - both get free edit rights at any open state
+        # (not just their own approval stage), per management-level access. The
+        # Request role (engineer) and BOC stay stage-restricted to their own step.
         is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
-        is_head_office = user.has_group('engineering_change.group_ec_head_office')
         is_bod = user.has_group('engineering_change.group_ec_bod')
         can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
             own_stage_edit = (
                 is_admin
                 or (is_engineer and rec.state == 'draft')
-                or (is_manager and rec.state == 'waiting_manager_approval')
-                or (is_head_office and rec.state == 'waiting_head_office_approval')
+                or (is_manager and rec.state != 'done')
                 or (is_bod and rec.state == 'bod_review')
             )
             rec.can_edit_engineer_fields = own_stage_edit
@@ -444,12 +443,12 @@ class EngineeringChange(models.Model):
         is_admin = user.has_group('base.group_system')
         is_engineer = user.has_group('engineering_change.group_ec_engineer')
         # is_manager is True for Line Manager AND Head Manager (implied group) -
-        # each clause below still keys off the record's actual state, so the
-        # two stages never overlap in practice. BOC (group_ec_bod) is
+        # both get free edit rights at any state short of Closed, not just their
+        # own approval stage - management level, per the access design. BOC
+        # (group_ec_bod) stays stage-restricted to bod_review, and is
         # deliberately excluded from MANAGER_FIELDS/request_type edit rights -
         # View + Comment only, per the approval workflow design.
         is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
-        is_head_office = user.has_group('engineering_change.group_ec_head_office')
         is_bod = user.has_group('engineering_change.group_ec_bod')
 
         engineer_keys = keys & self.ENGINEER_FIELDS
@@ -458,17 +457,15 @@ class EngineeringChange(models.Model):
         own_stage_edit = (
             is_admin
             or (is_engineer and self.state == 'draft')
-            or (is_manager and self.state == 'waiting_manager_approval')
-            or (is_head_office and self.state == 'waiting_head_office_approval')
+            or (is_manager and self.state != 'done')
             or (is_bod and self.state == 'bod_review')
         )
 
         if other_engineer_keys and not own_stage_edit:
             raise UserError(_(
                 "The request content (%s) can only be edited by the Request role while in "
-                "Draft, or by the approver currently holding the request at their own "
-                "approval stage. Reject it back to Draft first if it needs correction "
-                "outside that window."
+                "Draft, by Line Manager/Engineering Head at any stage before it's Closed, "
+                "or by BOC while at BOD Review."
             ) % ', '.join(sorted(other_engineer_keys)))
 
         if drawing_keys and not (
@@ -478,8 +475,9 @@ class EngineeringChange(models.Model):
         ):
             raise UserError(_(
                 "Related Drawings can only be edited by the Request role while in Draft, "
-                "by the approver currently holding the request at their own approval "
-                "stage, or by the Engineer/Implement Team while at the Design stage."
+                "by Line Manager/Engineering Head at any stage before it's Closed, by BOC "
+                "while at BOD Review, or by the Engineer/Implement Team while at the "
+                "Design stage."
             ))
 
         manager_keys = keys & self.MANAGER_FIELDS
