@@ -5,7 +5,7 @@
         <field name="name">part_number_manager.material_category.list</field>
         <field name="model">part_number_manager.material_category</field>
         <field name="arch" type="xml">
-            <list>
+            <list js_class="jacon_core_list">
                 <field name="code"/>
                 <field name="description"/>
             </list>

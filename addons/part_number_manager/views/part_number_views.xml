@@ -5,24 +5,26 @@
         <field name="name">part_number_manager.part_number.list</field>
         <field name="model">part_number_manager.part_number</field>
         <field name="arch" type="xml">
-            <list decoration-muted="state == 'obsolete'">
+            <list js_class="jacon_core_list" decoration-muted="state == 'obsolete'">
                 <field name="part_number"/>
-                <field name="short_description"/>
+                <field name="short_description" optional="show"/>
                 <field name="long_description" optional="show"/>
-                <field name="job_number"/>
-                <field name="part_type_id"/>
-                <field name="vendor_id"/>
-                <field name="vendor_ref"/>
+                <field name="job_number" optional="show"/>
+                <field name="part_type_id" optional="show"/>
+                <field name="vendor_id" optional="show"/>
+                <field name="vendor_ref" optional="show"/>
+                <field name="make_buy" optional="hide"/>
+                <field name="date_created" optional="hide"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
                 <field name="legacy_codes_display" string="Legacy Codes" optional="show"/>
                 <field name="replacement_display" string="Replaced By" optional="show"/>
                 <field name="create_date" string="Created On" optional="show"/>
                 <field name="create_uid" string="Created By" optional="show"/>
-                <field name="state" widget="badge"
+                <field name="state" widget="badge" optional="show"
                        decoration-info="state == 'draft'"
                        decoration-success="state == 'active'"
                        decoration-muted="state == 'obsolete'"/>
-                <field name="material_group_id"/>
+                <field name="material_group_id" optional="show"/>
             </list>
         </field>
     </record>
@@ -33,6 +35,7 @@
         <field name="arch" type="xml">
             <form string="Part Number">
                 <header>
+                    <field name="is_unlocked" widget="part_number_edit_lock_button" nolabel="1"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,active,obsolete"
                            options="{'clickable': '1'}"/>
                 </header>
@@ -46,7 +49,7 @@
                     <group>
                         <group>
                             <field name="material_category_id" readonly="part_number != False"/>
-                            <field name="material_group_id" readonly="part_number != False"
+                            <field name="material_group_id" required="1" readonly="part_number != False"
                                    domain="[('category_id', '=', material_category_id)]"/>
                             <field name="job_number"/>
                             <field name="short_description"/>
@@ -54,6 +57,10 @@
                         <group>
                             <field name="vendor_id"/>
                             <field name="vendor_ref"/>
+                            <field name="make_buy"/>
+                        </group>
+                        <group>
+                            <field name="date_created"/>
                         </group>
                     </group>
                     <notebook>

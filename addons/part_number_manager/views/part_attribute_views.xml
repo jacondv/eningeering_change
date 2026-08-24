@@ -5,7 +5,7 @@
         <field name="name">part_number_manager.part_attribute.list</field>
         <field name="model">part_number_manager.part_attribute</field>
         <field name="arch" type="xml">
-            <list>
+            <list js_class="jacon_core_list">
                 <field name="name"/>
                 <field name="value_type"/>
                 <field name="uom"/>

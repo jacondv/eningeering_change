@@ -29,3 +29,20 @@ class MaterialGroup(models.Model):
     def _compute_display_name(self):
         for rec in self:
             rec.display_name = f'{rec.code} - {rec.description}'
+
+    def name_search(self, name='', domain=None, operator='ilike', limit=100):
+        # Same fix as material_category.name_search - see that method for
+        # why this is needed (display_name is computed, not a real column,
+        # so without _rec_name the base implementation can't filter by it).
+        domain = list(domain or [])
+        if name:
+            records = self.search(domain)
+            if operator == '=':
+                records = records.filtered(lambda r: r.display_name == name)
+            else:
+                norm = name.lower()
+                records = records.filtered(lambda r: norm in (r.display_name or '').lower())
+            records = records[:limit]
+        else:
+            records = self.search(domain, limit=limit)
+        return [(r.id, r.display_name) for r in records]
