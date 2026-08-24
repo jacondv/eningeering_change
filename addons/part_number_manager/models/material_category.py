@@ -29,3 +29,24 @@ class MaterialCategory(models.Model):
     def _compute_display_name(self):
         for rec in self:
             rec.display_name = f'{rec.code} - {rec.description}'
+
+    def name_search(self, name='', domain=None, operator='ilike', limit=100):
+        # display_name ("<code> - <description>") is computed, not a real
+        # column - with no _rec_name, the base implementation can't filter
+        # by it at all and returns every record, which is exactly what
+        # broke re-importing Material Groups: Import's Many2one resolver
+        # calls name_search(operator='=') to match the "Main Category" cell
+        # text back to a record, got every category back as a "match", and
+        # reported an unresolvable ambiguity instead of the one real match.
+        domain = list(domain or [])
+        if name:
+            records = self.search(domain)
+            if operator == '=':
+                records = records.filtered(lambda r: r.display_name == name)
+            else:
+                norm = name.lower()
+                records = records.filtered(lambda r: norm in (r.display_name or '').lower())
+            records = records[:limit]
+        else:
+            records = self.search(domain, limit=limit)
+        return [(r.id, r.display_name) for r in records]

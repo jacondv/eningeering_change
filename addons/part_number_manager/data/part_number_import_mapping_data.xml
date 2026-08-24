@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Pre-fills Odoo's own "Import records" column-mapping suggestions for
+         part_number_manager.part_number, matching the historical export's
+         real headers - see load() for why PartID/D365/the Hose & Fitting
+         columns have no suggestion (not used by this model at all). -->
+
+    <record id="import_mapping_pn_old_code" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">OldCode</field>
+        <field name="field_name">legacy_part_number</field>
+    </record>
+
+    <record id="import_mapping_pn_part_number" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">PartNumber</field>
+        <field name="field_name">part_number</field>
+    </record>
+
+    <record id="import_mapping_pn_project" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">Project</field>
+        <field name="field_name">job_number</field>
+    </record>
+
+    <record id="import_mapping_pn_status" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">Status</field>
+        <field name="field_name">state</field>
+    </record>
+
+    <record id="import_mapping_pn_description_short" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">DescriptionShort</field>
+        <field name="field_name">short_description</field>
+    </record>
+
+    <record id="import_mapping_pn_description_long" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">DescriptionLong</field>
+        <field name="field_name">long_description</field>
+    </record>
+
+    <record id="import_mapping_pn_vendor_name" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">VendorName</field>
+        <field name="field_name">vendor_id</field>
+    </record>
+
+    <record id="import_mapping_pn_material_class" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">MaterialClass</field>
+        <field name="field_name">material_group_id</field>
+    </record>
+
+    <record id="import_mapping_pn_type" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">Type</field>
+        <field name="field_name">make_buy</field>
+    </record>
+
+    <record id="import_mapping_pn_vendor_part_number" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">VendorPartNumber</field>
+        <field name="field_name">vendor_ref</field>
+    </record>
+
+    <record id="import_mapping_pn_date" model="base_import.mapping">
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="column_name">Date</field>
+        <field name="field_name">date_created</field>
+    </record>
+
+
+</odoo>

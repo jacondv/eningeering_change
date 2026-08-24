@@ -1,11 +1,28 @@
 import logging
+import re
+
+from dateutil import parser as dateutil_parser
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessDenied, UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
 SUFFIX_RANGE = 10000
+
+# The historical export's "Status" column is a different concept entirely
+# from our own workflow `state` (draft/active/obsolete) - this is the
+# agreed direct translation, everything else is left unset on import.
+STATE_BY_STATUS = {
+    'development': 'draft',
+    'production': 'active',
+    'not use': 'obsolete',
+}
+
+MAKE_BUY_BY_TYPE = {
+    'make': 'make',
+    'buy': 'buy',
+}
 
 
 class PartNumber(models.Model):
@@ -25,9 +42,21 @@ class PartNumber(models.Model):
     _rec_name = 'part_number'
 
     part_number = fields.Char(
-        index=True, copy=False, readonly=True,
-        help="Generated via the Generate button (material_group.code + sequence_suffix). Never entered by hand.")
+        index=True, copy=False,
+        help="Generated via the Generate button (material_group.code + sequence_suffix). Never entered by "
+             "hand - locked via the form view's own readonly, not this field's own attribute, because a "
+             "Python-level readonly=True is silently excluded from the Import screen's field picker "
+             "(base_import filters out any field where fields_get()['readonly'] is true), which would "
+             "otherwise make Part Number impossible to map when importing historical data.")
     sequence_suffix = fields.Char(size=4, copy=False, readonly=True)
+    legacy_part_number = fields.Char(
+        string='Legacy/Old Part Number', copy=False,
+        help="Import-only pseudo-field, not shown on the form and never actually written to the "
+             "database: it exists solely so Odoo's Import screen offers it as a mappable column (a "
+             "field with no real presence in fields_get() can't be selected there at all). load() reads "
+             "its raw text from the import row, turns it into a proper legacy Part Number record linked "
+             "via the Legacy / New Code Mapping tab, and excludes this field from what actually gets "
+             "written - so it always reads back empty, on imported records too.")
     material_category_id = fields.Many2one(
         'part_number_manager.material_category', string='Main Category',
         compute='_compute_material_category_id', store=False, readonly=False,
@@ -35,20 +64,33 @@ class PartNumber(models.Model):
              "two-step selection. Recomputed from material_group_id whenever that "
              "changes; editable in between so it can be picked first.")
     material_group_id = fields.Many2one(
-        'part_number_manager.material_group', string='Material Group', required=True, index=True)
+        'part_number_manager.material_group', string='Material Group', index=True,
+        help="Required for manual creation (enforced by create_batch_with_generated_number and the form "
+             "view, not by this field) - but a historical import may legitimately not know it yet, so it "
+             "isn't required at the model level. A part with no Material Group can't be re-Generated a "
+             "number from, but its already-assigned part_number stays valid either way.")
     job_number = fields.Many2one('project.project', string='Job Number')
     short_description = fields.Char()
     long_description = fields.Text()
     state = fields.Selection([
-        ('draft', 'Draft'),
-        ('active', 'Active'),
-        ('obsolete', 'Obsolete'),
-    ], default='draft', tracking=True)
+        ('draft', 'Development'),
+        ('active', 'Production'),
+        ('obsolete', 'Not Use'),
+    ], default='draft', tracking=True,
+        help="Labels shown are Development/Production/Not Use - the underlying values "
+             "(draft/active/obsolete) are unchanged, only the display text was renamed.")
     vendor_id = fields.Many2one('res.partner', string='Vendor')
     vendor_ref = fields.Char(string='Vendor Reference')
+    make_buy = fields.Selection([
+        ('make', 'Make'),
+        ('buy', 'Buy'),
+    ], string='Make/Buy')
     part_type_id = fields.Many2one(
         'part_number_manager.part_type', string='Part Type',
         help="Set only when this part is built from a BOM.")
+    date_created = fields.Datetime(
+        string='Date Created', default=fields.Datetime.now,
+        help="Defaults to now on manual create - import overrides it with the true historical date.")
 
     attribute_value_ids = fields.One2many(
         'part_number_manager.part_attribute_value', 'part_id', string='Attribute Values')
@@ -65,10 +107,39 @@ class PartNumber(models.Model):
     attribute_display = fields.Char(
         compute='_compute_attribute_display', store=True,
         help="Comma-separated 'Attribute: Value' pairs - shown on list/search views.")
+    is_unlocked = fields.Boolean(
+        string='Unlocked for Editing', compute='_compute_is_unlocked',
+        inverse='_inverse_is_unlocked',
+        help="Not stored - always recomputed on load, so a part is always locked again after "
+             "being saved or the page is refreshed. New (unsaved) parts are always unlocked. "
+             "See the Edit button on the form.")
 
     _part_number_unique = models.Constraint(
         'unique(part_number)',
         'This Part Number already exists. The advisory lock in _get_next_suffix should have prevented this.')
+
+    def _compute_is_unlocked(self):
+        for part in self:
+            part.is_unlocked = not part.id
+
+    def _inverse_is_unlocked(self):
+        # No-op: this field is intentionally never persisted - see the help
+        # text. The client sets it in-memory (via the Edit button) to unlock
+        # the form for the current editing session only.
+        pass
+
+    def check_edit_password(self, password):
+        """Verify `password` against the current user's own login
+        credentials. Used by the Edit-lock button on the Part Number form -
+        does not use/require any password other than the logged-in user's
+        own account."""
+        self.ensure_one()
+        credential = {'login': self.env.user.login, 'password': password, 'type': 'password'}
+        try:
+            self.env.user._check_credentials(credential, {'interactive': True})
+        except AccessDenied:
+            return False
+        return True
 
     @api.depends('material_group_id')
     def _compute_material_category_id(self):
@@ -305,3 +376,251 @@ class PartNumber(models.Model):
             results.append(result)
 
         return results
+
+    def _sync_legacy_codes(self, legacy_by_part_number):
+        """For each imported row that carried a legacy/old code, find or
+        create that legacy Part Number - mirroring
+        `create_batch_with_generated_number`'s own on-the-fly legacy
+        creation for the manual Convert flow - and link it via
+        `part_number_mapping`, exactly as if a human had done the Convert
+        by hand. Idempotent: an already-existing identical mapping is left
+        alone, so re-importing the same file doesn't duplicate anything or
+        error - and a row that (incorrectly) lists its own Part Number as
+        its own legacy code is reported rather than linked to itself.
+        """
+        if not legacy_by_part_number:
+            return []
+        mapping_model = self.env['part_number_manager.part_number_mapping']
+        messages = []
+        for part_number, (legacy_text, group_id) in legacy_by_part_number.items():
+            part = self.search([('part_number', '=', part_number)], limit=1)
+            if not part:
+                continue
+            legacy = self.search([('part_number', '=', legacy_text)], limit=1)
+            if legacy and legacy.id == part.id:
+                messages.append({
+                    'type': 'error',
+                    'message': _(
+                        "Part Number '%(pn)s' lists itself ('%(legacy)s') as its own legacy code - "
+                        "the link was skipped.") % {'pn': part_number, 'legacy': legacy_text},
+                })
+                continue
+            if not legacy:
+                legacy = self.with_context(skip_job_number_check=True).create({
+                    'material_group_id': group_id,
+                    'part_number': legacy_text,
+                })
+            existing_mapping = mapping_model.search([
+                ('new_part_id', '=', part.id), ('legacy_part_id', '=', legacy.id),
+            ], limit=1)
+            if not existing_mapping:
+                mapping_model.create({'new_part_id': part.id, 'legacy_part_id': legacy.id})
+            if legacy.state != 'obsolete':
+                legacy.state = 'obsolete'
+        return messages
+
+    @api.model
+    def load(self, fields, data):
+        """Imports a historical Part Number export: already-assigned real
+        numbers, not the Generate-button flow. Same two structural
+        findings as the sibling `partnumber_manager` addon's `load()`
+        override apply here (see that addon's tech spec for the full
+        write-up):
+        - native Import only matches an existing record for update via an
+          External/Database ID column, never an arbitrary unique field -
+          so re-importing an already-imported file would try to *create*
+          every row again and fail on the `part_number` unique constraint.
+          Fixed by always upserting by `part_number` itself, looked up and
+          injected as `.id` before delegating to `super().load()`.
+        - `load()` is all-or-nothing: a single 'error' message anywhere
+          discards the *entire* batch. Anything this method can't safely
+          resolve is therefore excluded *before* calling `super().load()`,
+          with its own error appended to the final result afterwards - so
+          unrelated valid rows still import in the same call.
+
+        Column-specific handling:
+        - `part_number`: kept exactly as given (this importer is for
+          already-assigned historical numbers) - `sequence_suffix` is
+          derived from it (the part of the number after the resolved
+          Material Group's own code) so a later `Generate` on that
+          Material Group correctly treats it as taken. A blank
+          `part_number`, or one that doesn't actually start with its
+          row's Material Group code, is a genuine data problem - reported
+          and skipped, never guessed at.
+        - `material_group_id`: source cell is "<code> - <description>"
+          (e.g. "1000 - Comer axle & spare"), matching Material Group's
+          own display_name format - resolved by an exact code lookup.
+          Unlike Vendor in this same method, a missing Material Group is
+          *not* auto-created (it would need a Main Category too, which
+          free-form import text can't safely supply) - reported and
+          skipped instead.
+        - `vendor_id`: resolved the same safe-at-scale way as the sibling
+          addon (find-or-create by exact name *before* calling
+          `super().load()`, never via native `name_create_enabled_fields`
+          - see that addon's tech spec for the batch/savepoint bug this
+          avoids at real-world scale).
+        - `job_number`: resolved by exact Project name match; unmatched is
+          left blank rather than blocking the row - the real export mixes
+          in values that were never Job Numbers to begin with (e.g. a
+          person's name).
+        - `state`: source "Status" values (Development/Production/Not
+          Use/...) are a different concept entirely from our own
+          draft/active/obsolete workflow state - translated via
+          `STATE_BY_STATUS`; anything else is left unset rather than
+          guessed.
+        - `make_buy`: source "Type" values (Make/Buy) - kept as its own
+          field, separate from `part_type_id` (reserved for future BOM
+          attribute structures like Hose and Fitting) so the two concepts
+          never get conflated.
+        - `date_created`: reparsed with `dateutil` (source format is
+          month-first, e.g. "11/04/2025 09:47" - confirmed by a same-file
+          value of "07/19/2022", where 19 can't be a month).
+        - `legacy_part_number`: exists on the model purely so it's
+          selectable in Import's field picker (see the field's own help
+          text) - its raw text is read here, then it's excluded from what
+          actually gets sent to `super().load()`. If present, hands off
+          to `_sync_legacy_codes` to find-or-create the legacy Part
+          Number and link it via `part_number_mapping`, exactly like a
+          manual Convert.
+        """
+        if 'part_number' not in fields:
+            return super().load(fields, data)
+
+        field_list = list(fields)
+        rows = [dict(zip(field_list, row)) for row in data]
+        for row in rows:
+            if isinstance(row.get('part_number'), str):
+                row['part_number'] = row['part_number'].strip()
+
+        material_group_model = self.env['part_number_manager.material_group']
+        partner_model = self.env['res.partner']
+        project_model = self.env['project.project']
+
+        resolved_rows = []
+        conflict_messages = []
+        legacy_by_part_number = {}
+
+        for row in rows:
+            part_number = row.get('part_number')
+            if not part_number:
+                conflict_messages.append({
+                    'type': 'error',
+                    'message': _('A row has no Part Number - it was not imported.'),
+                })
+                continue
+
+            # A blank Material Group cell is accepted - some historical
+            # rows genuinely don't have one on file yet - but a non-blank
+            # cell that doesn't match any existing Material Group is a
+            # real data problem (typo, or the Group hasn't been declared
+            # yet under Configuration) and is reported instead of guessed
+            # at or silently dropped.
+            group = False
+            raw_group = row.get('material_group_id')
+            if isinstance(raw_group, str) and raw_group.strip():
+                # Match on the leading 4-digit code alone - the source
+                # file's separator/spacing after it is inconsistent (e.g.
+                # "1202-Boom & Parts" has no space around the dash, unlike
+                # our own "code - description" display format).
+                code_match = re.match(r'\s*(\d{4})', raw_group)
+                group = (
+                    material_group_model.search([('code', '=', code_match.group(1))], limit=1)
+                    if code_match else False
+                )
+                if not group:
+                    conflict_messages.append({
+                        'type': 'error',
+                        'message': _(
+                            "Part Number '%(pn)s': Material Group '%(raw)s' does not match any existing "
+                            "Material Group - it was not imported.") % {'pn': part_number, 'raw': raw_group},
+                    })
+                    continue
+                if not part_number.startswith(group.code):
+                    conflict_messages.append({
+                        'type': 'error',
+                        'message': _(
+                            "Part Number '%(pn)s' does not start with its Material Group's own code "
+                            "'%(code)s' - it was not imported.") % {'pn': part_number, 'code': group.code},
+                    })
+                    continue
+
+            row = dict(row)
+            row['material_group_id'] = str(group.id) if group else ''
+            row['sequence_suffix'] = part_number[len(group.code):] if group else ''
+            resolved_rows.append(row)
+
+            raw_legacy = row.get('legacy_part_number')
+            if isinstance(raw_legacy, str) and raw_legacy.strip():
+                legacy_by_part_number[part_number] = (raw_legacy.strip(), group.id if group else False)
+
+        load_fields = [f for f in field_list if f not in ('legacy_part_number', 'id', '.id')]
+        load_fields.append('sequence_suffix')
+        load_data = [[row.get(f) or '' for f in load_fields] for row in resolved_rows]
+
+        pn_idx = load_fields.index('part_number')
+        part_numbers = {row[pn_idx] for row in load_data if row[pn_idx]}
+        existing = {p.part_number: p.id for p in self.search([('part_number', 'in', list(part_numbers))])}
+        load_fields.append('.id')
+        for row in load_data:
+            value = row[pn_idx]
+            row.append(str(existing[value]) if value in existing else '')
+
+        if 'material_group_id' in load_fields:
+            load_fields[load_fields.index('material_group_id')] = 'material_group_id/.id'
+
+        if 'vendor_id' in load_fields:
+            idx = load_fields.index('vendor_id')
+            for row in load_data:
+                raw = row[idx]
+                if raw:
+                    name = raw.strip()
+                    record = partner_model.search([('name', '=', name)], limit=1)
+                    if not record:
+                        record = partner_model.create({'name': name})
+                    row[idx] = str(record.id)
+            load_fields[idx] = 'vendor_id/.id'
+
+        if 'job_number' in load_fields:
+            idx = load_fields.index('job_number')
+            for row in load_data:
+                raw = row[idx]
+                row[idx] = ''
+                if raw:
+                    record = project_model.search([('name', '=', raw.strip())], limit=1)
+                    if record:
+                        row[idx] = str(record.id)
+            load_fields[idx] = 'job_number/.id'
+
+        if 'state' in load_fields:
+            idx = load_fields.index('state')
+            for row in load_data:
+                raw = row[idx]
+                row[idx] = STATE_BY_STATUS.get(raw.strip().lower(), '') if raw else ''
+
+        if 'make_buy' in load_fields:
+            idx = load_fields.index('make_buy')
+            for row in load_data:
+                raw = row[idx]
+                row[idx] = MAKE_BUY_BY_TYPE.get(raw.strip().lower(), '') if raw else ''
+
+        if 'date_created' in load_fields:
+            idx = load_fields.index('date_created')
+            for row in load_data:
+                if row[idx]:
+                    try:
+                        row[idx] = dateutil_parser.parse(row[idx]).strftime('%Y-%m-%d %H:%M:%S')
+                    except (ValueError, OverflowError):
+                        row[idx] = ''
+
+        # Historical rows routinely have no resolvable Job Number (the real
+        # export mixes in values that were never Job Numbers to begin
+        # with) - create()'s own "Job Number is required" guard exists for
+        # the manual entry page, not for a bulk historical import.
+        result = super(PartNumber, self.with_context(skip_job_number_check=True)).load(load_fields, load_data)
+
+        if result['ids']:
+            conflict_messages += self._sync_legacy_codes(legacy_by_part_number)
+
+        if conflict_messages:
+            result = dict(result, messages=list(result['messages']) + conflict_messages)
+        return result
