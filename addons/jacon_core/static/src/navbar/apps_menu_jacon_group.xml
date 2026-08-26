@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <!-- Groups the App Switcher dropdown into a "JACON" section (Jacon's own
+         custom apps) and a "General" section (every standard Odoo app),
+         each with a small icon per row - see apps_menu_jacon_group.scss for
+         the card styling and apps_menu_jacon_group.js for the grouping
+         logic/icon lookup. -->
+    <t t-inherit="web.NavBar.AppsMenu" t-inherit-mode="extension">
+        <xpath expr="//t[@t-set-slot='content']" position="replace">
+            <t t-set-slot="content">
+                <div class="o_jacon_apps_menu">
+                    <div class="o_jacon_apps_scroll">
+                        <t t-if="jaconApps.length">
+                            <div class="o_jacon_apps_header o_jacon_apps_header_jacon">
+                                <i class="fa fa-shield"/> JACON
+                            </div>
+                            <t t-foreach="jaconApps" t-as="app" t-key="app.id">
+                                <DropdownItem
+                                    class="{ 'o_app o_jacon_app_item': true, focus: menuService.getCurrentApp() === app }"
+                                    onSelected="() => this.onNavBarDropdownItemSelection(app)"
+                                    attrs="{ href: getMenuItemHref(app), 'data-menu-xmlid': app.xmlid, 'data-section': app.id }">
+                                    <i t-attf-class="fa {{ getJaconAppIcon(app) }} o_jacon_app_icon"/>
+                                    <span t-esc="app.name"/>
+                                </DropdownItem>
+                            </t>
+                        </t>
+                        <div class="o_jacon_apps_divider" t-if="jaconApps.length and otherApps.length"/>
+                        <t t-if="otherApps.length">
+                            <div class="o_jacon_apps_header">General</div>
+                            <t t-foreach="otherApps" t-as="app" t-key="app.id">
+                                <DropdownItem
+                                    class="{ 'o_app o_jacon_app_item': true, focus: menuService.getCurrentApp() === app }"
+                                    onSelected="() => this.onNavBarDropdownItemSelection(app)"
+                                    attrs="{ href: getMenuItemHref(app), 'data-menu-xmlid': app.xmlid, 'data-section': app.id }">
+                                    <img t-if="app.webIconData" t-att-src="app.webIconData" class="o_jacon_app_icon_img"/>
+                                    <i t-else="" class="fa fa-th-large o_jacon_app_icon"/>
+                                    <span t-esc="app.name"/>
+                                </DropdownItem>
+                            </t>
+                        </t>
+                    </div>
+                </div>
+            </t>
+        </xpath>
+    </t>
+
+</templates>

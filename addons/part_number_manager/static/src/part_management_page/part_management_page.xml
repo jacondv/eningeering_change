@@ -3,62 +3,87 @@
     <t t-name="part_number_manager.PartManagementPage">
         <div class="o_pnm_page">
             <div class="o_pnm_header">
-                <h2>Part Numbers <t t-if="state.activeTab === 'convert'"> (Convert Legacy Codes)</t></h2>
-                <div class="o_pnm_tabs">
-                    <button class="btn btn-link"
-                            t-attf-class="btn {{ state.activeTab === 'create' ? 'btn-primary' : 'btn-outline-primary' }}"
-                            t-on-click="() => this.switchTab('create')">Create New</button>
-                    <button class="btn btn-link"
-                            t-attf-class="btn {{ state.activeTab === 'convert' ? 'btn-primary' : 'btn-outline-primary' }}"
-                            t-on-click="() => this.switchTab('convert')">Convert Legacy Code</button>
+                <div class="o_pnm_header_left">
+                    <h2>Part Numbers</h2>
+                    <div class="o_pnm_tabs">
+                        <button t-attf-class="o_pnm_tab_btn {{ state.activeTab === 'create' ? 'active' : '' }}"
+                                t-on-click="() => this.switchTab('create')">Create New</button>
+                        <button t-attf-class="o_pnm_tab_btn {{ state.activeTab === 'convert' ? 'active' : '' }}"
+                                t-on-click="() => this.switchTab('convert')">Convert Legacy Code</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="o_pnm_actions">
+                <button class="btn btn-secondary" t-on-click="() => this.addRow()">
+                    <i class="fa fa-plus"/> Add Row
+                </button>
+                <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
+                    <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
+                    Save
+                </button>
+                <div class="o_pnm_columns_picker">
+                    <button class="btn btn-outline-secondary" t-on-click="() => this.toggleColumnPicker()">
+                        <i class="fa fa-columns"/> Columns
+                    </button>
+                    <div class="o_pnm_columns_menu" t-if="state.showColumnPicker">
+                        <t t-foreach="toggleableColumns" t-as="col" t-key="col.key">
+                            <label class="o_pnm_columns_menu_item">
+                                <input type="checkbox"
+                                       t-att-checked="state.columnVisibility[col.key]"
+                                       t-on-change="() => this.toggleColumnVisibility(col.key)"/>
+                                <t t-esc="col.label"/>
+                            </label>
+                        </t>
+                    </div>
                 </div>
             </div>
 
             <div class="o_pnm_table_wrapper">
             <table class="table table-bordered o_pnm_table">
                 <colgroup>
-                    <col t-if="state.activeTab === 'convert'" t-attf-style="width: {{state.columnWidths.legacy}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.material_group}}px"/>
+                    <col t-if="state.activeTab === 'convert' and state.columnVisibility.legacy" t-attf-style="width: {{state.columnWidths.legacy}}px"/>
+                    <col t-if="state.columnVisibility.material_group" t-attf-style="width: {{state.columnWidths.material_group}}px"/>
                     <col t-attf-style="width: {{state.columnWidths.part_number}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.job_number}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.short_description}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.long_description}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.part_type}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.vendor}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.vendor_ref}}px"/>
-                    <col t-attf-style="width: {{state.columnWidths.make_buy}}px"/>
+                    <col t-if="state.columnVisibility.job_number" t-attf-style="width: {{state.columnWidths.job_number}}px"/>
+                    <col t-if="state.columnVisibility.short_description" t-attf-style="width: {{state.columnWidths.short_description}}px"/>
+                    <col t-if="state.columnVisibility.long_description" t-attf-style="width: {{state.columnWidths.long_description}}px"/>
+                    <col t-if="state.columnVisibility.part_type" t-attf-style="width: {{state.columnWidths.part_type}}px"/>
+                    <col t-if="state.columnVisibility.vendor" t-attf-style="width: {{state.columnWidths.vendor}}px"/>
+                    <col t-if="state.columnVisibility.vendor_ref" t-attf-style="width: {{state.columnWidths.vendor_ref}}px"/>
+                    <col t-if="state.columnVisibility.make_buy" t-attf-style="width: {{state.columnWidths.make_buy}}px"/>
                     <col/>
                 </colgroup>
                 <thead>
                     <tr>
-                        <th t-if="state.activeTab === 'convert'" class="o_pnm_th">Old Part Number
+                        <th t-if="state.activeTab === 'convert' and state.columnVisibility.legacy" class="o_pnm_th">Old Part Number
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('legacy', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Material Group
+                        <th t-if="state.columnVisibility.material_group" class="o_pnm_th">Material Group
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('material_group', ev)"/>
                         </th>
                         <th class="o_pnm_th">Part Number
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part_number', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Job Number<t t-if="state.activeTab === 'convert'"> (optional)</t>
+                        <th t-if="state.columnVisibility.job_number" class="o_pnm_th">Job Number<t t-if="state.activeTab === 'convert'"> (optional)</t>
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('job_number', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Short Description
+                        <th t-if="state.columnVisibility.short_description" class="o_pnm_th">Short Description
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('short_description', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Long Description
+                        <th t-if="state.columnVisibility.long_description" class="o_pnm_th">Long Description
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('long_description', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Part Type<t t-if="state.activeTab === 'convert'"> (optional)</t>
+                        <th t-if="state.columnVisibility.part_type" class="o_pnm_th">Part Type<t t-if="state.activeTab === 'convert'"> (optional)</t>
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part_type', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Vendor
+                        <th t-if="state.columnVisibility.vendor" class="o_pnm_th">Vendor
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('vendor', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Vendor Reference
+                        <th t-if="state.columnVisibility.vendor_ref" class="o_pnm_th">Vendor Reference
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('vendor_ref', ev)"/>
                         </th>
-                        <th class="o_pnm_th">Make/Buy
+                        <th t-if="state.columnVisibility.make_buy" class="o_pnm_th">Make/Buy
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('make_buy', ev)"/>
                         </th>
                         <th class="text-end">Actions</th>
@@ -67,7 +92,7 @@
                 <tbody>
                     <t t-foreach="state.rows" t-as="row" t-key="row._localId">
                         <tr t-attf-class="{{ row.status === 'success' ? 'o_pnm_row_success' : (row.status === 'error' ? 'o_pnm_row_error' : '') }}">
-                            <td t-if="state.activeTab === 'convert'">
+                            <td t-if="state.activeTab === 'convert' and state.columnVisibility.legacy">
                                 <PnmCombobox options="legacyOptions"
                                              text="row.legacyText"
                                              value="row.conversion_legacy_id"
@@ -84,7 +109,7 @@
                                     <t t-esc="state.errors[row._localId + '_legacy']"/>
                                 </div>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.material_group">
                                 <PnmCombobox options="materialGroupOptions"
                                              text="row.material_group_text"
                                              value="row.material_group_id"
@@ -125,7 +150,7 @@
                                     </div>
                                 </t>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.job_number">
                                 <PnmCombobox options="jobNumberOptions"
                                              text="row.job_number_text"
                                              value="row.job_number"
@@ -137,19 +162,19 @@
                                     <t t-esc="state.errors[row._localId + '_job']"/>
                                 </div>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.short_description">
                                 <input type="text" class="form-control form-control-sm"
                                        t-model="row.short_description"
                                        t-on-paste="(ev) => this.onCellPaste(row, 'short_description', ev)"
                                        t-att-disabled="row.status === 'success'"/>
                             </td>
-                            <td>
-                                <textarea class="form-control form-control-sm" rows="2"
+                            <td t-if="state.columnVisibility.long_description">
+                                <textarea class="form-control form-control-sm o_pnm_long_desc" rows="1"
                                           t-model="row.long_description"
                                           t-on-paste="(ev) => this.onCellPaste(row, 'long_description', ev)"
                                           t-att-disabled="row.status === 'success'"/>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.part_type">
                                 <PnmCombobox options="partTypeOptions"
                                              text="row.part_type_text"
                                              value="row.part_type_id"
@@ -180,7 +205,7 @@
                                     </t>
                                 </div>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.vendor">
                                 <PnmCombobox options="vendorOptions"
                                              text="row.vendor_text"
                                              value="row.vendor_id"
@@ -189,26 +214,30 @@
                                              disabled="row.status === 'success'"
                                              onInput="(text) => this._setVendorText(row, text)"
                                              onSelect="(opt) => this._setVendorText(row, opt.label)"
-                                             onPaste="(ev) => this.onCellPaste(row, 'vendor_id', ev)"/>
+                                             onPaste="(ev) => this.onCellPaste(row, 'vendor_id', ev)"
+                                             onFocusExtra="() => this._searchVendors(row.vendor_text)"/>
                                 <div class="text-muted small" t-if="row.vendor_text and !row.vendor_id">
                                     Will create new Vendor "<t t-esc="row.vendor_text"/>"
                                 </div>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.vendor_ref">
                                 <input type="text" class="form-control form-control-sm"
                                        t-model="row.vendor_ref"
                                        t-on-paste="(ev) => this.onCellPaste(row, 'vendor_ref', ev)"
                                        t-att-disabled="row.status === 'success'"/>
                             </td>
-                            <td>
+                            <td t-if="state.columnVisibility.make_buy">
                                 <select class="form-select form-select-sm"
                                         t-att-value="row.make_buy || ''"
                                         t-on-change="(ev) => this.onMakeBuyChange(row, ev)"
                                         t-att-disabled="row.status === 'success'">
-                                    <option value="">-- none --</option>
+                                    <option value="">-- select (required) --</option>
                                     <option value="make">Make</option>
                                     <option value="buy">Buy</option>
                                 </select>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_make_buy']">
+                                    <t t-esc="state.errors[row._localId + '_make_buy']"/>
+                                </div>
                             </td>
                             <td class="text-end">
                                 <button class="btn btn-sm btn-outline-danger"
@@ -221,16 +250,6 @@
                     </t>
                 </tbody>
             </table>
-            </div>
-
-            <div class="o_pnm_actions">
-                <button class="btn btn-secondary" t-on-click="() => this.addRow()">
-                    <i class="fa fa-plus"/> Add Row
-                </button>
-                <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
-                    <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
-                    Save
-                </button>
             </div>
 
             <div class="o_pnm_recent" t-if="state.recentParts.length">
