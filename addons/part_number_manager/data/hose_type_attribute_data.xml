@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- "Hose Type" is a Selection attribute so its Description is fixed per
+         choice (see part_attribute_option.description) instead of being
+         retyped on every Hose Part - this is the source reference table
+         as given, loaded once so it's never hand-typed either. -->
+
+    <record id="attribute_hose_type" model="part_number_manager.part_attribute">
+        <field name="name">Hose Type</field>
+        <field name="value_type">selection</field>
+    </record>
+
+    <record id="attribute_hose_type_option_4g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">A</field>
+        <field name="name">4G1</field>
+        <field name="description">1/4" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_4g2" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">B</field>
+        <field name="name">4G2</field>
+        <field name="description">1/4" x 2SN</field>
+    </record>
+    <record id="attribute_hose_type_option_6g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">C</field>
+        <field name="name">6G1</field>
+        <field name="description">3/8" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_6g2" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">D</field>
+        <field name="name">6G2</field>
+        <field name="description">3/8" x 2SN</field>
+    </record>
+    <record id="attribute_hose_type_option_8g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">E</field>
+        <field name="name">8G1</field>
+        <field name="description">1/2" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_8g2" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">F</field>
+        <field name="name">8G2</field>
+        <field name="description">1/2" x 2SN</field>
+    </record>
+    <record id="attribute_hose_type_option_12g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">G</field>
+        <field name="name">12G1</field>
+        <field name="description">3/4" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_12g2" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">H</field>
+        <field name="name">12G2</field>
+        <field name="description">3/4" x 2SN</field>
+    </record>
+    <record id="attribute_hose_type_option_16g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">I</field>
+        <field name="name">16G1</field>
+        <field name="description">1" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_20g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">J</field>
+        <field name="name">20G1</field>
+        <field name="description">1 1/4" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_24g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">K</field>
+        <field name="name">24G1</field>
+        <field name="description">1 1/2" x 1SN</field>
+    </record>
+    <record id="attribute_hose_type_option_8efg6k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">L</field>
+        <field name="name">8EFG6K</field>
+        <field name="description">1/2" x 6SN</field>
+    </record>
+    <record id="attribute_hose_type_option_12efg6k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">M</field>
+        <field name="name">12EFG6K</field>
+        <field name="description">3/4" x 6SN</field>
+    </record>
+    <record id="attribute_hose_type_option_16efg6k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">N</field>
+        <field name="name">16EFG6K</field>
+        <field name="description">1" x 6SN</field>
+    </record>
+    <record id="attribute_hose_type_option_20efg6k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">O</field>
+        <field name="name">20EFG6K</field>
+        <field name="description">1 1/4" x 6SN</field>
+    </record>
+    <record id="attribute_hose_type_option_24efg6k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">P</field>
+        <field name="name">24EFG6K</field>
+        <field name="description">1 1/2" x 6SN</field>
+    </record>
+    <record id="attribute_hose_type_option_6g2xh" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">Q</field>
+        <field name="name">6G2XH</field>
+        <field name="description">3/8" x 2SN-HP</field>
+    </record>
+    <record id="attribute_hose_type_option_8g2xh" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">R</field>
+        <field name="name">8G2XH</field>
+        <field name="description">1/2" x 2SN-HP</field>
+    </record>
+    <record id="attribute_hose_type_option_6m3k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">S</field>
+        <field name="name">6M3K</field>
+        <field name="description">3/8" 3SN</field>
+    </record>
+    <record id="attribute_hose_type_option_12m4k" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">T</field>
+        <field name="name">12M4K</field>
+        <field name="description">3/4" 4SN</field>
+    </record>
+    <record id="attribute_hose_type_option_12gmv" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">U</field>
+        <field name="name">12GMV</field>
+        <field name="description">3/4" Suction</field>
+    </record>
+    <record id="attribute_hose_type_option_16gmv" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">V</field>
+        <field name="name">16GMV</field>
+        <field name="description">1" Suction</field>
+    </record>
+    <record id="attribute_hose_type_option_20gmv" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">W</field>
+        <field name="name">20GMV</field>
+        <field name="description">1 1/4" Suction</field>
+    </record>
+    <record id="attribute_hose_type_option_24gmv" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">X</field>
+        <field name="name">24GMV</field>
+        <field name="description">1 1/2" Suction</field>
+    </record>
+    <record id="attribute_hose_type_option_32gmv" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">Y</field>
+        <field name="name">32GMV</field>
+        <field name="description">2" Suction</field>
+    </record>
+    <record id="attribute_hose_type_option_32g1" model="part_number_manager.part_attribute_option">
+        <field name="attribute_id" ref="attribute_hose_type"/>
+        <field name="no">Z</field>
+        <field name="name">32G1</field>
+        <field name="description">2" x 1SN</field>
+    </record>
+
+</odoo>
