@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_hfm_job_hose_line_list" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.job_hose_line.list</field>
+        <field name="model">hose_fitting_manager.job_hose_line</field>
+        <field name="arch" type="xml">
+            <list js_class="jacon_core_list">
+                <!-- Left: identifying/job info, always shown -->
+                <field name="job_number"/>
+                <field name="config_id" string="Hose Symbol"/>
+                <field name="hose_number"/>
+                <field name="description_en"/>
+                <field name="description_vn"/>
+                <field name="quantity"/>
+                <field name="length"/>
+                <!-- Right: BOM detail - editable dropdowns showing/searching
+                     by the component Part's Display Name, never its raw
+                     part_number code (same widget/convention as the Builder
+                     page's own comboboxes) -->
+                <field name="hose_id" string="Hose" widget="pnm_display_many2one"
+                       options="{'part_type': 'Hose'}" optional="show"/>
+                <field name="fitting1_id" string="Fitting 1" widget="pnm_display_many2one"
+                       options="{'part_type': 'Fitting'}" optional="show"/>
+                <field name="ferrule1_id" string="Ferrule (Fitting 1)" widget="pnm_display_many2one"
+                       options="{'part_type': 'Ferrule'}" optional="hide"/>
+                <field name="fitting2_id" string="Fitting 2" widget="pnm_display_many2one"
+                       options="{'part_type': 'Fitting'}" optional="show"/>
+                <field name="ferrule2_id" string="Ferrule (Fitting 2)" widget="pnm_display_many2one"
+                       options="{'part_type': 'Ferrule'}" optional="hide"/>
+                <field name="fire_wrap_id" string="Fire Wrap" widget="pnm_display_many2one"
+                       options="{'part_type': 'Fire Wrap'}" optional="hide"/>
+                <field name="part_id" string="Part Number" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_hfm_job_hose_line_form" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.job_hose_line.form</field>
+        <field name="model">hose_fitting_manager.job_hose_line</field>
+        <field name="arch" type="xml">
+            <form string="Hose And Fitting Line">
+                <sheet>
+                    <group>
+                        <group string="Job Info">
+                            <field name="job_number"/>
+                            <field name="config_id" string="Symbol"/>
+                            <field name="description_en"/>
+                            <field name="description_vn"/>
+                            <field name="quantity"/>
+                            <field name="length"/>
+                            <field name="hose_number"/>
+                        </group>
+                        <group string="Hose And Fitting Details">
+                            <!-- "Part Number - Display Description" for every
+                                 Part reference - never just the raw code -
+                                 same widget the All Lines list uses, with
+                                 show_part_number added on top for the form. -->
+                            <field name="hose_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Hose', 'show_part_number': true}"/>
+                            <field name="fitting1_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Fitting', 'show_part_number': true}"/>
+                            <field name="ferrule1_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Ferrule', 'show_part_number': true}"/>
+                            <field name="fitting2_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Fitting', 'show_part_number': true}"/>
+                            <field name="ferrule2_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Ferrule', 'show_part_number': true}"/>
+                            <field name="fire_wrap_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Fire Wrap', 'show_part_number': true}"/>
+                            <field name="part_id" string="Hose And Fitting Part" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Hose And Fitting', 'show_part_number': true}"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hfm_job_hose_line_search" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.job_hose_line.search</field>
+        <field name="model">hose_fitting_manager.job_hose_line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="job_number"/>
+                <field name="part_id"/>
+                <field name="hose_number"/>
+                <group>
+                    <filter string="Job Number" name="groupby_job_number" context="{'group_by': 'job_number'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hfm_job_hose_line" model="ir.actions.act_window">
+        <field name="name">Hose &amp; Fitting Lines</field>
+        <field name="res_model">hose_fitting_manager.job_hose_line</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_hfm_job_hose_line_search"/>
+        <field name="context">{'search_default_groupby_job_number': 1}</field>
+    </record>
+
+</odoo>

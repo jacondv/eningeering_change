@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hose_fitting_manager.Builder">
+        <div class="o_content o_pnm_page o_hfm_page">
+            <div class="o_pnm_header">
+                <h2>Hose &amp; Fitting Builder</h2>
+                <div class="o_hfm_column_menu">
+                    <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.toggleColumnMenu()">
+                        <i class="fa fa-table"/> Columns
+                    </button>
+                    <div class="o_hfm_column_menu_panel" t-if="state.columnMenuOpen">
+                        <t t-foreach="columnKeys" t-as="key" t-key="key">
+                            <label class="o_hfm_column_menu_item">
+                                <input type="checkbox"
+                                       t-att-checked="state.columnVisibility[key]"
+                                       t-on-change="() => this.toggleColumnVisibility(key)"/>
+                                <t t-esc="columnLabels[key]"/>
+                            </label>
+                        </t>
+                    </div>
+                </div>
+            </div>
+
+            <div class="o_hfm_top_fields">
+                <div class="o_hfm_top_field">
+                    <label>Job Number</label>
+                    <PnmCombobox options="jobOptions"
+                                 text="state.jobText"
+                                 value="state.jobId"
+                                 placeholder="'Select the Job this list is for'"
+                                 onInput="(text) => this._setJobText(text)"
+                                 onSelect="(opt) => this._setJobText(opt.label)"/>
+                    <div class="text-danger small" t-if="state.errors.job"><t t-esc="state.errors.job"/></div>
+                </div>
+                <div class="o_hfm_top_field">
+                    <label>Material Group (for new Hose and Fitting Parts)</label>
+                    <PnmCombobox options="materialGroupOptions"
+                                 text="state.materialGroupText"
+                                 value="state.materialGroupId"
+                                 placeholder="'Only needed when a line has no existing match'"
+                                 onInput="(text) => this._setMaterialGroupText(text)"
+                                 onSelect="(opt) => this._setMaterialGroupText(opt.label)"/>
+                </div>
+            </div>
+
+            <div class="o_pnm_actions">
+                <button class="btn btn-secondary" t-on-click="() => this.addRow()">
+                    <i class="fa fa-plus"/> Add Row
+                </button>
+                <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
+                    <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
+                    Save
+                </button>
+            </div>
+
+            <div class="o_pnm_table_wrapper o_hfm_scroll_table" t-ref="tableWrapper">
+            <table class="table table-bordered o_pnm_table o_hfm_table">
+                <colgroup>
+                    <col style="width: 48px"/>
+                    <col t-attf-style="width: {{state.columnWidths.hose}}px" t-attf-class="{{state.columnVisibility.hose ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.symbol}}px" t-attf-class="{{state.columnVisibility.symbol ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.hose_number}}px" t-attf-class="{{state.columnVisibility.hose_number ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.desc_en}}px" t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.desc_vn}}px" t-attf-class="{{state.columnVisibility.desc_vn ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.qty}}px" t-attf-class="{{state.columnVisibility.qty ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.length}}px" t-attf-class="{{state.columnVisibility.length ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.fitting1}}px" t-attf-class="{{state.columnVisibility.fitting1 ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.ferrule1}}px" t-attf-class="{{state.columnVisibility.ferrule1 ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.fitting2}}px" t-attf-class="{{state.columnVisibility.fitting2 ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.ferrule2}}px" t-attf-class="{{state.columnVisibility.ferrule2 ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.fire_wrap}}px" t-attf-class="{{state.columnVisibility.fire_wrap ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.part_number}}px" t-attf-class="{{state.columnVisibility.part_number ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col/>
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="o_pnm_th">No.</th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.hose ? '' : 'o_hfm_col_hidden'}}">Hose
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('hose', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.symbol ? '' : 'o_hfm_col_hidden'}}">Symbol
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('symbol', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.hose_number ? '' : 'o_hfm_col_hidden'}}">Hose No
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('hose_number', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}">Description EN
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('desc_en', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.desc_vn ? '' : 'o_hfm_col_hidden'}}">Description VN
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('desc_vn', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.qty ? '' : 'o_hfm_col_hidden'}}">Qty
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('qty', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.length ? '' : 'o_hfm_col_hidden'}}">Length (mm)
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('length', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.fitting1 ? '' : 'o_hfm_col_hidden'}}">Fitting 1
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fitting1', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.ferrule1 ? '' : 'o_hfm_col_hidden'}}">Ferrule
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('ferrule1', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.fitting2 ? '' : 'o_hfm_col_hidden'}}">Fitting 2
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fitting2', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.ferrule2 ? '' : 'o_hfm_col_hidden'}}">Ferrule
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('ferrule2', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.fire_wrap ? '' : 'o_hfm_col_hidden'}}">Fire Wrap
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fire_wrap', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.part_number ? '' : 'o_hfm_col_hidden'}}">Part Number
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part_number', ev)"/>
+                        </th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="state.rows" t-as="row" t-key="row._localId">
+                        <tr t-attf-class="{{ row.status === 'success' ? 'o_pnm_row_success' : (row.status === 'error' ? 'o_pnm_row_error' : '') }}">
+                            <td class="text-muted small text-center"><t t-esc="row_index + 1"/></td>
+                            <td t-attf-class="{{state.columnVisibility.hose ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="hoseOptions"
+                                             text="row.hose_text"
+                                             value="row.hose_id"
+                                             disabled="row.status === 'success'"
+                                             onInput="(text) => this._setHoseText(row, text)"
+                                             onSelect="(opt) => this._pickHose(row, opt)"/>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_hose']">
+                                    <t t-esc="state.errors[row._localId + '_hose']"/>
+                                </div>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.symbol ? '' : 'o_hfm_col_hidden'}}">
+                                <span class="text-muted small" t-if="row.config_text"><t t-esc="row.config_text"/></span>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.hose_number ? '' : 'o_hfm_col_hidden'}}">
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="row.hose_number"
+                                       t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}">
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="row.description_en"
+                                       t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.desc_vn ? '' : 'o_hfm_col_hidden'}}">
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="row.description_vn"
+                                       t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.qty ? '' : 'o_hfm_col_hidden'}}">
+                                <input type="number" min="1" class="form-control form-control-sm"
+                                       t-model.number="row.quantity"
+                                       t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.length ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="row.length_options"
+                                             text="row.length_text"
+                                             value="row.part_id"
+                                             placeholder="'Click to see existing lengths, or type a new one'"
+                                             allowCreate="true"
+                                             externalFilter="true"
+                                             disabled="row.status === 'success'"
+                                             onInput="(text) => this._setLengthText(row, text)"
+                                             onSelect="(opt) => this._selectLengthMatch(row, opt)"
+                                             onBlurExtra="() => this.onLengthBlur(row)"/>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_length']">
+                                    <t t-esc="state.errors[row._localId + '_length']"/>
+                                </div>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_material_group']">
+                                    <t t-esc="state.errors[row._localId + '_material_group']"/>
+                                </div>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.fitting1 ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="row.fitting1_options"
+                                             text="row.fitting1_text"
+                                             value="row.fitting1_id"
+                                             disabled="row.status === 'success' || !row.config_id"
+                                             onInput="(text) => this._setFittingText(row, 1, text)"
+                                             onSelect="(opt) => this._pickFittingOption(row, 1, opt)"/>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_fitting1']">
+                                    <t t-esc="state.errors[row._localId + '_fitting1']"/>
+                                </div>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.ferrule1 ? '' : 'o_hfm_col_hidden'}}">
+                                <span class="text-muted small" t-if="row.ferrule1_text"><t t-esc="row.ferrule1_text"/></span>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.fitting2 ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="row.fitting2_options"
+                                             text="row.fitting2_text"
+                                             value="row.fitting2_id"
+                                             disabled="row.status === 'success' || !row.config_id"
+                                             onInput="(text) => this._setFittingText(row, 2, text)"
+                                             onSelect="(opt) => this._pickFittingOption(row, 2, opt)"/>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_fitting2']">
+                                    <t t-esc="state.errors[row._localId + '_fitting2']"/>
+                                </div>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.ferrule2 ? '' : 'o_hfm_col_hidden'}}">
+                                <span class="text-muted small" t-if="row.ferrule2_text"><t t-esc="row.ferrule2_text"/></span>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.fire_wrap ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="row.fire_wrap_options"
+                                             text="row.fire_wrap_text"
+                                             value="row.fire_wrap_id"
+                                             placeholder="'None'"
+                                             disabled="row.status === 'success' || !row.fire_wrap_options.length"
+                                             onInput="(text) => this._setFireWrapText(row, text)"
+                                             onSelect="(opt) => this._pickFireWrap(row, opt)"/>
+                                <div class="text-muted small" t-if="row.config_id and !row.fire_wrap_options.length">
+                                    Not available for this Symbol
+                                </div>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.part_number ? '' : 'o_hfm_col_hidden'}}">
+                                <t t-if="row.resolved_part_number">
+                                    <span class="badge text-bg-success"><t t-esc="row.resolved_part_number"/></span>
+                                </t>
+                                <t t-elif="row.hose_id and row.fitting1_id and row.fitting2_id and row.length !== false">
+                                    <span class="text-muted small">Will create new</span>
+                                </t>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger"
+                                        t-if="row.status !== 'success'"
+                                        t-on-click="() => this.removeRow(row._localId)">
+                                    <i class="fa fa-trash"/>
+                                </button>
+                                <div class="text-danger small" t-if="row.errorMessage">
+                                    <t t-esc="row.errorMessage"/>
+                                </div>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </table>
+            </div>
+
+            <div class="o_pnm_recent" t-if="state.jobId">
+                <h3>Hose And Fitting Lines for this Job</h3>
+                <p class="text-muted small" t-if="!state.jobLines.length">No lines saved for this Job yet.</p>
+                <div class="o_pnm_table_wrapper o_hfm_job_lines_scroll" t-if="state.jobLines.length" t-ref="jobLinesWrapper">
+                <table class="table table-sm table-bordered table-hover table-striped o_hfm_table">
+                    <colgroup>
+                        <t t-foreach="columnKeys" t-as="key" t-key="key">
+                            <col t-attf-style="width: {{state.columnWidths[key]}}px"
+                                 t-attf-class="{{state.columnVisibility[key] ? '' : 'o_hfm_col_hidden'}}"/>
+                        </t>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <t t-foreach="columnKeys" t-as="key" t-key="key">
+                                <th t-attf-class="{{state.columnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
+                                    <t t-esc="columnLabels[key]"/>
+                                </th>
+                            </t>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="state.jobLines" t-as="l" t-key="l.id">
+                            <tr class="o_pnm_recent_row" t-on-click="() => this.openJobLine(l.id)">
+                                <t t-foreach="columnKeys" t-as="key" t-key="key">
+                                    <td t-attf-class="{{state.columnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
+                                        <t t-esc="l[key]"/>
+                                    </td>
+                                </t>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="part_number_manager.PnmCombobox">
+        <div class="o_pnm_combobox">
+            <div class="o_pnm_combobox_input_group">
+                <input type="text" class="form-control form-control-sm"
+                       t-ref="input"
+                       t-att-value="props.text"
+                       t-att-placeholder="props.placeholder"
+                       t-att-disabled="props.disabled"
+                       t-on-input="onInput"
+                       t-on-focus="onFocus"
+                       t-on-blur="onBlur"
+                       t-on-paste="onPaste"
+                       t-on-keydown="onKeydown"/>
+                <button type="button" class="o_pnm_combobox_clear" tabindex="-1"
+                        t-if="props.text and !props.disabled"
+                        t-on-mousedown.prevent="onClear">
+                    <i class="fa fa-times"/>
+                </button>
+                <button type="button" class="o_pnm_combobox_toggle" tabindex="-1"
+                        t-if="!props.disabled"
+                        t-on-mousedown.prevent="onToggle">
+                    <i class="fa fa-caret-down"/>
+                </button>
+            </div>
+            <div class="o_pnm_combobox_menu" t-ref="menu" t-if="state.open">
+                <t t-if="filteredOptions.length">
+                    <div t-foreach="filteredOptions" t-as="opt" t-key="opt.id"
+                         class="o_pnm_combobox_option"
+                         t-att-class="{ active: opt.id === props.value, highlighted: opt_index === state.highlightIndex }"
+                         t-on-mouseenter="() => this.onOptionMouseEnter(opt_index)"
+                         t-on-mousedown.prevent="() => this.onOptionMouseDown(opt)">
+                        <t t-esc="opt.label"/>
+                    </div>
+                </t>
+                <div t-else="" class="o_pnm_combobox_empty">
+                    <t t-if="props.allowCreate and props.text">Leave the field to create "<t t-esc="props.text"/>"</t>
+                    <t t-else="">No match</t>
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>

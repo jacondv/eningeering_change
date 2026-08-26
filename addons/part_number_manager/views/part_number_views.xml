@@ -48,11 +48,11 @@
                     </div>
                     <group>
                         <group>
-                            <field name="material_category_id" readonly="part_number != False"/>
-                            <field name="material_group_id" required="1" readonly="part_number != False"
-                                   domain="[('category_id', '=', material_category_id)]"/>
+                            <field name="material_group_id" required="1"/>
                             <field name="job_number"/>
                             <field name="short_description"/>
+                            <field name="display_description"/>
+                            <field name="part_type_id"/>
                         </group>
                         <group>
                             <field name="vendor_id"/>
@@ -68,9 +68,6 @@
                             <field name="long_description"/>
                         </page>
                         <page string="Attributes" name="attributes">
-                            <group>
-                                <field name="part_type_id"/>
-                            </group>
                             <field name="attribute_value_ids">
                                 <list editable="bottom">
                                     <field name="attribute_id"/>
@@ -79,6 +76,8 @@
                                     <field name="value_float" invisible="value_type != 'float'"/>
                                     <field name="value_option_id" invisible="value_type != 'selection'"
                                            domain="[('attribute_id', '=', attribute_id)]"/>
+                                    <field name="option_description" readonly="1" string="Option Description"
+                                           invisible="value_type != 'selection'"/>
                                     <field name="display_value" readonly="1"/>
                                 </list>
                             </field>
@@ -112,8 +111,11 @@
         <field name="arch" type="xml">
             <search>
                 <field name="part_number"/>
+                <field name="short_description"/>
+                <field name="long_description"/>
                 <field name="material_group_id"/>
-                <field name="job_number"/>
+                <field name="job_number" string="Project"/>
+                <field name="part_type_id"/>
                 <field name="vendor_id"/>
                 <field name="legacy_codes_display" string="Legacy Code"/>
                 <field name="create_uid" string="Created By"/>

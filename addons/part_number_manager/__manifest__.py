@@ -22,6 +22,7 @@ Features:
         'security/part_number_manager_groups.xml',
         'security/ir.model.access.csv',
         'data/part_number_import_mapping_data.xml',
+        'data/hose_type_attribute_data.xml',
         'views/material_category_views.xml',
         'views/material_group_views.xml',
         'views/part_type_views.xml',
@@ -33,6 +34,8 @@ Features:
     'assets': {
         'web.assets_backend': [
             'part_number_manager/static/src/part_management_page/part_management_page.scss',
+            'part_number_manager/static/src/part_management_page/pnm_combobox.js',
+            'part_number_manager/static/src/part_management_page/pnm_combobox.xml',
             'part_number_manager/static/src/part_management_page/part_management_page.js',
             'part_number_manager/static/src/part_management_page/part_management_page.xml',
             'part_number_manager/static/src/part_number_lock/part_number_unlock_dialog.js',

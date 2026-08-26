@@ -57,12 +57,6 @@ class PartNumber(models.Model):
              "its raw text from the import row, turns it into a proper legacy Part Number record linked "
              "via the Legacy / New Code Mapping tab, and excludes this field from what actually gets "
              "written - so it always reads back empty, on imported records too.")
-    material_category_id = fields.Many2one(
-        'part_number_manager.material_category', string='Main Category',
-        compute='_compute_material_category_id', store=False, readonly=False,
-        help="UI helper only, not stored: narrows the Material Group picker to a "
-             "two-step selection. Recomputed from material_group_id whenever that "
-             "changes; editable in between so it can be picked first.")
     material_group_id = fields.Many2one(
         'part_number_manager.material_group', string='Material Group', index=True,
         help="Required for manual creation (enforced by create_batch_with_generated_number and the form "
@@ -71,7 +65,13 @@ class PartNumber(models.Model):
              "number from, but its already-assigned part_number stays valid either way.")
     job_number = fields.Many2one('project.project', string='Job Number')
     short_description = fields.Char()
-    long_description = fields.Text()
+    display_description = fields.Char(
+        help="Short internal description used for quick reference/selection on other screens "
+             "(e.g. the Hose & Fitting Builder) - independent from Short/Long Description, "
+             "entered once per Part when needed.")
+    long_description = fields.Html(
+        help="Same rich-text field type as project.project's own Description - supports "
+             "pasted/embedded images and flexible copy-paste formatting.")
     state = fields.Selection([
         ('draft', 'Development'),
         ('active', 'Production'),
@@ -141,18 +141,34 @@ class PartNumber(models.Model):
             return False
         return True
 
-    @api.depends('material_group_id')
-    def _compute_material_category_id(self):
+    @api.onchange('part_type_id')
+    def _onchange_part_type_id_attributes(self):
+        # Keeps attribute_value_ids in sync with whatever Part Type is
+        # currently selected: drops rows for attributes that don't belong
+        # to it (a value left over from a previous Part Type no longer
+        # means anything once that Type is switched away from - keeping it
+        # around would show a stale attribute with no relation to what the
+        # part is now), then adds rows for the new Type's attributes not
+        # already present - so the user never has to manually "Add a line"
+        # and pick each attribute_id by hand.
         for rec in self:
-            rec.material_category_id = rec.material_group_id.category_id
+            allowed_attribute_ids = rec.part_type_id.attribute_ids.ids
+            rec.attribute_value_ids = rec.attribute_value_ids.filtered(
+                lambda v: v.attribute_id.id in allowed_attribute_ids)
+            existing_attribute_ids = rec.attribute_value_ids.mapped('attribute_id').ids
+            for attribute in rec.part_type_id.attribute_ids:
+                if attribute.id not in existing_attribute_ids:
+                    rec.attribute_value_ids += rec.attribute_value_ids.new({'attribute_id': attribute.id})
 
-    @api.onchange('material_category_id')
-    def _onchange_material_category_id(self):
-        # material_group_id's domain is filtered to this category in the
-        # view - if the category changes out from under an already-picked
-        # group, clear it instead of silently keeping a now-hidden value.
-        if self.material_group_id.category_id != self.material_category_id:
-            self.material_group_id = False
+    @api.onchange('vendor_id')
+    def _onchange_vendor_id_make_buy(self):
+        # A part sourced from a Vendor is being bought, not made in-house -
+        # only flips forward to Buy when a Vendor gets set; removing the
+        # Vendor afterward doesn't revert it, since that's not necessarily
+        # true (a part can still be bought without a Vendor filled in yet).
+        for rec in self:
+            if rec.vendor_id:
+                rec.make_buy = 'buy'
 
     @api.depends('supersedes_ids.new_part_id.part_number')
     def _compute_replacement_display(self):
@@ -285,10 +301,11 @@ class PartNumber(models.Model):
           user typed something that didn't match any existing Part Number;
           this is an error, never silently falls back to generating a new
           one (a typo must not create an unrelated new part).
-        Only the *legacy* side may be created on the fly, via
-        `conversion_legacy_text` when the autocomplete had no match. Job
-        Number is only mandatory for rows that create a brand new part
-        outside of a conversion.
+        Legacy Part Number and Vendor may both be created on the fly, via
+        `conversion_legacy_text`/`vendor_name` when the autocomplete had no
+        match. Job Number is search-only (never created here) and only
+        mandatory for rows that create a brand new part outside of a
+        conversion.
         """
         results = []
         for idx, vals in enumerate(vals_list):
@@ -301,7 +318,18 @@ class PartNumber(models.Model):
                     conversion_legacy_text = vals.pop('conversion_legacy_text', None)
                     existing_new_part_id = vals.pop('existing_new_part_id', None)
                     target_part_text = vals.pop('target_part_text', None)
+                    vendor_name = vals.pop('vendor_name', None)
                     is_conversion = bool(conversion_legacy_id or conversion_legacy_text)
+
+                    if not vals.get('vendor_id') and vendor_name:
+                        # Same find-or-create-by-exact-name approach as the
+                        # Old Part Number field and the historical load()
+                        # import - an unmatched Vendor typed here is a new
+                        # Contact, not an error.
+                        vendor = self.env['res.partner'].search([('name', '=', vendor_name)], limit=1)
+                        if not vendor:
+                            vendor = self.env['res.partner'].create({'name': vendor_name})
+                        vals['vendor_id'] = vendor.id
 
                     if not vals.get('material_group_id'):
                         raise UserError(_('Material Group is required.'))
