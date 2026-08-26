@@ -33,6 +33,7 @@ Features:
     ],
     'assets': {
         'web.assets_backend': [
+            'part_number_manager/static/src/part_number_list/part_number_list.scss',
             'part_number_manager/static/src/part_management_page/part_management_page.scss',
             'part_number_manager/static/src/part_management_page/pnm_combobox.js',
             'part_number_manager/static/src/part_management_page/pnm_combobox.xml',
