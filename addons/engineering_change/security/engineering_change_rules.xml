@@ -129,7 +129,7 @@
         <record id="ec_document_rule_admin_write" model="ir.rule">
             <field name="name">EC Document: Admin can edit at any stage before Closed</field>
             <field name="model_id" ref="model_engineering_change_document"/>
-            <field name="domain_force">[('change_id.state', '!=', 'done')]</field>
+            <field name="domain_force">[('change_id.state', 'not in', ['done', 'canceled'])]</field>
             <field name="groups" eval="[(4, ref('base.group_system'))]"/>
             <field name="perm_read">0</field>
             <field name="perm_write">1</field>

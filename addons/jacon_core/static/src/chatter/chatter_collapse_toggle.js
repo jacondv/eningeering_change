@@ -7,6 +7,33 @@ import { FormRenderer } from "@web/views/form/form_renderer";
 // and reopen it later - inserted imperatively since the chatter itself is
 // compiled dynamically by mail's own form_compiler.js, not a static
 // template we can t-inherit.
+//
+// One collapsed/expanded preference is remembered per browser (not per
+// record/model) via localStorage - simplest interpretation of "always
+// keep it the way I left it", and matches how the Task Timeline's own
+// Day/Week/Month choice is persisted elsewhere in this addon.
+const CHATTER_COLLAPSED_STORAGE_KEY = "jacon_core.chatter_collapsed";
+
+function loadStoredChatterCollapsed() {
+    try {
+        return localStorage.getItem(CHATTER_COLLAPSED_STORAGE_KEY) === "1";
+    } catch {
+        return false;
+    }
+}
+
+function storeChatterCollapsed(collapsed) {
+    try {
+        if (collapsed) {
+            localStorage.setItem(CHATTER_COLLAPSED_STORAGE_KEY, "1");
+        } else {
+            localStorage.removeItem(CHATTER_COLLAPSED_STORAGE_KEY);
+        }
+    } catch {
+        // Storage unavailable (private mode, quota, ...) - silently skip.
+    }
+}
+
 patch(FormRenderer.prototype, {
     setup() {
         super.setup();
@@ -28,10 +55,20 @@ patch(FormRenderer.prototype, {
         const toggle = document.createElement("div");
         toggle.className = "o_chatter_collapse_toggle";
         toggle.title = "Collapse/expand chatter";
-        toggle.innerHTML = '<i class="fa fa-angle-right"/>';
+        const setIcon = (collapsed) => {
+            toggle.innerHTML = `<i class="fa ${collapsed ? "fa-angle-left" : "fa-angle-right"}"/>`;
+        };
+        // This is a freshly (re)built chatter DOM node (the toggle above
+        // was just created since none existed on it yet) - apply last
+        // time's remembered state to it right away, before the user has
+        // clicked anything on this particular record/view instance.
+        const collapsed = loadStoredChatterCollapsed();
+        chatter.classList.toggle("o_chatter_collapsed", collapsed);
+        setIcon(collapsed);
         toggle.addEventListener("click", () => {
-            const collapsed = chatter.classList.toggle("o_chatter_collapsed");
-            toggle.querySelector("i").className = collapsed ? "fa fa-angle-left" : "fa fa-angle-right";
+            const nowCollapsed = chatter.classList.toggle("o_chatter_collapsed");
+            setIcon(nowCollapsed);
+            storeChatterCollapsed(nowCollapsed);
         });
         parent.insertBefore(toggle, chatter);
     },

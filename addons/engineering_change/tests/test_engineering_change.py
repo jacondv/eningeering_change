@@ -469,6 +469,68 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
         self.assertFalse(change.exists())
 
+    def _reject(self, change, user, outcome='draft', reject_by='manager', reason='Test reason'):
+        wizard = self.env['engineering.change.reject.wizard'].with_user(user).create({
+            'change_id': change.id,
+            'reject_by': reject_by,
+            'reject_reason': reason,
+            'outcome': outcome,
+        })
+        wizard.action_confirm_reject()
+        return wizard
+
+    def test_reject_button_available_to_manager_at_any_open_stage(self):
+        # Line Manager/Head Manager may reject at any open stage, not just
+        # while a request happens to be waiting on their own approval -
+        # matches their free content-edit rights (can_reject).
+        change = self._create_request(request_type='minor')
+        self.assertTrue(change.with_user(self.user_manager).can_reject)
+        change.with_user(self.user_engineer).action_submit()
+        self.assertTrue(change.with_user(self.user_manager).can_reject)
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        self.assertEqual(change.state, 'implement')
+        self.assertTrue(change.with_user(self.user_manager).can_reject)
+
+        # An Engineer/General user is never allowed to reject.
+        self.assertFalse(change.with_user(self.user_engineer).can_reject)
+        with self.assertRaises(AccessError):
+            change.with_user(self.user_engineer).action_open_reject_wizard()
+
+    def test_bod_can_reject_only_at_bod_review(self):
+        change = self._create_request(request_type='dcr')
+        change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
+        self.assertFalse(change.with_user(self.user_bod).can_reject)
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
+        self.assertEqual(change.state, 'bod_review')
+        self.assertTrue(change.with_user(self.user_bod).can_reject)
+
+    def test_reject_outcome_cancel_hides_request_and_is_a_dead_end(self):
+        change = self._create_request(request_type='minor')
+        self._reject(change, self.user_manager, outcome='cancel')
+        self.assertEqual(change.state, 'canceled')
+        self.assertEqual(dict(change._fields['state'].selection)['canceled'], 'Rejected')
+
+        # No way back to Draft from here, unlike outcome='draft' - and the
+        # button itself is gone (can_reject False once in a CLOSED_STATE).
+        self.assertFalse(change.with_user(self.user_manager).can_reject)
+        with self.assertRaises(AccessError):
+            change.with_user(self.user_manager).action_open_reject_wizard()
+
+        # Dropped out of the default All/My Requests search (see the
+        # "Rejected" filter in the search view), but still reachable by
+        # plain search()/read - not archived, just filtered by default.
+        self.assertIn(change, self.env['engineering.change'].search([]))
+        self.assertNotIn(change, self.env['engineering.change'].search([('state', '!=', 'canceled')]))
+
+    def test_canceled_request_content_is_locked_even_for_admin(self):
+        change = self._create_request(request_type='minor')
+        self._reject(change, self.user_manager, outcome='cancel')
+        with self.assertRaises(UserError):
+            change.with_user(self.user_admin).write({'title': 'Too late'})
+
     def test_everyone_sees_every_request(self):
         change = self._create_request(request_type='minor')
         for user in (self.user_general, self.user_engineer, self.user_bod, self.user_manager, self.user_deleter):
