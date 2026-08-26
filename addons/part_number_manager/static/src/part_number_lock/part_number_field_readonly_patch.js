@@ -6,13 +6,16 @@ import { Field } from "@web/views/fields/field";
 // models/part_number.py is_unlocked). Scoped to part_number_manager.part_number
 // only (checked inside the getter), so no other model's fields are affected.
 //
-// `isDisabled` is also forced here, not just `readonly`: StatusBarField (the
-// `state` field's widget) ignores the generic `readonly` prop entirely - its
-// buttons' `disabled` attribute is driven solely by `props.isDisabled`
-// (computed by its own extractProps from the view's readonly condition,
-// before this getter's override ever runs) - so without also overriding
-// `isDisabled` here, the state buttons would stay clickable while every
-// other field on the form is correctly locked.
+// `isDisabled` is also forced here, not just `readonly`, but ONLY for the
+// statusbar widget: StatusBarField ignores the generic `readonly` prop
+// entirely - its buttons' `disabled` attribute is driven solely by
+// `props.isDisabled` (computed by its own extractProps from the view's
+// readonly condition, before this getter's override ever runs) - so without
+// also overriding `isDisabled` here, the state buttons would stay clickable
+// while every other field on the form is correctly locked. `isDisabled`
+// must stay scoped to statusbar specifically - other field components (e.g.
+// CharField) don't declare that prop at all and raise "unknown key
+// 'isDisabled'" if it's passed to them.
 patch(Field.prototype, {
     get fieldComponentProps() {
         const props = super.fieldComponentProps;
@@ -23,7 +26,8 @@ patch(Field.prototype, {
             !record.data.is_unlocked &&
             this.props.name !== "is_unlocked"
         ) {
-            return { ...props, readonly: true, isDisabled: true };
+            const isStatusBar = this.props.fieldInfo?.widget === "statusbar";
+            return { ...props, readonly: true, ...(isStatusBar ? { isDisabled: true } : {}) };
         }
         return props;
     },
