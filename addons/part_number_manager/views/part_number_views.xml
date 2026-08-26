@@ -8,7 +8,7 @@
             <list js_class="jacon_core_list" decoration-muted="state == 'obsolete'">
                 <field name="part_number"/>
                 <field name="short_description" optional="show"/>
-                <field name="long_description" optional="show"/>
+                <field name="long_description" optional="show" class="o_pnm_long_description_cell"/>
                 <field name="job_number" optional="show"/>
                 <field name="part_type_id" optional="show"/>
                 <field name="vendor_id" optional="show"/>
