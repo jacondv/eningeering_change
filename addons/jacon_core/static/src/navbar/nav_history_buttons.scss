@@ -1,0 +1,22 @@
+.o_jacon_nav_history {
+    display: flex;
+    align-items: stretch;
+    margin: 0 4px;
+}
+
+.o_jacon_nav_history_btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #fff;
+    opacity: 0.8;
+
+    &:hover {
+        opacity: 1;
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+}
