@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <!-- Adds Back/Forward buttons right after the Apps Menu (grid icon),
+         calling the browser's own history - see nav_history_buttons.js. -->
+    <t t-inherit="web.NavBar" t-inherit-mode="extension">
+        <xpath expr="//t[@t-call='web.NavBar.AppsMenu']" position="after">
+            <div class="o_jacon_nav_history btn-group" t-if="!this.ui.isSmall">
+                <button type="button" class="btn o_jacon_nav_history_btn" title="Back" t-on-click="() => this.onHistoryBack()">
+                    <i class="fa fa-chevron-left"/>
+                </button>
+                <button type="button" class="btn o_jacon_nav_history_btn" title="Forward" t-on-click="() => this.onHistoryForward()">
+                    <i class="fa fa-chevron-right"/>
+                </button>
+            </div>
+        </xpath>
+    </t>
+
+</templates>
