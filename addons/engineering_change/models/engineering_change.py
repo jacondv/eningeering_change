@@ -87,7 +87,7 @@ class EngineeringChange(models.Model):
         # view_engineering_change_form) - it's a terminal exit reachable
         # from any open stage via the Cancel button, not a step in the
         # normal approval sequence the status bar walks through.
-        ('canceled', 'Canceled'),
+        ('canceled', 'Rejected'),
     ], default='draft', copy=False, tracking=True, index=True)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
