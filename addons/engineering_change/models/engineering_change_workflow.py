@@ -135,9 +135,19 @@ class EngineeringChange(models.Model):
             'note': note or '',
         })
 
-    def _apply_reject(self, reason, reject_by):
+    def _apply_reject(self, reason, reject_by, outcome='draft'):
+        """outcome='draft' (default) is the original behavior: back to Draft
+        for editing and resubmitting. outcome='cancel' is the dead-end exit
+        instead - state becomes 'canceled' (shown as "Rejected" - see the
+        Selection label on `state`), which also drops it out of the
+        default All/My Requests list (the "Rejected" search filter brings
+        it back). Both still log an approval_log_ids row and notify the
+        Engineer the same way - a full cancel is still a rejection from
+        their point of view, just one with no way back to Draft.
+        """
         self.ensure_one()
-        self.with_context(ec_workflow_write=True).write({'state': 'draft', 'reject_reason': reason})
+        target_state = 'canceled' if outcome == 'cancel' else 'draft'
+        self.with_context(ec_workflow_write=True).write({'state': target_state, 'reject_reason': reason})
         self.env['engineering.change.approval.log'].create({
             'change_id': self.id,
             'role': reject_by,
@@ -153,8 +163,9 @@ class EngineeringChange(models.Model):
         if partners:
             self.message_subscribe(partner_ids=partners.ids)
         self._send_template(template_xmlid, partners=partners)
-        self.message_post(
-            body=_("Request rejected. Reason: %s") % reason, partner_ids=partners.ids)
+        body = (_("Request rejected and moved back to Draft. Reason: %s") % reason if outcome == 'draft'
+                else _("Request rejected and canceled. Reason: %s") % reason)
+        self.message_post(body=body, partner_ids=partners.ids)
 
     def action_confirm_production(self):
         for rec in self:
@@ -260,31 +271,6 @@ class EngineeringChange(models.Model):
                 rec_sudo.message_subscribe(partner_ids=partners.ids)
             rec_sudo.message_post(body=_("Request closed."), partner_ids=partners.ids)
 
-    def action_cancel_request(self):
-        """Terminal exit reachable from any still-open stage (anything
-        short of Closed/already Canceled) - unlike Close, there is no
-        Reopen path back out of Canceled; it exists for a request that
-        should never have been raised (duplicate, entered by mistake...)
-        rather than one that ran its course. Gated the same way as
-        Delete (group_ec_delete - see action_delete_with_password) since
-        both are equally hard to walk back, per the button's own
-        placement next to Delete in the header.
-
-        sudo(): group_ec_delete's own ACL is read+unlink only (it deletes
-        records, it was never meant to write them) - the actual state
-        change here is authorized by the has_group check above, same
-        pattern as action_close_request's rec_sudo for the same kind of
-        ACL/action mismatch.
-        """
-        for rec in self:
-            if not self.env.user.has_group('engineering_change.group_ec_delete'):
-                raise AccessError(_("Only a user granted Delete rights can cancel a request."))
-            if rec.state in rec.CLOSED_STATES:
-                raise UserError(_("This request is already %s.") % rec.state)
-            rec_sudo = rec.sudo()
-            rec_sudo.with_context(ec_workflow_write=True).state = 'canceled'
-            rec_sudo.message_post(body=_("Request canceled by %s.") % self.env.user.name)
-
     def action_reopen(self):
         for rec in self:
             if not self.env.user.has_group('engineering_change.group_ec_manager'):
@@ -300,8 +286,26 @@ class EngineeringChange(models.Model):
     # ------------------------------------------------------------
     # Reject wizard glue
     # ------------------------------------------------------------
-    def action_open_reject_wizard(self, reject_by):
+    def _current_reject_role(self):
+        """Which role is doing the reject, for approval_log_ids/the reject
+        email template - derived from the current user's own groups rather
+        than a fixed per-button value, since Reject is now a single,
+        stage-agnostic button (see can_reject) instead of one button per
+        role/stage. group_ec_head_office implies group_ec_manager, so it's
+        checked first - otherwise a Head Manager would always be logged as
+        plain 'manager'."""
         self.ensure_one()
+        user = self.env.user
+        if self.state == 'bod_review' and user.has_group('engineering_change.group_ec_bod'):
+            return 'bod'
+        if user.has_group('engineering_change.group_ec_head_office'):
+            return 'head_office'
+        return 'manager'
+
+    def action_open_reject_wizard(self):
+        self.ensure_one()
+        if not self.can_reject:
+            raise AccessError(_("You are not allowed to reject this request at its current stage."))
         return {
             'type': 'ir.actions.act_window',
             'name': _('Reject Request'),
@@ -310,21 +314,9 @@ class EngineeringChange(models.Model):
             'target': 'new',
             'context': {
                 'default_change_id': self.id,
-                'default_reject_by': reject_by,
+                'default_reject_by': self._current_reject_role(),
             },
         }
-
-    def action_manager_reject(self):
-        self.ensure_one()
-        return self.action_open_reject_wizard('manager')
-
-    def action_head_office_reject(self):
-        self.ensure_one()
-        return self.action_open_reject_wizard('head_office')
-
-    def action_bod_reject(self):
-        self.ensure_one()
-        return self.action_open_reject_wizard('bod')
 
     # ------------------------------------------------------------
     # Approve wizard glue

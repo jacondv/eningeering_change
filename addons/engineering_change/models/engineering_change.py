@@ -173,6 +173,7 @@ class EngineeringChange(models.Model):
     can_edit_dcr_no = fields.Boolean(compute='_compute_edit_rights')
     can_manager_approve = fields.Boolean(compute='_compute_edit_rights')
     can_recall_submission = fields.Boolean(compute='_compute_edit_rights')
+    can_reject = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -277,6 +278,13 @@ class EngineeringChange(models.Model):
             rec.can_recall_submission = (
                 rec.state == 'waiting_manager_approval'
                 and (is_admin or rec.engineer_id == user))
+            # One Reject button, available at any open stage - Line Manager/
+            # Head Manager may reject a request at any point (matches their
+            # free content-edit rights - see own_stage_edit's is_admin
+            # clause), while BOC keeps its narrower, pre-existing authority:
+            # only while the request is actually sitting at BOC Approval.
+            rec.can_reject = rec.state not in self.CLOSED_STATES and (
+                is_manager or (is_bod and rec.state == 'bod_review'))
             if rec.state == 'waiting_manager_approval' and is_manager:
                 direct_manager = rec._get_direct_manager_user()
                 rec.can_manager_approve = is_admin or not direct_manager or user == direct_manager
