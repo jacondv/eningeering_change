@@ -6,7 +6,15 @@ import { useService } from "@web/core/utils/hooks";
 import { PnmCombobox } from "./pnm_combobox";
 
 const PART_NUMBER_MODEL = "part_number_manager.part_number";
+// Vendor (res.partner) and Part Number are unbounded, ever-growing tables -
+// preloading them whole (like the small reference lists below) gets slower
+// every time someone adds a Vendor or Part. Instead they're searched live
+// against the server as the user types, same idea as Odoo's own Many2one.
+const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_LIMIT = 20;
 const COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.column_widths";
+const ACTIVE_TAB_STORAGE_KEY = "part_number_manager.part_management_page.active_tab";
+const COLUMN_VISIBILITY_STORAGE_KEY = "part_number_manager.part_management_page.column_visibility";
 const DEFAULT_COLUMN_WIDTHS = {
     legacy: 180,
     material_group: 180,
@@ -20,6 +28,23 @@ const DEFAULT_COLUMN_WIDTHS = {
     make_buy: 110,
 };
 
+// Toggleable columns offered by the "Columns" picker - key must match the
+// <col>/<th>/<td> t-if guards below. "legacy" only ever shows on the
+// Convert tab (see the template's own t-if on top of this), so it's simply
+// left out of the picker while the Create tab is active rather than given
+// its own tab-conditional entry here.
+const TOGGLEABLE_COLUMNS = [
+    { key: "legacy", label: "Old Part Number", convertOnly: true },
+    { key: "material_group", label: "Material Group" },
+    { key: "job_number", label: "Job Number" },
+    { key: "short_description", label: "Short Description" },
+    { key: "long_description", label: "Long Description" },
+    { key: "part_type", label: "Part Type" },
+    { key: "vendor", label: "Vendor" },
+    { key: "vendor_ref", label: "Vendor Reference" },
+    { key: "make_buy", label: "Make/Buy" },
+];
+
 export class PartManagementPage extends Component {
     static template = "part_number_manager.PartManagementPage";
     static components = { PnmCombobox };
@@ -31,11 +56,17 @@ export class PartManagementPage extends Component {
         this.action = useService("action");
 
         this.state = useState({
-            activeTab: "create", // "create" | "convert"
+            activeTab: this._loadActiveTab(), // "create" | "convert"
             rows: [],
             errors: {},
             isSaving: false,
             columnWidths: this._loadColumnWidths(),
+            columnVisibility: this._loadColumnVisibility(),
+            showColumnPicker: false,
+            // Live search results for Vendor / Part Number fields - see
+            // SEARCH_DEBOUNCE_MS comment above. Empty until the user types.
+            vendorOptions: [],
+            partOptions: [],
             // Every successfully created/converted part this session, newest
             // first - a running log below the working table so a user who
             // just saved a batch can scroll back and re-open any of them,
@@ -45,25 +76,34 @@ export class PartManagementPage extends Component {
         });
 
         // Each *Options array is the source list for one PnmCombobox field:
-        // [{id, label}].
+        // [{id, label}]. Material Group / Job Number / Part Type are small,
+        // bounded catalog/config lists - fine to preload whole. Vendor and
+        // Part Number are not (see SEARCH_DEBOUNCE_MS comment) - those live
+        // in state.vendorOptions/state.partOptions instead, filled in by
+        // _searchVendors/_searchParts as the user types.
         this.materialGroupOptions = [];
         this.jobNumberOptions = [];
-        this.vendorOptions = [];
         this.partTypeOptions = [];
         this.partTypes = [];
         this.attributeDefs = {}; // attribute_id -> {name, value_type, uom, options}
-        this.allParts = []; // [{id, part_number, material_group_id, state}]
+        this._searchTimers = {};
 
         onWillStart(async () => {
             await Promise.all([
                 this._loadMaterialGroups(),
                 this._loadJobNumbers(),
-                this._loadVendors(),
                 this._loadPartTypesAndAttributes(),
-                this._loadAllParts(),
             ]);
             this.addRow();
         });
+    }
+
+    // Debounces one named live-search field (e.g. "vendor", "part") so a
+    // burst of keystrokes fires one RPC after typing pauses, not one per
+    // keystroke.
+    _debouncedSearch(key, fn) {
+        clearTimeout(this._searchTimers[key]);
+        this._searchTimers[key] = setTimeout(fn, SEARCH_DEBOUNCE_MS);
     }
 
     async _loadMaterialGroups() {
@@ -80,9 +120,10 @@ export class PartManagementPage extends Component {
         this.jobNumberOptions = jobs.filter((j) => j.name).map((j) => ({ id: j.id, label: j.name }));
     }
 
-    async _loadVendors() {
-        const vendors = await this.orm.searchRead("res.partner", [], ["name"]);
-        this.vendorOptions = vendors.filter((v) => v.name).map((v) => ({ id: v.id, label: v.name }));
+    async _searchVendors(text) {
+        const domain = text ? [["name", "ilike", text]] : [];
+        const vendors = await this.orm.searchRead("res.partner", domain, ["name"], { limit: SEARCH_LIMIT });
+        this.state.vendorOptions = vendors.filter((v) => v.name).map((v) => ({ id: v.id, label: v.name }));
     }
 
     async _loadPartTypesAndAttributes() {
@@ -112,17 +153,33 @@ export class PartManagementPage extends Component {
         }
     }
 
-    async _loadAllParts() {
+    // Shared live search backing both the Old Part Number and Target Part
+    // comboboxes - both search the same Part Number model, just filtered
+    // differently afterwards (see legacyOptions/getTargetOptions below).
+    // `materialGroupId` narrows the query itself (not just the client-side
+    // filter) so the Target Part search - which only ever wants matches in
+    // the row's own Material Group - doesn't waste its SEARCH_LIMIT results
+    // on parts from other groups. Old Part Number search omits it: any
+    // Material Group is a valid legacy code to convert (see legacyOptions).
+    async _searchParts(text, materialGroupId) {
+        const domain = [];
+        if (text) {
+            domain.push(["part_number", "ilike", text]);
+        }
+        if (materialGroupId) {
+            domain.push(["material_group_id", "=", materialGroupId]);
+        }
         const parts = await this.orm.searchRead(
             PART_NUMBER_MODEL,
-            [],
-            ["part_number", "material_group_id", "state", "short_description", "long_description"]
+            domain,
+            ["part_number", "material_group_id", "state", "short_description", "long_description"],
+            { limit: SEARCH_LIMIT }
         );
         // Records without a part_number yet (e.g. a draft saved from the
         // classic form before Generate ever ran) have nothing meaningful to
         // autocomplete against - drop them instead of shipping a broken
         // (non-string) label into the datalist.
-        this.allParts = parts
+        this.state.partOptions = parts
             .filter((p) => p.part_number)
             .map((p) => ({
                 id: p.id,
@@ -143,14 +200,20 @@ export class PartManagementPage extends Component {
     // the second conversion and try to re-create it, hitting the
     // part_number unique constraint.
     get legacyOptions() {
-        return this.allParts;
+        return this.state.partOptions;
+    }
+
+    // Bug fix: the template refers to this as a plain component getter
+    // (like legacyOptions above), not to state.vendorOptions directly.
+    get vendorOptions() {
+        return this.state.vendorOptions;
     }
 
     // Candidates for "attach to an existing Part Number" are scoped to the
     // row's own Material Group, and exclude the legacy part itself and any
     // already-obsolete part.
     getTargetOptions(row) {
-        return this.allParts.filter((p) =>
+        return this.state.partOptions.filter((p) =>
             p.state !== "obsolete" &&
             p.material_group_id === row.material_group_id &&
             p.id !== row.conversion_legacy_id
@@ -189,6 +252,61 @@ export class PartManagementPage extends Component {
         }
     }
 
+    _loadActiveTab() {
+        try {
+            const saved = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+            return saved === "convert" ? "convert" : "create";
+        } catch {
+            return "create";
+        }
+    }
+
+    _saveActiveTab() {
+        try {
+            localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, this.state.activeTab);
+        } catch {
+            // Not remembered this time - not fatal, tab just defaults to
+            // Create New next visit.
+        }
+    }
+
+    _loadColumnVisibility() {
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY) || "{}");
+        } catch {
+            saved = {};
+        }
+        const visibility = {};
+        for (const col of TOGGLEABLE_COLUMNS) {
+            visibility[col.key] = saved[col.key] !== false;
+        }
+        return visibility;
+    }
+
+    _saveColumnVisibility() {
+        try {
+            localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(this.state.columnVisibility));
+        } catch {
+            // Not remembered this time - columns just default back to shown.
+        }
+    }
+
+    toggleColumnPicker() {
+        this.state.showColumnPicker = !this.state.showColumnPicker;
+    }
+
+    toggleColumnVisibility(key) {
+        this.state.columnVisibility[key] = !this.state.columnVisibility[key];
+        this._saveColumnVisibility();
+    }
+
+    // The columns actually offered in the picker for the current tab -
+    // "legacy" only makes sense (and only renders) on the Convert tab.
+    get toggleableColumns() {
+        return TOGGLEABLE_COLUMNS.filter((c) => !c.convertOnly || this.state.activeTab === "convert");
+    }
+
     // Drag-to-resize for the table's <colgroup> widths, persisted to
     // localStorage so it's remembered across visits (same idea as
     // jacon_core's resizable_column_list_view.js for standard list views -
@@ -222,6 +340,7 @@ export class PartManagementPage extends Component {
 
     switchTab(tab) {
         this.state.activeTab = tab;
+        this._saveActiveTab();
         if (!this.state.rows.some((r) => r.status !== "success")) {
             this.addRow();
         }
@@ -282,6 +401,9 @@ export class PartManagementPage extends Component {
         // a stale pick if the group changed underneath it.
         row.existing_new_part_id = false;
         row.targetPartText = "";
+        if (materialGroupId && this.state.activeTab === "convert") {
+            this._debouncedSearch("part", () => this._searchParts("", materialGroupId));
+        }
     }
 
     // Job Number is search-only against existing Projects - never created on
@@ -298,13 +420,14 @@ export class PartManagementPage extends Component {
     // be find-or-created there (see create_batch_with_generated_number).
     _setVendorText(row, text) {
         row.vendor_text = text || "";
-        row.vendor_id = this.resolveIdByLabel(this.vendorOptions, text);
+        row.vendor_id = this.resolveIdByLabel(this.state.vendorOptions, text);
         // A part with a Vendor name set is being bought, not made in-house -
         // same rule as the classic form's onchange. Only flips forward to
         // Buy; clearing the Vendor doesn't revert it.
         if (row.vendor_text) {
             row.make_buy = "buy";
         }
+        this._debouncedSearch("vendor", () => this._searchVendors(row.vendor_text));
     }
 
     onAttributeValueChange(attr, value) {
@@ -363,6 +486,7 @@ export class PartManagementPage extends Component {
             // there looking like they still apply to nothing.
             this._clearLegacyAutofill(row);
         }
+        this._debouncedSearch("part", () => this._searchParts(raw));
     }
 
     _clearLegacyAutofill(row) {
@@ -442,6 +566,7 @@ export class PartManagementPage extends Component {
     _setTargetPart(row, text) {
         row.targetPartText = (text || "").trim();
         row.existing_new_part_id = this.resolveIdByLabel(this.getTargetOptions(row), text);
+        this._debouncedSearch("part", () => this._searchParts(row.targetPartText, row.material_group_id));
     }
 
     // Column order of each tab's editable cells, left to right, exactly as
@@ -559,6 +684,9 @@ export class PartManagementPage extends Component {
             if (this.state.activeTab === "create" && !row.job_number) {
                 errors[`${row._localId}_job`] = "Required";
             }
+            if (!row.make_buy) {
+                errors[`${row._localId}_make_buy`] = "Required";
+            }
             if (this.state.activeTab === "convert") {
                 if (!row.conversion_legacy_id && !row.legacyCodeText) {
                     errors[`${row._localId}_legacy`] = "Type or pick an Old Part Number to convert";
@@ -633,15 +761,10 @@ export class PartManagementPage extends Component {
                 }
             });
 
-            if (this.state.activeTab === "convert") {
-                await this._loadAllParts();
-            }
-            // A successful row may have just find-or-created a Vendor -
-            // refresh so it's immediately pickable (without re-typing it as
-            // a "new" name again) on the next row in this same session.
-            if (results.some((r) => r.success)) {
-                await this._loadVendors();
-            }
+            // No manual refresh needed here anymore: Vendor and Part Number
+            // are searched live against the server (see SEARCH_DEBOUNCE_MS
+            // comment above), so the next search on either field already
+            // picks up anything just created.
 
             const successCount = results.filter((r) => r.success).length;
             const failCount = results.length - successCount;
