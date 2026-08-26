@@ -260,6 +260,31 @@ class EngineeringChange(models.Model):
                 rec_sudo.message_subscribe(partner_ids=partners.ids)
             rec_sudo.message_post(body=_("Request closed."), partner_ids=partners.ids)
 
+    def action_cancel_request(self):
+        """Terminal exit reachable from any still-open stage (anything
+        short of Closed/already Canceled) - unlike Close, there is no
+        Reopen path back out of Canceled; it exists for a request that
+        should never have been raised (duplicate, entered by mistake...)
+        rather than one that ran its course. Gated the same way as
+        Delete (group_ec_delete - see action_delete_with_password) since
+        both are equally hard to walk back, per the button's own
+        placement next to Delete in the header.
+
+        sudo(): group_ec_delete's own ACL is read+unlink only (it deletes
+        records, it was never meant to write them) - the actual state
+        change here is authorized by the has_group check above, same
+        pattern as action_close_request's rec_sudo for the same kind of
+        ACL/action mismatch.
+        """
+        for rec in self:
+            if not self.env.user.has_group('engineering_change.group_ec_delete'):
+                raise AccessError(_("Only a user granted Delete rights can cancel a request."))
+            if rec.state in rec.CLOSED_STATES:
+                raise UserError(_("This request is already %s.") % rec.state)
+            rec_sudo = rec.sudo()
+            rec_sudo.with_context(ec_workflow_write=True).state = 'canceled'
+            rec_sudo.message_post(body=_("Request canceled by %s.") % self.env.user.name)
+
     def action_reopen(self):
         for rec in self:
             if not self.env.user.has_group('engineering_change.group_ec_manager'):

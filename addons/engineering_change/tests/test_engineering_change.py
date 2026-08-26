@@ -469,6 +469,28 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_deleter).with_context(ec_delete_password_confirmed=True).unlink()
         self.assertFalse(change.exists())
 
+    def test_cancel_is_gated_like_delete(self):
+        change = self._create_request(request_type='minor')
+
+        # Same group as Delete (group_ec_delete) - a Manager/Engineer with
+        # no Delete rights of their own cannot cancel.
+        with self.assertRaises(AccessError):
+            change.with_user(self.user_manager).action_cancel_request()
+
+        change.with_user(self.user_deleter).action_cancel_request()
+        self.assertEqual(change.state, 'canceled')
+
+        # No Reopen path out of Canceled, unlike Closed - cancelling again
+        # (or from any other action) is rejected outright.
+        with self.assertRaises(UserError):
+            change.with_user(self.user_deleter).action_cancel_request()
+
+    def test_canceled_request_content_is_locked_even_for_admin(self):
+        change = self._create_request(request_type='minor')
+        change.with_user(self.user_deleter).action_cancel_request()
+        with self.assertRaises(UserError):
+            change.with_user(self.user_admin).write({'title': 'Too late'})
+
     def test_everyone_sees_every_request(self):
         change = self._create_request(request_type='minor')
         for user in (self.user_general, self.user_engineer, self.user_bod, self.user_manager, self.user_deleter):
