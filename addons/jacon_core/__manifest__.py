@@ -29,6 +29,7 @@ Currently provides:
 - Start Date: an explicit, editable Task field (defaults to the creation date) alongside Deadline - the window an engineer's remaining hours on that task are spread across.
 - Overload warning: assigning a Task (Engineer, Allocated Hours, Start Date, Deadline) warns right on the form if it would push that engineer's combined daily workload over their working-calendar capacity on any day between Start Date and Deadline, and links to a review wizard listing the other tasks contributing to it - each row's New Deadline opens pre-filled with the nearest date that engineer has room, editable before anything is actually saved to the tasks.
 - Schedule change request: a Task's assignee cannot edit Start Date/Deadline/Allocated Hours directly - only propose new values (with a reason) instead; their direct HR manager (Employee > Manager) sees an Approve/Reject banner on the task and is the only one who can apply it. Assigning a Task also notifies the assignee's manager.
+- App Switcher grouping: the App Switcher dropdown (top-left grid icon) groups Jacon's own custom apps under a "JACON" header, separate from standard Odoo apps under "General", each with a small icon per row, restyled as a rounded card.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -66,6 +67,9 @@ Currently provides:
             'jacon_core/static/src/chatter/chatter_collapse_toggle.js',
             'jacon_core/static/src/project_stage_confirm/project_stage_confirm.js',
             'jacon_core/static/src/scss/form_layout.scss',
+            'jacon_core/static/src/navbar/apps_menu_jacon_group.js',
+            'jacon_core/static/src/navbar/apps_menu_jacon_group.xml',
+            'jacon_core/static/src/navbar/apps_menu_jacon_group.scss',
         ],
     },
     'installable': True,

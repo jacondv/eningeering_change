@@ -27,6 +27,7 @@ export class PnmCombobox extends Component {
         onSelect: Function, // (option) => void
         onPaste: { type: Function, optional: true }, // (ev) => void
         onBlurExtra: { type: Function, optional: true }, // () => void - runs after this component's own blur handling
+        onFocusExtra: { type: Function, optional: true }, // () => void - runs after this component's own focus handling (e.g. to load options on click, not just on keystroke)
     };
     static defaultProps = {
         placeholder: "Type to search...",
@@ -74,6 +75,7 @@ export class PnmCombobox extends Component {
     onFocus() {
         this.state.open = true;
         this.state.highlightIndex = -1;
+        this.props.onFocusExtra?.();
     }
 
     onInput(ev) {
