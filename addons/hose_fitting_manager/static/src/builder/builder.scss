@@ -1,0 +1,124 @@
+// Reuses .o_pnm_page/.o_pnm_table/... visual rules from part_number_manager's
+// part_management_page.scss (this page's root carries both classes) - only
+// the bits specific to this page's own layout live here.
+.o_hfm_page {
+    .o_hfm_top_fields {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+    }
+
+    .o_hfm_top_field {
+        min-width: 260px;
+
+        label {
+            font-size: 0.85em;
+            color: var(--muted-text-color, #6c757d);
+            margin-bottom: 2px;
+            display: block;
+        }
+    }
+
+    .o_hfm_table {
+        min-width: 1700px;
+
+        // Tighter than Bootstrap's default table cell padding so more rows
+        // fit in the scrollable area at once.
+        > tbody > tr > td, > thead > tr > th {
+            padding: 3px 6px;
+        }
+
+        .o_pnm_combobox_input_group input,
+        input.form-control-sm {
+            padding: 2px 6px;
+            min-height: 26px;
+        }
+
+        .o_pnm_combobox_clear,
+        .o_pnm_combobox_toggle {
+            padding: 0 4px;
+        }
+    }
+
+    // Extra breathing room below the last row before the Add Row/Save
+    // buttons - the table's own bottom border sat right against them. Also
+    // reserves room for a combobox dropdown opened on the last row: the
+    // wrapper's overflow-x: auto forces overflow-y to auto too (can't mix
+    // visible/auto per the CSS overflow spec), so without this the dropdown
+    // (up to 220px tall, see pnm_combobox_menu) gets clipped/scrolled away
+    // instead of shown below the input.
+    .o_pnm_table_wrapper {
+        margin-bottom: 20px;
+        padding-bottom: 230px;
+    }
+
+    // Both the row-editing table and the read-only Job Lines table below it
+    // can grow arbitrarily long - each is its own scrollable, user-resizable
+    // panel (native CSS resize handle, bottom-right corner) so the page
+    // itself doesn't grow unbounded. Add Row/Save sit above this table (see
+    // builder.xml) so they stay visible regardless of how long the list
+    // gets. Height starts at a JS-applied default and is then remembered
+    // per-browser via ResizeObserver - see _setupResizePersistence in
+    // builder.js (there's no CSS-only way to persist a user's manual resize).
+    .o_hfm_scroll_table,
+    .o_hfm_job_lines_scroll {
+        overflow-y: auto;
+        resize: vertical;
+        min-height: 150px;
+    }
+
+    .o_hfm_scroll_table thead th,
+    .o_hfm_job_lines_scroll thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--Table-background, #fff);
+    }
+
+    .o_hfm_col_hidden {
+        display: none;
+    }
+
+    // Add Row/Save now sit above the table (see builder.xml) - extra room
+    // beneath them so the table doesn't start right against the buttons.
+    .o_pnm_actions {
+        margin-bottom: 16px;
+    }
+
+    .o_pnm_header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .o_hfm_column_menu {
+        position: relative;
+    }
+
+    .o_hfm_column_menu_panel {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        z-index: 10;
+        margin-top: 4px;
+        padding: 8px 12px;
+        min-width: 200px;
+        max-height: 320px;
+        overflow-y: auto;
+        background: var(--bg-color, #fff);
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .o_hfm_column_menu_item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        font-weight: normal;
+        white-space: nowrap;
+        margin-bottom: 0;
+    }
+}

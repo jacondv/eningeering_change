@@ -5,7 +5,8 @@
         <field name="name">part_number_manager.material_group.list</field>
         <field name="model">part_number_manager.material_group</field>
         <field name="arch" type="xml">
-            <list>
+            <list js_class="jacon_core_list">
+                <field name="category_id"/>
                 <field name="code"/>
                 <field name="description"/>
             </list>
@@ -19,6 +20,7 @@
             <form string="Material Group">
                 <sheet>
                     <group>
+                        <field name="category_id" placeholder="e.g. 10 - Axle &amp; spare parts"/>
                         <field name="code" placeholder="e.g. 1207"/>
                         <field name="description" placeholder="e.g. Bearing &amp; Bushing"/>
                     </group>
@@ -27,10 +29,27 @@
         </field>
     </record>
 
+    <record id="view_pnm_material_group_search" model="ir.ui.view">
+        <field name="name">part_number_manager.material_group.search</field>
+        <field name="model">part_number_manager.material_group</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="code"/>
+                <field name="description"/>
+                <field name="category_id"/>
+                <group>
+                    <filter string="Main Category" name="groupby_category" context="{'group_by': 'category_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_pnm_material_group" model="ir.actions.act_window">
         <field name="name">Material Groups</field>
         <field name="res_model">part_number_manager.material_group</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_pnm_material_group_search"/>
+        <field name="context">{'search_default_groupby_category': 1}</field>
     </record>
 
 </odoo>

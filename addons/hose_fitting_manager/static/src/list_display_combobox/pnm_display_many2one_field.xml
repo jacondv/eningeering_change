@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hose_fitting_manager.PnmDisplayMany2oneField">
+        <PnmCombobox options="state.options"
+                     text="state.text"
+                     value="currentId"
+                     placeholder="'Select...'"
+                     disabled="props.readonly"
+                     onInput="(text) => this.onInput(text)"
+                     onSelect="(opt) => this.onSelect(opt)"
+                     onBlurExtra="() => this.onBlurExtra()"/>
+    </t>
+</templates>

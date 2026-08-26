@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="action_hfm_builder" model="ir.actions.client">
+        <field name="name">Hose &amp; Fitting Builder</field>
+        <field name="tag">hose_fitting_manager.builder</field>
+    </record>
+
+</odoo>
