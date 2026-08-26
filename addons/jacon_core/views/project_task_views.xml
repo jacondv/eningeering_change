@@ -71,6 +71,15 @@
                 <attribute name="widget">task_title_autocomplete</attribute>
             </xpath>
 
+            <!-- Same suggestions, inline in the Sub-tasks tab's own quick-add
+                 list row (a separate `name` field/widget from the one above -
+                 project's own subtasks_one2many list, not the main Title
+                 field) - dropping name_with_subtask_count's badge here since
+                 a brand-new subtask never has sub-subtasks of its own yet. -->
+            <xpath expr="//field[@name='child_ids']//list//field[@name='name']" position="attributes">
+                <attribute name="widget">task_title_autocomplete</attribute>
+            </xpath>
+
             <!-- Explicit Start Date (default: creation date, editable) -
                  the overload calculation spreads remaining hours across
                  working days from here to Deadline, a fixed window
