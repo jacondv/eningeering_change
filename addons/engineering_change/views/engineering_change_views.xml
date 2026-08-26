@@ -56,14 +56,27 @@
                             invisible="state != 'done'"
                             confirm="Reopen this closed request?"
                             groups="engineering_change.group_ec_manager"/>
-                    <button name="action_delete_with_password" string="Delete Request" type="object"
+                    <button name="action_cancel_request" string="Cancel" type="object"
+                            class="btn-danger" invisible="state in ('done', 'canceled')"
+                            confirm="Cancel this request? This cannot be undone (no Reopen path, unlike Close)."
+                            groups="engineering_change.group_ec_delete"/>
+                    <button name="action_delete_with_password" string="Delete" type="object"
+                            class="btn-danger"
                             groups="engineering_change.group_ec_delete"/>
                     <button name="action_send_email" string="Send Email" type="object" icon="fa-envelope"/>
                     <field name="can_confirm_production" invisible="1"/>
                     <field name="can_confirm_sale" invisible="1"/>
                     <field name="can_manager_approve" invisible="1"/>
-                    <field name="state" widget="statusbar"
+                    <!-- The statusbar widget always shows the CURRENT value
+                         as a bubble even when it's outside
+                         statusbar_visible - leaving 'canceled' out of that
+                         list alone isn't enough once a request actually
+                         IS canceled. Swapping the whole widget out for a
+                         plain red label in that one case is what actually
+                         keeps it off the status bar. -->
+                    <field name="state" widget="statusbar" invisible="state == 'canceled'"
                            statusbar_visible="draft,waiting_manager_approval,waiting_head_office_approval,bod_review,implement,production,sale,done"/>
+                    <span class="badge text-bg-danger" invisible="state != 'canceled'">Canceled</span>
                 </header>
                 <sheet>
                     <div name="button_box" class="oe_button_box">
@@ -271,6 +284,7 @@
                 <field name="bod_approver_id" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
+                       decoration-danger="state == 'canceled'"
                        decoration-info="state in ('waiting_manager_approval', 'waiting_head_office_approval', 'bod_review')"
                        decoration-warning="state in ('implement', 'production', 'sale')"/>
                 <field name="rpn" optional="hide"/>

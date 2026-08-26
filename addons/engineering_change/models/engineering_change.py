@@ -37,6 +37,11 @@ class EngineeringChange(models.Model):
     # role in Draft or by whichever approver currently holds the request at
     # their own approval stage. See _check_field_edit_permissions.
     DRAWING_FIELDS = frozenset({'document_ids'})
+    # Terminal states: content/team edit rights that only check "not yet
+    # Closed" (state != 'done') must also stop at Canceled - both are dead
+    # ends a request doesn't come back from without Reopen (Closed) or a
+    # brand new request (Canceled has no reopen path at all).
+    CLOSED_STATES = ('done', 'canceled')
     MANAGER_FIELDS = frozenset({'implement_team_ids', 'implement_owner_id'})
     # Fields only ever meant to change as a side effect of the workflow methods
     # below (Submit/Approve/Reject/Close/Reopen), never through a direct write().
@@ -78,6 +83,11 @@ class EngineeringChange(models.Model):
         ('production', 'Production'),
         ('sale', 'Sales'),
         ('done', 'Closed'),
+        # Deliberately left out of the form's statusbar_visible list (see
+        # view_engineering_change_form) - it's a terminal exit reachable
+        # from any open stage via the Cancel button, not a step in the
+        # normal approval sequence the status bar walks through.
+        ('canceled', 'Canceled'),
     ], default='draft', copy=False, tracking=True, index=True)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
     active = fields.Boolean(default=True)
@@ -248,7 +258,7 @@ class EngineeringChange(models.Model):
         can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
             own_stage_edit = (
-                (is_admin and rec.state != 'done')
+                (is_admin and rec.state not in self.CLOSED_STATES)
                 or (is_engineer and rec.state == 'draft')
                 or (is_manager and rec.state == 'waiting_manager_approval')
                 or (is_head_office and rec.state == 'waiting_head_office_approval')
@@ -259,7 +269,7 @@ class EngineeringChange(models.Model):
                 rec.state == 'implement'
                 and (rec.engineer_id == user or user in rec.implement_team_ids)
             )
-            rec.can_edit_manager_fields = is_manager and rec.state != 'done'
+            rec.can_edit_manager_fields = is_manager and rec.state not in self.CLOSED_STATES
             rec.can_edit_request_type = is_manager or (is_engineer and rec.state == 'draft')
             rec.can_confirm_production = is_manager or rec.implement_owner_id == user
             rec.can_confirm_sale = is_manager or rec.implement_owner_id == user
@@ -456,7 +466,7 @@ class EngineeringChange(models.Model):
         drawing_keys = engineer_keys & self.DRAWING_FIELDS
         other_engineer_keys = engineer_keys - self.DRAWING_FIELDS
         own_stage_edit = (
-            (is_admin and self.state != 'done')
+            (is_admin and self.state not in self.CLOSED_STATES)
             or (is_engineer and self.state == 'draft')
             or (is_manager and self.state == 'waiting_manager_approval')
             or (is_head_office and self.state == 'waiting_head_office_approval')
