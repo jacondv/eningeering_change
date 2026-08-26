@@ -1,0 +1,90 @@
+// Groups the App Switcher dropdown into sections (see
+// apps_menu_jacon_group.xml) - only the grouping/headers/icons below are
+// custom; the dropdown itself keeps Odoo's normal corners/shadow/sizing.
+.o_navbar_apps_menu {
+    .dropdown-menu {
+        min-width: 260px;
+        // Odoo's default dropdown-menu already scrolls/caps its own height -
+        // stacking that with .o_jacon_apps_scroll's own scrollbar below
+        // shows two scrollbars at once. Only the inner one should scroll.
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+.o_jacon_apps_scroll {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding-right: 4px;
+
+    &::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+}
+
+.o_jacon_apps_header {
+    padding: 10px 12px 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #8c98a4;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.o_jacon_apps_header_jacon {
+    color: var(--o-brand-primary, #714B67);
+}
+
+.o_jacon_apps_divider {
+    height: 1px;
+    background-color: #edf2f7;
+    margin: 8px 0;
+}
+
+.o_jacon_app_item.dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 9px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    margin-bottom: 2px;
+
+    &:hover, &:focus {
+        background-color: #f8f9fa;
+        color: var(--o-brand-primary, #714B67);
+
+        .o_jacon_app_icon {
+            color: var(--o-brand-primary, #714B67);
+        }
+    }
+
+    &.focus {
+        background-color: rgba(113, 75, 103, 0.08);
+        color: var(--o-brand-primary, #714B67);
+        font-weight: 600;
+    }
+}
+
+.o_jacon_app_icon {
+    font-size: 16px;
+    margin-right: 12px;
+    width: 20px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.o_jacon_app_icon_img {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    object-fit: contain;
+}
