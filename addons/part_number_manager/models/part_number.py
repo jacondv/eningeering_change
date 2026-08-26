@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 
@@ -634,11 +635,26 @@ class PartNumber(models.Model):
         if 'date_created' in load_fields:
             idx = load_fields.index('date_created')
             for row in load_data:
-                if row[idx]:
-                    try:
-                        row[idx] = dateutil_parser.parse(row[idx]).strftime('%Y-%m-%d %H:%M:%S')
-                    except (ValueError, OverflowError):
-                        row[idx] = ''
+                raw = row[idx]
+                if not raw:
+                    continue
+                try:
+                    # A .xlsx source hands date-formatted cells to us as
+                    # real datetime/date objects (not text) - dateutil.parse
+                    # only accepts strings, so those must be used as-is
+                    # instead of reparsed. A .csv source (or an Excel column
+                    # not formatted as a date) still comes through as text,
+                    # in the source's month-first format - see the docstring
+                    # above for why dateutil is needed for that case.
+                    if isinstance(raw, datetime.datetime):
+                        parsed = raw
+                    elif isinstance(raw, datetime.date):
+                        parsed = datetime.datetime.combine(raw, datetime.time())
+                    else:
+                        parsed = dateutil_parser.parse(raw)
+                    row[idx] = parsed.strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, OverflowError, TypeError):
+                    row[idx] = ''
 
         # Historical rows routinely have no resolvable Job Number (the real
         # export mixes in values that were never Job Numbers to begin
