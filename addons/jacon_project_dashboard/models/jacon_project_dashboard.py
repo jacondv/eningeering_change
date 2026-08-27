@@ -57,12 +57,13 @@ class JaconProjectDashboard(models.AbstractModel):
         # check_access(): being an AbstractModel with no records of its own,
         # a plain method call here never goes through the normal CRUD path
         # that would otherwise enforce ir.model.access automatically - this
-        # is what actually makes the Line-Manager-only ACL row real, instead
-        # of relying purely on the menu being hidden for everyone else.
+        # is what actually makes the group_project_dashboard_user-only ACL
+        # row real, instead of relying purely on the menu being hidden for
+        # everyone else.
         #
         # sudo(): once past that gate, this dashboard is company-wide
-        # aggregate reporting - it must show the same totals to every
-        # manager, not a partial view narrowed by each viewer's own
+        # aggregate reporting - it must show the same totals to everyone
+        # granted access, not a partial view narrowed by each viewer's own
         # project-follower/timesheet-ownership access.
         self.check_access('read')
         self = self.sudo()

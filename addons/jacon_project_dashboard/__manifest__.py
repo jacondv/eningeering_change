@@ -11,12 +11,14 @@ going where" - broken down by Project, Task Type (2D/3D/BOM/FEM/...),
 Engineer, and time period, comparing planned (Allocated Time) against
 actually spent (Timesheet) hours.
 
-Restricted to Project Administrators (project.group_project_manager).
+Access is granted per-person via its own "Project Dashboard" permission
+(Settings > Users > Access Rights), not tied to any other role.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
     'depends': ['base', 'project', 'hr_timesheet', 'jacon_core'],
     'data': [
+        'security/jacon_project_dashboard_groups.xml',
         'security/ir.model.access.csv',
         'views/jacon_project_dashboard_actions.xml',
         'views/jacon_project_dashboard_menus.xml',
