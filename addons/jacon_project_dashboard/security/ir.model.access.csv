@@ -1,2 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_jacon_project_dashboard_user,jacon.project.dashboard.user,model_jacon_project_dashboard,base.group_user,1,0,0,0
+access_jacon_project_dashboard_line_manager,jacon.project.dashboard.line.manager,model_jacon_project_dashboard,jacon_core.group_line_manager,1,0,0,0

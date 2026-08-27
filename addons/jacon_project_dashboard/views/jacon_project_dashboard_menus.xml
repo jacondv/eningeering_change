@@ -3,14 +3,16 @@
 
     <!-- Top-level item under the Project app's own menu bar, sibling to
          Projects/Tasks/Reporting/Configuration - one click away rather than
-         nested inside Reporting, per explicit user preference. Visible to
-         every internal user (not just Project Administrator) - the
-         dashboard itself carries no per-record access restriction, it's a
-         read-only aggregate view any employee should be able to check. -->
+         nested inside Reporting, per explicit user preference. Gated on the
+         organizational Line Manager role (jacon_core.group_line_manager,
+         implied by Head Office too) rather than Project's own Administrator
+         group - that one also carries project create/delete rights, which
+         has nothing to do with who should see this read-only hours report. -->
     <menuitem id="menu_jacon_project_dashboard"
               name="Hours Dashboard"
               parent="project.menu_main_pm"
               action="action_jacon_project_dashboard"
+              groups="jacon_core.group_line_manager"
               sequence="99"/>
 
 </odoo>
