@@ -54,6 +54,19 @@ class JaconProjectDashboard(models.AbstractModel):
 
     @api.model
     def get_filter_options(self):
+        # check_access(): being an AbstractModel with no records of its own,
+        # a plain method call here never goes through the normal CRUD path
+        # that would otherwise enforce ir.model.access automatically - this
+        # is what actually makes the group_project_dashboard_user-only ACL
+        # row real, instead of relying purely on the menu being hidden for
+        # everyone else.
+        #
+        # sudo(): once past that gate, this dashboard is company-wide
+        # aggregate reporting - it must show the same totals to everyone
+        # granted access, not a partial view narrowed by each viewer's own
+        # project-follower/timesheet-ownership access.
+        self.check_access('read')
+        self = self.sudo()
         projects = self.env['project.project'].search_read([], ['name'], order='name')
         employees = self.env['hr.employee'].search_read([], ['name'], order='name')
 
@@ -431,6 +444,8 @@ class JaconProjectDashboard(models.AbstractModel):
         whatever Year/Months happens to be selected up top), and the panel
         has its own Day/Week/Month/range controls that call this
         separately rather than re-fetching the whole dashboard."""
+        self.check_access('read')  # see get_filter_options
+        self = self.sudo()
         filters = filters or {}
         today = fields.Date.context_today(self)
         if range_start:
@@ -445,6 +460,8 @@ class JaconProjectDashboard(models.AbstractModel):
 
     @api.model
     def get_dashboard_data(self, filters=None):
+        self.check_access('read')  # see get_filter_options
+        self = self.sudo()
         filters = filters or {}
         Timesheet = self.env['account.analytic.line']
         Task = self.env['project.task']
