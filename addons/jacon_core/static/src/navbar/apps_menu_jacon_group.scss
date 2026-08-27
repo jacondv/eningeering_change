@@ -4,6 +4,10 @@
 .o_navbar_apps_menu {
     .dropdown-menu {
         min-width: 260px;
+        // Distinct from the page's own background so the dropdown panel
+        // itself is clearly readable as its own area, not blended into
+        // whatever's behind it.
+        background-color: #f4f5f7;
         // Odoo's default dropdown-menu already scrolls/caps its own height -
         // stacking that with .o_jacon_apps_scroll's own scrollbar below
         // shows two scrollbars at once. Only the inner one should scroll.
@@ -59,7 +63,7 @@
     margin-bottom: 2px;
 
     &:hover, &:focus {
-        background-color: #f8f9fa;
+        background-color: #fff;
         color: var(--o-brand-primary, #714B67);
 
         .o_jacon_app_icon {
