@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <record id="module_category_jacon_project_dashboard" model="ir.module.category">
+            <field name="name">Project Dashboard</field>
+            <field name="sequence">30</field>
+        </record>
+
+        <record id="privilege_project_dashboard_access" model="res.groups.privilege">
+            <field name="name">View</field>
+            <field name="category_id" ref="module_category_jacon_project_dashboard"/>
+        </record>
+
+        <!-- Its own dedicated group, independent of any organizational role
+             (Line Manager, Project Administrator...) - who gets to see the
+             Hours Dashboard is a per-person grant made here (Settings >
+             Users > this user > Access Rights > "Project Dashboard"), not
+             implied by holding some other role. Showing up under its own
+             category is what makes it a normal checkbox/dropdown on the
+             User form instead of only reachable via Technical > Groups. -->
+        <record id="group_project_dashboard_user" model="res.groups">
+            <field name="name">User</field>
+            <field name="privilege_id" ref="privilege_project_dashboard_access"/>
+            <field name="comment">Can open the Hours Dashboard (Project app). Granted per-person, independent of any other role - nobody gets it by default, not even Administrator.</field>
+        </record>
+
+    </data>
+</odoo>

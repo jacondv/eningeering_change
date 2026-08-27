@@ -3,12 +3,17 @@
 
     <!-- Top-level item under the Project app's own menu bar, sibling to
          Projects/Tasks/Reporting/Configuration - one click away rather than
-         nested inside Reporting, per explicit user preference. -->
+         nested inside Reporting, per explicit user preference. Gated on its
+         own dedicated group (group_project_dashboard_user) instead of any
+         existing role (Line Manager, Project Administrator...) - who gets
+         to see this read-only hours report is a deliberate per-person grant
+         made in Settings > Users > Access Rights, independent of whatever
+         else that person's job title already gives them. -->
     <menuitem id="menu_jacon_project_dashboard"
               name="Hours Dashboard"
               parent="project.menu_main_pm"
               action="action_jacon_project_dashboard"
-              groups="project.group_project_manager"
+              groups="group_project_dashboard_user"
               sequence="99"/>
 
 </odoo>
