@@ -22,13 +22,7 @@
         <record id="group_project_dashboard_user" model="res.groups">
             <field name="name">User</field>
             <field name="privilege_id" ref="privilege_project_dashboard_access"/>
-            <field name="comment">Can open the Hours Dashboard (Project app). Granted per-person, independent of any other role.</field>
-            <!-- Administrator gets it by default, same as core Odoo does for
-                 its own admin-level groups (e.g. project.group_project_manager)
-                 - a fresh install shouldn't leave even the Administrator
-                 account unable to see this until someone remembers to grant
-                 it by hand. Anyone else still needs an explicit grant. -->
-            <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
+            <field name="comment">Can open the Hours Dashboard (Project app). Granted per-person, independent of any other role - nobody gets it by default, not even Administrator.</field>
         </record>
 
     </data>
