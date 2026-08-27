@@ -8,11 +8,16 @@
                 <field name="change_id" invisible="1"/>
                 <field name="reject_by" invisible="1"/>
                 <group>
+                    <field name="outcome" widget="radio"/>
                     <field name="reject_reason" placeholder="Explain why this request is rejected..."/>
                 </group>
                 <footer>
                     <button name="action_confirm_reject" type="object" string="Confirm Reject" class="btn-primary"/>
-                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    <!-- Dismisses this popup only, does nothing to the
+                         request - deliberately not labeled "Cancel" so it
+                         isn't confused with the outcome option above that
+                         cancels the REQUEST itself. -->
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
         </field>

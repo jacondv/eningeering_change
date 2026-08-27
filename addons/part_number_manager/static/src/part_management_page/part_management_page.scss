@@ -1,27 +1,91 @@
 .o_pnm_page {
     padding: 16px 24px;
+    height: 100%;
+    overflow-y: auto;
 
     .o_pnm_header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
 
         h2 {
             margin: 0;
         }
     }
 
+    .o_pnm_header_left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
     .o_pnm_tabs {
         display: flex;
-        gap: 8px;
+        gap: 2px;
+        border-bottom: 2px solid var(--border-color, #dee2e6);
+    }
+
+    .o_pnm_tab_btn {
+        border: none;
+        background: none;
+        padding: 8px 16px;
+        font-weight: 500;
+        color: var(--muted-text-color, #6c757d);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        cursor: pointer;
+
+        &:hover {
+            color: var(--o-brand-primary, #714B67);
+        }
+
+        &.active {
+            color: var(--o-brand-primary, #714B67);
+            border-bottom-color: var(--o-brand-primary, #714B67);
+        }
+    }
+
+    .o_pnm_table_wrapper {
+        // No overflow clipping here (a scrollable ancestor would clip an
+        // open PnmCombobox dropdown along with the table) - a wide table
+        // simply scrolls the page horizontally instead.
+        overflow: visible;
+        max-width: 100%;
+        // Room below the table so a combobox dropdown opened on the last
+        // row has somewhere to render instead of overlapping the recent-parts
+        // section right below it.
+        padding-bottom: 240px;
     }
 
     .o_pnm_table {
         background-color: var(--Table-background, #fff);
+        table-layout: fixed;
 
         th, td {
             vertical-align: top;
+        }
+    }
+
+    .o_pnm_th {
+        position: relative;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 14px;
+    }
+
+    .o_pnm_col_resize_handle {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        user-select: none;
+
+        &:hover {
+            background-color: var(--o-brand-primary, #714B67);
+            opacity: 0.4;
         }
     }
 
@@ -55,7 +119,135 @@
 
     .o_pnm_actions {
         display: flex;
+        align-items: center;
         gap: 8px;
-        margin-top: 16px;
+        margin-bottom: 12px;
+    }
+
+    .o_pnm_columns_picker {
+        position: relative;
+        margin-left: auto;
+    }
+
+    .o_pnm_columns_menu {
+        position: absolute;
+        z-index: 1000;
+        top: 100%;
+        right: 0;
+        margin-top: 2px;
+        min-width: 200px;
+        max-height: 320px;
+        overflow-y: auto;
+        background-color: var(--Table-background, #fff);
+        border: 1px solid var(--border-color, #ced4da);
+        border-radius: 0.25rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        padding: 6px 0;
+    }
+
+    .o_pnm_columns_menu_item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px;
+        margin: 0;
+        font-weight: normal;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover {
+            background-color: var(--o-brand-primary, #714B67);
+            color: #fff;
+        }
+    }
+
+    .o_pnm_long_desc {
+        min-height: calc(1.5em + 0.5rem + 2px); // same height as a single-line form-control-sm input
+        height: calc(1.5em + 0.5rem + 2px);
+        resize: vertical;
+    }
+
+    .o_pnm_recent {
+        margin-top: 32px;
+
+        h3 {
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+    }
+
+    .o_pnm_recent_row {
+        cursor: pointer;
+    }
+}
+
+.o_pnm_combobox {
+    position: relative;
+
+    .o_pnm_combobox_input_group {
+        display: flex;
+        align-items: stretch;
+
+        input {
+            flex: 1 1 auto;
+            min-width: 0;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+    }
+
+    .o_pnm_combobox_clear,
+    .o_pnm_combobox_toggle {
+        flex: 0 0 auto;
+        border: 1px solid var(--border-color, #ced4da);
+        border-left: none;
+        background-color: var(--Table-background, #fff);
+        color: var(--muted-text-color, #6c757d);
+        padding: 0 6px;
+        font-size: 0.85em;
+    }
+
+    .o_pnm_combobox_clear {
+        border-radius: 0;
+    }
+
+    .o_pnm_combobox_toggle {
+        border-top-right-radius: 0.25rem;
+        border-bottom-right-radius: 0.25rem;
+    }
+
+    .o_pnm_combobox_menu {
+        position: absolute;
+        z-index: 1000;
+        top: 100%;
+        left: 0;
+        min-width: 100%;
+        max-width: 320px;
+        max-height: 440px;
+        overflow-y: auto;
+        background-color: var(--Table-background, #fff);
+        border: 1px solid var(--border-color, #ced4da);
+        border-radius: 0.25rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        margin-top: 2px;
+    }
+
+    .o_pnm_combobox_option {
+        padding: 4px 10px;
+        font-size: 0.9em;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover, &.active, &.highlighted {
+            background-color: var(--o-brand-primary, #714B67);
+            color: #fff;
+        }
+    }
+
+    .o_pnm_combobox_empty {
+        padding: 4px 10px;
+        font-size: 0.85em;
+        color: var(--muted-text-color, #6c757d);
+        font-style: italic;
     }
 }

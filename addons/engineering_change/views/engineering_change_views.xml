@@ -16,14 +16,8 @@
                             class="oe_highlight"
                             invisible="state != 'waiting_manager_approval' or not can_manager_approve"
                             groups="engineering_change.group_ec_manager"/>
-                    <button name="action_manager_reject" string="Reject" type="object"
-                            invisible="state != 'waiting_manager_approval' or not can_manager_approve"
-                            groups="engineering_change.group_ec_manager"/>
                     <button name="action_head_office_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'waiting_head_office_approval'"
-                            groups="engineering_change.group_ec_head_office"/>
-                    <button name="action_head_office_reject" string="Reject" type="object"
-                            invisible="state != 'waiting_head_office_approval'"
                             groups="engineering_change.group_ec_head_office"/>
                     <button name="action_recall_approval" string="Recall" type="object"
                             invisible="state != 'waiting_manager_approval' or not can_recall_submission"
@@ -34,9 +28,6 @@
                             groups="engineering_change.group_ec_manager"/>
                     <button name="action_bod_approve" string="Approve" type="object"
                             class="oe_highlight" invisible="state != 'bod_review'"
-                            groups="engineering_change.group_ec_bod"/>
-                    <button name="action_bod_reject" string="Reject" type="object"
-                            invisible="state != 'bod_review'"
                             groups="engineering_change.group_ec_bod"/>
                     <button name="action_recall_approval" string="Recall" type="object"
                             invisible="state != 'bod_review'"
@@ -56,14 +47,32 @@
                             invisible="state != 'done'"
                             confirm="Reopen this closed request?"
                             groups="engineering_change.group_ec_manager"/>
-                    <button name="action_delete_with_password" string="Delete Request" type="object"
+                    <!-- One Reject button for every open stage (see can_reject:
+                         Line Manager/Head Manager at any stage, BOC only while
+                         at BOC Approval) - opens a wizard offering either Back
+                         to Draft (edit and resubmit) or Cancel (a dead end,
+                         shown as "Rejected" and hidden from the main list by
+                         default - see action_open_reject_wizard/_apply_reject). -->
+                    <button name="action_open_reject_wizard" string="Reject" type="object"
+                            invisible="not can_reject"/>
+                    <button name="action_delete_with_password" string="Delete" type="object"
+                            class="btn-danger"
                             groups="engineering_change.group_ec_delete"/>
                     <button name="action_send_email" string="Send Email" type="object" icon="fa-envelope"/>
                     <field name="can_confirm_production" invisible="1"/>
                     <field name="can_confirm_sale" invisible="1"/>
                     <field name="can_manager_approve" invisible="1"/>
-                    <field name="state" widget="statusbar"
+                    <field name="can_reject" invisible="1"/>
+                    <!-- The statusbar widget always shows the CURRENT value
+                         as a bubble even when it's outside
+                         statusbar_visible - leaving 'canceled' out of that
+                         list alone isn't enough once a request actually
+                         IS canceled. Swapping the whole widget out for a
+                         plain red label in that one case is what actually
+                         keeps it off the status bar. -->
+                    <field name="state" widget="statusbar" invisible="state == 'canceled'"
                            statusbar_visible="draft,waiting_manager_approval,waiting_head_office_approval,bod_review,implement,production,sale,done"/>
+                    <span class="badge text-bg-danger" invisible="state != 'canceled'">Rejected</span>
                 </header>
                 <sheet>
                     <div name="button_box" class="oe_button_box">
@@ -271,6 +280,7 @@
                 <field name="bod_approver_id" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'done'"
+                       decoration-danger="state == 'canceled'"
                        decoration-info="state in ('waiting_manager_approval', 'waiting_head_office_approval', 'bod_review')"
                        decoration-warning="state in ('implement', 'production', 'sale')"/>
                 <field name="rpn" optional="hide"/>
@@ -358,6 +368,7 @@
                 <filter string="Design" name="state_implement" domain="[('state', '=', 'implement')]"/>
                 <filter string="Production" name="state_production" domain="[('state', '=', 'production')]"/>
                 <filter string="Sales" name="state_sale" domain="[('state', '=', 'sale')]"/>
+                <filter string="Rejected" name="rejected" domain="[('state', '=', 'canceled')]"/>
                 <group>
                     <filter string="State" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Request Type" name="group_type" context="{'group_by': 'request_type'}"/>

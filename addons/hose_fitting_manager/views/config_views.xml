@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_hfm_config_list" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.config.list</field>
+        <field name="model">hose_fitting_manager.config</field>
+        <field name="arch" type="xml">
+            <list js_class="jacon_core_list">
+                <field name="symbol"/>
+                <field name="hose_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_hfm_config_form" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.config.form</field>
+        <field name="model">hose_fitting_manager.config</field>
+        <field name="arch" type="xml">
+            <form string="Hose And Fitting Config">
+                <sheet>
+                    <group>
+                        <field name="symbol"/>
+                        <field name="hose_id"/>
+                    </group>
+                    <notebook>
+                        <page string="Fire Wrap Options" name="fire_wrap">
+                            <field name="fire_wrap_option_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="fire_wrap_id"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Fitting 1 Options" name="fitting1">
+                            <field name="fitting1_option_ids">
+                                <list editable="bottom">
+                                    <field name="slot" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="fitting_id"/>
+                                    <field name="ferrule_id"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Fitting 2 Options" name="fitting2">
+                            <field name="fitting2_option_ids">
+                                <list editable="bottom">
+                                    <field name="slot" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="fitting_id"/>
+                                    <field name="ferrule_id"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hfm_config" model="ir.actions.act_window">
+        <field name="name">Hose And Fitting Config</field>
+        <field name="res_model">hose_fitting_manager.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>
