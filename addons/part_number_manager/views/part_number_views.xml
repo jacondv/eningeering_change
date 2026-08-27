@@ -9,19 +9,19 @@
                 <field name="part_number"/>
                 <field name="short_description" optional="show"/>
                 <field name="long_description" optional="show" class="o_pnm_long_description_cell"/>
+                <field name="legacy_codes_display" string="Legacy Code" optional="show"/>
+                <field name="replacement_display" string="Replaced By" optional="show"/>
                 <field name="job_number" optional="show"/>
                 <field name="part_type_id" optional="show"/>
-                <field name="vendor_id" optional="show"/>
-                <field name="vendor_ref" optional="show"/>
-                <field name="reference_price" optional="hide"/>
-                <field name="lead_time" optional="hide"/>
                 <field name="make_buy" optional="hide"/>
-                <field name="date_created" optional="hide" options="{'show_time': false}"/>
+                <field name="vendor_id" optional="show"/>
+                <field name="vendor_ref" string="Vendor PartNo" optional="show"/>
+                <field name="reference_price" string="Price (VND)" optional="hide"/>
+                <field name="lead_time" optional="hide"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
-                <field name="legacy_codes_display" string="Legacy Codes" optional="show"/>
-                <field name="replacement_display" string="Replaced By" optional="show"/>
                 <field name="create_date" string="Created On" optional="show"/>
                 <field name="create_uid" string="Created By" optional="show"/>
+                <field name="date_created" optional="hide" options="{'show_time': false}"/>
                 <field name="state" widget="badge" optional="show"
                        decoration-info="state == 'draft'"
                        decoration-success="state == 'active'"
