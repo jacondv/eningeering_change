@@ -13,6 +13,8 @@
                 <field name="part_type_id" optional="show"/>
                 <field name="vendor_id" optional="show"/>
                 <field name="vendor_ref" optional="show"/>
+                <field name="reference_price" optional="hide"/>
+                <field name="lead_time" optional="hide"/>
                 <field name="make_buy" optional="hide"/>
                 <field name="date_created" optional="hide" options="{'show_time': false}"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
@@ -57,6 +59,8 @@
                         <group>
                             <field name="vendor_id"/>
                             <field name="vendor_ref"/>
+                            <field name="reference_price"/>
+                            <field name="lead_time"/>
                             <field name="make_buy"/>
                         </group>
                         <group>
@@ -110,14 +114,24 @@
         <field name="model">part_number_manager.part_number</field>
         <field name="arch" type="xml">
             <search>
+                <field name="short_description" string="All"
+                       filter_domain="['|','|','|','|','|',
+                           ('part_number', 'ilike', self),
+                           ('short_description', 'ilike', self),
+                           ('long_description', 'ilike', self),
+                           ('display_description', 'ilike', self),
+                           ('legacy_codes_display', 'ilike', self),
+                           ('replacement_display', 'ilike', self)]"/>
                 <field name="part_number"/>
-                <field name="short_description"/>
+                <field name="short_description" string="Short Description"/>
                 <field name="long_description"/>
+                <field name="display_description"/>
                 <field name="material_group_id"/>
                 <field name="job_number" string="Project"/>
                 <field name="part_type_id"/>
                 <field name="vendor_id"/>
                 <field name="legacy_codes_display" string="Legacy Code"/>
+                <field name="replacement_display" string="Replaced By"/>
                 <field name="create_uid" string="Created By"/>
                 <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Active" name="filter_active" domain="[('state', '=', 'active')]"/>
