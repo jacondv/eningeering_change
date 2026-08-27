@@ -54,6 +54,11 @@ class JaconProjectDashboard(models.AbstractModel):
 
     @api.model
     def get_filter_options(self):
+        # sudo(): this dashboard is company-wide aggregate reporting, open to
+        # every internal user (see menu_jacon_project_dashboard) - it must
+        # show the same totals to everyone, not a partial view narrowed by
+        # each viewer's own project-follower/timesheet-ownership access.
+        self = self.sudo()
         projects = self.env['project.project'].search_read([], ['name'], order='name')
         employees = self.env['hr.employee'].search_read([], ['name'], order='name')
 
@@ -431,6 +436,7 @@ class JaconProjectDashboard(models.AbstractModel):
         whatever Year/Months happens to be selected up top), and the panel
         has its own Day/Week/Month/range controls that call this
         separately rather than re-fetching the whole dashboard."""
+        self = self.sudo()  # see get_filter_options
         filters = filters or {}
         today = fields.Date.context_today(self)
         if range_start:
@@ -445,6 +451,7 @@ class JaconProjectDashboard(models.AbstractModel):
 
     @api.model
     def get_dashboard_data(self, filters=None):
+        self = self.sudo()  # see get_filter_options
         filters = filters or {}
         Timesheet = self.env['account.analytic.line']
         Task = self.env['project.task']
