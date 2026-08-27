@@ -14,7 +14,7 @@
                 <field name="vendor_id" optional="show"/>
                 <field name="vendor_ref" optional="show"/>
                 <field name="make_buy" optional="hide"/>
-                <field name="date_created" optional="hide"/>
+                <field name="date_created" optional="hide" options="{'show_time': false}"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
                 <field name="legacy_codes_display" string="Legacy Codes" optional="show"/>
                 <field name="replacement_display" string="Replaced By" optional="show"/>
@@ -60,7 +60,7 @@
                             <field name="make_buy"/>
                         </group>
                         <group>
-                            <field name="date_created"/>
+                            <field name="date_created" options="{'show_time': true}"/>
                         </group>
                     </group>
                     <notebook>
