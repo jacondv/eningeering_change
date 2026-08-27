@@ -346,7 +346,7 @@ export class PartManagementPage extends Component {
         }
     }
 
-    _makeRow() {
+    _makeRowRaw() {
         return {
             _localId: Date.now() + Math.random(),
             material_group_id: false,
@@ -372,6 +372,21 @@ export class PartManagementPage extends Component {
             resultPartNumber: null,
             errorMessage: null,
         };
+    }
+
+    // Bulk creation is usually all for the same Job - carry the first row's
+    // Job Number forward onto any freshly made row so it doesn't need
+    // retyping on every row, whether it's added via the Add Row button or
+    // as an overflow row while pasting a multi-row clipboard block (see
+    // onCellPaste below - it calls this directly, not addRow()).
+    _makeRow() {
+        const row = this._makeRowRaw();
+        const firstRow = this.state.rows[0];
+        if (firstRow && firstRow.job_number) {
+            row.job_number = firstRow.job_number;
+            row.job_number_text = firstRow.job_number_text;
+        }
+        return row;
     }
 
     addRow() {
