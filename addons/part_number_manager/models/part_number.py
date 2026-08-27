@@ -9,7 +9,10 @@ from odoo.exceptions import AccessDenied, UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
-SUFFIX_RANGE = 10000
+# Same range applies to every Material Group - Generate only ever assigns a
+# sequence_suffix within [SUFFIX_RANGE_START, SUFFIX_RANGE_END].
+SUFFIX_RANGE_START = 0
+SUFFIX_RANGE_END = 4999
 
 # The historical export's "Status" column is a different concept entirely
 # from our own workflow `state` (draft/active/obsolete) - this is the
@@ -50,6 +53,11 @@ class PartNumber(models.Model):
              "(base_import filters out any field where fields_get()['readonly'] is true), which would "
              "otherwise make Part Number impossible to map when importing historical data.")
     sequence_suffix = fields.Char(size=4, copy=False, readonly=True)
+    is_standard_format = fields.Boolean(
+        compute='_compute_is_standard_format', store=True, index=True,
+        help="Whether part_number is exactly 8 digits (material_group.code + sequence_suffix) - "
+             "used to silently hide non-standard codes (legacy imports, mid-conversion drafts, ...) "
+             "from the default 'All Part Numbers' list, see web_search_read()/web_read_group() below.")
     legacy_part_number = fields.Char(
         string='Legacy/Old Part Number', copy=False,
         help="Import-only pseudo-field, not shown on the form and never actually written to the "
@@ -181,6 +189,11 @@ class PartNumber(models.Model):
         for rec in self:
             rec.legacy_codes_display = ', '.join(rec.superseded_ids.mapped('legacy_part_id.part_number'))
 
+    @api.depends('part_number')
+    def _compute_is_standard_format(self):
+        for rec in self:
+            rec.is_standard_format = bool(rec.part_number) and rec.part_number.isdigit() and len(rec.part_number) == 8
+
     @api.depends('attribute_value_ids.attribute_id.name', 'attribute_value_ids.display_value')
     def _compute_attribute_display(self):
         for rec in self:
@@ -208,6 +221,45 @@ class PartNumber(models.Model):
                 _logger.warning(
                     "Part Number %s (id=%s) does not match material_group.code + "
                     "sequence_suffix (expected %s).", rec.part_number, rec.id, expected)
+
+    def _hide_non_standard_format(self, domain):
+        """Silently hides any Part Number that isn't the standard 8-digit
+        Material Group code + sequence suffix format (legacy/historical
+        codes, mid-conversion drafts, ...) from the "All Part Numbers" list -
+        never shown as a removable filter chip, per request. Shared by
+        web_search_read()/web_read_group() below - the only two read paths
+        the list/kanban/group-by view actually uses; internal domain-based
+        `search()` calls elsewhere (e.g. the upsert-by-part_number lookup in
+        `load()`, suffix-collision checks) are untouched, so non-standard
+        codes still behave normally everywhere else in the app.
+
+        Searching by the Part Number field itself (typed in the search bar,
+        which ORs it in alongside every other searchable field) already puts
+        a 'part_number' leaf in the incoming domain - detected below to skip
+        the restriction, so a search for a legacy code's exact text still
+        finds it despite the default hiding. Opening a record directly via a
+        link (Legacy Codes/Replaced By, Convert page, ...) never goes
+        through either method at all, so it's unaffected either way.
+        """
+        if any(
+            isinstance(leaf, (list, tuple)) and len(leaf) == 3 and leaf[0] == 'part_number'
+            for leaf in domain
+        ):
+            return domain
+        return list(domain) + [('is_standard_format', '=', True)]
+
+    @api.model
+    @api.readonly
+    def web_search_read(self, domain, specification, offset=0, limit=None, order=None, count_limit=None):
+        domain = self._hide_non_standard_format(domain)
+        return super().web_search_read(
+            domain, specification, offset=offset, limit=limit, order=order, count_limit=count_limit)
+
+    @api.model
+    @api.readonly
+    def web_read_group(self, domain, groupby, aggregates=(), **kwargs):
+        domain = self._hide_non_standard_format(domain)
+        return super().web_read_group(domain, groupby, aggregates, **kwargs)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -244,10 +296,12 @@ class PartNumber(models.Model):
             ('material_group_id', '=', material_group_id),
         ]).mapped('sequence_suffix')
         used = {int(s) for s in existing if s}
-        for i in range(SUFFIX_RANGE):
+        for i in range(SUFFIX_RANGE_START, SUFFIX_RANGE_END + 1):
             if i not in used:
                 return f'{i:04d}'
-        raise UserError(_('This Material Group has used up all 10,000 available codes (0000-9999).'))
+        raise UserError(_('This Material Group has used up all available codes (%(start)s-%(end)s).') % {
+            'start': f'{SUFFIX_RANGE_START:04d}', 'end': f'{SUFFIX_RANGE_END:04d}',
+        })
 
     def _create_attribute_value(self, part, attribute_id, value):
         """Routes an incoming (attribute_id, value) pair from the OWL page
@@ -421,11 +475,19 @@ class PartNumber(models.Model):
             return []
         mapping_model = self.env['part_number_manager.part_number_mapping']
         messages = []
+        # Both prefetched once instead of one search() per row - refreshed
+        # in-loop below whenever a legacy Part Number gets created, so a
+        # legacy code repeated across rows in the same batch still resolves
+        # to the record just created for it, same as the old per-row search.
+        parts_by_number = {p.part_number: p for p in self.search(
+            [('part_number', 'in', list(legacy_by_part_number.keys()))])}
+        legacies_by_text = {p.part_number: p for p in self.search(
+            [('part_number', 'in', [text for text, _ in legacy_by_part_number.values()])])}
         for part_number, (legacy_text, group_id) in legacy_by_part_number.items():
-            part = self.search([('part_number', '=', part_number)], limit=1)
+            part = parts_by_number.get(part_number)
             if not part:
                 continue
-            legacy = self.search([('part_number', '=', legacy_text)], limit=1)
+            legacy = legacies_by_text.get(legacy_text)
             if legacy and legacy.id == part.id:
                 messages.append({
                     'type': 'error',
@@ -439,6 +501,7 @@ class PartNumber(models.Model):
                     'material_group_id': group_id,
                     'part_number': legacy_text,
                 })
+                legacies_by_text[legacy_text] = legacy
             existing_mapping = mapping_model.search([
                 ('new_part_id', '=', part.id), ('legacy_part_id', '=', legacy.id),
             ], limit=1)
@@ -467,50 +530,9 @@ class PartNumber(models.Model):
           with its own error appended to the final result afterwards - so
           unrelated valid rows still import in the same call.
 
-        Column-specific handling:
-        - `part_number`: kept exactly as given (this importer is for
-          already-assigned historical numbers) - `sequence_suffix` is
-          derived from it (the part of the number after the resolved
-          Material Group's own code) so a later `Generate` on that
-          Material Group correctly treats it as taken. A blank
-          `part_number`, or one that doesn't actually start with its
-          row's Material Group code, is a genuine data problem - reported
-          and skipped, never guessed at.
-        - `material_group_id`: source cell is "<code> - <description>"
-          (e.g. "1000 - Comer axle & spare"), matching Material Group's
-          own display_name format - resolved by an exact code lookup.
-          Unlike Vendor in this same method, a missing Material Group is
-          *not* auto-created (it would need a Main Category too, which
-          free-form import text can't safely supply) - reported and
-          skipped instead.
-        - `vendor_id`: resolved the same safe-at-scale way as the sibling
-          addon (find-or-create by exact name *before* calling
-          `super().load()`, never via native `name_create_enabled_fields`
-          - see that addon's tech spec for the batch/savepoint bug this
-          avoids at real-world scale).
-        - `job_number`: resolved by exact Project name match; unmatched is
-          left blank rather than blocking the row - the real export mixes
-          in values that were never Job Numbers to begin with (e.g. a
-          person's name).
-        - `state`: source "Status" values (Development/Production/Not
-          Use/...) are a different concept entirely from our own
-          draft/active/obsolete workflow state - translated via
-          `STATE_BY_STATUS`; anything else is left unset rather than
-          guessed.
-        - `make_buy`: source "Type" values (Make/Buy) - kept as its own
-          field, separate from `part_type_id` (reserved for future BOM
-          attribute structures like Hose and Fitting) so the two concepts
-          never get conflated.
-        - `date_created`: reparsed with `dateutil` (source format is
-          month-first, e.g. "11/04/2025 09:47" - confirmed by a same-file
-          value of "07/19/2022", where 19 can't be a month).
-        - `legacy_part_number`: exists on the model purely so it's
-          selectable in Import's field picker (see the field's own help
-          text) - its raw text is read here, then it's excluded from what
-          actually gets sent to `super().load()`. If present, hands off
-          to `_sync_legacy_codes` to find-or-create the legacy Part
-          Number and link it via `part_number_mapping`, exactly like a
-          manual Convert.
+        Per-column handling (Material Group, Vendor, Job Number, Status,
+        Type, Date, legacy code) is commented individually below, right
+        where each one is resolved.
         """
         if 'part_number' not in fields:
             return super().load(fields, data)
@@ -521,9 +543,11 @@ class PartNumber(models.Model):
             if isinstance(row.get('part_number'), str):
                 row['part_number'] = row['part_number'].strip()
 
-        material_group_model = self.env['part_number_manager.material_group']
         partner_model = self.env['res.partner']
         project_model = self.env['project.project']
+        # Prefetched once (Material Group is a small, bounded config list,
+        # unlike Vendor/Job Number below) instead of one search() per row.
+        groups_by_code = {g.code: g for g in self.env['part_number_manager.material_group'].search([])}
 
         resolved_rows = []
         conflict_messages = []
@@ -552,10 +576,7 @@ class PartNumber(models.Model):
                 # "1202-Boom & Parts" has no space around the dash, unlike
                 # our own "code - description" display format).
                 code_match = re.match(r'\s*(\d{4})', raw_group)
-                group = (
-                    material_group_model.search([('code', '=', code_match.group(1))], limit=1)
-                    if code_match else False
-                )
+                group = groups_by_code.get(code_match.group(1), False) if code_match else False
                 if not group:
                     conflict_messages.append({
                         'type': 'error',
@@ -589,6 +610,36 @@ class PartNumber(models.Model):
         pn_idx = load_fields.index('part_number')
         part_numbers = {row[pn_idx] for row in load_data if row[pn_idx]}
         existing = {p.part_number: p.id for p in self.search([('part_number', 'in', list(part_numbers))])}
+
+        # Two rows in the *same* file sharing a brand-new (not-yet-existing)
+        # Part Number would both resolve to `.id` = '' below and both try to
+        # CREATE in the same super().load() call - the second one then hits
+        # the unique constraint against the first, which super().load()
+        # can't attribute to a specific row, so it gets misreported against
+        # row 1 regardless of which Part Number actually collided. Caught
+        # here instead, against a real row/Part Number, before that happens;
+        # the first occurrence still imports normally.
+        seen_new_part_numbers = set()
+        duplicate_row_indices = set()
+        for i, row in enumerate(load_data):
+            value = row[pn_idx]
+            if value and value not in existing:
+                if value in seen_new_part_numbers:
+                    duplicate_row_indices.add(i)
+                else:
+                    seen_new_part_numbers.add(value)
+        if duplicate_row_indices:
+            for i in sorted(duplicate_row_indices):
+                conflict_messages.append({
+                    'type': 'error',
+                    'message': _(
+                        "Part Number '%(pn)s' appears more than once in this import file - "
+                        "only its first occurrence was imported; fix the duplicate rows and "
+                        "re-import them separately."
+                    ) % {'pn': load_data[i][pn_idx]},
+                })
+            load_data = [row for i, row in enumerate(load_data) if i not in duplicate_row_indices]
+
         load_fields.append('.id')
         for row in load_data:
             value = row[pn_idx]
@@ -599,25 +650,36 @@ class PartNumber(models.Model):
 
         if 'vendor_id' in load_fields:
             idx = load_fields.index('vendor_id')
+            # Memoized by name (not prefetched whole, unlike Material Group -
+            # res.partner is unbounded) so a Vendor repeated across many rows
+            # only costs one search()/create() instead of one per row.
+            vendor_ids_by_name = {}
             for row in load_data:
                 raw = row[idx]
                 if raw:
                     name = raw.strip()
-                    record = partner_model.search([('name', '=', name)], limit=1)
-                    if not record:
-                        record = partner_model.create({'name': name})
-                    row[idx] = str(record.id)
+                    if name not in vendor_ids_by_name:
+                        record = partner_model.search([('name', '=', name)], limit=1)
+                        if not record:
+                            record = partner_model.create({'name': name})
+                        vendor_ids_by_name[name] = record.id
+                    row[idx] = str(vendor_ids_by_name[name])
             load_fields[idx] = 'vendor_id/.id'
 
         if 'job_number' in load_fields:
             idx = load_fields.index('job_number')
+            # Same memoization as Vendor above - a Job Number repeated
+            # across many rows only costs one search().
+            job_ids_by_name = {}
             for row in load_data:
                 raw = row[idx]
                 row[idx] = ''
                 if raw:
-                    record = project_model.search([('name', '=', raw.strip())], limit=1)
-                    if record:
-                        row[idx] = str(record.id)
+                    name = raw.strip()
+                    if name not in job_ids_by_name:
+                        record = project_model.search([('name', '=', name)], limit=1)
+                        job_ids_by_name[name] = record.id if record else ''
+                    row[idx] = str(job_ids_by_name[name]) if job_ids_by_name[name] else ''
             load_fields[idx] = 'job_number/.id'
 
         if 'state' in load_fields:

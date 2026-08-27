@@ -3,28 +3,25 @@
 // custom; the dropdown itself keeps Odoo's normal corners/shadow/sizing.
 .o_navbar_apps_menu {
     .dropdown-menu {
-        min-width: 260px;
-        // Odoo's default dropdown-menu already scrolls/caps its own height -
-        // stacking that with .o_jacon_apps_scroll's own scrollbar below
-        // shows two scrollbars at once. Only the inner one should scroll.
-        max-height: none;
-        overflow: visible;
+        min-width: 320px;
+        max-height: none !important;
+        overflow: hidden !important; /* Ngăn tạo thanh cuộn ở khung cha */
     }
 }
 
+.o_jacon_apps_menu {
+    // Text/icons below are switched to light colors to stay readable on
+    // this darker background.
+    background-color: #7c7099;
+
+}
+
+/* 2. Khung con bên trong: Đảm nhận duy nhất việc cuộn */
 .o_jacon_apps_scroll {
-    max-height: 85vh;
-    overflow-y: auto;
+    // max-height: 100vh;
+    overflow-y: visible; /* Chỉ cuộn ở đây */
     padding-right: 4px;
 
-    &::-webkit-scrollbar {
-        width: 5px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-    }
 }
 
 .o_jacon_apps_header {
@@ -32,7 +29,7 @@
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    color: #8c98a4;
+    color: rgba(255, 255, 255, 0.65);
     letter-spacing: 0.8px;
     display: flex;
     align-items: center;
@@ -40,12 +37,12 @@
 }
 
 .o_jacon_apps_header_jacon {
-    color: var(--o-brand-primary, #714B67);
+    color: #fff;
 }
 
 .o_jacon_apps_divider {
     height: 1px;
-    background-color: #edf2f7;
+    background-color: rgba(255, 255, 255, 0.15);
     margin: 8px 0;
 }
 
@@ -57,19 +54,20 @@
     font-weight: 500;
     border-radius: 8px;
     margin-bottom: 2px;
+    color: #fff;
 
     &:hover, &:focus {
-        background-color: #f8f9fa;
-        color: var(--o-brand-primary, #714B67);
+        background-color: rgba(255, 255, 255, 0.15);
+        color: #fff;
 
         .o_jacon_app_icon {
-            color: var(--o-brand-primary, #714B67);
+            color: #fff;
         }
     }
 
     &.focus {
-        background-color: rgba(113, 75, 103, 0.08);
-        color: var(--o-brand-primary, #714B67);
+        background-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
         font-weight: 600;
     }
 }
@@ -79,7 +77,7 @@
     margin-right: 12px;
     width: 20px;
     text-align: center;
-    color: #6c757d;
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .o_jacon_app_icon_img {
