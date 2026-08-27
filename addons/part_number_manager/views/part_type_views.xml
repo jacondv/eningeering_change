@@ -5,7 +5,7 @@
         <field name="name">part_number_manager.part_type.list</field>
         <field name="model">part_number_manager.part_type</field>
         <field name="arch" type="xml">
-            <list>
+            <list js_class="jacon_core_list">
                 <field name="name"/>
                 <field name="attribute_ids" widget="many2many_tags"/>
             </list>

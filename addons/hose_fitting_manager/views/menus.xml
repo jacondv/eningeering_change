@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_hfm_root" name="Hose And Fitting"
+          parent="part_number_manager.menu_pnm_root"
+          groups="part_number_manager.group_pnm_user"
+          sequence="30"/>
+
+    <menuitem id="menu_hfm_builder" name="Create List"
+          parent="menu_hfm_root"
+          action="action_hfm_builder"
+          sequence="10"/>
+
+    <menuitem id="menu_hfm_lines" name="All Lines"
+          parent="menu_hfm_root"
+          action="action_hfm_job_hose_line"
+          sequence="20"/>
+
+    <menuitem id="menu_hfm_config" name="Hose And Fitting Config"
+          parent="part_number_manager.menu_pnm_configuration"
+          groups="part_number_manager.group_pnm_manager"
+          action="action_hfm_config"
+          sequence="40"/>
+
+</odoo>
