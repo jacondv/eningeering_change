@@ -1,23 +1,10 @@
-// Long Description is an Html field (see part_number.py) - shown raw in the
-// list view, a cell's height grows to fit whatever block-level HTML it
-// holds (multiple <p>, <br/>, bullet lists...). Rows whose description has
-// that kind of formatting end up taller than plain single-line rows,
-// making the list look uneven. Clamp every row's cell to one line instead,
-// regardless of what markup the description holds - the full formatted
-// text is still available on the record's form.
+// Long Description is a multi-line Text field (see part_number.py) - a
+// cell's height would otherwise grow to fit every line break it holds,
+// making the list look uneven. Clamp every row's cell to one line instead -
+// the full text is still available on the record's form.
 .o_list_table .o_data_cell.o_pnm_long_description_cell {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 0; // let the column's own width (not this cell's content) govern layout
-
-    * {
-        display: inline;
-        margin: 0;
-        white-space: nowrap;
-    }
-
-    br {
-        display: none; // a line break inside the cell would still force a visual wrap otherwise
-    }
 }
