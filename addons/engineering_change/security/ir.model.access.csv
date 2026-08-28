@@ -15,6 +15,8 @@ access_engineering_change_document_user_implement,engineering.change.document.us
 access_engineering_change_document_engineer,engineering.change.document.engineer,model_engineering_change_document,group_ec_engineer,1,1,1,0
 access_engineering_change_document_bod,engineering.change.document.bod,model_engineering_change_document,group_ec_bod,1,1,0,0
 access_engineering_change_document_manager,engineering.change.document.manager,model_engineering_change_document,group_ec_manager,1,1,1,1
+access_engineering_change_checklist_line_user,engineering.change.checklist.line.user,model_engineering_change_checklist_line,group_ec_user,1,0,0,0
+access_engineering_change_checklist_line_user_implement,engineering.change.checklist.line.user.write.implement-team-only.scoped-by-ec_checklist_rule_implement_write,model_engineering_change_checklist_line,group_ec_user,0,1,0,0
 access_project_task_ec_user,project.task.ec.user,project.model_project_task,group_ec_user,1,1,1,1
 access_project_task_ec_engineer,project.task.ec.engineer,project.model_project_task,group_ec_engineer,1,0,0,0
 access_project_task_ec_bod,project.task.ec.bod,project.model_project_task,group_ec_bod,1,0,0,0
