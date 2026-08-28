@@ -16,7 +16,7 @@
                 <field name="make_buy" optional="hide"/>
                 <field name="vendor_id" optional="show"/>
                 <field name="vendor_ref" string="Vendor PartNo" optional="show"/>
-                <field name="reference_price" string="Price (VND)" optional="hide" digits="[16, 0]"/>
+                <field name="reference_price" optional="hide" digits="[16, 0]"/>
                 <field name="lead_time" optional="hide"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
                 <field name="create_date" string="Created On" optional="show"/>
