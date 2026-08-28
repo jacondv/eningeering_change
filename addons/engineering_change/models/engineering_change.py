@@ -105,6 +105,23 @@ class EngineeringChange(models.Model):
     approval_log_ids = fields.One2many(
         'engineering.change.approval.log', 'change_id', string='Approval History')
     document_ids = fields.One2many('engineering.change.document', 'change_id', string='Related Drawings')
+    checklist_line_ids = fields.One2many(
+        'engineering.change.checklist.line', 'change_id', string='Checklist')
+    # Three section-filtered views onto checklist_line_ids above, used by the
+    # Checklist tab instead of repeating checklist_line_ids itself with a
+    # different domain= per occurrence - the webclient does not scope
+    # multiple same-named x2many field occurrences to their own domain
+    # independently, so all three ended up showing every line. A domain
+    # baked into the field definition itself does not have that problem.
+    checklist_design_document_ids = fields.One2many(
+        'engineering.change.checklist.line', 'change_id', string='Design Document Checklist',
+        domain=[('section', '=', 'design_document')])
+    checklist_goods_in_stock_ids = fields.One2many(
+        'engineering.change.checklist.line', 'change_id', string='Goods In Stock Checklist',
+        domain=[('section', '=', 'goods_in_stock')])
+    checklist_delivered_goods_ids = fields.One2many(
+        'engineering.change.checklist.line', 'change_id', string='Delivered Goods Checklist',
+        domain=[('section', '=', 'delivered_goods')])
     task_ids = fields.One2many('project.task', 'change_id', string='Actions')
 
     implement_team_ids = fields.Many2many(
@@ -174,6 +191,7 @@ class EngineeringChange(models.Model):
     can_manager_approve = fields.Boolean(compute='_compute_edit_rights')
     can_recall_submission = fields.Boolean(compute='_compute_edit_rights')
     can_reject = fields.Boolean(compute='_compute_edit_rights')
+    can_edit_checklist = fields.Boolean(compute='_compute_edit_rights')
 
     _rpn_non_negative = models.Constraint(
         'CHECK(rpn >= 0)',
@@ -187,6 +205,26 @@ class EngineeringChange(models.Model):
         'UNIQUE(dcr_no)',
         'This DCR Number is already used by another request.',
     )
+
+    # Seeded onto every new request's checklist_line_ids in create() below.
+    # Users may still add/remove lines afterward - this is only the starting
+    # set, not enforced or kept in sync.
+    DEFAULT_CHECKLIST_ITEMS = [
+        ('design_document', 10, 'Hydraulic Circuit'),
+        ('design_document', 20, 'Electrical Circuit'),
+        ('design_document', 30, 'Drawings'),
+        ('design_document', 40, 'Autobuilts'),
+        ('design_document', 50, 'BOM'),
+        ('design_document', 60, 'Spare part book'),
+        ('design_document', 70, 'Maintenance Manual'),
+        ('design_document', 80, 'Operators Manual'),
+        ('goods_in_stock', 10, 'Repair'),
+        ('goods_in_stock', 20, 'Concession'),
+        ('goods_in_stock', 30, 'Scrap'),
+        ('delivered_goods', 10, 'Warranty'),
+        ('delivered_goods', 20, 'NoWarranty'),
+        ('delivered_goods', 30, 'JIC'),
+    ]
 
     # ------------------------------------------------------------
     # Onchange
@@ -285,6 +323,12 @@ class EngineeringChange(models.Model):
             # only while the request is actually sitting at BOC Approval.
             rec.can_reject = rec.state not in self.CLOSED_STATES and (
                 is_manager or (is_bod and rec.state == 'bod_review'))
+            # Checklist tab: only Implement Team members may tick/fill it in
+            # (not gated by Engineer/Manager role like the rest of the form -
+            # actual enforcement is the ir.rule on engineering.change.checklist.line
+            # itself; this is only the view's readonly hint).
+            rec.can_edit_checklist = rec.state not in self.CLOSED_STATES and (
+                is_admin or user in rec.implement_team_ids)
             if rec.state == 'waiting_manager_approval' and is_manager:
                 direct_manager = rec._get_direct_manager_user()
                 rec.can_manager_approve = is_admin or not direct_manager or user == direct_manager
@@ -341,7 +385,20 @@ class EngineeringChange(models.Model):
                 vals['implement_team_ids'] = [(6, 0, [engineer_id])]
             if not vals.get('implement_owner_id'):
                 vals['implement_owner_id'] = engineer_id
-        return super().create(vals_list)
+            # checklist_line_ids is deliberately never accepted from vals - the
+            # checklist is a fixed set of items (no create/unlink ACL granted
+            # to any role, see ir.model.access.csv), seeded below via sudo()
+            # instead of a normal one2many command so it isn't blocked by
+            # that same ACL for whoever is creating this request.
+            vals.pop('checklist_line_ids', None)
+        records = super().create(vals_list)
+        checklist_line = self.env['engineering.change.checklist.line'].sudo()
+        for rec in records:
+            checklist_line.create([
+                {'change_id': rec.id, 'section': section, 'sequence': sequence, 'name': name}
+                for section, sequence, name in self.DEFAULT_CHECKLIST_ITEMS
+            ])
+        return records
 
     def unlink(self):
         if not self.env.context.get('ec_delete_password_confirmed'):
