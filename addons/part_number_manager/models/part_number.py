@@ -90,8 +90,8 @@ class PartNumber(models.Model):
              "(draft/active/obsolete) are unchanged, only the display text was renamed.")
     vendor_id = fields.Many2one('res.partner', string='Vendor')
     vendor_ref = fields.Char(string='Vendor Reference')
-    reference_price = fields.Float(string='Reference Price')
-    lead_time = fields.Integer(string='Lead Time (Weeks)')
+    reference_price = fields.Float(string='Price (VND)')
+    lead_time = fields.Integer(string='LeadTime (W)')
     make_buy = fields.Selection([
         ('make', 'Make'),
         ('buy', 'Buy'),
