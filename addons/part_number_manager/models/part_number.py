@@ -78,9 +78,7 @@ class PartNumber(models.Model):
         help="Short internal description used for quick reference/selection on other screens "
              "(e.g. the Hose & Fitting Builder) - independent from Short/Long Description, "
              "entered once per Part when needed.")
-    long_description = fields.Html(
-        help="Same rich-text field type as project.project's own Description - supports "
-             "pasted/embedded images and flexible copy-paste formatting.")
+    long_description = fields.Text()
     state = fields.Selection([
         ('draft', 'Development'),
         ('active', 'Production'),
