@@ -93,16 +93,14 @@
                     </div>
                     <div class="row">
                         <div class="col-6" invisible="not affected_model_ids">
-                            <details class="o_ec_tag_collapse">
-                                <summary class="text-muted">Impacted Models</summary>
-                                <field name="affected_model_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
-                            </details>
+                            <label for="affected_model_ids" string="Impacted Models" class="text-muted d-block"/>
+                            <field name="affected_model_ids" widget="collapsible_many2many_tags"
+                                   options="{'limit': 3}" readonly="1" nolabel="1"/>
                         </div>
                         <div class="col-6" invisible="not affected_project_ids">
-                            <details class="o_ec_tag_collapse">
-                                <summary class="text-muted">Impacted Job Numbers</summary>
-                                <field name="affected_project_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
-                            </details>
+                            <label for="affected_project_ids" string="Impacted Job Numbers" class="text-muted d-block"/>
+                            <field name="affected_project_ids" widget="collapsible_many2many_tags"
+                                   options="{'limit': 3}" readonly="1" nolabel="1"/>
                         </div>
                     </div>
 
