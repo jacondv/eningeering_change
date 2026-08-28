@@ -18,7 +18,7 @@
                                 <img src="/engineering_change/static/img/jacon_logo.png" style="max-height:50pt;width:auto; object-fit:contain;"/>
                             </td>
                             <td style="width:80%; text-align:center; vertical-align:middle; color:white;">
-                                <div style="font-weight:bold; font-size:16pt;">DESIGN CHANGE REQUEST</div>
+                                <div style="font-weight:bold; font-size:16pt; position:relative; right:20mm;">DESIGN CHANGE REQUEST</div>
                             </td>
                         </tr>
                     </table>
@@ -35,12 +35,17 @@
 
                         <table style="width:100%;">
                             <tr>
-                                <td><strong>No: </strong><span t-out="o.dcr_no or o.name"/></td>
-                                <td style="text-align:right;"><strong>Engineer: </strong><span t-field="o.engineer_id.name"/></td>
+                                <td>
+                                    <strong>Request: </strong><span t-out="o.name"/>
+                                    <t t-if="o.request_type == 'dcr'">
+                                        <span> | </span><strong>DCR: </strong><span t-out="o.dcr_no or '-'"/>
+                                    </t>
+                                    <span> | </span><strong>Stage: </strong><span t-field="o.state"/>
+                                </td>
                             </tr>
                         </table>
 
-                        <div class="ec-section-bar">1. REQUEST DESCRIPTION:</div>
+                        <div class="ec-section-bar">1. REQUEST : <span t-field="o.title"/></div>
                         <table class="ec-bordered mt-1">
                             <tr>
                                 <td style="width:15%;"><strong>Part No:</strong></td>
@@ -48,13 +53,9 @@
                             </tr>
                         </table>
 
-                        <p class="mb-0 mt-2"><strong>1.1 Request content</strong></p>
-                        <p class="ec-label">Description:</p>
-                        <p class="mb-0"><span t-field="o.title"/></p>
+                        <p class="mb-0 mt-2"><strong>1.1 Reason for Change: </strong><span t-field="o.change_category"/></p>
 
-                        <p class="mb-0 mt-2"><strong>1.2 Justification Source: </strong><span t-field="o.change_category"/></p>
-
-                        <p class="mb-0 mt-2"><strong>1.3 Request change to:</strong></p>
+                        <p class="mb-0 mt-2"><strong>1.2 Request change to:</strong></p>
                         <table class="ec-bordered">
                             <tr>
                                 <td style="width:15%;"><strong>Model</strong></td>
@@ -108,10 +109,55 @@
 
                         <div class="ec-section-bar">3. Implementation Instructions</div>
                         <div class="mt-2" t-field="o.description"/>
+
+                        <div class="ec-section-bar">4. Checklist</div>
+                        <p class="mb-1 mt-2"><strong>4.1 Update Design Document</strong></p>
+                        <t t-set="lines" t-value="o.checklist_design_document_ids"/>
+                        <t t-call="engineering_change.report_engineering_change_checklist_table"/>
+
+                        <p class="mb-1 mt-2"><strong>4.2 Goods In Stock</strong></p>
+                        <t t-set="lines" t-value="o.checklist_goods_in_stock_ids"/>
+                        <t t-call="engineering_change.report_engineering_change_checklist_table"/>
+
+                        <p class="mb-1 mt-2"><strong>4.3 Delivered Goods</strong></p>
+                        <t t-set="lines" t-value="o.checklist_delivered_goods_ids"/>
+                        <t t-call="engineering_change.report_engineering_change_checklist_table"/>
                     </div>
+                </div>
+
+                <div class="footer" style="position:relative; width:100%; height:25mm; font-size:9pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <span style="position:absolute; right:24pt; bottom:10mm;">
+                        <span class="page"/>/<span class="topage"/>
+                    </span>
                 </div>
             </t>
         </t>
+    </template>
+
+    <!-- Shared by the 3 Checklist sub-sections above - called once per
+         section with `lines` set to that section's records. -->
+    <template id="report_engineering_change_checklist_table">
+        <table class="ec-bordered">
+            <thead>
+                <tr style="background-color:#f2f2f2;">
+                    <th style="width:6%;"></th>
+                    <th>Item</th>
+                    <th style="width:20%;">Completed Date</th>
+                    <th style="width:20%;">Completed By</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr t-foreach="lines" t-as="line">
+                    <td style="text-align:center; font-size:12pt;">
+                        <t t-if="line.is_checked">&#9745;</t>
+                        <t t-else="">&#9744;</t>
+                    </td>
+                    <td t-out="line.name"/>
+                    <td><span t-field="line.date_done"/></td>
+                    <td t-out="line.completed_by_id.name or ''"/>
+                </tr>
+            </tbody>
+        </table>
     </template>
 
 </odoo>
