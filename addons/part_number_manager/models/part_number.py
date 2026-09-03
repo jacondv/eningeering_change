@@ -226,6 +226,33 @@ class PartNumber(models.Model):
                     "Part Number %s (id=%s) does not match material_group.code + "
                     "sequence_suffix (expected %s).", rec.part_number, rec.id, expected)
 
+    def _split_multi_value_part_number_search(self, domain):
+        """Lets pasting a list of Part Numbers (separated by commas/spaces/
+        newlines) into the search bar's Part Number facet filter by all of
+        them at once, matched exactly - done here server-side rather than
+        via filter_domain in the view's XML because the client-side domain
+        evaluator (py.js) has no string .split()/.replace() support and
+        crashes on it (confirmed via the web addon's py_js source - no
+        string methods are implemented there at all).
+
+        Only rewrites an exact `('part_number', 'ilike', value)` leaf whose
+        value splits into more than one token - a single term (or the
+        'All' facet's combined OR search, which also puts an 'ilike' leaf
+        on part_number) still behaves exactly as before.
+        """
+        new_domain = []
+        for leaf in domain:
+            if (
+                isinstance(leaf, (list, tuple)) and len(leaf) == 3
+                and leaf[0] == 'part_number' and leaf[1] == 'ilike'
+                and isinstance(leaf[2], str)
+            ):
+                tokens = [t for t in re.split(r'[,\s]+', leaf[2].strip()) if t]
+                if len(tokens) > 1:
+                    leaf = ('part_number', 'in', tokens)
+            new_domain.append(leaf)
+        return new_domain
+
     def _hide_non_standard_format(self, domain):
         """Silently hides any Part Number that isn't the standard 8-digit
         Material Group code + sequence suffix format (legacy/historical
@@ -255,6 +282,7 @@ class PartNumber(models.Model):
     @api.model
     @api.readonly
     def web_search_read(self, domain, specification, offset=0, limit=None, order=None, count_limit=None):
+        domain = self._split_multi_value_part_number_search(domain)
         domain = self._hide_non_standard_format(domain)
         return super().web_search_read(
             domain, specification, offset=offset, limit=limit, order=order, count_limit=count_limit)
@@ -262,6 +290,7 @@ class PartNumber(models.Model):
     @api.model
     @api.readonly
     def web_read_group(self, domain, groupby, aggregates=(), **kwargs):
+        domain = self._split_multi_value_part_number_search(domain)
         domain = self._hide_non_standard_format(domain)
         return super().web_read_group(domain, groupby, aggregates, **kwargs)
 
