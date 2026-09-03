@@ -18,15 +18,23 @@ business logic.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'project'],
+    'depends': ['base', 'project', 'web_hierarchy'],
     'data': [
         'security/equipment_model_groups.xml',
         'security/ir.model.access.csv',
         'views/equipment_model_category_views.xml',
         'views/equipment_model_family_views.xml',
         'views/equipment_model_views.xml',
+        'views/equipment_certificate_views.xml',
         'views/equipment_model_menus.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'equipment_model/static/src/certificate_explorer/certificate_explorer.js',
+            'equipment_model/static/src/certificate_explorer/certificate_explorer.xml',
+            'equipment_model/static/src/certificate_explorer/certificate_explorer.scss',
+        ],
+    },
     'installable': True,
     'application': True,
 }
