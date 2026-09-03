@@ -8,3 +8,6 @@ access_equipment_model_category_all_users,equipment.model.category.all_users,mod
 access_equipment_model_family_user,equipment.model.family.user,model_equipment_model_family,group_equipment_model_user,1,0,0,0
 access_equipment_model_family_manager,equipment.model.family.manager,model_equipment_model_family,group_equipment_model_manager,1,1,1,1
 access_equipment_model_family_all_users,equipment.model.family.all_users,model_equipment_model_family,base.group_user,1,0,0,0
+access_equipment_certificate_user,equipment.certificate.user,model_equipment_certificate,group_equipment_model_user,1,0,0,0
+access_equipment_certificate_manager,equipment.certificate.manager,model_equipment_certificate,group_equipment_model_manager,1,1,1,1
+access_equipment_certificate_all_users,equipment.certificate.all_users,model_equipment_certificate,base.group_user,1,0,0,0
