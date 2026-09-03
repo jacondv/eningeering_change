@@ -21,6 +21,8 @@ STATE_BY_STATUS = {
     'development': 'draft',
     'production': 'active',
     'not use': 'obsolete',
+    'y': 'y',
+    'tbd': 'tbd',
 }
 
 MAKE_BUY_BY_TYPE = {
@@ -83,6 +85,8 @@ class PartNumber(models.Model):
         ('draft', 'Development'),
         ('active', 'Production'),
         ('obsolete', 'Not Use'),
+        ('y', 'Y'),  # temporary, to be removed later
+        ('tbd', 'TBD'),  # temporary, to be removed later
     ], default='draft', tracking=True,
         help="Labels shown are Development/Production/Not Use - the underlying values "
              "(draft/active/obsolete) are unchanged, only the display text was renamed.")
@@ -669,7 +673,7 @@ class PartNumber(models.Model):
         if 'job_number' in load_fields:
             idx = load_fields.index('job_number')
             # Same memoization as Vendor above - a Job Number repeated
-            # across many rows only costs one search().
+            # across many rows only costs one search()/create().
             job_ids_by_name = {}
             for row in load_data:
                 raw = row[idx]
@@ -677,9 +681,17 @@ class PartNumber(models.Model):
                 if raw:
                     name = raw.strip()
                     if name not in job_ids_by_name:
-                        record = project_model.search([('name', '=', name)], limit=1)
-                        job_ids_by_name[name] = record.id if record else ''
-                    row[idx] = str(job_ids_by_name[name]) if job_ids_by_name[name] else ''
+                        # =ilike, not = - project.project enforces
+                        # case-insensitive uniqueness on name (see jacon_core's
+                        # _check_name_unique), so an exact-case search here
+                        # would miss an existing "Common" for an incoming
+                        # "common" and then collide with that same constraint
+                        # trying to create a "duplicate".
+                        record = project_model.search([('name', '=ilike', name)], limit=1)
+                        if not record:
+                            record = project_model.create({'name': name})
+                        job_ids_by_name[name] = record.id
+                    row[idx] = str(job_ids_by_name[name])
             load_fields[idx] = 'job_number/.id'
 
         if 'state' in load_fields:
