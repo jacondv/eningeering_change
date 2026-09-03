@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="equipment_model.CertificateExplorer" owl="1">
+        <div class="o_certificate_explorer d-flex h-100">
+            <div class="o_certificate_tree border-end p-2 overflow-auto" style="width: 320px; min-width: 280px;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Certificates</h5>
+                    <button class="btn btn-sm btn-primary" t-on-click="onAddRoot">
+                        <i class="fa fa-plus"/> New
+                    </button>
+                </div>
+                <div class="d-flex gap-2 mb-2">
+                    <button class="btn btn-sm btn-outline-secondary flex-grow-1" t-on-click="onExpandAll">
+                        <i class="fa fa-angle-double-down"/> Expand all
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary flex-grow-1" t-on-click="onCollapseAll">
+                        <i class="fa fa-angle-double-up"/> Collapse all
+                    </button>
+                </div>
+                <t t-foreach="rootNodes" t-as="node" t-key="node.id">
+                    <t t-call="equipment_model.CertificateExplorer.TreeNode">
+                        <t t-set="node" t-value="node"/>
+                        <t t-set="level" t-value="0"/>
+                    </t>
+                </t>
+            </div>
+            <div class="o_certificate_content flex-grow-1 p-3 overflow-auto">
+                <t t-if="state.selectedRecord">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h4 class="mb-0" t-esc="state.selectedRecord.name"/>
+                            <div class="text-muted small" t-esc="state.selectedRecord.complete_name"/>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-secondary" t-on-click="onEditSelected">
+                                <i class="fa fa-pencil"/> Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    t-on-click="(ev) => this.onDelete(state.selectedRecord, ev)">
+                                <i class="fa fa-trash-o"/> Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div class="o_certificate_description" t-out="state.selectedRecord.description"/>
+                </t>
+                <t t-else="">
+                    <div class="text-muted text-center mt-5">
+                        Select an item on the left to view its description.
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="equipment_model.CertificateExplorer.TreeNode" owl="1">
+        <div class="o_certificate_node">
+            <div t-attf-class="o_certificate_row d-flex align-items-center rounded cursor-pointer {{ state.selectedId === node.id ? 'o_certificate_row_selected' : '' }}"
+                 t-on-click="() => this.selectNode(node.id)">
+                <span class="o_certificate_toggle flex-shrink-0" t-on-click="(ev) => this.toggleExpand(node.id, ev)">
+                    <i t-if="childrenOf(node.id).length"
+                       t-attf-class="fa fa-fw {{ isExpanded(node.id) ? 'fa-caret-down' : 'fa-caret-right' }}"/>
+                </span>
+                <i t-attf-class="fa fa-fw o_certificate_icon flex-shrink-0 {{ childrenOf(node.id).length ? (isExpanded(node.id) ? 'fa-folder-open-o' : 'fa-folder-o') : 'fa-file-text-o' }}"/>
+                <span class="flex-grow-1 text-truncate" t-esc="node.name"/>
+                <button class="btn btn-sm btn-link p-0 o_certificate_row_action flex-shrink-0"
+                        title="Add sub-item"
+                        t-on-click="(ev) => this.onAddChild(node.id, ev)">
+                    <i class="fa fa-plus small"/>
+                </button>
+                <button class="btn btn-sm btn-link p-0 text-danger o_certificate_row_action flex-shrink-0"
+                        title="Delete"
+                        t-on-click="(ev) => this.onDelete(node, ev)">
+                    <i class="fa fa-trash-o small"/>
+                </button>
+            </div>
+            <div t-if="isExpanded(node.id)" class="o_certificate_children">
+                <t t-foreach="childrenOf(node.id)" t-as="child" t-key="child.id">
+                    <t t-call="equipment_model.CertificateExplorer.TreeNode">
+                        <t t-set="node" t-value="child"/>
+                        <t t-set="level" t-value="level + 1"/>
+                    </t>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>
