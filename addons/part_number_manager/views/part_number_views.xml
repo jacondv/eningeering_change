@@ -38,7 +38,7 @@
             <form string="Part Number">
                 <header>
                     <field name="is_unlocked" widget="part_number_edit_lock_button" nolabel="1"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,active,obsolete"
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,obsolete,y,tbd"
                            options="{'clickable': '1'}"/>
                 </header>
                 <sheet>
