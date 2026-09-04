@@ -174,10 +174,30 @@
             font-size: 1.1em;
             margin-bottom: 8px;
         }
+
+        // Tighter than table-sm's own padding - this panel is a scan-back
+        // log, not a data-entry table, so fitting more rows on screen
+        // matters more than breathing room here.
+        th, td {
+            padding: 2px 6px;
+        }
     }
 
     .o_pnm_recent_row {
-        cursor: pointer;
+        td:not(.o_pnm_action_col) {
+            cursor: copy;
+        }
+    }
+
+    .o_pnm_action_col {
+        width: 90px;
+        white-space: nowrap;
+        overflow: hidden;
+
+        .btn {
+            padding: 0 4px;
+            line-height: 1.5;
+        }
     }
 }
 

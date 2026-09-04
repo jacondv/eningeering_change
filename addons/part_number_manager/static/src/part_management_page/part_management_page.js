@@ -15,6 +15,20 @@ const SEARCH_LIMIT = 20;
 const COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.column_widths";
 const ACTIVE_TAB_STORAGE_KEY = "part_number_manager.part_management_page.active_tab";
 const COLUMN_VISIBILITY_STORAGE_KEY = "part_number_manager.part_management_page.column_visibility";
+const RECENT_PARTS_STORAGE_KEY = "part_number_manager.part_management_page.recent_parts";
+const RECENT_COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.recent_column_widths";
+const DEFAULT_RECENT_COLUMN_WIDTHS = {
+    material_group: 130,
+    part_number: 120,
+    job_number: 120,
+    short_description: 180,
+    long_description: 220,
+    part_type: 130,
+    vendor: 150,
+    vendor_ref: 120,
+    make_buy: 90,
+    time: 100,
+};
 const DEFAULT_COLUMN_WIDTHS = {
     legacy: 180,
     material_group: 180,
@@ -72,7 +86,8 @@ export class PartManagementPage extends Component {
             // just saved a batch can scroll back and re-open any of them,
             // even after the row itself scrolls out of view or a new blank
             // row gets added on top.
-            recentParts: [],
+            recentParts: this._loadRecentParts(),
+            recentColumnWidths: this._loadRecentColumnWidths(),
         });
 
         // Each *Options array is the source list for one PnmCombobox field:
@@ -252,6 +267,71 @@ export class PartManagementPage extends Component {
         }
     }
 
+    _todayKey() {
+        return new Date().toDateString(); // e.g. "Thu Aug 27 2026" - day-granularity only
+    }
+
+    // Kept until the end of the calendar day (client-local), then dropped -
+    // a stale list from a previous day would just be confusing noise, not
+    // useful history (that's what the All Part Numbers list is for).
+    _loadRecentParts() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(RECENT_PARTS_STORAGE_KEY) || "null");
+            if (saved && saved.day === this._todayKey() && Array.isArray(saved.parts)) {
+                return saved.parts;
+            }
+        } catch {
+            // Corrupt/unreadable - start fresh below.
+        }
+        return [];
+    }
+
+    _saveRecentParts() {
+        try {
+            localStorage.setItem(RECENT_PARTS_STORAGE_KEY, JSON.stringify({
+                day: this._todayKey(),
+                parts: this.state.recentParts,
+            }));
+        } catch {
+            // Private browsing / storage disabled / quota - just won't
+            // survive a refresh this time, nothing else depends on it.
+        }
+    }
+
+    _loadRecentColumnWidths() {
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem(RECENT_COLUMN_WIDTHS_STORAGE_KEY) || "{}");
+        } catch {
+            saved = {};
+        }
+        return { ...DEFAULT_RECENT_COLUMN_WIDTHS, ...saved };
+    }
+
+    _saveRecentColumnWidths() {
+        try {
+            localStorage.setItem(RECENT_COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(this.state.recentColumnWidths));
+        } catch {
+            // Not remembered this time - not fatal, columns just default back next visit.
+        }
+    }
+
+    onRecentColumnResizeStart(columnKey, ev) {
+        ev.preventDefault();
+        const startX = ev.clientX;
+        const startWidth = this.state.recentColumnWidths[columnKey];
+        const onMouseMove = (moveEv) => {
+            this.state.recentColumnWidths[columnKey] = Math.max(60, startWidth + (moveEv.clientX - startX));
+        };
+        const onMouseUp = () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+            this._saveRecentColumnWidths();
+        };
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+    }
+
     _loadActiveTab() {
         try {
             const saved = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
@@ -326,6 +406,18 @@ export class PartManagementPage extends Component {
         };
         window.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
+    }
+
+    async copyCell(text) {
+        if (!text) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(String(text));
+            this.notification.add("Copied to clipboard.", { type: "success" });
+        } catch {
+            this.notification.add("Could not copy to clipboard.", { type: "danger" });
+        }
     }
 
     async openPart(id) {
@@ -765,9 +857,14 @@ export class PartManagementPage extends Component {
                     this.state.recentParts.unshift({
                         id: res.part_id,
                         part_number: res.part_number,
-                        short_description: row.short_description,
                         material_group_label: row.material_group_text,
                         job_number_label: row.job_number_text,
+                        short_description: row.short_description,
+                        long_description: row.long_description,
+                        part_type_label: row.part_type_text,
+                        vendor_label: row.vendor_text,
+                        vendor_ref: row.vendor_ref,
+                        make_buy: row.make_buy,
                         time: new Date().toLocaleTimeString(),
                     });
                 } else {
@@ -775,6 +872,7 @@ export class PartManagementPage extends Component {
                     row.errorMessage = res.error;
                 }
             });
+            this._saveRecentParts();
 
             // No manual refresh needed here anymore: Vendor and Part Number
             // are searched live against the server (see SEARCH_DEBOUNCE_MS

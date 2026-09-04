@@ -279,11 +279,29 @@ class PartNumber(models.Model):
             return domain
         return list(domain) + [('is_standard_format', '=', True)]
 
+    def _date_created_nulls_last(self, order):
+        """Clicking the Date Created column header to sort descending
+        otherwise puts every blank/never-set value first (Postgres'
+        default is NULLS FIRST for DESC) - the opposite of what "newest
+        first" should mean. Blanks are pushed to the end regardless of
+        direction instead, same as most spreadsheet tools; every other
+        sortable column keeps Postgres' normal default."""
+        if not order:
+            return order
+        clauses = []
+        for clause in order.split(','):
+            clause = clause.strip()
+            if clause.split()[0] == 'date_created' and 'nulls' not in clause.lower():
+                clause = f'{clause} nulls last'
+            clauses.append(clause)
+        return ', '.join(clauses)
+
     @api.model
     @api.readonly
     def web_search_read(self, domain, specification, offset=0, limit=None, order=None, count_limit=None):
         domain = self._split_multi_value_part_number_search(domain)
         domain = self._hide_non_standard_format(domain)
+        order = self._date_created_nulls_last(order)
         return super().web_search_read(
             domain, specification, offset=offset, limit=limit, order=order, count_limit=count_limit)
 
