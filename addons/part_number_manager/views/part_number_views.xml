@@ -21,7 +21,7 @@
                 <field name="attribute_display" string="Attributes" optional="hide"/>
                 <field name="create_date" string="Created On" optional="show"/>
                 <field name="create_uid" string="Created By" optional="show"/>
-                <field name="date_created" optional="hide" options="{'show_time': false}"/>
+                <field name="date_created" optional="hide" widget="pnm_date_full"/>
                 <field name="state" widget="badge" optional="show"
                        decoration-info="state == 'draft'"
                        decoration-success="state == 'active'"

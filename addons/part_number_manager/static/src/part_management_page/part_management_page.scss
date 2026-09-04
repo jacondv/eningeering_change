@@ -177,7 +177,14 @@
     }
 
     .o_pnm_recent_row {
-        cursor: pointer;
+        td:not(.o_pnm_recent_view_col) {
+            cursor: copy;
+        }
+    }
+
+    .o_pnm_recent_view_col {
+        width: 1%;
+        white-space: nowrap;
     }
 }
 
