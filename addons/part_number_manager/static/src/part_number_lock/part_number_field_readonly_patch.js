@@ -5,6 +5,10 @@ import { Field } from "@web/views/fields/field";
 // record until it's been unlocked (see part_number_edit_lock_field.js /
 // models/part_number.py is_unlocked). Scoped to part_number_manager.part_number
 // only (checked inside the getter), so no other model's fields are affected.
+// `state` is excluded from the lock too - changing it already asks for
+// its own confirmation (see part_number_state_confirm_patch.js), so
+// requiring a full Edit + password unlock first just for that one field
+// would be redundant friction on top of that confirm.
 //
 // `isDisabled` is also forced here, not just `readonly`, but ONLY for the
 // statusbar widget: StatusBarField ignores the generic `readonly` prop
@@ -24,7 +28,8 @@ patch(Field.prototype, {
             record.resModel === "part_number_manager.part_number" &&
             record.resId &&
             !record.data.is_unlocked &&
-            this.props.name !== "is_unlocked"
+            this.props.name !== "is_unlocked" &&
+            this.props.name !== "state"
         ) {
             const isStatusBar = this.props.fieldInfo?.widget === "statusbar";
             return { ...props, readonly: true, ...(isStatusBar ? { isDisabled: true } : {}) };

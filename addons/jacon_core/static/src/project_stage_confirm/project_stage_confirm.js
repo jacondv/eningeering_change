@@ -1,15 +1,18 @@
 import { patch } from "@web/core/utils/patch";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { KanbanRenderer } from "@web/views/kanban/kanban_renderer";
-import { StatusBarField } from "@web/views/fields/statusbar/statusbar_field";
 import { _t } from "@web/core/l10n/translation";
+import { user } from "@web/core/user";
 
-// Project's Stage change is a meaningful workflow step (unlike most other
-// Kanban/statusbar drags), so both ways of changing it - dragging a card to
-// another Kanban column, or clicking a stage on the form's statusbar - ask
-// for confirmation first instead of applying instantly. Scoped tightly to
-// project.project's own stage_id everywhere below, so no other model's
-// Kanban/statusbar behavior is affected by this patch.
+// Project's Stage change is a meaningful workflow step, so dragging a card
+// to another Kanban column asks for confirmation first instead of applying
+// instantly - same idea as the statusbar's own confirm, in
+// project_lock/project_stage_confirm_patch.js (that file also patches
+// StatusBarField.selectItem for this same stage_id change; the two used to
+// both patch StatusBarField and fire one after another - see that file's
+// comment for why it was consolidated there instead of here). Scoped
+// tightly to project.project's own stage_id, so no other model's Kanban
+// behavior is affected by this patch.
 
 patch(KanbanRenderer.prototype, {
     async sortRecordDrop(dataRecordId, dataGroupId, params) {
@@ -22,6 +25,18 @@ patch(KanbanRenderer.prototype, {
             targetGroupId !== params.element.parentElement.dataset.id;
         if (!isProjectStageMove) {
             return super.sortRecordDrop(...arguments);
+        }
+        // Same permission pre-check as the statusbar patch - without it, a
+        // non-Head-Office/Admin user could drag a card, confirm, and only
+        // then hit the server's AccessError.
+        const allowed = user.isAdmin || await user.hasGroup("jacon_core.group_head_office");
+        if (!allowed) {
+            this.env.services.notification.add(
+                _t("Only the Engineering Head or an Administrator can change a Project's Stage."),
+                { type: "danger" }
+            );
+            this.render();
+            return;
         }
         const record = list.records.find((r) => r.id === dataRecordId);
         const targetGroup = list.groups.find((g) => String(g.id) === String(targetGroupId));
@@ -43,25 +58,5 @@ patch(KanbanRenderer.prototype, {
             return;
         }
         return super.sortRecordDrop(...arguments);
-    },
-});
-
-patch(StatusBarField.prototype, {
-    async selectItem(item) {
-        const { name, record } = this.props;
-        if (record.resModel !== "project.project" || name !== "stage_id") {
-            return super.selectItem(...arguments);
-        }
-        const confirmed = await new Promise((resolve) => {
-            this.env.services.dialog.add(ConfirmationDialog, {
-                body: _t('Move this Project to stage "%s"?', item.label),
-                confirm: () => resolve(true),
-                cancel: () => resolve(false),
-            });
-        });
-        if (!confirmed) {
-            return;
-        }
-        return super.selectItem(...arguments);
     },
 });
