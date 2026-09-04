@@ -86,7 +86,7 @@
                         <th t-if="state.columnVisibility.make_buy" class="o_pnm_th">Make/Buy
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('make_buy', ev)"/>
                         </th>
-                        <th class="text-end">Actions</th>
+                        <th class="text-end o_pnm_action_col">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -239,7 +239,7 @@
                                     <t t-esc="state.errors[row._localId + '_make_buy']"/>
                                 </div>
                             </td>
-                            <td class="text-end">
+                            <td class="text-end o_pnm_action_col">
                                 <button class="btn btn-sm btn-outline-danger"
                                         t-if="row.status !== 'success'"
                                         t-on-click="() => this.removeRow(row._localId)">
@@ -254,26 +254,70 @@
 
             <div class="o_pnm_recent" t-if="state.recentParts.length">
                 <h3>Recently Created / Converted Parts</h3>
-                <table class="table table-sm table-bordered table-hover">
+                <div class="o_pnm_table_wrapper">
+                <table class="table table-sm table-bordered table-hover o_pnm_table">
+                    <colgroup>
+                        <col t-attf-style="width: {{state.recentColumnWidths.material_group}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.part_number}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.job_number}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.short_description}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.long_description}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.part_type}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.vendor}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.vendor_ref}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.make_buy}}px"/>
+                        <col t-attf-style="width: {{state.recentColumnWidths.time}}px"/>
+                        <col/>
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th>Part Number</th>
-                            <th>Short Description</th>
-                            <th>Material Group</th>
-                            <th>Job Number</th>
-                            <th>Time</th>
-                            <th class="o_pnm_recent_view_col"/>
+                            <th class="o_pnm_th">Material Group
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('material_group', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Part Number
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('part_number', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Job Number
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('job_number', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Short Description
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('short_description', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Long Description
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('long_description', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Part Type
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('part_type', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Vendor
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Vendor Reference
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor_ref', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Make/Buy
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('make_buy', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Time
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('time', ev)"/>
+                            </th>
+                            <th class="o_pnm_action_col"/>
                         </tr>
                     </thead>
                     <tbody>
                         <t t-foreach="state.recentParts" t-as="p" t-key="p.id">
                             <tr class="o_pnm_recent_row">
-                                <td t-on-click="() => this.copyCell(p.part_number)"><t t-esc="p.part_number"/></td>
-                                <td t-on-click="() => this.copyCell(p.short_description)"><t t-esc="p.short_description"/></td>
                                 <td t-on-click="() => this.copyCell(p.material_group_label)"><t t-esc="p.material_group_label"/></td>
+                                <td t-on-click="() => this.copyCell(p.part_number)"><t t-esc="p.part_number"/></td>
                                 <td t-on-click="() => this.copyCell(p.job_number_label)"><t t-esc="p.job_number_label"/></td>
+                                <td t-on-click="() => this.copyCell(p.short_description)"><t t-esc="p.short_description"/></td>
+                                <td t-on-click="() => this.copyCell(p.long_description)"><t t-esc="p.long_description"/></td>
+                                <td t-on-click="() => this.copyCell(p.part_type_label)"><t t-esc="p.part_type_label"/></td>
+                                <td t-on-click="() => this.copyCell(p.vendor_label)"><t t-esc="p.vendor_label"/></td>
+                                <td t-on-click="() => this.copyCell(p.vendor_ref)"><t t-esc="p.vendor_ref"/></td>
+                                <td t-on-click="() => this.copyCell(p.make_buy)"><t t-esc="p.make_buy"/></td>
                                 <td t-on-click="() => this.copyCell(p.time)"><t t-esc="p.time"/></td>
-                                <td class="o_pnm_recent_view_col">
+                                <td class="o_pnm_action_col">
                                     <button type="button" class="btn btn-sm btn-link" title="View"
                                             t-on-click="() => this.openPart(p.id)">
                                         <i class="fa fa-external-link"/> View
@@ -283,6 +327,7 @@
                         </t>
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </t>
