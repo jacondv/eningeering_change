@@ -5,6 +5,13 @@ from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationErro
 class ProjectProject(models.Model):
     _inherit = 'project.project'
 
+    # Cancelled/On-Hold/EOL (project.project.stage.is_archival_stage) never
+    # show up as Kanban columns - unconditionally, for everyone, same as
+    # they're excluded from the form's statusbar (see
+    # edit_project_hide_archival_stages in views/project_project_views.xml).
+    # Only reachable via the dedicated action_set_stage_* buttons below.
+    stage_id = fields.Many2one(group_expand='_read_group_expand_non_archival_stages')
+
     po_number = fields.Char(string='PO Number')
     po_received_date = fields.Date(string='PO Received')
     iof_release_date = fields.Date(string='IOF Release')
@@ -72,7 +79,47 @@ class ProjectProject(models.Model):
                     raise AccessError(_(
                         "As Engineering Head you can only change a "
                         "Project's Stage, unless it's your own project."))
+        if vals.get('stage_id') and 'active' not in vals:
+            stage = self.env['project.project.stage'].browse(vals['stage_id'])
+            if stage.is_archival_stage:
+                # Cancelled/On-Hold/EOL are terminal - archive alongside the
+                # stage change itself so it's one atomic write, not a
+                # separate step someone could forget. 'active' not already
+                # in vals: don't fight a caller that's deliberately setting
+                # both at once (e.g. a future Reopen-style flow moving a
+                # project OUT of one of these while reactivating it).
+                vals = dict(vals, active=False)
         return super().write(vals)
+
+    @api.model
+    def _read_group_expand_non_archival_stages(self, stages, domain):
+        """Kanban's stage columns (and any other view grouping by stage_id)
+        never include Cancelled/On-Hold/EOL - unconditionally, for every
+        user, same as the form's statusbar (see
+        edit_project_hide_archival_stages). The default group_expand
+        (_read_group_expand_full) just returns every stage unfiltered,
+        which is what made "Cancelled" show up as a permanently near-empty
+        column before these were introduced. `domain` is deliberately
+        ignored, same as the default implementation - it's the *project*
+        search domain, not something meaningful to filter *stages* by."""
+        return stages.search([('is_archival_stage', '=', False)])
+
+    def _set_archival_stage(self, stage_xmlid):
+        """Shared by the action_set_stage_*/action_cancel_project buttons -
+        write() above takes care of archiving once it sees the target
+        stage's is_archival_stage flag, so this only needs to set stage_id
+        itself."""
+        self.ensure_one()
+        self.write({'stage_id': self.env.ref(stage_xmlid).id})
+
+    def action_set_stage_on_hold(self):
+        self._set_archival_stage('jacon_core.project_project_stage_on_hold')
+
+    def action_set_stage_eol(self):
+        self._set_archival_stage('jacon_core.project_project_stage_eol')
+
+    def action_cancel_project(self):
+        self._set_archival_stage('project.project_project_stage_3')
 
     def unlink(self):
         if not self.env.context.get('project_delete_password_confirmed'):

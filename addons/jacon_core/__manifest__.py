@@ -39,6 +39,7 @@ Currently provides:
         'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
         'security/project_project_rules.xml',
+        'data/project_project_stage_data.xml',
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
