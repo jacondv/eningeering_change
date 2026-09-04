@@ -115,6 +115,29 @@
             <field name="perm_unlink">1</field>
         </record>
 
+        <!-- Bug fix: group_ec_engineer/group_ec_manager both imply group_ec_user,
+             so without a rule of their own, the Design-stage-only domain above
+             (scoped to group_ec_user) was the ONLY rule governing this model for
+             them too - blocking Request/Manager from adding Related Drawings
+             while a request is still in Draft (or at their own approval stage),
+             despite their ACL row granting full create/write. The precise
+             stage/role restriction is already enforced in EngineeringChange.
+             write()'s _check_field_edit_permissions (own_stage_edit); this rule
+             only needs to not be narrower than that - "not yet Closed" mirrors
+             every other Manager-gated rule in this file (e.g.
+             ec_document_rule_admin_write above) rather than going fully
+             unconditional. -->
+        <record id="ec_document_rule_engineer_write" model="ir.rule">
+            <field name="name">EC Document: Request/Manager Approve can edit before Closed (stage actually enforced in write())</field>
+            <field name="model_id" ref="model_engineering_change_document"/>
+            <field name="domain_force">[('change_id.state', 'not in', ['done', 'canceled'])]</field>
+            <field name="groups" eval="[(6, 0, [ref('group_ec_engineer'), ref('group_ec_manager')])]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">1</field>
+        </record>
+
         <!-- Admin gets the same free-edit bypass here as on the parent
              record's content fields (see EngineeringChange._check_field_edit_
              permissions' is_admin clause) - blocked only once Closed, not
