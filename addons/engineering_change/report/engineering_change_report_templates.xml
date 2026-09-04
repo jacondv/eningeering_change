@@ -86,7 +86,7 @@
 
                         <div class="ec-section-bar">2. Request Approval</div>
                         <p class="mb-1 mt-2"><strong>Approved by:</strong></p>
-                        <table class="ec-bordered">
+                        <table class="ec-bordered" style="text-align:center;">
                             <thead>
                                 <tr style="background-color:#f2f2f2;">
                                     <th>Role</th>
@@ -141,9 +141,9 @@
             <thead>
                 <tr style="background-color:#f2f2f2;">
                     <th style="width:6%;"></th>
-                    <th>Item</th>
-                    <th style="width:20%;">Completed Date</th>
-                    <th style="width:20%;">Completed By</th>
+                    <th style="text-align:left;">Item</th>
+                    <th style="width:20%; text-align:center;">Completed Date</th>
+                    <th style="width:20%; text-align:center;">Completed By</th>
                 </tr>
             </thead>
             <tbody>
@@ -152,9 +152,9 @@
                         <t t-if="line.is_checked">&#9745;</t>
                         <t t-else="">&#9744;</t>
                     </td>
-                    <td t-out="line.name"/>
-                    <td><span t-field="line.date_done"/></td>
-                    <td t-out="line.completed_by_id.name or ''"/>
+                    <td style="text-align:left;" t-out="line.name"/>
+                    <td style="text-align:center;"><span t-field="line.date_done"/></td>
+                    <td style="text-align:center;" t-out="line.completed_by_id.name or ''"/>
                 </tr>
             </tbody>
         </table>
