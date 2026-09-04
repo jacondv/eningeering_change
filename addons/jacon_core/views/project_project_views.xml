@@ -45,11 +45,34 @@
         </field>
     </record>
 
+    <!-- Move Tags from the left header group (Name of Tasks/Customer/
+         Company) to the bottom of the right one, after Project Manager/
+         Planned Date/Allocated Time - can't relocate an element in place
+         via inheritance, so this removes it from its original spot and
+         adds an equivalent field (same widget/options as core) in the new
+         one. Depends on hr_timesheet's own inherit of this same view
+         (adds allocated_hours) having already applied - see priority. -->
+    <record id="edit_project_move_tags_to_manager_group" model="ir.ui.view">
+        <field name="name">project.project.form.move.tags.to.manager.group</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <field name="tag_ids" position="replace"/>
+            <field name="allocated_hours" position="after">
+                <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+            </field>
+        </field>
+    </record>
+
     <record id="edit_project_inherit_equipment_model" model="ir.ui.view">
         <field name="name">project.project.form.inherit.equipment.model</field>
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.edit_project"/>
         <field name="arch" type="xml">
+            <field name="partner_id" position="after">
+                <field name="customer_ref" placeholder="e.g. their own PO/product code"/>
+            </field>
             <field name="partner_id" position="before">
                 <field name="model_id" options="{'no_create': True}"/>
                 <field name="machine_serial" placeholder="e.g. S30-2106-163"/>
@@ -130,6 +153,7 @@
                 <button string="Tasks" name="action_view_tasks" type="object"/>
             </field>
             <field name="stage_id" position="after">
+                <field name="customer_ref" optional="hide"/>
                 <field name="po_number" optional="hide"/>
                 <field name="po_received_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
                 <field name="iof_release_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
