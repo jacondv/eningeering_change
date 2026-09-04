@@ -262,16 +262,23 @@
                             <th>Material Group</th>
                             <th>Job Number</th>
                             <th>Time</th>
+                            <th class="o_pnm_recent_view_col"/>
                         </tr>
                     </thead>
                     <tbody>
                         <t t-foreach="state.recentParts" t-as="p" t-key="p.id">
-                            <tr class="o_pnm_recent_row" t-on-click="() => this.openPart(p.id)">
-                                <td><a href="#" t-on-click.prevent="() => this.openPart(p.id)"><t t-esc="p.part_number"/></a></td>
-                                <td><t t-esc="p.short_description"/></td>
-                                <td><t t-esc="p.material_group_label"/></td>
-                                <td><t t-esc="p.job_number_label"/></td>
-                                <td><t t-esc="p.time"/></td>
+                            <tr class="o_pnm_recent_row">
+                                <td t-on-click="() => this.copyCell(p.part_number)"><t t-esc="p.part_number"/></td>
+                                <td t-on-click="() => this.copyCell(p.short_description)"><t t-esc="p.short_description"/></td>
+                                <td t-on-click="() => this.copyCell(p.material_group_label)"><t t-esc="p.material_group_label"/></td>
+                                <td t-on-click="() => this.copyCell(p.job_number_label)"><t t-esc="p.job_number_label"/></td>
+                                <td t-on-click="() => this.copyCell(p.time)"><t t-esc="p.time"/></td>
+                                <td class="o_pnm_recent_view_col">
+                                    <button type="button" class="btn btn-sm btn-link" title="View"
+                                            t-on-click="() => this.openPart(p.id)">
+                                        <i class="fa fa-external-link"/> View
+                                    </button>
+                                </td>
                             </tr>
                         </t>
                     </tbody>
