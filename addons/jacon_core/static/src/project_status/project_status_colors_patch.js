@@ -8,6 +8,7 @@ import { STATUS_COLORS } from "@project/utils/project_utils";
 // popup would show them with no color at all until picked. Values must
 // stay in sync with STATUS_COLOR in project_project.py.
 Object.assign(STATUS_COLORS, {
+    in_progress: 20, // green - matches core's old 'on_track' color
     cancelled: 1, // red (standard Kanban tag color, index 1)
     eol: 5, // purple (standard Kanban tag color, index 5)
 });

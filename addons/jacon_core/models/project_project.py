@@ -23,22 +23,39 @@ STATUS_COLOR.update({
 # edit_project_inherit_last_update_status in views/project_project_views.xml).
 ARCHIVAL_UPDATE_STATUSES = {'on_hold', 'cancelled', 'eol'}
 
+STATUS_COLOR['in_progress'] = 20  # green - matches core's old 'on_track' color
+
 
 class ProjectProject(models.Model):
     _inherit = 'project.project'
 
-    # 'on_hold' already exists in core; 'cancelled'/'eol' are new - see
-    # ARCHIVAL_UPDATE_STATUSES above for what setting any of the three does.
-    last_update_status = fields.Selection(selection_add=[
+    # Full replacement (not selection_add) - deliberately drops core's own
+    # on_track/at_risk/off_track/done/to_define options entirely, leaving
+    # only the 4 values Jacon actually uses. 'on_hold' already existed in
+    # core; 'cancelled'/'eol' are new (see ARCHIVAL_UPDATE_STATUSES above);
+    # 'in_progress' replaces core's 'to_define' as the default/no-update-yet
+    # state, since a normal running project isn't really "undefined".
+    last_update_status = fields.Selection(selection=[
+        ('in_progress', 'In Progress'),
+        ('on_hold', 'On Hold'),
         ('cancelled', 'Cancelled'),
         ('eol', 'EOL'),
-    ], ondelete={'cancelled': 'set default', 'eol': 'set default'})
+    ], default='in_progress', compute='_compute_last_update_status', store=True,
+        readonly=False, required=True, export_string_translation=False)
     # UX hint for the view (readonly condition) - see
     # edit_project_inherit_last_update_status in project_project_views.xml.
     # The write() guard above is the actual enforcement; this just lets the
     # form grey the field out accordingly instead of letting a non-manager
     # interact with it only to have the save rejected.
     can_change_last_update_status = fields.Boolean(compute='_compute_can_change_last_update_status')
+
+    @api.depends('last_update_id.status')
+    def _compute_last_update_status(self):
+        # Same as core's version, except the no-update-yet fallback is
+        # 'in_progress' instead of core's 'to_define' - see the field
+        # definition above for why.
+        for project in self:
+            project.last_update_status = project.last_update_id.status or 'in_progress'
 
     def _compute_can_change_last_update_status(self):
         is_admin = self.env.user.has_group('base.group_system')
@@ -135,6 +152,10 @@ class ProjectProject(models.Model):
             # (e.g. a future Reopen-style flow reactivating a project while
             # also clearing its status).
             vals = dict(vals, active=False)
+        elif vals.get('last_update_status') == 'in_progress' and 'active' not in vals:
+            # Symmetric to the archive above - moving back to In Progress
+            # (e.g. resuming an On-Hold project) un-archives it.
+            vals = dict(vals, active=True)
         return super().write(vals)
 
     def unlink(self):
