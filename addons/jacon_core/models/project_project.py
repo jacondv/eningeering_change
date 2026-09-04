@@ -1,16 +1,67 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
 
+# project.update's own STATUS_COLOR dict (also imported and reused as-is by
+# project.project._compute_last_update_color) has no extension hook - it's a
+# plain Python dict keyed by every valid `status`/`last_update_status` value,
+# looked up directly (KeyError on a missing key), not a field one can extend
+# via selection_add. Mutating it in place at import time is the standard
+# pragmatic way to add colors for the 'cancelled'/'eol' values added below,
+# matching the same values added to project.update.status in
+# project_update.py. See static/src/project_status/project_status_colors_patch.js
+# for the client-side equivalent (the widget keeps its own separate copy of
+# this same mapping for rendering not-yet-saved dropdown options).
+from odoo.addons.project.models.project_update import STATUS_COLOR
+STATUS_COLOR.update({
+    'cancelled': 1,  # red (standard Kanban tag color, index 1)
+    'eol': 5,  # purple (standard Kanban tag color, index 5)
+})
+
+# Which last_update_status values mean "this project is done for" - set on
+# a project, they both archive it (see write() below) and are only
+# reachable through the dedicated, Manager-gated widget on the form (see
+# edit_project_inherit_last_update_status in views/project_project_views.xml).
+ARCHIVAL_UPDATE_STATUSES = {'on_hold', 'cancelled', 'eol'}
+
+STATUS_COLOR['in_progress'] = 20  # green - matches core's old 'on_track' color
+
 
 class ProjectProject(models.Model):
     _inherit = 'project.project'
 
-    # Cancelled/On-Hold/EOL (project.project.stage.is_archival_stage) never
-    # show up as Kanban columns - unconditionally, for everyone, same as
-    # they're excluded from the form's statusbar (see
-    # edit_project_hide_archival_stages in views/project_project_views.xml).
-    # Only reachable via the dedicated action_set_stage_* buttons below.
-    stage_id = fields.Many2one(group_expand='_read_group_expand_non_archival_stages')
+    # Full replacement (not selection_add) - deliberately drops core's own
+    # on_track/at_risk/off_track/done/to_define options entirely, leaving
+    # only the 4 values Jacon actually uses. 'on_hold' already existed in
+    # core; 'cancelled'/'eol' are new (see ARCHIVAL_UPDATE_STATUSES above);
+    # 'in_progress' replaces core's 'to_define' as the default/no-update-yet
+    # state, since a normal running project isn't really "undefined".
+    last_update_status = fields.Selection(selection=[
+        ('in_progress', 'In Progress'),
+        ('on_hold', 'On Hold'),
+        ('cancelled', 'Cancelled'),
+        ('eol', 'EOL'),
+    ], default='in_progress', compute='_compute_last_update_status', store=True,
+        readonly=False, required=True, export_string_translation=False)
+    # UX hint for the view (readonly condition) - see
+    # edit_project_inherit_last_update_status in project_project_views.xml.
+    # The write() guard above is the actual enforcement; this just lets the
+    # form grey the field out accordingly instead of letting a non-manager
+    # interact with it only to have the save rejected.
+    can_change_last_update_status = fields.Boolean(compute='_compute_can_change_last_update_status')
+
+    @api.depends('last_update_id.status')
+    def _compute_last_update_status(self):
+        # Same as core's version, except the no-update-yet fallback is
+        # 'in_progress' instead of core's 'to_define' - see the field
+        # definition above for why.
+        for project in self:
+            project.last_update_status = project.last_update_id.status or 'in_progress'
+
+    def _compute_can_change_last_update_status(self):
+        is_admin = self.env.user.has_group('base.group_system')
+        is_head_office = self.env.user.has_group('jacon_core.group_head_office')
+        for project in self:
+            project.can_change_last_update_status = is_admin or is_head_office
 
     po_number = fields.Char(string='PO Number')
     po_received_date = fields.Date(string='PO Received')
@@ -79,47 +130,33 @@ class ProjectProject(models.Model):
                     raise AccessError(_(
                         "As Engineering Head you can only change a "
                         "Project's Stage, unless it's your own project."))
-        if vals.get('stage_id') and 'active' not in vals:
-            stage = self.env['project.project.stage'].browse(vals['stage_id'])
-            if stage.is_archival_stage:
-                # Cancelled/On-Hold/EOL are terminal - archive alongside the
-                # stage change itself so it's one atomic write, not a
-                # separate step someone could forget. 'active' not already
-                # in vals: don't fight a caller that's deliberately setting
-                # both at once (e.g. a future Reopen-style flow moving a
-                # project OUT of one of these while reactivating it).
-                vals = dict(vals, active=False)
+        if 'last_update_status' in vals and not self.env.su:
+            # Same role gate as Stage above, not the field's own base ACL
+            # (any project.group_project_user can write last_update_status
+            # by default in core Odoo) - deliberately mirrors the Stage
+            # check since this is exactly as consequential (see the
+            # auto-archive below) and should require the same role.
+            is_admin = self.env.user.has_group('base.group_system')
+            is_head_office = self.env.user.has_group('jacon_core.group_head_office')
+            if not (is_admin or is_head_office):
+                raise AccessError(_(
+                    "Only the Engineering Head or an Administrator can "
+                    "change a Project's Status."))
+        if vals.get('last_update_status') in ARCHIVAL_UPDATE_STATUSES and 'active' not in vals:
+            # Checked here, before super().write() - core's own write()
+            # (further down the override chain) pops 'last_update_status'
+            # out of vals once it's turned it into a project.update record,
+            # but 'active' rides along in the same call either way, so this
+            # still lands as one atomic write. 'active' not already in
+            # vals: don't fight a caller deliberately setting both at once
+            # (e.g. a future Reopen-style flow reactivating a project while
+            # also clearing its status).
+            vals = dict(vals, active=False)
+        elif vals.get('last_update_status') == 'in_progress' and 'active' not in vals:
+            # Symmetric to the archive above - moving back to In Progress
+            # (e.g. resuming an On-Hold project) un-archives it.
+            vals = dict(vals, active=True)
         return super().write(vals)
-
-    @api.model
-    def _read_group_expand_non_archival_stages(self, stages, domain):
-        """Kanban's stage columns (and any other view grouping by stage_id)
-        never include Cancelled/On-Hold/EOL - unconditionally, for every
-        user, same as the form's statusbar (see
-        edit_project_hide_archival_stages). The default group_expand
-        (_read_group_expand_full) just returns every stage unfiltered,
-        which is what made "Cancelled" show up as a permanently near-empty
-        column before these were introduced. `domain` is deliberately
-        ignored, same as the default implementation - it's the *project*
-        search domain, not something meaningful to filter *stages* by."""
-        return stages.search([('is_archival_stage', '=', False)])
-
-    def _set_archival_stage(self, stage_xmlid):
-        """Shared by the action_set_stage_*/action_cancel_project buttons -
-        write() above takes care of archiving once it sees the target
-        stage's is_archival_stage flag, so this only needs to set stage_id
-        itself."""
-        self.ensure_one()
-        self.write({'stage_id': self.env.ref(stage_xmlid).id})
-
-    def action_set_stage_on_hold(self):
-        self._set_archival_stage('jacon_core.project_project_stage_on_hold')
-
-    def action_set_stage_eol(self):
-        self._set_archival_stage('jacon_core.project_project_stage_eol')
-
-    def action_cancel_project(self):
-        self._set_archival_stage('project.project_project_stage_3')
 
     def unlink(self):
         if not self.env.context.get('project_delete_password_confirmed'):

@@ -1,6 +1,6 @@
 {
     'name': 'Jacon Core',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Hidden/Tools',
     'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
     'description': """
@@ -39,7 +39,6 @@ Currently provides:
         'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
         'security/project_project_rules.xml',
-        'data/project_project_stage_data.xml',
         'views/project_task_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
@@ -67,6 +66,7 @@ Currently provides:
             'jacon_core/static/src/project_lock/project_relock_on_save_patch.js',
             'jacon_core/static/src/project_lock/project_stage_confirm_patch.js',
             'jacon_core/static/src/chatter/chatter_collapse_toggle.js',
+            'jacon_core/static/src/project_status/project_status_colors_patch.js',
             'jacon_core/static/src/project_stage_confirm/project_stage_confirm.js',
             'jacon_core/static/src/scss/form_layout.scss',
             'jacon_core/static/src/navbar/apps_menu_jacon_group.js',
@@ -79,4 +79,5 @@ Currently provides:
     },
     'installable': True,
     'application': False,
+    'post_init_hook': 'migrate_last_update_status',
 }
