@@ -9,6 +9,34 @@
     max-width: 2000px !important;
 }
 
+// The statusbar widget (e.g. Stage) sits in the header as a plain flex
+// item alongside the button box and any other header field (Project has
+// a second one, last_update_status/status_with_color) - by default none
+// of them grow, so free row width is wasted as gaps (justify-content:
+// space-between) instead of handed to the statusbar, which then folds
+// items into a "..." dropdown (see web's statusbar_field.js
+// adjustVisibleItems) well before the row is actually full. Giving it
+// flex-grow lets it claim that space and show as many items inline as
+// will fit, without affecting the button box's or other header fields'
+// own natural size.
+.o_form_statusbar .o_field_statusbar {
+    flex: 1 1 auto;
+    min-width: 0;
+
+    // Growing the field container above isn't enough on its own - the
+    // actual button row inside it (.o_statusbar_status, what web's
+    // statusbar_field.js measures to decide how many items fit before
+    // folding the rest into a "..." dropdown) has no width of its own by
+    // default, just margin-left: auto to hug the right edge of whatever
+    // box it's given - so it still only sizes to fit its buttons, not to
+    // the newly-grown container. Stretching it to the container's full
+    // width is what actually gives the overflow check more room to work
+    // with.
+    > .o_statusbar_status {
+        width: 100%;
+    }
+}
+
 // Only the "aside" (side-by-side) chatter layout is widened - the
 // below-sheet layout used on narrow screens is left alone so mobile/small
 // windows keep using the full width instead of a cramped fixed column.
