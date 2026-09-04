@@ -68,7 +68,7 @@
         <field name="arch" type="xml">
             <list string="Engineering Change Actions" decoration-danger="is_overdue">
                 <field name="change_id" optional="show"/>
-                <field name="name"/>
+                <field name="name" widget="task_title_autocomplete"/>
                 <field name="user_ids" widget="many2many_tags" optional="show"/>
                 <field name="manager_id" optional="show"/>
                 <field name="affected_model_ids" widget="many2many_tags" optional="show"/>
