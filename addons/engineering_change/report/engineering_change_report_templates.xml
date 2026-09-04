@@ -40,6 +40,7 @@
                                     <t t-if="o.request_type == 'dcr'">
                                         <span> | </span><strong>DCR: </strong><span t-out="o.dcr_no or '-'"/>
                                     </t>
+                                    <span> | </span><strong>Change Source: </strong><span t-field="o.change_category"/>
                                     <span> | </span><strong>Stage: </strong><span t-field="o.state"/>
                                 </td>
                             </tr>
@@ -100,14 +101,14 @@
                                 <tr t-foreach="o.approval_log_ids" t-as="log">
                                     <td><span t-field="log.role"/></td>
                                     <td><span t-field="log.user_id.name"/></td>
-                                    <td><span t-field="log.date"/></td>
+                                    <td><t t-esc="log.date and log.date.strftime('%d %b, %y')"/></td>
                                     <td><span t-field="log.decision"/></td>
                                     <td><span t-field="log.note"/></td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <div class="ec-section-bar">3. Implementation Instructions</div>
+                        <div class="ec-section-bar">3. Implementation Instruction</div>
                         <div class="mt-2" t-field="o.description"/>
 
                         <div class="ec-section-bar">4. Checklist</div>
@@ -153,7 +154,7 @@
                         <t t-else="">&#9744;</t>
                     </td>
                     <td style="text-align:left;" t-out="line.name"/>
-                    <td style="text-align:center;"><span t-field="line.date_done"/></td>
+                    <td style="text-align:center;"><t t-esc="line.date_done and line.date_done.strftime('%d %b, %y')"/></td>
                     <td style="text-align:center;" t-out="line.completed_by_id.name or ''"/>
                 </tr>
             </tbody>
