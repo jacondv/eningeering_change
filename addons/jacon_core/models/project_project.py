@@ -63,6 +63,10 @@ class ProjectProject(models.Model):
         for project in self:
             project.can_change_last_update_status = is_admin or is_head_office
 
+    customer_ref = fields.Char(string='Customer Reference',
+        help="The customer's own code/reference for this Project, when they "
+             "assign one on their end (distinct from Jacon's own Job "
+             "Number/Project Name).")
     po_number = fields.Char(string='PO Number')
     po_received_date = fields.Date(string='PO Received')
     iof_release_date = fields.Date(string='IOF Release')
