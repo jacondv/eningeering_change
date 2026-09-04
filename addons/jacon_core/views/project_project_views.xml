@@ -24,6 +24,27 @@
         </field>
     </record>
 
+    <!-- Core's stage_id statusbar folds any stage flagged fold=True (used
+         for collapsing Kanban columns) into a "..." dropdown regardless of
+         how much room the row has - most of Jacon's stages are flagged
+         that way (Testing, Sales, Closed, In Progress, To Do, Cancelled),
+         which is why only 3 stages ever showed inline. Dropping
+         fold_field here shows every stage inline instead, same as
+         engineering_change's own state statusbar (a Selection field,
+         which has no fold concept at all) - Kanban's own column folding
+         is untouched since it reads `fold` independently of this widget
+         option. -->
+    <record id="edit_project_stage_statusbar_no_fold" model="ir.ui.view">
+        <field name="name">project.project.form.stage.statusbar.no.fold</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <field name="stage_id" position="attributes">
+                <attribute name="options">{'clickable': '1'}</attribute>
+            </field>
+        </field>
+    </record>
+
     <record id="edit_project_inherit_equipment_model" model="ir.ui.view">
         <field name="name">project.project.form.inherit.equipment.model</field>
         <field name="model">project.project</field>
