@@ -258,7 +258,7 @@
                                 <list editable="bottom" decoration-danger="is_overdue">
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>
-                                    <field name="name"/>
+                                    <field name="name" widget="task_title_autocomplete"/>
                                     <field name="user_ids" widget="many2many_tags" optional="show"/>
                                     <field name="manager_id" optional="show"/>
                                     <field name="affected_model_ids" widget="collapsible_many2many_tags"
