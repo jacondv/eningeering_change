@@ -16,6 +16,19 @@ const COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.colu
 const ACTIVE_TAB_STORAGE_KEY = "part_number_manager.part_management_page.active_tab";
 const COLUMN_VISIBILITY_STORAGE_KEY = "part_number_manager.part_management_page.column_visibility";
 const RECENT_PARTS_STORAGE_KEY = "part_number_manager.part_management_page.recent_parts";
+const RECENT_COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.recent_column_widths";
+const DEFAULT_RECENT_COLUMN_WIDTHS = {
+    material_group: 130,
+    part_number: 120,
+    job_number: 120,
+    short_description: 180,
+    long_description: 220,
+    part_type: 130,
+    vendor: 150,
+    vendor_ref: 120,
+    make_buy: 90,
+    time: 100,
+};
 const DEFAULT_COLUMN_WIDTHS = {
     legacy: 180,
     material_group: 180,
@@ -74,6 +87,7 @@ export class PartManagementPage extends Component {
             // even after the row itself scrolls out of view or a new blank
             // row gets added on top.
             recentParts: this._loadRecentParts(),
+            recentColumnWidths: this._loadRecentColumnWidths(),
         });
 
         // Each *Options array is the source list for one PnmCombobox field:
@@ -282,6 +296,40 @@ export class PartManagementPage extends Component {
             // Private browsing / storage disabled / quota - just won't
             // survive a refresh this time, nothing else depends on it.
         }
+    }
+
+    _loadRecentColumnWidths() {
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem(RECENT_COLUMN_WIDTHS_STORAGE_KEY) || "{}");
+        } catch {
+            saved = {};
+        }
+        return { ...DEFAULT_RECENT_COLUMN_WIDTHS, ...saved };
+    }
+
+    _saveRecentColumnWidths() {
+        try {
+            localStorage.setItem(RECENT_COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(this.state.recentColumnWidths));
+        } catch {
+            // Not remembered this time - not fatal, columns just default back next visit.
+        }
+    }
+
+    onRecentColumnResizeStart(columnKey, ev) {
+        ev.preventDefault();
+        const startX = ev.clientX;
+        const startWidth = this.state.recentColumnWidths[columnKey];
+        const onMouseMove = (moveEv) => {
+            this.state.recentColumnWidths[columnKey] = Math.max(60, startWidth + (moveEv.clientX - startX));
+        };
+        const onMouseUp = () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+            this._saveRecentColumnWidths();
+        };
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
     }
 
     _loadActiveTab() {
@@ -809,9 +857,14 @@ export class PartManagementPage extends Component {
                     this.state.recentParts.unshift({
                         id: res.part_id,
                         part_number: res.part_number,
-                        short_description: row.short_description,
                         material_group_label: row.material_group_text,
                         job_number_label: row.job_number_text,
+                        short_description: row.short_description,
+                        long_description: row.long_description,
+                        part_type_label: row.part_type_text,
+                        vendor_label: row.vendor_text,
+                        vendor_ref: row.vendor_ref,
+                        make_buy: row.make_buy,
                         time: new Date().toLocaleTimeString(),
                     });
                 } else {
