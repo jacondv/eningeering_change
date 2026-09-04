@@ -1,6 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- Cancelled/On-Hold/EOL (project.project.stage.is_archival_stage) are
+         terminal, archive-on-entry stages - kept off the normal clickable
+         statusbar (for everyone, Engineering Head included) so the primary
+         progression stays a clean straight line. The only way in is the
+         dedicated buttons below, which only appear once the project is
+         unlocked for editing (is_unlocked - see edit_project_inherit_equipment_model)
+         and only for the Engineering Head/Admin who's actually allowed to
+         change Stage at all (see ProjectProject.write). -->
+    <record id="edit_project_hide_archival_stages" model="ir.ui.view">
+        <field name="name">project.project.form.hide.archival.stages</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='stage_id'][@widget='statusbar_duration']" position="attributes">
+                <attribute name="domain">[('company_id', 'in', (company_id, False)), ('is_archival_stage', '=', False)]</attribute>
+            </xpath>
+            <!-- groups lists both roles write() itself accepts (Engineering
+                 Head OR Administrator) - a plain `group_head_office` gate
+                 here would leave these invisible even to an Administrator
+                 who isn't also separately added to that group. -->
+            <xpath expr="//header" position="inside">
+                <button name="action_set_stage_on_hold" string="On-Hold" type="object"
+                        invisible="not is_unlocked"
+                        groups="jacon_core.group_head_office,base.group_system"
+                        confirm="Move this project to On-Hold? It will be archived (hidden from the normal Project list/Kanban) until reopened."/>
+                <button name="action_set_stage_eol" string="EOL" type="object"
+                        invisible="not is_unlocked"
+                        groups="jacon_core.group_head_office,base.group_system"
+                        confirm="Move this project to EOL? It will be archived (hidden from the normal Project list/Kanban) until reopened."/>
+                <button name="action_cancel_project" string="Cancel Project" type="object"
+                        invisible="not is_unlocked"
+                        groups="jacon_core.group_head_office,base.group_system"
+                        confirm="Cancel this project? It will be archived (hidden from the normal Project list/Kanban) until reopened."/>
+            </xpath>
+        </field>
+    </record>
+
     <record id="edit_project_inherit_equipment_model" model="ir.ui.view">
         <field name="name">project.project.form.inherit.equipment.model</field>
         <field name="model">project.project</field>
