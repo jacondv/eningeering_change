@@ -81,8 +81,8 @@
                                 <td t-if="o.line_manager_id"><strong>Line Manager: </strong><span t-field="o.line_manager_id.name"/></td>
                             </tr>
                             <tr>
-                                <td t-if="o.request_date"><strong>Date: </strong><t t-esc="o.request_date.strftime('%d %b, %y')"/></td>
-                                <td t-if="o.approval_date"><strong>Date: </strong><t t-esc="o.approval_date.strftime('%d %b, %y')"/></td>
+                                <td t-if="o.request_date"><strong>Request Date: </strong><t t-esc="o.request_date.strftime('%d %b, %y')"/></td>
+                                <td t-if="o.approval_date"><strong>Approval Date: </strong><t t-esc="o.approval_date.strftime('%d %b, %y')"/></td>
                             </tr>
                         </table>
 
