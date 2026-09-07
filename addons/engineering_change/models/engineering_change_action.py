@@ -28,6 +28,10 @@ class ProjectTask(models.Model):
              "excludes the container Projects auto-created for Engineering "
              "Change requests themselves, only real production jobs.")
     is_overdue = fields.Boolean(compute='_compute_is_overdue', store=True)
+    include_in_report = fields.Boolean(
+        string='In Report', default=True,
+        help="Whether this action is printed under \"Action\" in the EC PDF "
+             "report. Checked by default on every new action.")
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
     can_assign_ec_task = fields.Boolean(compute='_compute_can_edit_ec_task_details')
     can_edit_ec_task_description = fields.Boolean(compute='_compute_can_edit_ec_task_details')

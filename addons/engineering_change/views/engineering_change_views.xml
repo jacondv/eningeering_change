@@ -140,6 +140,16 @@
                                     <field name="can_edit_dcr_no" invisible="1"/>
                                 </group>
                             </group>
+                            <group>
+                                <group>
+                                    <field name="requester_id" readonly="not can_edit_engineer_fields"/>
+                                    <field name="request_date" readonly="not can_edit_engineer_fields"/>
+                                </group>
+                                <group>
+                                    <field name="line_manager_id" readonly="not can_edit_engineer_fields"/>
+                                    <field name="approval_date" readonly="not can_edit_engineer_fields"/>
+                                </group>
+                            </group>
                             <field name="description" required="1" placeholder="Describe the engineering change..."
                                    readonly="not can_edit_engineer_fields"/>
                             <group>
@@ -258,6 +268,7 @@
                                 <list editable="bottom" decoration-danger="is_overdue">
                                     <button name="action_open_ec_task_form" type="object"
                                             icon="fa-external-link" title="Open"/>
+                                    <field name="include_in_report" widget="boolean_toggle" optional="show"/>
                                     <field name="name" widget="task_title_autocomplete"/>
                                     <field name="user_ids" widget="many2many_tags" optional="show"/>
                                     <field name="manager_id" optional="show"/>
