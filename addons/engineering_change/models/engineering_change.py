@@ -1,3 +1,5 @@
+from lxml import html as lxml_html
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
@@ -30,6 +32,7 @@ class EngineeringChange(models.Model):
         'impact_lead_time', 'impact_safety', 'impact_compliance',
         'image_ids', 'document_ids', 'default_affected_model_ids',
         'default_affected_project_ids',
+        'requester_id', 'request_date', 'line_manager_id', 'approval_date',
     })
     # document_ids ("Related Drawings") also stays editable by the Implement
     # Team/Engineer while the request is at the Design stage - a wider window
@@ -69,10 +72,36 @@ class EngineeringChange(models.Model):
         ('Product Support', 'Product Support'),
     ], string='Change Source', tracking=True)
     title = fields.Char(required=True, tracking=True, size=100)
-    description = fields.Html(required=True)
+    # One plain Html field, not two - the "Background" box is a marked-off
+    # region within it (see _split_description_background) that the PDF
+    # report prints under "1.1 Reason for Change" instead of "3.
+    # Implementation Instructions". Don't rename 'ec-background-block'
+    # without updating that split too.
+    description = fields.Html(required=True, default=(
+        '<div class="ec-background-block"><strong>Background:</strong></div>'
+        # Own sibling div per blank line (not sharing one with the <strong>
+        # label) so typing there doesn't inherit Bold from the label.
+        '<div class="ec-background-block"><br/></div>'
+        '<div class="ec-background-block"><br/></div>'
+        # Visual-only divider marking where Background ends and the rest of
+        # the description (Implementation Instructions) begins - stripped
+        # out by _split_description_background before printing.
+        '<p class="ec-content-label"><strong>Content:</strong></p>'
+        '<p><br/></p>'
+    ))
+    description_background_html = fields.Html(compute='_compute_description_parts')
+    description_rest_html = fields.Html(compute='_compute_description_parts')
     engineer_id = fields.Many2one(
         'res.users', string='Engineer', required=True, index=True,
         default=lambda self: self.env.user, tracking=True)
+    # Printed under "1.2 Request change to" in the PDF report - plain record
+    # info, not tied to the approval workflow (line_manager_id here is just a
+    # name on record, unrelated to the group_ec_manager "Line Manager
+    # Approve" role used everywhere else in this module).
+    requester_id = fields.Many2one('res.users', string='Requester', tracking=True)
+    request_date = fields.Date(string='Request Date', default=fields.Date.context_today, tracking=True)
+    line_manager_id = fields.Many2one('res.users', string='Line Manager', tracking=True)
+    approval_date = fields.Date(string='Approval Date', tracking=True)
     close_date = fields.Datetime(readonly=True, copy=False)
     state = fields.Selection([
         ('draft', 'Draft'),
@@ -237,6 +266,90 @@ class EngineeringChange(models.Model):
     # ------------------------------------------------------------
     # Computed fields
     # ------------------------------------------------------------
+    @api.depends('description')
+    def _compute_description_parts(self):
+        for rec in self:
+            rec.description_background_html, rec.description_rest_html = (
+                rec._split_description_background())
+
+    def _split_description_background(self):
+        """Pulls the 'ec-background-block' box out of the free-form
+        description HTML for the PDF report: its content prints under "1.1
+        Reason for Change", and what's left prints as "3. Implementation
+        Instructions". Falls back to printing everything as Implementation
+        Instructions if the box has been deleted/mangled.
+        """
+        self.ensure_one()
+        if not self.description:
+            return '', ''
+        try:
+            root = lxml_html.fragment_fromstring(self.description, create_parent='div')
+        except Exception:
+            return '', self.description
+
+        def _inner_html(node):
+            return (node.text or '') + ''.join(
+                lxml_html.tostring(child, encoding='unicode') for child in node)
+
+        # Pressing Enter inside the box splits it into several sibling divs
+        # that all keep the 'ec-background-block' class, so every match must
+        # be collected, not just the first. A bullet/numbered list turns the
+        # box into <ul class="ec-background-block"><li class="...">, and
+        # find_class() matches both the <ul> and its <li> descendants - keep
+        # only the outermost matches or list rows get printed twice.
+        matches = root.find_class('ec-background-block')
+        matched_ids = {id(el) for el in matches}
+        blocks = [
+            el for el in matches
+            if not any(id(anc) in matched_ids for anc in el.iterancestors())
+        ]
+
+        parts = []
+        for block in blocks:
+            # Strip style/class (UI highlight, not meant for the report) from
+            # the block and its descendants; other attributes (e.g. an
+            # embedded image's src) are left alone.
+            for node in block.iter():
+                node.attrib.pop('style', None)
+                node.attrib.pop('class', None)
+            first = next(iter(block), None)
+            if first is not None and (first.text or '').strip().rstrip(':').lower() == 'background':
+                # Removing an element drops its .tail text too - reattach it
+                # or text typed right after the "Background:" label is lost.
+                tail = first.tail or ''
+                block.remove(first)
+                block.text = (block.text or '') + tail
+            content = _inner_html(block).strip()
+            if content:
+                # <li> wrapped in <p> is invalid HTML that Odoo's sanitizer
+                # "fixes" into a stray empty <p></p> plus bare <li>s - keep
+                # the <ul>/<ol> tag around its own content instead.
+                if block.tag in ('ul', 'ol'):
+                    parts.append(f'<{block.tag}>{content}</{block.tag}>')
+                else:
+                    parts.append(f'<p>{content}</p>')
+            block.getparent().remove(block)
+        background_html = ''.join(parts)
+
+        # Strip leading blank lines and the visual-only "Content:" divider
+        # (see `description`'s default) so they don't print at the top of
+        # "3. Implementation Instructions".
+        def _is_blank_block(el):
+            if el.tag not in ('p', 'div'):
+                return False
+            if (el.text or '').strip().strip('\xa0'):
+                return False
+            return all(child.tag == 'br' and not (child.tail or '').strip() for child in el)
+
+        def _is_content_label(el):
+            return 'ec-content-label' in (el.get('class') or '').split()
+
+        while len(root) and not (root.text or '').strip() and (
+                _is_blank_block(root[0]) or _is_content_label(root[0])):
+            root.remove(root[0])
+
+        return background_html, _inner_html(root)
+
     @api.depends('rpn')
     def _compute_rpn_level(self):
         for rec in self:
@@ -385,6 +498,10 @@ class EngineeringChange(models.Model):
                 vals['implement_team_ids'] = [(6, 0, [engineer_id])]
             if not vals.get('implement_owner_id'):
                 vals['implement_owner_id'] = engineer_id
+            if not vals.get('requester_id'):
+                vals['requester_id'] = engineer_id
+            if not vals.get('request_date'):
+                vals['request_date'] = fields.Date.context_today(self)
             # checklist_line_ids is deliberately never accepted from vals - the
             # checklist is a fixed set of items (no create/unlink ACL granted
             # to any role, see ir.model.access.csv), seeded below via sudo()
