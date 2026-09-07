@@ -54,7 +54,8 @@
                             </tr>
                         </table>
 
-                        <p class="mb-0 mt-2"><strong>1.1 Reason for Change: </strong><span t-field="o.change_category"/></p>
+                        <p class="mb-0 mt-2"><strong>1.1 Reason for Change:</strong></p>
+                        <div t-field="o.description_background_html"/>
 
                         <p class="mb-0 mt-2"><strong>1.2 Request change to:</strong></p>
                         <table class="ec-bordered">
@@ -76,12 +77,12 @@
 
                         <table class="mt-2" style="width:100%;">
                             <tr>
-                                <td style="width:50%;"><strong>Requester: </strong><span t-field="o.engineer_id.name"/></td>
-                                <td><strong>Line Manager: </strong></td>
+                                <td style="width:50%;" t-if="o.requester_id"><strong>Requester: </strong><span t-field="o.requester_id.name"/></td>
+                                <td t-if="o.line_manager_id"><strong>Line Manager: </strong><span t-field="o.line_manager_id.name"/></td>
                             </tr>
                             <tr>
-                                <td><strong>Date: </strong></td>
-                                <td><strong>Date: </strong></td>
+                                <td t-if="o.request_date"><strong>Date: </strong><t t-esc="o.request_date.strftime('%d %b, %y')"/></td>
+                                <td t-if="o.approval_date"><strong>Date: </strong><t t-esc="o.approval_date.strftime('%d %b, %y')"/></td>
                             </tr>
                         </table>
 
@@ -90,11 +91,11 @@
                         <table class="ec-bordered" style="text-align:center;">
                             <thead>
                                 <tr style="background-color:#f2f2f2;">
-                                    <th>Role</th>
-                                    <th>Name</th>
-                                    <th>Date</th>
-                                    <th>Decision</th>
-                                    <th>Note</th>
+                                    <th style="width:25%;">Role</th>
+                                    <th style="width:15%;">Name</th>
+                                    <th style="width:15%;">Date</th>
+                                    <th style="width:15%;">Decision</th>
+                                    <th style="width:30%;">Note</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -109,18 +110,45 @@
                         </table>
 
                         <div class="ec-section-bar">3. Implementation Instruction</div>
-                        <div class="mt-2" t-field="o.description"/>
+                        <div class="mt-2" t-field="o.description_rest_html"/>
 
-                        <div class="ec-section-bar">4. Checklist</div>
-                        <p class="mb-1 mt-2"><strong>4.1 Update Design Document</strong></p>
+                        <!-- "Action" only takes section 4 when there's something to
+                             print - Checklist falls back to being section 4 itself
+                             instead of leaving a numbering gap when it's empty. -->
+                        <t t-set="report_actions" t-value="o.task_ids.filtered('include_in_report')"/>
+                        <t t-if="report_actions">
+                            <div class="ec-section-bar">4. Action</div>
+                            <table class="ec-bordered">
+                                <thead>
+                                    <tr style="background-color:#f2f2f2;">
+                                        <th style="text-align:left;">Title</th>
+                                        <th style="width:18%; text-align:center;">Assigneer</th>
+                                        <th style="width:15%; text-align:center;">Deadline</th>
+                                        <th style="width:15%; text-align:center;">State</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="report_actions" t-as="task">
+                                        <td style="text-align:left;" t-out="task.name"/>
+                                        <td style="text-align:center;" t-out="', '.join(task.user_ids.mapped('name')) or '-'"/>
+                                        <td style="text-align:center;"><t t-esc="task.date_deadline and task.date_deadline.strftime('%d %b, %y')"/></td>
+                                        <td style="text-align:center;"><span t-field="task.state"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                        <t t-set="checklist_no" t-value="'5' if report_actions else '4'"/>
+
+                        <div class="ec-section-bar"><t t-esc="checklist_no"/>. Checklist</div>
+                        <p class="mb-1 mt-2"><strong><t t-esc="checklist_no"/>.1 Update Design Document</strong></p>
                         <t t-set="lines" t-value="o.checklist_design_document_ids"/>
                         <t t-call="engineering_change.report_engineering_change_checklist_table"/>
 
-                        <p class="mb-1 mt-2"><strong>4.2 Goods In Stock</strong></p>
+                        <p class="mb-1 mt-2"><strong><t t-esc="checklist_no"/>.2 Goods In Stock</strong></p>
                         <t t-set="lines" t-value="o.checklist_goods_in_stock_ids"/>
                         <t t-call="engineering_change.report_engineering_change_checklist_table"/>
 
-                        <p class="mb-1 mt-2"><strong>4.3 Delivered Goods</strong></p>
+                        <p class="mb-1 mt-2"><strong><t t-esc="checklist_no"/>.3 Delivered Goods</strong></p>
                         <t t-set="lines" t-value="o.checklist_delivered_goods_ids"/>
                         <t t-call="engineering_change.report_engineering_change_checklist_table"/>
                     </div>
