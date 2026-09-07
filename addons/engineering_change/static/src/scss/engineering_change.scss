@@ -22,23 +22,3 @@
     overflow: auto;
 }
 
-// EC "Background:" box inside description (see engineering_change.py's
-// description default / _split_description_background) - no grey fill
-// anymore (dropped per user request), just the marker class kept so the
-// split logic can still find/extract these blocks for the PDF report.
-.ec-background-block {
-    padding: 6px;
-}
-li.ec-background-block {
-    padding: 0;
-}
-
-// Plain divider marking where the Background box ends and the rest of the
-// description (printed as "3. Implementation Instructions") begins - see
-// the "Content:" label in engineering_change.py's description default.
-.ec-content-label {
-    border-top: 1px dashed #999;
-    padding-top: 4px;
-    color: #666;
-}
-

@@ -150,6 +150,10 @@
                                     <field name="approval_date" readonly="not can_edit_engineer_fields"/>
                                 </group>
                             </group>
+                            <label for="background"/>
+                            <field name="background" placeholder="Background / reason for this change..."
+                                   readonly="not can_edit_engineer_fields"/>
+                            <label for="description"/>
                             <field name="description" required="1" placeholder="Describe the engineering change..."
                                    readonly="not can_edit_engineer_fields"/>
                             <group>
