@@ -55,7 +55,7 @@
                         </table>
 
                         <p class="mb-0 mt-2"><strong>1.1 Reason for Change:</strong></p>
-                        <div t-field="o.description_background_html"/>
+                        <div t-field="o.background"/>
 
                         <p class="mb-0 mt-2"><strong>1.2 Request change to:</strong></p>
                         <table class="ec-bordered">
@@ -110,7 +110,7 @@
                         </table>
 
                         <div class="ec-section-bar">3. Implementation Instruction</div>
-                        <div class="mt-2" t-field="o.description_rest_html"/>
+                        <div class="mt-2" t-field="o.description"/>
 
                         <!-- "Action" only takes section 4 when there's something to
                              print - Checklist falls back to being section 4 itself
