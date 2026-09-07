@@ -53,7 +53,8 @@ class EngineeringChange(models.Model):
     def action_send_email(self):
         """Open the user's own default mail client (mailto:) with a new
         message pre-filled: Subject "<DCR/Request No> - <Title>", CC'ing
-        the Engineer and every Implement Team member. Deliberately opens
+        the Engineer, Requester, Line Manager, and every Implement Team
+        member. Deliberately opens
         the OS/browser mail handler instead of sending through Odoo -
         lets the user review/attach files/edit before actually sending,
         rather than an automated notification email.
@@ -77,7 +78,9 @@ class EngineeringChange(models.Model):
     def _get_send_email_mailto_url(self):
         self.ensure_one()
         subject = f"{self.dcr_no or self.name} - {self.title}"
-        cc_partners = (self.implement_team_ids | self.engineer_id).mapped('partner_id')
+        cc_partners = (
+            self.implement_team_ids | self.engineer_id | self.requester_id | self.line_manager_id
+        ).mapped('partner_id')
         cc = ','.join(sorted(set(p.email for p in cc_partners if p.email)))
         return f"mailto:?subject={quote(subject)}&cc={quote(cc)}"
 

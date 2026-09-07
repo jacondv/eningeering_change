@@ -1,3 +1,4 @@
+from odoo import fields
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import TransactionCase, tagged
 from odoo.tools import mute_logger
@@ -981,3 +982,51 @@ class TestEngineeringChange(TransactionCase):
         change2.with_user(self.user_engineer).action_submit()
         change2.with_user(other_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change2.state, 'waiting_head_office_approval')
+
+    def test_report_action_section_numbering(self):
+        change = self._create_request(request_type='minor')
+        report = self.env['ir.actions.report']._get_report_from_name(
+            'engineering_change.report_engineering_change_document')
+
+        def render():
+            html = report._render_qweb_html(report.id, change.ids)[0]
+            return html.decode() if isinstance(html, bytes) else html
+
+        # No actions at all - "Action" section hidden, Checklist stays 4.
+        html = render()
+        self.assertNotIn('ec-section-bar">4. Action', html)
+        self.assertIn('ec-section-bar">4. Checklist', html)
+
+        task = self.env['project.task'].with_user(self.user_engineer).create({
+            'change_id': change.id, 'name': 'Do the thing',
+        })
+        self.assertTrue(task.include_in_report, "New actions default to checked.")
+
+        # A checked action - "Action" becomes 4, Checklist shifts to 5.
+        html = render()
+        self.assertIn('ec-section-bar">4. Action', html)
+        self.assertIn('Do the thing', html)
+        self.assertIn('ec-section-bar">5. Checklist', html)
+
+        # Unchecked again - back to no "Action" section, Checklist back to 4.
+        task.include_in_report = False
+        html = render()
+        self.assertNotIn('ec-section-bar">4. Action', html)
+        self.assertIn('ec-section-bar">4. Checklist', html)
+
+    def test_requester_and_request_date_default_from_engineer(self):
+        change = self._create_request()
+        self.assertEqual(change.requester_id, self.user_engineer)
+        self.assertEqual(change.request_date, fields.Date.context_today(change))
+        self.assertFalse(change.line_manager_id)
+        self.assertFalse(change.approval_date)
+
+        # Defaults only apply at create - changing them afterward sticks,
+        # and doesn't follow engineer_id around.
+        other_engineer = self.user_manager
+        change.with_user(self.user_engineer).write({
+            'requester_id': other_engineer.id,
+            'line_manager_id': self.user_manager.id,
+        })
+        self.assertEqual(change.requester_id, other_engineer)
+        self.assertEqual(change.line_manager_id, self.user_manager)
