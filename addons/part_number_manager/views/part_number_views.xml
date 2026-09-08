@@ -61,13 +61,13 @@
                             <field name="display_description"/>
                             <field name="display_description_vn"/>
                             <field name="part_type_id"/>
+                            <field name="make_buy"/>
                         </group>
                         <group>
                             <field name="vendor_id"/>
                             <field name="vendor_ref"/>
                             <field name="reference_price" digits="[16, 0]"/>
                             <field name="lead_time"/>
-                            <field name="make_buy"/>
                         </group>
                     </group>
                     <notebook>
