@@ -1,6 +1,6 @@
 {
     'name': 'Engineering Change / DCR Management',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Manufacturing/Quality',
     'summary': 'Manage Engineering Change Requests (Minor Change & DCR)',
     'description': """
