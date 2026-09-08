@@ -77,9 +77,14 @@ class PartNumber(models.Model):
     job_number = fields.Many2one('project.project', string='Job Number')
     short_description = fields.Char()
     display_description = fields.Char(
+        string='Display Description (EN)',
         help="Short internal description used for quick reference/selection on other screens "
              "(e.g. the Hose & Fitting Builder) - independent from Short/Long Description, "
              "entered once per Part when needed.")
+    display_description_vn = fields.Char(
+        string='Display Description (VN)',
+        help="Vietnamese counterpart of Display Description (EN) - same purpose, entered "
+             "separately, never derived/translated automatically.")
     long_description = fields.Text()
     state = fields.Selection([
         ('draft', 'Development'),

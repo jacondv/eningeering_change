@@ -19,6 +19,8 @@
                 <field name="reference_price" optional="hide" digits="[16, 0]"/>
                 <field name="lead_time" optional="hide"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
+                <field name="display_description" optional="hide"/>
+                <field name="display_description_vn" optional="hide"/>
                 <field name="create_date" string="Created On" optional="show"/>
                 <field name="create_uid" string="Created By" optional="show"/>
                 <field name="date_created" optional="hide" widget="pnm_date_full"/>
@@ -48,12 +50,16 @@
                         </h1>
                         <field name="replacement_display" readonly="1" invisible="not replacement_display"/>
                     </div>
-                    <group>
+                    <group col="3">
                         <group>
                             <field name="material_group_id" required="1"/>
                             <field name="job_number"/>
                             <field name="short_description"/>
+                            <field name="date_created" options="{'show_time': true}"/>
+                        </group>
+                        <group style="grid-template-columns: fit-content(220px) minmax(0, 1fr);">
                             <field name="display_description"/>
+                            <field name="display_description_vn"/>
                             <field name="part_type_id"/>
                         </group>
                         <group>
@@ -62,9 +68,6 @@
                             <field name="reference_price" digits="[16, 0]"/>
                             <field name="lead_time"/>
                             <field name="make_buy"/>
-                        </group>
-                        <group>
-                            <field name="date_created" options="{'show_time': true}"/>
                         </group>
                     </group>
                     <notebook>
