@@ -6,8 +6,8 @@ class HoseFittingBomLine(models.Model):
     Number's real BOM - created when a Job Hose Line resolves/generates its
     assembly Part (see job_hose_line.py). `role` distinguishes which slot
     each component fills; a real assembly may have anywhere from 3 (Hose +
-    2 Fittings) to 6 lines (+ up to 2 Ferrules + Fire Wrap) - never a fixed
-    count, matched as a whole against `job_hose_line.find_matches`.
+    2 Fittings) to 7 lines (+ up to 2 Ferrules + Fire Wrap + Hose Guard) -
+    never a fixed count, matched as a whole against `job_hose_line.find_matches`.
     """
     _name = 'hose_fitting_manager.bom_line'
     _description = 'Hose And Fitting BOM Line'
@@ -23,5 +23,6 @@ class HoseFittingBomLine(models.Model):
         ('fitting', 'Fitting'),
         ('ferrule', 'Ferrule'),
         ('fire_wrap', 'Fire Wrap'),
+        ('hose_guard', 'Hose Guard'),
     ], required=True)
     sequence = fields.Integer(default=10)

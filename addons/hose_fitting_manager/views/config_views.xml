@@ -31,6 +31,14 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Hose Guard Options" name="hose_guard">
+                            <field name="hose_guard_option_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="hose_guard_id"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Fitting 1 Options" name="fitting1">
                             <field name="fitting1_option_ids">
                                 <list editable="bottom">
