@@ -1,5 +1,6 @@
+from . import jacon_field_change_log
+from . import jacon_field_change_log_mixin
 from . import project_task
-from . import project_task_description_log
 from . import project_project
 from . import project_update
 from . import hr_employee
