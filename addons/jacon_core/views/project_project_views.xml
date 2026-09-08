@@ -65,20 +65,42 @@
         </field>
     </record>
 
+    <!-- 3-column header info block, up from core's original 2 (Name of
+         Tasks+Customer+Company on the left, Manager+Dates on the right):
+         Equipment (Model/Serials) | Customer (+ our own refs) | Manager/
+         Planning, each its own <group> so they lay out side by side -
+         col=3 on the outer group is what makes 3 fit on one row instead
+         of wrapping to a 2nd. partner_id is relocated (removed from its
+         original spot, re-added in the new middle group) rather than
+         left in place, since the equipment fields need to end up in
+         their own column, not sharing one with Customer. -->
     <record id="edit_project_inherit_equipment_model" model="ir.ui.view">
         <field name="name">project.project.form.inherit.equipment.model</field>
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.edit_project"/>
         <field name="arch" type="xml">
-            <field name="partner_id" position="after">
-                <field name="customer_ref" placeholder="e.g. their own PO/product code"/>
-            </field>
-            <field name="partner_id" position="before">
+            <xpath expr="//sheet/group" position="attributes">
+                <attribute name="col">3</attribute>
+            </xpath>
+            <!-- Scoped to //group - there's a second, unrelated
+                 label_tasks field inside the "Tasks" stat button
+                 (oe_button_box), and the bare <field name="label_tasks">
+                 locator matches document order, i.e. that one, not this
+                 group's. -->
+            <xpath expr="//group//field[@name='label_tasks']" position="after">
                 <field name="model_id" options="{'no_create': True}"/>
                 <field name="machine_serial" placeholder="e.g. S30-2106-163"/>
                 <field name="engine_serial" placeholder="e.g. 12190634"/>
                 <field name="vin_tin" placeholder="e.g. 6U9VSS00000244099"/>
-            </field>
+            </xpath>
+            <field name="partner_id" position="replace"/>
+            <xpath expr="//group[field[@name='label_tasks']]" position="after">
+                <group>
+                    <field name="partner_id" widget="res_partner_many2one"/>
+                    <field name="customer_ref" placeholder="e.g. their own PO/product code"/>
+                    <field name="op_hours"/>
+                </group>
+            </xpath>
             <xpath expr="//group//field[@name='label_tasks']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
@@ -154,6 +176,7 @@
             </field>
             <field name="stage_id" position="after">
                 <field name="customer_ref" optional="hide"/>
+                <field name="op_hours" optional="hide"/>
                 <field name="po_number" optional="hide"/>
                 <field name="po_received_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
                 <field name="iof_release_date" widget="date_or_na" options="{'numeric': True}" optional="hide"/>
