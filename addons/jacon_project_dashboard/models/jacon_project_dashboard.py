@@ -2,6 +2,7 @@ import calendar
 from datetime import date, datetime, time, timedelta
 
 from dateutil.relativedelta import relativedelta
+from pytz import timezone, utc
 
 from odoo import _, api, fields, models
 from odoo.fields import Domain
@@ -415,8 +416,18 @@ class JaconProjectDashboard(models.AbstractModel):
             ('date_to', '>=', datetime.combine(window_start, time.min)),
         ])
         for leave in public:
-            d = max(fields.Date.to_date(leave.date_from), window_start)
-            last = min(fields.Date.to_date(leave.date_to), window_end)
+            # date_from/date_to are UTC Datetimes - truncating them straight
+            # to a date (fields.Date.to_date) silently shifts a holiday
+            # entered in a local timezone ahead of UTC back by a day (e.g.
+            # 23 Nov 00:00 ICT is stored as 22 Nov 17:00 UTC). Converting to
+            # the calendar's own timezone first, same as
+            # hr.employee._unavailable_hours_by_day does for the capacity
+            # side, keeps the two in agreement.
+            tz = timezone(leave.calendar_id.tz or self.env.company.resource_calendar_id.tz or 'UTC')
+            date_from_utc = utc.localize(fields.Datetime.to_datetime(leave.date_from))
+            date_to_utc = utc.localize(fields.Datetime.to_datetime(leave.date_to))
+            d = max(date_from_utc.astimezone(tz).date(), window_start)
+            last = min(date_to_utc.astimezone(tz).date(), window_end)
             while d <= last:
                 if d not in seen_public:
                     seen_public.add(d)
@@ -438,23 +449,30 @@ class JaconProjectDashboard(models.AbstractModel):
 
     @api.model
     def get_task_timeline(self, filters=None, range_start=None, range_end=None):
-        """Task Timeline is decoupled from the main dashboard's Year/Months
-        filter on purpose - its default window is "previous/current/next
-        calendar month" (a rolling 3-month view centered on today, not
-        whatever Year/Months happens to be selected up top), and the panel
-        has its own Day/Week/Month/range controls that call this
-        separately rather than re-fetching the whole dashboard."""
+        """Task Timeline's window: an explicit range_start/range_end (the
+        panel's own Day/Week/Month/Today controls, once the user has
+        navigated away from the default) wins if given; otherwise, if the
+        Year/Months filter up top has a specific month selected, the
+        window spans from the earliest to the latest selected month/year
+        (e.g. Jan+Apr+May selected -> Jan 1 to May 31, Feb/Mar included
+        since Frappe Gantt draws one continuous strip, not a
+        disjoint/skipping one); otherwise (no month picked, whatever Year
+        is selected) it falls back to the original rolling
+        "previous/current/next calendar month" default centered on
+        today."""
         self.check_access('read')  # see get_filter_options
         self = self.sudo()
         filters = filters or {}
         today = fields.Date.context_today(self)
-        if range_start:
+        if range_start and range_end:
             window_start = fields.Date.to_date(range_start)
+            window_end = fields.Date.to_date(range_end)
+        elif filters.get('months'):
+            segments = self._period_segments(filters)
+            window_start = min(start for start, _end in segments)
+            window_end = max(end for _start, end in segments)
         else:
             window_start = today.replace(day=1) - relativedelta(months=1)
-        if range_end:
-            window_end = fields.Date.to_date(range_end)
-        else:
             window_end = today.replace(day=1) + relativedelta(months=2) - relativedelta(days=1)
         return self._task_timeline(filters, window_start, window_end)
 
