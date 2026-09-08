@@ -11,7 +11,7 @@ class EngineeringChange(models.Model):
     """
     _name = 'engineering.change'
     _description = 'Engineering Change Request'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'jacon.field.change.log.mixin']
     _order = 'create_date desc'
 
     # Field-level edit segregation, enforced in write() (see _check_field_edit_permissions):
@@ -502,9 +502,19 @@ class EngineeringChange(models.Model):
         needs_approval_date = self.browse()
         if 'line_manager_id' in keys and vals.get('line_manager_id') and 'approval_date' not in keys:
             needs_approval_date = self.filtered(lambda rec: not rec.approval_date)
+        # Read every old background/description up front (one query for the
+        # whole batch) rather than per-record after the write - see
+        # jacon.field.change.log.mixin._log_html_field_change, called below.
+        old_values = {
+            field_name: {rec.id: rec[field_name] for rec in self}
+            for field_name in ('background', 'description') if field_name in keys
+        }
         result = super().write(vals)
         if needs_approval_date:
             needs_approval_date.approval_date = fields.Date.context_today(self)
+        for field_name, old_by_id in old_values.items():
+            for rec in self:
+                rec._log_html_field_change(field_name, old_by_id.get(rec.id, ''))
         if 'request_type' in keys:
             self._sync_dcr_no_on_type_change()
         return result

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Generic "Change History" list opened by any model's own
+         action_view_field_change_log (see jacon.field.change.log.mixin) -
+         one shared view for every model that mixes it in, not one per
+         model. field_name is only useful when a model logs more than one
+         field (e.g. engineering.change's Background + Description) - it's
+         still shown even for single-field models like project.task, just
+         reads the same value on every row there. -->
+    <record id="view_jacon_field_change_log_list" model="ir.ui.view">
+        <field name="name">jacon.field.change.log.list</field>
+        <field name="model">jacon.field.change.log</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="user_id"/>
+                <field name="field_name"/>
+                <field name="date"/>
+                <field name="diff"/>
+            </list>
+        </field>
+    </record>
+
+</odoo>
