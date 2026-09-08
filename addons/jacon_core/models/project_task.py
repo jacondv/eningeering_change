@@ -282,17 +282,18 @@ class ProjectTask(models.Model):
 
     def _log_description_change(self, old_description):
         """Records a line-level diff (added/removed lines only, plain text)
-        of a Description edit as evidence of who changed what - kept
-        separate from the Chatter (see project.task.description.log) so it
-        doesn't get lost among assignment/schedule-change/stage messages
-        there.
+        of a Description edit as evidence of who changed what (see
+        project.task.description.log, viewed via the History smart button),
+        and separately lets the assignees/creator know it happened - a short
+        Chatter message plus a popup toast (see _notify_description_change),
+        so they don't have to go looking at History to notice.
 
         Comparing on html2plaintext output (not raw HTML) so a purely
         cosmetic edit (bold, color...) that doesn't change the actual text
-        doesn't get logged as a change. difflib with n=0 keeps only the
-        actually-differing lines, not surrounding unchanged context, so the
-        stored diff stays proportional to how much really changed, not to
-        the Description's overall length.
+        doesn't get logged/notified as a change. difflib with n=0 keeps only
+        the actually-differing lines, not surrounding unchanged context, so
+        the stored diff stays proportional to how much really changed, not
+        to the Description's overall length.
         """
         self.ensure_one()
         old_text = html2plaintext(self._description_images_to_text(old_description)).splitlines()
@@ -309,6 +310,36 @@ class ProjectTask(models.Model):
             'task_id': self.id,
             'diff': '\n'.join(diff_lines),
         })
+        self._notify_description_change()
+
+    def _notify_description_change(self):
+        """Chatter message + popup toast (see _notify_managers_of_assignment
+        for the same bus.bus pattern) telling every assignee and the task's
+        creator that the Description just changed - not the editor
+        themselves, who obviously already knows.
+
+        sudo(): whoever is allowed to edit the Description here isn't
+        necessarily someone with message_post access of their own on this
+        task (e.g. a plain assignee on an EC task without base write access
+        - same reasoning as every other sudo() message_post in this file/
+        engineering_change_action.py).
+        """
+        self.ensure_one()
+        recipients = (self.user_ids | self.create_uid) - self.env.user
+        if not recipients:
+            return
+        partners = recipients.mapped('partner_id')
+        self.sudo().message_post(
+            body=_("%(user)s updated the Description.") % {'user': self.env.user.name},
+            partner_ids=partners.ids)
+        for partner in partners:
+            self.env['bus.bus']._sendone(partner, 'simple_notification', {
+                'type': 'info',
+                'title': _("Description Updated"),
+                'message': _("%(user)s updated the Description of \"%(task)s\".") % {
+                    'user': self.env.user.name, 'task': self.name,
+                },
+            })
 
     def _description_images_to_text(self, html_content):
         """Replaces every <img src="..."> in `html_content` with a plain-text
