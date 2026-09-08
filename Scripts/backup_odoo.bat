@@ -15,7 +15,7 @@ set "DB_NAME=%~1"
 if "%DB_NAME%"=="" set "DB_NAME=jacon_plm"
 
 for /f %%I in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmmss"') do set "TIMESTAMP=%%I"
-set "DAY_OF_MONTH=%TIMESTAMP:~6,2%"
+set "YEAR_MONTH=%TIMESTAMP:~0,6%"
 
 set "DEST=%BACKUP_ROOT%\%DB_NAME%_%TIMESTAMP%"
 
@@ -56,11 +56,21 @@ if errorlevel 1 (
     goto :error
 )
 
-if "%DAY_OF_MONTH%"=="01" (
+rem Checked every day (not just the 1st) - whichever backup happens to run
+rem first in a given month is the one that gets archived, so this still
+rem works if the daily task is skipped/fails on the 1st itself.
+set "MONTHLY_EXISTS="
+if exist "%MONTHLY_ROOT%" (
+    for /f %%F in ('dir /b "%MONTHLY_ROOT%\%DB_NAME%_%YEAR_MONTH%*" 2^>nul') do set "MONTHLY_EXISTS=1"
+)
+if not defined MONTHLY_EXISTS (
     echo.
-    echo [monthly] 1st of the month - also copying to monthly archive...
+    echo [monthly] No backup yet for %YEAR_MONTH% - copying to monthly archive...
     if not exist "%MONTHLY_ROOT%" mkdir "%MONTHLY_ROOT%"
     xcopy "%DEST%" "%MONTHLY_ROOT%\%DB_NAME%_%TIMESTAMP%\" /E /I /Y >nul
+) else (
+    echo.
+    echo [monthly] Backup for %YEAR_MONTH% already exists - skipping.
 )
 
 echo.

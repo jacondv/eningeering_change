@@ -127,7 +127,6 @@
                                            readonly="not can_edit_request_type"/>
                                     <field name="dcr_no" readonly="not can_edit_dcr_no"/>
                                     <field name="project_id" invisible="not project_id"/>
-                                    <field name="create_date" string="Created"/>
                                     <field name="close_date" invisible="not close_date"/>
                                     <field name="rpn_level" widget="badge"
                                            decoration-danger="rpn_level == 'high'"
@@ -141,14 +140,15 @@
                                 </group>
                                 <group>
                                     <field name="requester_id" readonly="not can_edit_engineer_fields"/>
+                                    <field name="create_date" string="Created"/>
                                     <field name="line_manager_id" readonly="not can_edit_engineer_fields"/>
                                     <field name="approval_date" readonly="not can_edit_engineer_fields"/>
                                 </group>
                             </group>
-                            <label for="background"/>
+                            <label for="background" class="o_ec_field_header"/>
                             <field name="background" placeholder="Background / reason for this change..."
                                    readonly="not can_edit_engineer_fields"/>
-                            <label for="description"/>
+                            <label for="description" class="o_ec_field_header"/>
                             <field name="description" required="1" placeholder="Describe the engineering change..."
                                    readonly="not can_edit_engineer_fields"/>
                             <group>

@@ -76,7 +76,7 @@ class EngineeringChange(models.Model):
     background = fields.Html(string='Background')
     description = fields.Html(required=True)
     engineer_id = fields.Many2one(
-        'res.users', string='Engineer', required=True, index=True,
+        'res.users', string='Change Owner', required=True, index=True,
         default=lambda self: self.env.user, tracking=True)
     # Printed under "1.2 Request change to" in the PDF report - plain record
     # info, not tied to the approval workflow (line_manager_id here is just a
