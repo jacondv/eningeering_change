@@ -67,6 +67,9 @@ class ProjectProject(models.Model):
         help="The customer's own code/reference for this Project, when they "
              "assign one on their end (distinct from Jacon's own Job "
              "Number/Project Name).")
+    op_hours = fields.Integer(string='Op. Hours',
+        help="Operating hours of the machine - entered manually, not "
+             "computed from anything.")
     po_number = fields.Char(string='PO Number')
     po_received_date = fields.Date(string='PO Received')
     iof_release_date = fields.Date(string='IOF Release')
