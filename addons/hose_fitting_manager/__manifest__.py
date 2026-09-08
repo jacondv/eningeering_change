@@ -20,6 +20,7 @@ already-shared `display_description` field.
     'data': [
         'security/ir.model.access.csv',
         'views/config_views.xml',
+        'views/function_views.xml',
         'views/job_hose_line_views.xml',
         'views/builder_actions.xml',
         'views/menus.xml',

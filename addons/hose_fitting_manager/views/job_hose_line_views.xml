@@ -10,10 +10,11 @@
                 <field name="job_number"/>
                 <field name="config_id" string="Hose Symbol"/>
                 <field name="hose_number"/>
+                <field name="function_id"/>
                 <field name="description_en"/>
                 <field name="description_vn"/>
                 <field name="quantity"/>
-                <field name="length"/>
+                <field name="length" digits="[16, 0]"/>
                 <!-- Right: BOM detail - editable dropdowns showing/searching
                      by the component Part's Display Name, never its raw
                      part_number code (same widget/convention as the Builder
@@ -30,6 +31,8 @@
                        options="{'part_type': 'Ferrule'}" optional="hide"/>
                 <field name="fire_wrap_id" string="Fire Wrap" widget="pnm_display_many2one"
                        options="{'part_type': 'Fire Wrap'}" optional="hide"/>
+                <field name="hose_guard_id" string="Hose Guard" widget="pnm_display_many2one"
+                       options="{'part_type': 'Hose Guard'}" optional="hide"/>
                 <field name="part_id" string="Part Number" optional="show"/>
             </list>
         </field>
@@ -45,10 +48,11 @@
                         <group string="Job Info">
                             <field name="job_number"/>
                             <field name="config_id" string="Symbol"/>
+                            <field name="function_id"/>
                             <field name="description_en"/>
                             <field name="description_vn"/>
                             <field name="quantity"/>
-                            <field name="length"/>
+                            <field name="length" digits="[16, 0]"/>
                             <field name="hose_number"/>
                         </group>
                         <group string="Hose And Fitting Details">
@@ -68,6 +72,8 @@
                                    options="{'part_type': 'Ferrule', 'show_part_number': true}"/>
                             <field name="fire_wrap_id" widget="pnm_display_many2one"
                                    options="{'part_type': 'Fire Wrap', 'show_part_number': true}"/>
+                            <field name="hose_guard_id" widget="pnm_display_many2one"
+                                   options="{'part_type': 'Hose Guard', 'show_part_number': true}"/>
                             <field name="part_id" string="Hose And Fitting Part" widget="pnm_display_many2one"
                                    options="{'part_type': 'Hose And Fitting', 'show_part_number': true}"/>
                         </group>

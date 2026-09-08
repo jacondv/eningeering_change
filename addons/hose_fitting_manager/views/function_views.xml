@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_hfm_function_list" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.function.list</field>
+        <field name="model">hose_fitting_manager.function</field>
+        <field name="arch" type="xml">
+            <list js_class="jacon_core_list" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_hfm_function" model="ir.actions.act_window">
+        <field name="name">Functions</field>
+        <field name="res_model">hose_fitting_manager.function</field>
+        <field name="view_mode">list</field>
+    </record>
+
+</odoo>

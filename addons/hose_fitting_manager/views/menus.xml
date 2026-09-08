@@ -22,4 +22,10 @@
           action="action_hfm_config"
           sequence="40"/>
 
+    <menuitem id="menu_hfm_function" name="Functions"
+          parent="part_number_manager.menu_pnm_configuration"
+          groups="part_number_manager.group_pnm_manager"
+          action="action_hfm_function"
+          sequence="50"/>
+
 </odoo>
