@@ -30,7 +30,7 @@ class EngineeringChange(models.Model):
         'impact_lead_time', 'impact_safety', 'impact_compliance',
         'image_ids', 'document_ids', 'default_affected_model_ids',
         'default_affected_project_ids',
-        'requester_id', 'request_date', 'line_manager_id', 'approval_date',
+        'requester_id', 'line_manager_id', 'approval_date',
     })
     # document_ids ("Related Drawings") also stays editable by the Implement
     # Team/Engineer while the request is at the Design stage - a wider window
@@ -83,7 +83,11 @@ class EngineeringChange(models.Model):
     # name on record, unrelated to the group_ec_manager "Line Manager
     # Approve" role used everywhere else in this module).
     requester_id = fields.Many2one('res.users', string='Requester', tracking=True)
-    request_date = fields.Date(string='Request Date', default=fields.Date.context_today, tracking=True)
+    # Always exactly create_date's date part, never independently editable -
+    # not shown on the form for that reason, kept only for the report (see
+    # _compute_request_date). Not in ENGINEER_FIELDS: nobody ever writes it
+    # directly, so the field-edit guard has nothing to check here.
+    request_date = fields.Date(string='Request Date', compute='_compute_request_date', store=True)
     line_manager_id = fields.Many2one('res.users', string='Line Manager', tracking=True)
     approval_date = fields.Date(string='Approval Date', tracking=True)
     close_date = fields.Datetime(readonly=True, copy=False)
@@ -247,9 +251,20 @@ class EngineeringChange(models.Model):
         for rec in self:
             rec.default_affected_model_ids |= rec.default_affected_family_ids.model_ids
 
+    @api.onchange('line_manager_id')
+    def _onchange_line_manager_id(self):
+        for rec in self:
+            if rec.line_manager_id and not rec.approval_date:
+                rec.approval_date = fields.Date.context_today(rec)
+
     # ------------------------------------------------------------
     # Computed fields
     # ------------------------------------------------------------
+    @api.depends('create_date')
+    def _compute_request_date(self):
+        for rec in self:
+            rec.request_date = fields.Date.to_date(rec.create_date) if rec.create_date else False
+
     @api.depends('rpn')
     def _compute_rpn_level(self):
         for rec in self:
@@ -400,8 +415,6 @@ class EngineeringChange(models.Model):
                 vals['implement_owner_id'] = engineer_id
             if not vals.get('requester_id'):
                 vals['requester_id'] = engineer_id
-            if not vals.get('request_date'):
-                vals['request_date'] = fields.Date.context_today(self)
             # checklist_line_ids is deliberately never accepted from vals - the
             # checklist is a fixed set of items (no create/unlink ACL granted
             # to any role, see ir.model.access.csv), seeded below via sudo()
@@ -482,7 +495,16 @@ class EngineeringChange(models.Model):
         if 'active' in keys:
             for rec in self:
                 rec._check_archive_permission()
+        # Same auto-fill as _onchange_line_manager_id, for writes that don't
+        # go through the form's onchange (API calls, imports...) - only
+        # kicks in when the caller isn't already setting approval_date
+        # itself, and only for records that don't have one yet.
+        needs_approval_date = self.browse()
+        if 'line_manager_id' in keys and vals.get('line_manager_id') and 'approval_date' not in keys:
+            needs_approval_date = self.filtered(lambda rec: not rec.approval_date)
         result = super().write(vals)
+        if needs_approval_date:
+            needs_approval_date.approval_date = fields.Date.context_today(self)
         if 'request_type' in keys:
             self._sync_dcr_no_on_type_change()
         return result
