@@ -310,14 +310,14 @@ class ProjectTask(models.Model):
         })
 
     def _post_assignment_message(self, new_users):
-        """Notify everyone relevant to this action about a new assignment -
-        the request's Implement Owner and this task's own Manager (if
-        different from whoever just did the assigning), plus the newly
-        assigned user(s) themselves. Separate from jacon_core's generic
-        "notify the assignee's direct HR manager" hook (project_task.py's
-        write()), which fires for every project.task regardless of
-        change_id - this one is EC-specific, about keeping the request's
-        own stakeholders in the loop, not the assignee's line management.
+        """Logs a new assignment to Chatter (on both the task itself and its
+        parent request) - visible to anyone who opens either record, but
+        not pushed as an emailed notification to specific people (no
+        partner_ids, same as _post_creation_message/_post_completion_message
+        below - unlike those, this one still skips posting entirely when
+        there's nobody relevant to mention: the request's Implement Owner,
+        this task's own Manager, or the newly assigned user(s) themselves,
+        minus whoever is doing the assigning).
 
         sudo(): whoever is allowed to assign (see _check_ec_write_access -
         could be a plain Implement Team member) isn't necessarily an
@@ -330,18 +330,15 @@ class ProjectTask(models.Model):
         stakeholders = stakeholders - self.env.user
         if not stakeholders:
             return
-        partners = stakeholders.mapped('partner_id')
         self.sudo().message_post(
             body=_("%(user)s assigned this action to %(assignees)s.") % {
                 'user': self.env.user.name, 'assignees': ', '.join(new_users.mapped('name')),
-            },
-            partner_ids=partners.ids)
+            })
         self.change_id.sudo().message_post(
             body=_("%(user)s assigned action '%(task)s' to %(assignees)s.") % {
                 'user': self.env.user.name, 'task': self.name,
                 'assignees': ', '.join(new_users.mapped('name')),
-            },
-            partner_ids=partners.ids)
+            })
 
     def _post_completion_message(self):
         """Notify each task's parent request that the task was completed.
