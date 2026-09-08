@@ -8,11 +8,11 @@
         <field name="inherit_id" ref="project.view_task_form2"/>
         <field name="arch" type="xml">
             <!-- Evidence trail of Description edits (who changed what) -
-                 see project_task._log_description_change. -->
+                 see jacon.field.change.log.mixin, which this model inherits. -->
             <div name="button_box" position="inside">
-                <button class="oe_stat_button" type="object" name="action_view_description_log"
+                <button class="oe_stat_button" type="object" name="action_view_field_change_log"
                         icon="fa-history">
-                    <field name="description_log_count" widget="statinfo" string="History"/>
+                    <field name="field_change_log_count" widget="statinfo" string="History"/>
                 </button>
             </div>
 
@@ -185,19 +185,6 @@
             <field name="date_deadline" position="attributes">
                 <attribute name="widget">day_month_date</attribute>
             </field>
-        </field>
-    </record>
-
-    <!-- ================= DESCRIPTION HISTORY ================= -->
-    <record id="view_project_task_description_log_list" model="ir.ui.view">
-        <field name="name">project.task.description.log.list</field>
-        <field name="model">project.task.description.log</field>
-        <field name="arch" type="xml">
-            <list create="0" edit="0" delete="0">
-                <field name="user_id"/>
-                <field name="date"/>
-                <field name="diff"/>
-            </list>
         </field>
     </record>
 

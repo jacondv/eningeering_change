@@ -85,6 +85,13 @@
                         <button class="oe_stat_button" icon="fa-line-chart" type="object" name="action_view_actions">
                             <field name="progress" widget="statinfo" string="Progress %"/>
                         </button>
+                        <!-- Evidence trail of Background/Description edits -
+                             see jacon.field.change.log.mixin, which this
+                             model inherits. -->
+                        <button class="oe_stat_button" type="object" name="action_view_field_change_log"
+                                icon="fa-history">
+                            <field name="field_change_log_count" widget="statinfo" string="History"/>
+                        </button>
                     </div>
                     <div class="oe_title">
                         <h1>

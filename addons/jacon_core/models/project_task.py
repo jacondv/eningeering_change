@@ -1,11 +1,7 @@
-import difflib
 from datetime import datetime
-
-from lxml import html as lxml_html
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError
-from odoo.tools import html2plaintext
 
 from .hr_employee import _priority_value
 
@@ -31,7 +27,8 @@ TASK_TYPE_SELECTION = [
 
 
 class ProjectTask(models.Model):
-    _inherit = 'project.task'
+    _name = 'project.task'
+    _inherit = ['project.task', 'jacon.field.change.log.mixin']
 
     # Default to the creating user - core only does this when created from
     # a "My Tasks" personal-stage context, not from a Project's Tasks list.
@@ -43,10 +40,6 @@ class ProjectTask(models.Model):
     evidence_ids = fields.One2many(
         'engineering.change.action.evidence', 'task_id', string='Evidence')
     evidence_count = fields.Integer(compute='_compute_evidence_count')
-
-    description_log_ids = fields.One2many(
-        'project.task.description.log', 'task_id', string='Description History')
-    description_log_count = fields.Integer(compute='_compute_description_log_count')
 
     # Defaults to today (creation date) but is editable - e.g. push it out
     # if the task can't realistically start right away. Drives the
@@ -104,11 +97,6 @@ class ProjectTask(models.Model):
     def _compute_evidence_count(self):
         for rec in self:
             rec.evidence_count = len(rec.evidence_ids)
-
-    @api.depends('description_log_ids')
-    def _compute_description_log_count(self):
-        for rec in self:
-            rec.description_log_count = len(rec.description_log_ids)
 
     @api.model
     def search_task_title_suggestions(self, query, limit=8):
@@ -277,40 +265,14 @@ class ProjectTask(models.Model):
                     task._notify_managers_of_assignment(new_users)
         if 'description' in vals:
             for task in self:
-                task._log_description_change(old_descriptions.get(task.id, ''))
+                # _log_html_field_change (see jacon.field.change.log.mixin)
+                # is the generic evidence-trail log, viewed via the History
+                # smart button; _notify_description_change is task-specific
+                # (Chatter + popup for assignees/creator) and only fires
+                # when there was an actual text change, same as the log.
+                if task._log_html_field_change('description', old_descriptions.get(task.id, '')):
+                    task._notify_description_change()
         return result
-
-    def _log_description_change(self, old_description):
-        """Records a line-level diff (added/removed lines only, plain text)
-        of a Description edit as evidence of who changed what (see
-        project.task.description.log, viewed via the History smart button),
-        and separately lets the assignees/creator know it happened - a short
-        Chatter message plus a popup toast (see _notify_description_change),
-        so they don't have to go looking at History to notice.
-
-        Comparing on html2plaintext output (not raw HTML) so a purely
-        cosmetic edit (bold, color...) that doesn't change the actual text
-        doesn't get logged/notified as a change. difflib with n=0 keeps only
-        the actually-differing lines, not surrounding unchanged context, so
-        the stored diff stays proportional to how much really changed, not
-        to the Description's overall length.
-        """
-        self.ensure_one()
-        old_text = html2plaintext(self._description_images_to_text(old_description)).splitlines()
-        new_text = html2plaintext(self._description_images_to_text(self.description)).splitlines()
-        if old_text == new_text:
-            return
-        diff_lines = [
-            line for line in difflib.unified_diff(old_text, new_text, lineterm='', n=0)
-            if line.startswith(('+', '-')) and not line.startswith(('+++', '---'))
-        ]
-        if not diff_lines:
-            return
-        self.env['project.task.description.log'].sudo().create({
-            'task_id': self.id,
-            'diff': '\n'.join(diff_lines),
-        })
-        self._notify_description_change()
 
     def _notify_description_change(self):
         """Chatter message + popup toast (see _notify_managers_of_assignment
@@ -340,42 +302,6 @@ class ProjectTask(models.Model):
                     'user': self.env.user.name, 'task': self.name,
                 },
             })
-
-    def _description_images_to_text(self, html_content):
-        """Replaces every <img src="..."> in `html_content` with a plain-text
-        "[Image] <full url>" line before it goes through html2plaintext
-        (which otherwise drops <img> tags with no trace) - so an
-        image being added/removed/swapped in the Description shows up in
-        the diff as a copy-pasteable URL to open it, instead of silently
-        vanishing. A relative src (Odoo's own attachment URLs, e.g.
-        "/web/image/874-xxx/image.png?access_token=...") is turned absolute
-        via get_base_url() so it's still usable pasted outside Odoo.
-        """
-        if not html_content:
-            return ''
-        try:
-            root = lxml_html.fragment_fromstring(html_content, create_parent='div')
-        except Exception:
-            return html_content
-        base_url = self.get_base_url()
-        for img in root.findall('.//img'):
-            src = img.get('src') or ''
-            if src.startswith('/'):
-                src = base_url + src
-            placeholder = root.makeelement('span')
-            placeholder.text = f'[Image] {src}'
-            img.getparent().replace(img, placeholder)
-        return lxml_html.tostring(root, encoding='unicode')
-
-    def action_view_description_log(self):
-        self.ensure_one()
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Description History'),
-            'res_model': 'project.task.description.log',
-            'view_mode': 'list,form',
-            'domain': [('task_id', '=', self.id)],
-        }
 
     def _notify_managers_of_assignment(self, new_users):
         """Notify each newly-assigned employee's direct HR manager

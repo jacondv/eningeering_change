@@ -1,6 +1,6 @@
 {
     'name': 'Jacon Core',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Hidden/Tools',
     'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
     'description': """
@@ -31,6 +31,7 @@ Currently provides:
 - Schedule change request: a Task's assignee cannot edit Start Date/Deadline/Allocated Hours directly - only propose new values (with a reason) instead; their direct HR manager (Employee > Manager) sees an Approve/Reject banner on the task and is the only one who can apply it. Assigning a Task also notifies the assignee's manager.
 - App Switcher grouping: the App Switcher dropdown (top-left grid icon) groups Jacon's own custom apps under a "JACON" header, separate from standard Odoo apps under "General", each with a small icon per row, restyled as a rounded card.
 - Header Back/Forward: browser-style Back/Forward buttons in the header, right after the Apps Menu grid icon, driving the browser's own history.
+- Field Change Log: a reusable mixin (jacon.field.change.log.mixin) any model can inherit to get a diff-based evidence trail (who changed what, with a "History" smart button) for its own HTML fields - currently used by Task's Description.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
@@ -40,6 +41,7 @@ Currently provides:
         'security/ir.model.access.csv',
         'security/project_project_rules.xml',
         'views/project_task_views.xml',
+        'views/jacon_field_change_log_views.xml',
         'views/hr_timesheet_views.xml',
         'views/project_project_views.xml',
         'wizard/delete_password_wizard_views.xml',
