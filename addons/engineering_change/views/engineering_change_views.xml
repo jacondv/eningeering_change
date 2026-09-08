@@ -106,7 +106,7 @@
 
                     <notebook>
                         <page string="General Info" name="general_info">
-                            <group>
+                            <group col="3">
                                 <group>
                                     <field name="title" required="1" placeholder="Short title of the change..."
                                            readonly="not can_edit_engineer_fields"/>
@@ -139,13 +139,8 @@
                                     <field name="can_edit_request_type" invisible="1"/>
                                     <field name="can_edit_dcr_no" invisible="1"/>
                                 </group>
-                            </group>
-                            <group>
                                 <group>
                                     <field name="requester_id" readonly="not can_edit_engineer_fields"/>
-                                    <field name="request_date" readonly="not can_edit_engineer_fields"/>
-                                </group>
-                                <group>
                                     <field name="line_manager_id" readonly="not can_edit_engineer_fields"/>
                                     <field name="approval_date" readonly="not can_edit_engineer_fields"/>
                                 </group>
