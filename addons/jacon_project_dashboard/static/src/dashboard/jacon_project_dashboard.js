@@ -651,6 +651,27 @@ export class JaconProjectDashboard extends Component {
     // only written to the real task if the user confirms; declined or
     // dismissed snaps the bar back to where it was.
     // ------------------------------------------------------------
+    /** Where the Gantt should scroll to on (re)render. Mirrors
+     * get_task_timeline's own window logic (see its docstring): with a
+     * specific month picked in the Year/Months filter up top, "today"
+     * usually isn't even inside the fetched window anymore (e.g. filtering
+     * to November while today is in September), so scroll to the start of
+     * the earliest selected month instead; otherwise keep the original
+     * "today" default. The Gantt's own built-in Today button (bottom-left,
+     * unrelated to this) still jumps back to today regardless. */
+    taskGanttScrollTo() {
+        const months = this.state.filters.months;
+        if (!months.length) {
+            return "today";
+        }
+        const years = this.state.filters.years.length
+            ? this.state.filters.years
+            : [new Date().getFullYear()];
+        const minYear = Math.min(...years);
+        const minMonth = Math.min(...months);
+        return `${minYear}-${String(minMonth).padStart(2, "0")}-01`;
+    }
+
     renderTaskGantt() {
         const el = this.taskGanttRef.el;
         const rows = this.state.taskGanttData;
@@ -683,7 +704,7 @@ export class JaconProjectDashboard extends Component {
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
             view_mode: this.state.taskGanttViewMode,
-            scroll_to: "today",
+            scroll_to: this.taskGanttScrollTo(),
             readonly_progress: true,
             // Default row height (30) + padding (18) wastes vertical
             // space once an employee has more than a couple of tasks, but
