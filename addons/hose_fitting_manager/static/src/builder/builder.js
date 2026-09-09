@@ -9,6 +9,8 @@ const PART_NUMBER_MODEL = "part_number_manager.part_number";
 const CONFIG_MODEL = "hose_fitting_manager.config";
 const CONFIG_OPTION_MODEL = "hose_fitting_manager.config_fitting_option";
 const CONFIG_FIRE_WRAP_OPTION_MODEL = "hose_fitting_manager.config_fire_wrap_option";
+const CONFIG_HOSE_GUARD_OPTION_MODEL = "hose_fitting_manager.config_hose_guard_option";
+const FUNCTION_MODEL = "hose_fitting_manager.function";
 const JOB_HOSE_LINE_MODEL = "hose_fitting_manager.job_hose_line";
 const DEFAULT_LENGTH_TOLERANCE = 100.0;
 
@@ -17,6 +19,7 @@ const DEFAULT_COLUMN_WIDTHS = {
     hose: 160,
     symbol: 130,
     hose_number: 110,
+    function: 130,
     desc_en: 200,
     desc_vn: 200,
     qty: 70,
@@ -26,6 +29,7 @@ const DEFAULT_COLUMN_WIDTHS = {
     fitting2: 160,
     ferrule2: 140,
     fire_wrap: 160,
+    hose_guard: 160,
     part_number: 130,
 };
 
@@ -36,6 +40,7 @@ const COLUMN_LABELS = {
     hose: "Hose",
     symbol: "Symbol",
     hose_number: "Hose No",
+    function: "Function",
     desc_en: "Description EN",
     desc_vn: "Description VN",
     qty: "Qty",
@@ -45,6 +50,7 @@ const COLUMN_LABELS = {
     fitting2: "Fitting 2",
     ferrule2: "Ferrule (Fitting 2)",
     fire_wrap: "Fire Wrap",
+    hose_guard: "Hose Guard",
     part_number: "Part Number",
 };
 const DEFAULT_COLUMN_VISIBILITY = Object.fromEntries(
@@ -91,6 +97,7 @@ export class HoseFittingBuilder extends Component {
                                 //        fire_wrap_options: [{id, label}]}
         this.configsByHoseId = {}; // hose Part id -> same config object as above (first match wins)
         this.hoseOptions = []; // [{id, label}] every Hose-type Part - the primary pick now
+        this.functionOptions = []; // [{id, label}] every Function - shared list, not tied to Symbol/Config
         this.columnLabels = COLUMN_LABELS;
         this.columnKeys = Object.keys(COLUMN_LABELS);
 
@@ -116,7 +123,9 @@ export class HoseFittingBuilder extends Component {
         );
 
         onWillStart(async () => {
-            await Promise.all([this._loadJobs(), this._loadMaterialGroups(), this._loadConfigs()]);
+            await Promise.all([
+                this._loadJobs(), this._loadMaterialGroups(), this._loadConfigs(), this._loadFunctions(),
+            ]);
             this._restoreLastJob();
             this._restoreLastMaterialGroup();
             this.addRow();
@@ -138,13 +147,14 @@ export class HoseFittingBuilder extends Component {
         }
         const lines = await this.orm.searchRead(
             JOB_HOSE_LINE_MODEL, [["job_number", "=", this.state.jobId]],
-            ["config_id", "hose_id", "hose_number", "description_en", "description_vn", "quantity", "length",
-             "fitting1_id", "ferrule1_id", "fitting2_id", "ferrule2_id", "fire_wrap_id", "part_id"]
+            ["config_id", "hose_id", "hose_number", "function_id", "description_en", "description_vn",
+             "quantity", "length",
+             "fitting1_id", "ferrule1_id", "fitting2_id", "ferrule2_id", "fire_wrap_id", "hose_guard_id", "part_id"]
         );
 
         const partIds = new Set();
         for (const l of lines) {
-            for (const key of ["hose_id", "fitting1_id", "ferrule1_id", "fitting2_id", "ferrule2_id", "fire_wrap_id"]) {
+            for (const key of ["hose_id", "fitting1_id", "ferrule1_id", "fitting2_id", "ferrule2_id", "fire_wrap_id", "hose_guard_id"]) {
                 if (l[key]) partIds.add(l[key][0]);
             }
         }
@@ -166,6 +176,7 @@ export class HoseFittingBuilder extends Component {
             hose: label(l.hose_id),
             symbol: l.config_id ? l.config_id[1] : "",
             hose_number: l.hose_number,
+            function: l.function_id ? l.function_id[1] : "",
             desc_en: l.description_en,
             desc_vn: l.description_vn,
             qty: l.quantity,
@@ -175,6 +186,7 @@ export class HoseFittingBuilder extends Component {
             fitting2: label(l.fitting2_id),
             ferrule2: label(l.ferrule2_id),
             fire_wrap: label(l.fire_wrap_id),
+            hose_guard: label(l.hose_guard_id),
             part_number: l.part_id ? l.part_id[1] : "",
         }));
     }
@@ -244,6 +256,13 @@ export class HoseFittingBuilder extends Component {
         this.jobOptions = jobs.filter((j) => j.name).map((j) => ({ id: j.id, label: j.name }));
     }
 
+    // A flat, shared list of Functions (Configuration > Functions) - never
+    // filtered by Symbol/Config, unlike Fitting/Fire Wrap/Hose Guard options.
+    async _loadFunctions() {
+        const functions = await this.orm.searchRead(FUNCTION_MODEL, [], ["name"]);
+        this.functionOptions = functions.map((f) => ({ id: f.id, label: f.name }));
+    }
+
     async _loadMaterialGroups() {
         const groups = await this.orm.searchRead(
             "part_number_manager.material_group", [], ["code", "description"]
@@ -263,6 +282,9 @@ export class HoseFittingBuilder extends Component {
         const fireWrapOptions = await this.orm.searchRead(
             CONFIG_FIRE_WRAP_OPTION_MODEL, [], ["config_id", "fire_wrap_id"]
         );
+        const hoseGuardOptions = await this.orm.searchRead(
+            CONFIG_HOSE_GUARD_OPTION_MODEL, [], ["config_id", "hose_guard_id"]
+        );
 
         const partIds = new Set();
         for (const c of configs) {
@@ -274,6 +296,9 @@ export class HoseFittingBuilder extends Component {
         }
         for (const f of fireWrapOptions) {
             if (f.fire_wrap_id) partIds.add(f.fire_wrap_id[0]);
+        }
+        for (const g of hoseGuardOptions) {
+            if (g.hose_guard_id) partIds.add(g.hose_guard_id[0]);
         }
         const parts = partIds.size
             ? await this.orm.read(
@@ -300,6 +325,7 @@ export class HoseFittingBuilder extends Component {
                 fitting1_options: [],
                 fitting2_options: [],
                 fire_wrap_options: [],
+                hose_guard_options: [],
             };
         }
         for (const o of options) {
@@ -317,6 +343,11 @@ export class HoseFittingBuilder extends Component {
             const cfg = this.configsById[f.config_id[0]];
             if (!cfg) continue;
             cfg.fire_wrap_options.push({ id: f.fire_wrap_id[0], label: labelById[f.fire_wrap_id[0]] });
+        }
+        for (const g of hoseGuardOptions) {
+            const cfg = this.configsById[g.config_id[0]];
+            if (!cfg) continue;
+            cfg.hose_guard_options.push({ id: g.hose_guard_id[0], label: labelById[g.hose_guard_id[0]] });
         }
 
         // A Hose can now be picked directly (see _pickHose) instead of only
@@ -525,7 +556,12 @@ export class HoseFittingBuilder extends Component {
             fire_wrap_options: [],
             fire_wrap_id: false,
             fire_wrap_text: "",
+            hose_guard_options: [],
+            hose_guard_id: false,
+            hose_guard_text: "",
             hose_number: "",
+            function_id: false,
+            function_text: "",
             description_en: "",
             description_vn: "",
             quantity: 1,
@@ -570,11 +606,14 @@ export class HoseFittingBuilder extends Component {
             row.fitting1_options = cfg.fitting1_options;
             row.fitting2_options = cfg.fitting2_options;
             row.fire_wrap_options = cfg.fire_wrap_options;
+            row.hose_guard_options = cfg.hose_guard_options;
             this._pickFittingOption(row, 1, cfg.fitting1_options[0] || null);
             this._pickFittingOption(row, 2, cfg.fitting2_options[0] || null);
-            // Fire Wrap is never pre-selected, even if the Symbol has
-            // option(s) configured - always an explicit pick by the user.
+            // Fire Wrap/Hose Guard are never pre-selected, even if the
+            // Symbol has option(s) configured - always an explicit pick by
+            // the user.
             this._pickFireWrap(row, null);
+            this._pickHoseGuard(row, null);
             // Hose Number defaults to "<Symbol><next free number>" the
             // moment a Hose is picked - only when still blank, so it never
             // clobbers a value the user already typed by hand.
@@ -587,9 +626,11 @@ export class HoseFittingBuilder extends Component {
             row.fitting1_options = [];
             row.fitting2_options = [];
             row.fire_wrap_options = [];
+            row.hose_guard_options = [];
             this._pickFittingOption(row, 1, null);
             this._pickFittingOption(row, 2, null);
             this._pickFireWrap(row, null);
+            this._pickHoseGuard(row, null);
         }
         this._refreshAllLengthOptions(row);
     }
@@ -633,6 +674,41 @@ export class HoseFittingBuilder extends Component {
         this._pickFireWrap(row, opt || null);
         if (!opt) {
             row.fire_wrap_text = text || "";
+        }
+    }
+
+    // Hose Guard works exactly like Fire Wrap - a list of allowed options
+    // for the current Symbol, none pre-selected, never affects Length
+    // matching.
+    _pickHoseGuard(row, opt) {
+        row.hose_guard_id = opt ? opt.id : false;
+        row.hose_guard_text = opt ? opt.label : "";
+    }
+
+    _setHoseGuardText(row, text) {
+        const opt = row.hose_guard_options.find(
+            (o) => o.label.toLowerCase() === (text || "").trim().toLowerCase()
+        );
+        this._pickHoseGuard(row, opt || null);
+        if (!opt) {
+            row.hose_guard_text = text || "";
+        }
+    }
+
+    // Function is a flat, shared pick-list (this.functionOptions) - not
+    // filtered by Symbol/Config, never affects Length matching or BOM.
+    _pickFunction(row, opt) {
+        row.function_id = opt ? opt.id : false;
+        row.function_text = opt ? opt.label : "";
+    }
+
+    _setFunctionText(row, text) {
+        const opt = this.functionOptions.find(
+            (o) => o.label.toLowerCase() === (text || "").trim().toLowerCase()
+        );
+        this._pickFunction(row, opt || null);
+        if (!opt) {
+            row.function_text = text || "";
         }
     }
 
@@ -706,8 +782,8 @@ export class HoseFittingBuilder extends Component {
 
     // Re-queries every existing assembled Hose and Fitting Part whose BOM
     // matches this row's currently-picked Hose/Fitting1/Fitting2 (+
-    // Ferrules) - Fire Wrap is deliberately not part of this match, it
-    // never determines which assembly gets reused. Called once whenever
+    // Ferrules) - Fire Wrap/Hose Guard are deliberately not part of this
+    // match, they never determine which assembly gets reused. Called once whenever
     // those picks change (not on every Length keystroke - see
     // _recomputeLengthOptions for that). Race-guarded so a response for a
     // since-changed row is discarded.
@@ -774,6 +850,7 @@ export class HoseFittingBuilder extends Component {
                 job_number: this.state.jobId,
                 config_id: row.config_id || false,
                 hose_number: row.hose_number,
+                function_id: row.function_id || false,
                 description_en: row.description_en,
                 description_vn: row.description_vn,
                 quantity: row.quantity || 1,
@@ -784,6 +861,7 @@ export class HoseFittingBuilder extends Component {
                 fitting2_id: row.fitting2_id,
                 ferrule2_id: row.ferrule2_id || false,
                 fire_wrap_id: row.fire_wrap_id || false,
+                hose_guard_id: row.hose_guard_id || false,
                 part_id: row.part_id || null,
                 material_group_id: row.part_id ? null : this.state.materialGroupId,
                 length_tolerance: row.length_tolerance || DEFAULT_LENGTH_TOLERANCE,

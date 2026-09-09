@@ -60,6 +60,7 @@
                     <col t-attf-style="width: {{state.columnWidths.hose}}px" t-attf-class="{{state.columnVisibility.hose ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.symbol}}px" t-attf-class="{{state.columnVisibility.symbol ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.hose_number}}px" t-attf-class="{{state.columnVisibility.hose_number ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.function}}px" t-attf-class="{{state.columnVisibility.function ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.desc_en}}px" t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.desc_vn}}px" t-attf-class="{{state.columnVisibility.desc_vn ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.qty}}px" t-attf-class="{{state.columnVisibility.qty ? '' : 'o_hfm_col_hidden'}}"/>
@@ -69,6 +70,7 @@
                     <col t-attf-style="width: {{state.columnWidths.fitting2}}px" t-attf-class="{{state.columnVisibility.fitting2 ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.ferrule2}}px" t-attf-class="{{state.columnVisibility.ferrule2 ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.fire_wrap}}px" t-attf-class="{{state.columnVisibility.fire_wrap ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.hose_guard}}px" t-attf-class="{{state.columnVisibility.hose_guard ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.part_number}}px" t-attf-class="{{state.columnVisibility.part_number ? '' : 'o_hfm_col_hidden'}}"/>
                     <col/>
                 </colgroup>
@@ -83,6 +85,9 @@
                         </th>
                         <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.hose_number ? '' : 'o_hfm_col_hidden'}}">Hose No
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('hose_number', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.function ? '' : 'o_hfm_col_hidden'}}">Function
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('function', ev)"/>
                         </th>
                         <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}">Description EN
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('desc_en', ev)"/>
@@ -110,6 +115,9 @@
                         </th>
                         <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.fire_wrap ? '' : 'o_hfm_col_hidden'}}">Fire Wrap
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fire_wrap', ev)"/>
+                        </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.hose_guard ? '' : 'o_hfm_col_hidden'}}">Hose Guard
+                            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('hose_guard', ev)"/>
                         </th>
                         <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.part_number ? '' : 'o_hfm_col_hidden'}}">Part Number
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part_number', ev)"/>
@@ -139,6 +147,15 @@
                                 <input type="text" class="form-control form-control-sm"
                                        t-model="row.hose_number"
                                        t-att-disabled="row.status === 'success'"/>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.function ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="functionOptions"
+                                             text="row.function_text"
+                                             value="row.function_id"
+                                             placeholder="'None'"
+                                             disabled="row.status === 'success'"
+                                             onInput="(text) => this._setFunctionText(row, text)"
+                                             onSelect="(opt) => this._pickFunction(row, opt)"/>
                             </td>
                             <td t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}">
                                 <input type="text" class="form-control form-control-sm"
@@ -210,6 +227,18 @@
                                              onInput="(text) => this._setFireWrapText(row, text)"
                                              onSelect="(opt) => this._pickFireWrap(row, opt)"/>
                                 <div class="text-muted small" t-if="row.config_id and !row.fire_wrap_options.length">
+                                    Not available for this Symbol
+                                </div>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.hose_guard ? '' : 'o_hfm_col_hidden'}}">
+                                <PnmCombobox options="row.hose_guard_options"
+                                             text="row.hose_guard_text"
+                                             value="row.hose_guard_id"
+                                             placeholder="'None'"
+                                             disabled="row.status === 'success' || !row.hose_guard_options.length"
+                                             onInput="(text) => this._setHoseGuardText(row, text)"
+                                             onSelect="(opt) => this._pickHoseGuard(row, opt)"/>
+                                <div class="text-muted small" t-if="row.config_id and !row.hose_guard_options.length">
                                     Not available for this Symbol
                                 </div>
                             </td>
