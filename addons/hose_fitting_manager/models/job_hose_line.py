@@ -14,9 +14,9 @@ class JobHoseLine(models.Model):
     """One hose assembly needed for a Job - one row on the Hose & Fitting
     Builder page. Reuses an existing "Hose and Fitting" Part Number when
     one with the same BOM (Hose + Fitting1 + Fitting2 + whichever
-    Ferrules/Fire Wrap actually apply) and a Length within that Part's own
-    tolerance already exists; otherwise a new one is generated with a
-    fresh BOM.
+    Ferrules/Fire Wrap/Hose Guard actually apply) and a Length within that
+    Part's own tolerance already exists; otherwise a new one is generated
+    with a fresh BOM.
     """
     _name = 'hose_fitting_manager.job_hose_line'
     _description = 'Job Hose And Fitting Line'
@@ -26,6 +26,10 @@ class JobHoseLine(models.Model):
     sequence = fields.Integer(default=10)
     config_id = fields.Many2one('hose_fitting_manager.config', string='Hose Symbol')
     hose_number = fields.Char(string='Hose Number')
+    function_id = fields.Many2one(
+        'hose_fitting_manager.function', string='Function',
+        help="Picked from the shared Function list (Configuration > Functions) - not tied to "
+             "Symbol/Config, and not a Part Number.")
     description_en = fields.Char(string='Description (EN)')
     description_vn = fields.Char(string='Description (VN)')
     quantity = fields.Integer(default=1, required=True)
@@ -46,6 +50,9 @@ class JobHoseLine(models.Model):
     fire_wrap_id = fields.Many2one(
         PART_NUMBER_MODEL, string='Fire Wrap', domain="[('part_type_id.name', '=', 'Fire Wrap')]",
         help="Optional - left blank means no Fire Wrap on this line.")
+    hose_guard_id = fields.Many2one(
+        PART_NUMBER_MODEL, string='Hose Guard', domain="[('part_type_id.name', '=', 'Hose Guard')]",
+        help="Optional - left blank means no Hose Guard on this line.")
 
     part_id = fields.Many2one(
         PART_NUMBER_MODEL, string='Hose and Fitting Part', required=True,
@@ -115,6 +122,7 @@ class JobHoseLine(models.Model):
                     ferrule1_id = vals.get('ferrule1_id')
                     ferrule2_id = vals.get('ferrule2_id')
                     fire_wrap_id = vals.get('fire_wrap_id')
+                    hose_guard_id = vals.get('hose_guard_id')
                     length = vals.get('length')
 
                     if not (hose_id and fitting1_id and fitting2_id):
@@ -163,6 +171,9 @@ class JobHoseLine(models.Model):
                         if fire_wrap_id:
                             lines.append({'parent_part_id': new_part.id, 'component_part_id': fire_wrap_id,
                                            'role': 'fire_wrap', 'sequence': 60})
+                        if hose_guard_id:
+                            lines.append({'parent_part_id': new_part.id, 'component_part_id': hose_guard_id,
+                                           'role': 'hose_guard', 'sequence': 70})
                         bom_line_model.create(lines)
                         part_id = new_part.id
 

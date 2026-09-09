@@ -24,6 +24,10 @@ class HoseAndFittingConfig(models.Model):
         'hose_fitting_manager.config_fire_wrap_option', 'config_id', string='Fire Wrap Options',
         help="Every Fire Wrap allowed for this Symbol - like Fitting Options, may have more than "
              "one (or none). Never applied by default on a Job Hose Line - always an explicit pick.")
+    hose_guard_option_ids = fields.One2many(
+        'hose_fitting_manager.config_hose_guard_option', 'config_id', string='Hose Guard Options',
+        help="Every Hose Guard allowed for this Symbol - same idea as Fire Wrap Options: may have "
+             "more than one (or none), never applied by default - always an explicit pick.")
     fitting1_option_ids = fields.One2many(
         'hose_fitting_manager.config_fitting_option', 'config_id', string='Fitting 1 Options',
         domain=[('slot', '=', '1')], context={'default_slot': '1'})
@@ -73,3 +77,20 @@ class HoseAndFittingConfigFireWrapOption(models.Model):
     fire_wrap_id = fields.Many2one(
         'part_number_manager.part_number', string='Fire Wrap', required=True,
         domain="[('part_type_id.name', '=', 'Fire Wrap')]")
+
+
+class HoseAndFittingConfigHoseGuardOption(models.Model):
+    """One Hose Guard allowed for a Hose And Fitting Config - same idea as
+    HoseAndFittingConfigFireWrapOption: a plain list, zero/one/several may
+    apply to a given Symbol, never pre-selected.
+    """
+    _name = 'hose_fitting_manager.config_hose_guard_option'
+    _description = 'Hose And Fitting Config Hose Guard Option'
+    _order = 'config_id, sequence, id'
+
+    config_id = fields.Many2one(
+        'hose_fitting_manager.config', required=True, ondelete='cascade')
+    sequence = fields.Integer(default=10)
+    hose_guard_id = fields.Many2one(
+        'part_number_manager.part_number', string='Hose Guard', required=True,
+        domain="[('part_type_id.name', '=', 'Hose Guard')]")
