@@ -348,10 +348,25 @@ class PartNumber(models.Model):
 
     @api.model
     def _compute_next_suffix(self, material_group_id):
-        existing = self.search([
-            ('material_group_id', '=', material_group_id),
-        ]).mapped('sequence_suffix')
-        used = {int(s) for s in existing if s}
+        group = self.env['part_number_manager.material_group'].browse(material_group_id)
+        records = self.search([('material_group_id', '=', material_group_id)])
+        used = set()
+        for rec in records:
+            # sequence_suffix is normally always populated for a record in
+            # this Material Group, but some historical rows have it blank
+            # despite a correct material_group_id/part_number (data left
+            # over from before this column existed, or an import that
+            # missed it) - falling back to re-deriving it from part_number
+            # itself here is what actually prevents Generate from handing
+            # out an already-used number again (see production incident:
+            # 15000173 kept re-appearing as "next free" for Material Group
+            # 1500 despite already existing, because its sequence_suffix
+            # was blank).
+            suffix = rec.sequence_suffix
+            if not suffix and rec.part_number and group.code and rec.part_number.startswith(group.code):
+                suffix = rec.part_number[len(group.code):]
+            if suffix and suffix.isdigit():
+                used.add(int(suffix))
         for i in range(SUFFIX_RANGE_START, SUFFIX_RANGE_END + 1):
             if i not in used:
                 return f'{i:04d}'
