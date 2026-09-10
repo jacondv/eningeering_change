@@ -47,6 +47,11 @@ class PartNumber(models.Model):
     _order = 'part_number'
     _rec_name = 'part_number'
 
+    active = fields.Boolean(
+        default=True,
+        help="Odoo's own Archive/Unarchive mechanism - unrelated to the business `state` field below "
+             "(Development/Production/Not Use). Archiving just hides a Part from default lists/search "
+             "without deleting it; any user who can edit a Part can Archive/Unarchive it.")
     part_number = fields.Char(
         index=True, copy=False,
         help="Generated via the Generate button (material_group.code + sequence_suffix). Never entered by "
