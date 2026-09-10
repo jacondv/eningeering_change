@@ -523,6 +523,15 @@ class PartNumber(models.Model):
                             'new_part_id': part.id,
                             'legacy_part_id': legacy.id,
                         })
+                        # Logged on both sides' Chatter (already inherited via
+                        # mail.thread) - not a separate log table - so the
+                        # conversion shows up wherever a user happens to be
+                        # looking, with User/timestamp handled by mail.thread
+                        # itself, not tracked here.
+                        legacy.message_post(
+                            body=_('Converted to %s.') % part.part_number)
+                        part.message_post(
+                            body=_('Converted from legacy code %s.') % legacy.part_number)
 
                     result['success'] = True
                     result['part_id'] = part.id
