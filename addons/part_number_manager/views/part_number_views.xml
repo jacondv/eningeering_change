@@ -5,7 +5,7 @@
         <field name="name">part_number_manager.part_number.list</field>
         <field name="model">part_number_manager.part_number</field>
         <field name="arch" type="xml">
-            <list js_class="jacon_core_list" decoration-muted="state == 'obsolete'">
+            <list js_class="jacon_core_list" decoration-muted="state == 'obsolete' or not active">
                 <field name="part_number"/>
                 <field name="short_description" optional="show"/>
                 <field name="long_description" optional="show" class="o_pnm_long_description_cell"/>
@@ -139,6 +139,7 @@
                 <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Active" name="filter_active" domain="[('state', '=', 'active')]"/>
                 <filter string="Obsolete" name="filter_obsolete" domain="[('state', '=', 'obsolete')]"/>
+                <filter string="Archived" name="filter_archived" domain="[('active', '=', False)]"/>
                 <group>
                     <filter string="Material Group" name="groupby_material_group" context="{'group_by': 'material_group_id'}"/>
                     <filter string="Part Type" name="groupby_part_type" context="{'group_by': 'part_type_id'}"/>
