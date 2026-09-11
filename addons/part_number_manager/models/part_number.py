@@ -5,7 +5,7 @@ import re
 from dateutil import parser as dateutil_parser
 
 from odoo import _, api, fields, models
-from odoo.exceptions import AccessDenied, UserError, ValidationError
+from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -100,6 +100,13 @@ class PartNumber(models.Model):
     ], default='draft', tracking=True,
         help="Labels shown are Development/Production/Not Use - the underlying values "
              "(draft/active/obsolete) are unchanged, only the display text was renamed.")
+    approval_state = fields.Selection([
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+    ], string='Approval', default='approved', tracking=True, copy=False, index=True,
+        help="Head Engineer approval gate - unrelated to `state` above. Defaults to 'approved' "
+             "for every existing/imported Part; only a freshly Generated Part Number (see "
+             "create_batch_with_generated_number) starts as 'pending' (Pending Approval).")
     vendor_id = fields.Many2one('res.partner', string='Vendor')
     vendor_ref = fields.Char(string='Vendor Reference')
     reference_price = fields.Float(string='Price (VND)')
@@ -509,6 +516,12 @@ class PartNumber(models.Model):
                         group = self.env['part_number_manager.material_group'].browse(vals['material_group_id'])
                         vals['sequence_suffix'] = suffix
                         vals['part_number'] = f'{group.code}{suffix}'
+                        # Only a freshly Generated Part Number needs Head
+                        # Engineer approval - every other creation path in
+                        # this file (attaching to an existing part, the
+                        # legacy placeholder above, historical load()
+                        # import) keeps the field's own 'approved' default.
+                        vals['approval_state'] = 'pending'
                         part = self.with_context(skip_job_number_check=is_conversion).create(vals)
 
                         for attribute_value in attribute_values:
@@ -544,6 +557,45 @@ class PartNumber(models.Model):
             results.append(result)
 
         return results
+
+    def _check_head_engineer_permission(self):
+        if self.env.user.has_group('base.group_system'):
+            return
+        if not self.env.user.has_group('jacon_core.group_head_office'):
+            raise AccessError(_('Only the Head Engineer (or Administrator) can Approve/Reject Part Numbers.'))
+
+    def action_approve(self):
+        """Bulk-friendly by design: called on however many rows the Head
+        Engineer selected/kept ticked on the "Pending Approval" list (Select
+        All, then deselect a few, is the expected flow) - not one record at
+        a time. Only asks for a plain Confirm (see part_number_approve_wizard),
+        no reason needed.
+        """
+        self._check_head_engineer_permission()
+        self.filtered(lambda p: p.approval_state == 'pending').write({'approval_state': 'approved'})
+
+    def action_reject(self):
+        """Same bulk selection as action_approve() above - only a plain
+        Confirm (see part_number_reject_wizard), no reason needed. A
+        rejected Part Number is Archived (active=False), not deleted - it
+        stays around for record-keeping/undo, just hidden from default
+        lists/search like any other archived Part; logged on the Part's own
+        Chatter. If this Part Number came from converting a legacy code
+        (see create_batch_with_generated_number), that legacy code's state
+        is reverted to Development (Draft) - reverting to whatever it
+        actually was before isn't possible, that value was never kept -
+        since the conversion is being undone along with the rejection.
+        """
+        self._check_head_engineer_permission()
+        to_reject = self.filtered(lambda p: p.approval_state == 'pending')
+        mapping_model = self.env['part_number_manager.part_number_mapping']
+        for part in to_reject:
+            part.message_post(body=_(
+                'Part Number %(pn)s was rejected and archived by %(user)s.'
+            ) % {'pn': part.part_number, 'user': self.env.user.name})
+            mappings = mapping_model.search([('new_part_id', '=', part.id)])
+            mappings.legacy_part_id.write({'state': 'draft'})
+        to_reject.write({'active': False})
 
     def _sync_legacy_codes(self, legacy_by_part_number):
         """For each imported row that carried a legacy/old code, find or
