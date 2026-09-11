@@ -28,6 +28,9 @@
                        decoration-info="state == 'draft'"
                        decoration-success="state == 'active'"
                        decoration-muted="state == 'obsolete'"/>
+                <field name="approval_state" widget="badge" optional="show"
+                       decoration-warning="approval_state == 'pending'"
+                       decoration-success="approval_state == 'approved'"/>
                 <field name="material_group_id" optional="show"/>
             </list>
         </field>
@@ -40,6 +43,8 @@
             <form string="Part Number">
                 <header>
                     <field name="is_unlocked" widget="part_number_edit_lock_button" nolabel="1"/>
+                    <field name="approval_state" widget="badge" invisible="approval_state == 'approved'"
+                           decoration-warning="approval_state == 'pending'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,active,obsolete,y,tbd"
                            options="{'clickable': '1'}"/>
                 </header>
@@ -156,6 +161,66 @@
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_pnm_part_number_search"/>
         <field name="context">{'search_default_filter_draft': 0}</field>
+    </record>
+
+    <!-- Same list as "All Part Numbers" above, minus the "New" button -
+         every row here was auto-generated (Create/Convert page or Import),
+         never meant to be hand-added from this queue. -->
+    <record id="view_pnm_part_number_pending_approval_list" model="ir.ui.view">
+        <field name="name">part_number_manager.part_number.pending_approval.list</field>
+        <field name="model">part_number_manager.part_number</field>
+        <field name="inherit_id" ref="view_pnm_part_number_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="create">false</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Pending Approval: pre-filtered, no "New" - Head Engineer selects/
+         deselects rows (Select All, then untick a few, is the expected
+         flow) and uses the Approve/Reject actions below from the list's
+         own Action menu. -->
+    <record id="action_pnm_part_number_pending_approval" model="ir.actions.act_window">
+        <field name="name">Pending Approval</field>
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_pnm_part_number_pending_approval_list"/>
+        <field name="search_view_id" ref="view_pnm_part_number_search"/>
+        <field name="domain">[('approval_state', '=', 'pending')]</field>
+        <field name="context">{'search_default_filter_draft': 0}</field>
+    </record>
+
+    <record id="action_pnm_part_number_approve" model="ir.actions.server">
+        <field name="name">Approve</field>
+        <field name="model_id" ref="model_part_number_manager_part_number"/>
+        <field name="binding_model_id" ref="model_part_number_manager_part_number"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = {
+    'type': 'ir.actions.act_window',
+    'name': 'Approve Part Number(s)',
+    'res_model': 'part_number_manager.part_number_approve_wizard',
+    'view_mode': 'form',
+    'target': 'new',
+    'context': {'active_ids': records.ids},
+}</field>
+    </record>
+
+    <record id="action_pnm_part_number_reject" model="ir.actions.server">
+        <field name="name">Reject</field>
+        <field name="model_id" ref="model_part_number_manager_part_number"/>
+        <field name="binding_model_id" ref="model_part_number_manager_part_number"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = {
+    'type': 'ir.actions.act_window',
+    'name': 'Reject Part Number(s)',
+    'res_model': 'part_number_manager.part_number_reject_wizard',
+    'view_mode': 'form',
+    'target': 'new',
+    'context': {'active_ids': records.ids},
+}</field>
     </record>
 
 </odoo>
