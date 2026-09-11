@@ -1,0 +1,12 @@
+// The nav/dropdown rows this badge gets inserted into are flex containers
+// with the default align-items: stretch, which was stretching the plain
+// Bootstrap badge into a tall pill instead of a small round number - align-
+// self overrides that back to the badge's own natural (small) height.
+.o_pnm_pending_badge {
+    align-self: center;
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+    line-height: 1;
+    padding: 0.25em 0.5em;
+    min-width: 1.4em;
+}

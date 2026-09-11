@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <!-- Small red badge next to the "Pending Approval" menu label, wherever
+         that menu tree gets rendered - desktop top nav, "more" overflow
+         dropdown, nested submenu dropdown, and the small-screen app
+         sidebar. Added as a sibling right after the name (not truly inside
+         DropdownItem's own box) to avoid rewriting each item's t-esc into
+         slot content - visually adjacent is enough for this. pnmPendingCount
+         is stamped onto the matching section object by
+         pending_approval_badge_patch.js. -->
+
+    <t t-inherit="web.NavBar.SectionsMenu" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@t-esc='section.name']" position="after">
+            <span class="badge rounded-pill bg-danger ms-1 o_pnm_pending_badge" t-if="section.pnmPendingCount"
+                  t-esc="section.pnmPendingCount"/>
+        </xpath>
+    </t>
+
+    <t t-inherit="web.NavBar.SectionsMenu.MoreDropdown" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@t-esc='section.name']" position="after">
+            <span class="badge rounded-pill bg-danger ms-1 o_pnm_pending_badge" t-if="section.pnmPendingCount"
+                  t-esc="section.pnmPendingCount"/>
+        </xpath>
+    </t>
+
+    <t t-inherit="web.NavBar.SectionsMenu.Dropdown.MenuSlot" t-inherit-mode="extension">
+        <xpath expr="//DropdownItem[@t-esc='item.name']" position="after">
+            <span class="badge rounded-pill bg-danger ms-1 o_pnm_pending_badge" t-if="item.pnmPendingCount"
+                  t-esc="item.pnmPendingCount"/>
+        </xpath>
+    </t>
+
+    <t t-inherit="web.SectionMenu" t-inherit-mode="extension">
+        <xpath expr="//li[@t-else]/t[@t-esc='section.name']" position="after">
+            <span class="badge rounded-pill bg-danger ms-1 o_pnm_pending_badge" t-if="section.pnmPendingCount"
+                  t-esc="section.pnmPendingCount"/>
+        </xpath>
+    </t>
+
+</templates>
