@@ -59,6 +59,29 @@ class JobHoseLine(models.Model):
         help="The assembly Part Number this line resolved to - either reused from an existing "
              "match, or newly generated for this exact BOM + Length.")
 
+    def _report_hose_description(self):
+        """The Hose Part's own "Hose Type" attribute description (e.g.
+        "1/4\" x 2SN") - fixed per Type, not retyped per Hose (see
+        part_number_manager's hose_type_attribute_data.xml) - used by the
+        Hose & Fitting List report's "Hose Description" column. Blank if
+        the Hose has no Hose Type attribute value set.
+        """
+        self.ensure_one()
+        value = self.hose_id.attribute_value_ids.filtered(
+            lambda v: v.attribute_id.name == 'Hose Type')[:1]
+        return value.option_description or ''
+
+    def _report_part_description(self, part):
+        """Display text for a component Part on the report (Fitting 1/2,
+        Hose Guard) - same fallback order used throughout the app (Builder
+        page, list views): Display Description, then Short Description,
+        never the raw Part Number code. Blank (not "(No description)") when
+        the Part itself is unset, e.g. an optional Hose Guard left blank.
+        """
+        if not part:
+            return ''
+        return part.display_description or part.short_description or ''
+
     @api.model
     def find_matches(self, component_ids, length=None, tolerance=None):
         """Existing assembled Hose and Fitting Parts whose BOM is *exactly*
