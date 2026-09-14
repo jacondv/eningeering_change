@@ -155,7 +155,7 @@
                             <label for="background" class="o_ec_field_header"/>
                             <field name="background" placeholder="Background / reason for this change..."
                                    readonly="not can_edit_engineer_fields"/>
-                            <label for="description" class="o_ec_field_header"/>
+                            <label for="description" string="Implementation Instruction" class="o_ec_field_header"/>
                             <field name="description" required="1" placeholder="Describe the engineering change..."
                                    readonly="not can_edit_engineer_fields"/>
                             <group>
