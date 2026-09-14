@@ -40,7 +40,27 @@ patch(NavBar.prototype, {
         if (!this.pnmPendingApprovalState.count) {
             return sections;
         }
-        return sections.map((section) => this._pnmApplyPendingApprovalBadge(section));
+        // Memoized on (sections reference, count) - `currentAppSections` is
+        // a getter Owl re-evaluates on every render of the whole NavBar
+        // (not just when the menu tree or the count actually changes), and
+        // without this, every single call below would rebuild a BRAND NEW
+        // object graph (new "Tasks" section, new childrenTree array) even
+        // when nothing changed. Odoo's own SectionsMenu dropdown template
+        // (My Tasks/All Tasks etc.) then sees a "new" tree on every render
+        // while a popover happens to be open, and Owl's reconciliation can
+        // end up leaving the old DOM nodes behind alongside the new ones -
+        // duplicated menu rows, and since this patch runs for every app
+        // (not just Part Number), it affected every dropdown in the NavBar.
+        // Reusing the exact same result object across renders (as long as
+        // the underlying sections and the count haven't changed) keeps
+        // object identity stable and avoids that glitch.
+        if (this._pnmBadgeCache && this._pnmBadgeCache.sections === sections &&
+            this._pnmBadgeCache.count === this.pnmPendingApprovalState.count) {
+            return this._pnmBadgeCache.result;
+        }
+        const result = sections.map((section) => this._pnmApplyPendingApprovalBadge(section));
+        this._pnmBadgeCache = { sections, count: this.pnmPendingApprovalState.count, result };
+        return result;
     },
 
     _pnmApplyPendingApprovalBadge(section) {
