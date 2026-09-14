@@ -1,4 +1,8 @@
+import re
 from urllib.parse import quote
+
+from lxml import html as lxml_html
+from markupsafe import Markup
 
 from odoo import _, api, models
 
@@ -193,3 +197,65 @@ class EngineeringChange(models.Model):
             action['res_id'] = res_id
             action['view_mode'] = 'form'
         return action
+
+    def _report_html_with_fixed_tables(self, field_name):
+        """Renders a Background/Description Html field for the PDF report,
+        rewriting any table pasted in via the editor's own Table tool so it
+        prints in full instead of running off the page.
+
+        The editor stores each column's width in px, sized for the editor's
+        own screen width - wider than this report's printable area - and
+        resizing one column there only updates that row's own <td>, so
+        different rows often disagree on the same column's width (seen on a
+        real record: header row 51/107/336/79/166/250px, data rows
+        341/341/341/341/155/242px). wkhtmltopdf's table-layout:fixed support
+        doesn't reliably reconcile that on its own - it just lets the
+        overflow run off the page, so far-right columns vanish entirely
+        rather than shrinking. Reading the FIRST row's widths as the
+        intended ratio and writing that same ratio (as %, so it always
+        totals 100%) onto every row's cells sidesteps both problems at once.
+
+        Any table with colspan/rowspan cells, or missing/unparsable widths,
+        is left untouched - CSS's own table-layout:fixed (see the report
+        template's .ec-html-content rule) is the fallback for those.
+        """
+        self.ensure_one()
+        html_content = self[field_name]
+        if not html_content:
+            return Markup('')
+        root = lxml_html.fragment_fromstring(html_content, create_parent='div')
+        for table in root.findall('.//table'):
+            rows = table.findall('.//tr')
+            if not rows:
+                continue
+            first_cells = rows[0].findall('./td') + rows[0].findall('./th')
+            if any(cell.get('colspan') or cell.get('rowspan') for row in rows
+                   for cell in row.findall('./td') + row.findall('./th')):
+                continue
+            widths = [self._parse_css_px_width(cell) for cell in first_cells]
+            if not widths or any(w is None for w in widths):
+                continue
+            total = sum(widths)
+            if not total:
+                continue
+            percents = [w / total * 100 for w in widths]
+            for row in rows:
+                cells = row.findall('./td') + row.findall('./th')
+                for cell, percent in zip(cells, percents):
+                    style = re.sub(r'width\s*:\s*[^;]+;?', '', cell.get('style') or '').strip('; ')
+                    cell.set('style', f'{style}; width:{percent:.2f}%;' if style else f'width:{percent:.2f}%;')
+            table_style = re.sub(r'width\s*:\s*[^;]+;?', '', table.get('style') or '').strip('; ')
+            table.set('style', f'{table_style}; width:100%; table-layout:fixed;' if table_style
+                      else 'width:100%; table-layout:fixed;')
+        return Markup(lxml_html.tostring(root, encoding='unicode'))
+
+    @staticmethod
+    def _parse_css_px_width(cell):
+        style = cell.get('style') or ''
+        match = re.search(r'width\s*:\s*([\d.]+)px', style)
+        if match:
+            return float(match.group(1))
+        width_attr = cell.get('width')
+        if width_attr and width_attr.rstrip('px').isdigit():
+            return float(width_attr.rstrip('px'))
+        return None
