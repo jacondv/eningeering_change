@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- A3 Landscape - the table has enough columns (Hose Symbol/Number/
+         Description, Qty, Hose Description/Length, Fitting 1/2 Description,
+         Fire Wrap, Hose Guard, Note) that A4 would cramp every column
+         unreadably. margin_left/right 0 + header_spacing so the teal header
+         band can bleed edge-to-edge, same approach as engineering_change's
+         own paperformat_engineering_change. -->
+    <record id="paperformat_job_hose_line" model="report.paperformat">
+        <field name="name">Hose And Fitting List (A3 Landscape, full-bleed header)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A3</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">40</field>
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="header_spacing">40</field>
+        <field name="header_line" eval="False"/>
+        <field name="dpi">90</field>
+        <field name="disable_shrinking" eval="True"/>
+    </record>
+
+    <!-- Two separate Print-menu entries (EN/VN) instead of one action with a
+         language picker dialog - each just points to its own thin entry
+         template (report_job_hose_line_document_en/_vn), which both t-call
+         the same shared body template with desc_lang set accordingly. -->
+    <record id="action_report_job_hose_line_en" model="ir.actions.report">
+        <field name="name">Hose &amp; Fitting List (EN)</field>
+        <field name="model">hose_fitting_manager.job_hose_line</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">hose_fitting_manager.report_job_hose_line_document_en</field>
+        <field name="report_file">hose_fitting_manager.report_job_hose_line_document_en</field>
+        <field name="print_report_name">'Hose And Fitting List (EN) - %s' % (', '.join(objects.mapped('job_number.name')))</field>
+        <field name="paperformat_id" ref="paperformat_job_hose_line"/>
+        <field name="binding_model_id" ref="model_hose_fitting_manager_job_hose_line"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="action_report_job_hose_line_vn" model="ir.actions.report">
+        <field name="name">Hose &amp; Fitting List (VN)</field>
+        <field name="model">hose_fitting_manager.job_hose_line</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">hose_fitting_manager.report_job_hose_line_document_vn</field>
+        <field name="report_file">hose_fitting_manager.report_job_hose_line_document_vn</field>
+        <field name="print_report_name">'Hose And Fitting List (VN) - %s' % (', '.join(objects.mapped('job_number.name')))</field>
+        <field name="paperformat_id" ref="paperformat_job_hose_line"/>
+        <field name="binding_model_id" ref="model_hose_fitting_manager_job_hose_line"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

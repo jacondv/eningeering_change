@@ -16,7 +16,7 @@ already-shared `display_description` field.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['part_number_manager'],
+    'depends': ['part_number_manager', 'web'],
     'data': [
         'security/ir.model.access.csv',
         'views/config_views.xml',
@@ -24,6 +24,8 @@ already-shared `display_description` field.
         'views/job_hose_line_views.xml',
         'views/builder_actions.xml',
         'views/menus.xml',
+        'report/job_hose_line_report.xml',
+        'report/job_hose_line_report_templates.xml',
     ],
     'assets': {
         'web.assets_backend': [
