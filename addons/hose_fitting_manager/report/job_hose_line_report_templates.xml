@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Two thin entry templates (EN/VN) just pick which Description field
+         to show and hand off to the shared body below via t-set - t-call
+         inherits the calling scope's variables, so desc_lang is visible
+         inside report_job_hose_line_body without passing it explicitly. -->
+    <template id="report_job_hose_line_document_en">
+        <t t-set="desc_lang" t-value="'en'"/>
+        <t t-call="hose_fitting_manager.report_job_hose_line_body"/>
+    </template>
+
+    <template id="report_job_hose_line_document_vn">
+        <t t-set="desc_lang" t-value="'vn'"/>
+        <t t-call="hose_fitting_manager.report_job_hose_line_body"/>
+    </template>
+
+    <template id="report_job_hose_line_body">
+        <t t-call="web.html_container">
+            <!-- One Job Number per page: whatever was selected/printed
+                 together is grouped here (usually all lines for a single
+                 Job, per the "All Lines" list's own default grouping) -
+                 the header (Job/WI Number, Created by, Date) is per-group,
+                 not per-line, so lines from a different Job never end up
+                 silently printed under the wrong header. -->
+            <t t-set="jobs" t-value="docs.mapped('job_number')"/>
+            <t t-foreach="jobs" t-as="job">
+                <t t-set="job_lines" t-value="docs.filtered(lambda l: l.job_number == job).sorted(lambda l: (l.sequence, l.id))"/>
+
+                <div class="header" style="width:100%; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <!-- Neutralize wkhtmltopdf's own header container width -
+                         same fix as engineering_change/qc_checksheet's report headers. -->
+                    <style>
+                        body.container { max-width:none !important; width:100% !important; margin:0 !important; padding:0 !important; }
+                    </style>
+                    <table style="width:100%; border-collapse:separate; border-spacing:0;">
+                        <tr>
+                            <td style="width:20%; padding:7.5pt; vertical-align:middle;">
+                                <img src="/hose_fitting_manager/static/img/jacon_logo.png" style="max-height:50pt;width:auto; object-fit:contain;"/>
+                            </td>
+                            <td style="width:80%; text-align:center; vertical-align:middle; color:white;">
+                                <div style="font-weight:bold; font-size:16pt; position:relative; right:20mm;">HOSE &amp; FITTING LIST</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="article" style="margin:10pt 5mm; font-family:'Liberation Sans', Arial, sans-serif; font-size:7pt;">
+                    <div class="page">
+                        <style>
+                            table.hfl-bordered { border:0.75pt solid #000000; border-collapse:collapse; width:100%; }
+                            table.hfl-bordered td, table.hfl-bordered th { border:0.75pt solid #000000; padding:3pt 4pt; }
+                            table.hfl-bordered tbody tr:nth-child(even) { background-color:#e6f2f0; }
+                        </style>
+
+                        <table style="margin-bottom:6pt;">
+                            <tr>
+                                <td><strong>Job/WI Number: </strong><span t-esc="job.name or ''"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Created by: </strong><span t-esc="job_lines[:1].create_uid.name or ''"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Date: </strong><span t-esc="time.strftime('%d-%b-%Y')"/></td>
+                            </tr>
+                        </table>
+
+                        <!-- ================= COLUMN WIDTHS =================
+                             Every column's width lives on its <th> below (the
+                             <td> cells in <tbody> don't repeat it - a plain
+                             HTML table only needs the width set once, on the
+                             header row, to fix every row's column width).
+                             Percentages should add up to ~100 across this
+                             single header row - adjust the number in each
+                             width:X%; below to resize a column. -->
+                        <table class="hfl-bordered">
+                            <thead>
+                                <tr style="background-color:#008080; color:white; font-weight:bold;">
+                                    <th style="width:2%; text-align:center;">Item</th>
+                                    <th style="width:3%; text-align:center;">Hose Symbol</th>
+                                    <th style="width:3%; text-align:center;">Hose Number</th>
+                                    <th style="width:30%; text-align:center;">
+                                        <t t-esc="'Description VN' if desc_lang == 'vn' else 'Description EN'"/>
+                                    </th>
+                                    <th style="width:2%; text-align:center;">Qty.</th>
+                                    <th style="width:7%; text-align:center;">Hose</th>
+                                    <th style="width:3%; text-align:center;">Length (mm)</th>
+                                    <th style="width:8%; text-align:center;">Fitting 1</th>
+                                    <th style="width:7%; text-align:center;">Ferrule 1</th>
+                                    <th style="width:8%; text-align:center;">Fitting 2</th>
+                                    <th style="width:7%; text-align:center;">Ferrule 2</th>
+                                    <th style="width:7%; text-align:center;">Fire Wrap</th>
+                                    <th style="width:7%; text-align:center;">Hose Guard</th>
+                                    <th style="width:6%; text-align:center;">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="job_lines" t-as="line">
+                                    <td style="text-align:center;"><span t-esc="line_index + 1"/></td>
+                                    <td style="text-align:center;"><span t-field="line.config_id.symbol"/></td>
+                                    <td style="text-align:center;"><span t-field="line.hose_number"/></td>
+                                    <td><span t-esc="line.description_vn if desc_lang == 'vn' else line.description_en"/></td>
+                                    <td style="text-align:center;"><span t-field="line.quantity"/></td>
+                                    <td><span t-esc="line._report_hose_description()"/></td>
+                                    <td style="text-align:center;"><span t-field="line.length" t-options="{'widget': 'integer'}"/></td>
+                                    <td><span t-esc="line._report_part_description(line.fitting1_id)"/></td>
+                                    <td><span t-esc="line._report_part_description(line.ferrule1_id)"/></td>
+                                    <td><span t-esc="line._report_part_description(line.fitting2_id)"/></td>
+                                    <td><span t-esc="line._report_part_description(line.ferrule2_id)"/></td>
+                                    <td><span t-esc="line._report_part_description(line.fire_wrap_id)"/></td>
+                                    <td><span t-esc="line._report_part_description(line.hose_guard_id)"/></td>
+                                    <td>&#160;</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="footer" style="border-top:0.75pt solid #999999; padding-top:3pt; font-size:9pt; font-family:'Liberation Sans', Arial, sans-serif; margin:0 5mm;">
+                    <div style="text-align:right;">Page <span class="page"/> of <span class="topage"/></div>
+                </div>
+
+                <div t-if="not job_index == len(jobs) - 1" style="page-break-after:always;"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>
