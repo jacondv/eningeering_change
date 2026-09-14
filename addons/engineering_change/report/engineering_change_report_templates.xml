@@ -31,6 +31,14 @@
                             .ec-label { font-weight:bold; text-decoration:underline; margin:4pt 0 0 0; }
                             table.ec-bordered { border:0.75pt solid #000000; border-collapse:collapse; width:100%; }
                             table.ec-bordered td, table.ec-bordered th { border:0.75pt solid #000000; padding:3pt 6pt; }
+                            /* Background/Description are free-form Html fields - a table pasted in via
+                               the editor's own Table tool carries fixed px widths sized for the editor's
+                               screen width, wider than this report's printable area, so wkhtmltopdf just
+                               clips the overflow instead of wrapping. table-layout:fixed here keeps each
+                               column's original width as a ratio and scales the whole table down to fit
+                               100% of the page instead of losing columns. */
+                            .ec-html-content table { width:100% !important; table-layout:fixed; }
+                            .ec-html-content table td, .ec-html-content table th { word-wrap:break-word; overflow-wrap:break-word; }
                         </style>
 
                         <table style="width:100%;">
@@ -55,7 +63,7 @@
                         </table>
 
                         <p class="mb-0 mt-2"><strong>1.1 Reason for Change:</strong></p>
-                        <div t-field="o.background"/>
+                        <div class="ec-html-content" t-out="o._report_html_with_fixed_tables('background')"/>
 
                         <p class="mb-0 mt-2"><strong>1.2 Request change to:</strong></p>
                         <table class="ec-bordered">
@@ -110,7 +118,7 @@
                         </table>
 
                         <div class="ec-section-bar">3. Implementation Instruction</div>
-                        <div class="mt-2" t-field="o.description"/>
+                        <div class="mt-2 ec-html-content" t-out="o._report_html_with_fixed_tables('description')"/>
 
                         <!-- "Action" only takes section 4 when there's something to
                              print - Checklist falls back to being section 4 itself
