@@ -25,6 +25,8 @@ STATE_BY_STATUS = {
     'tbd': 'tbd',
 }
 
+SHORT_DESCRIPTION_MAX_LENGTH = 55
+
 MAKE_BUY_BY_TYPE = {
     'make': 'make',
     'buy': 'buy',
@@ -490,6 +492,10 @@ class PartNumber(models.Model):
 
                     if not vals.get('material_group_id'):
                         raise UserError(_('Material Group is required.'))
+                    if len(vals.get('short_description') or '') > SHORT_DESCRIPTION_MAX_LENGTH:
+                        raise UserError(_(
+                            'Short Description is too long (max %s characters).'
+                        ) % SHORT_DESCRIPTION_MAX_LENGTH)
                     if is_conversion and not (conversion_legacy_id or conversion_legacy_text):
                         raise UserError(_('Legacy Part Number is required.'))
                     if is_conversion and target_part_text and not existing_new_part_id:
