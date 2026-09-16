@@ -417,6 +417,25 @@ class PartNumber(models.Model):
         self.env['part_number_manager.part_attribute_value'].create(vals)
 
     @api.model
+    def find_duplicate_vendor_refs(self, vendor_refs):
+        """Existing Part Numbers already using one of `vendor_refs` (as-is,
+        exact match - a Vendor Part No is copied verbatim off the vendor's
+        own catalog/quote, so no ilike fuzziness needed). Used by the Create
+        New page's Save confirmation - a duplicate is only a warning, never
+        blocked, since the same Vendor Part No can legitimately map to more
+        than one of our Part Numbers (e.g. re-generated under a different
+        Material Group). Returns {vendor_ref: [part_number, ...]}.
+        """
+        vendor_refs = [v for v in {(v or '').strip() for v in vendor_refs} if v]
+        if not vendor_refs:
+            return {}
+        existing = self.search([('vendor_ref', 'in', vendor_refs)])
+        result = {}
+        for part in existing:
+            result.setdefault(part.vendor_ref, []).append(part.part_number)
+        return result
+
+    @api.model
     def create_batch_with_generated_number(self, vals_list):
         """Single entry point OWL calls on Save, for both the "Create New"
         and "Convert Legacy Code" flows (distinguished per-row by the
