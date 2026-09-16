@@ -7,6 +7,10 @@ import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_d
 import { PnmCombobox } from "./pnm_combobox";
 
 const PART_NUMBER_MODEL = "part_number_manager.part_number";
+// Kept in sync with SHORT_DESCRIPTION_MAX_LENGTH in part_number.py - the
+// server is the real gate (blocks Save either way), this just lets the
+// counter/highlight react before a round-trip.
+const SHORT_DESCRIPTION_MAX_LENGTH = 55;
 // Vendor (res.partner) and Part Number are unbounded, ever-growing tables -
 // preloading them whole (like the small reference lists below) gets slower
 // every time someone adds a Vendor or Part. Instead they're searched live
@@ -70,6 +74,7 @@ export class PartManagementPage extends Component {
         this.notification = useService("notification");
         this.action = useService("action");
         this.dialog = useService("dialog");
+        this.SHORT_DESCRIPTION_MAX_LENGTH = SHORT_DESCRIPTION_MAX_LENGTH;
 
         this.state = useState({
             activeTab: this._loadActiveTab(), // "create" | "convert"
@@ -795,6 +800,10 @@ export class PartManagementPage extends Component {
             }
             if (!row.make_buy) {
                 errors[`${row._localId}_make_buy`] = "Required";
+            }
+            if ((row.short_description || "").length > SHORT_DESCRIPTION_MAX_LENGTH) {
+                errors[`${row._localId}_short_description`] =
+                    `Too long (max ${SHORT_DESCRIPTION_MAX_LENGTH} characters)`;
             }
             if (this.state.activeTab === "convert") {
                 if (!row.conversion_legacy_id && !row.legacyCodeText) {
