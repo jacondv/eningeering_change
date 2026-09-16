@@ -3,9 +3,14 @@
 import { Component, onWillStart, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { PnmCombobox } from "./pnm_combobox";
 
 const PART_NUMBER_MODEL = "part_number_manager.part_number";
+// Kept in sync with SHORT_DESCRIPTION_MAX_LENGTH in part_number.py - the
+// server is the real gate (blocks Save either way), this just lets the
+// counter/highlight react before a round-trip.
+const SHORT_DESCRIPTION_MAX_LENGTH = 55;
 // Vendor (res.partner) and Part Number are unbounded, ever-growing tables -
 // preloading them whole (like the small reference lists below) gets slower
 // every time someone adds a Vendor or Part. Instead they're searched live
@@ -55,7 +60,7 @@ const TOGGLEABLE_COLUMNS = [
     { key: "long_description", label: "Long Description" },
     { key: "part_type", label: "Part Type" },
     { key: "vendor", label: "Vendor" },
-    { key: "vendor_ref", label: "Vendor Reference" },
+    { key: "vendor_ref", label: "Vendor Part No." },
     { key: "make_buy", label: "Make/Buy" },
 ];
 
@@ -68,6 +73,8 @@ export class PartManagementPage extends Component {
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.action = useService("action");
+        this.dialog = useService("dialog");
+        this.SHORT_DESCRIPTION_MAX_LENGTH = SHORT_DESCRIPTION_MAX_LENGTH;
 
         this.state = useState({
             activeTab: this._loadActiveTab(), // "create" | "convert"
@@ -794,6 +801,10 @@ export class PartManagementPage extends Component {
             if (!row.make_buy) {
                 errors[`${row._localId}_make_buy`] = "Required";
             }
+            if ((row.short_description || "").length > SHORT_DESCRIPTION_MAX_LENGTH) {
+                errors[`${row._localId}_short_description`] =
+                    `Too long (max ${SHORT_DESCRIPTION_MAX_LENGTH} characters)`;
+            }
             if (this.state.activeTab === "convert") {
                 if (!row.conversion_legacy_id && !row.legacyCodeText) {
                     errors[`${row._localId}_legacy`] = "Type or pick an Old Part Number to convert";
@@ -807,6 +818,58 @@ export class PartManagementPage extends Component {
         return Object.keys(errors).length === 0;
     }
 
+    // A Vendor Part No repeated on another Part Number (already saved, or
+    // another row in this same batch) is only ever a warning - it can be
+    // legitimate (the same vendor item re-generated under a different
+    // Material Group) - so Save always stays possible, just gated behind an
+    // explicit confirmation instead of silently going through.
+    async _confirmDuplicateVendorRefs(pendingRows) {
+        const refByLocalId = new Map();
+        for (const row of pendingRows) {
+            const ref = (row.vendor_ref || "").trim();
+            if (ref) refByLocalId.set(row._localId, ref);
+        }
+        if (!refByLocalId.size) {
+            return true;
+        }
+
+        const duplicates = await this.orm.call(
+            PART_NUMBER_MODEL, "find_duplicate_vendor_refs", [[...refByLocalId.values()]]
+        );
+        // Also flag a Vendor Part No repeated across two rows of this same
+        // unsaved batch - those don't exist in the DB yet, so the server
+        // check above can't see them.
+        const seenInBatch = new Map();
+        for (const ref of refByLocalId.values()) {
+            seenInBatch.set(ref, (seenInBatch.get(ref) || 0) + 1);
+        }
+
+        const lines = [];
+        for (const [ref, count] of seenInBatch) {
+            const existingParts = duplicates[ref] || [];
+            if (count > 1) {
+                lines.push(`"${ref}": used on ${count} rows in this batch`);
+            }
+            if (existingParts.length) {
+                lines.push(`"${ref}": already used on ${existingParts.join(", ")}`);
+            }
+        }
+        if (!lines.length) {
+            return true;
+        }
+
+        return new Promise((resolve) => {
+            this.dialog.add(ConfirmationDialog, {
+                title: "Duplicate Vendor Part No.",
+                body: `The following Vendor Part No. are already in use:\n${lines.join("\n")}`,
+                confirmLabel: "Save Anyway",
+                cancelLabel: "Cancel",
+                confirm: () => resolve(true),
+                cancel: () => resolve(false),
+            });
+        });
+    }
+
     // Only unsaved/failed rows are sent - rows already saved stay put and are
     // never resent, so clicking Save again can't create duplicates.
     async onSaveClick() {
@@ -818,6 +881,10 @@ export class PartManagementPage extends Component {
         const pendingRows = this.state.rows.filter((r) => r.status !== "success");
         if (!pendingRows.length) {
             this.notification.add("Nothing to save.", { type: "info" });
+            return;
+        }
+
+        if (!(await this._confirmDuplicateVendorRefs(pendingRows))) {
             return;
         }
 

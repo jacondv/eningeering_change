@@ -80,7 +80,7 @@
                         <th t-if="state.columnVisibility.vendor" class="o_pnm_th">Vendor
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('vendor', ev)"/>
                         </th>
-                        <th t-if="state.columnVisibility.vendor_ref" class="o_pnm_th">Vendor Reference
+                        <th t-if="state.columnVisibility.vendor_ref" class="o_pnm_th">Vendor Part No.
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('vendor_ref', ev)"/>
                         </th>
                         <th t-if="state.columnVisibility.make_buy" class="o_pnm_th">Make/Buy
@@ -167,6 +167,13 @@
                                        t-model="row.short_description"
                                        t-on-paste="(ev) => this.onCellPaste(row, 'short_description', ev)"
                                        t-att-disabled="row.status === 'success'"/>
+                                <div class="small"
+                                     t-attf-class="{{ (row.short_description || '').length > SHORT_DESCRIPTION_MAX_LENGTH ? 'text-danger' : 'text-muted' }}">
+                                    <t t-esc="(row.short_description || '').length"/>/<t t-esc="SHORT_DESCRIPTION_MAX_LENGTH"/>
+                                </div>
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_short_description']">
+                                    <t t-esc="state.errors[row._localId + '_short_description']"/>
+                                </div>
                             </td>
                             <td t-if="state.columnVisibility.long_description">
                                 <textarea class="form-control form-control-sm o_pnm_long_desc" rows="1"
@@ -292,7 +299,7 @@
                             <th class="o_pnm_th">Vendor
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor', ev)"/>
                             </th>
-                            <th class="o_pnm_th">Vendor Reference
+                            <th class="o_pnm_th">Vendor Part No.
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor_ref', ev)"/>
                             </th>
                             <th class="o_pnm_th">Make/Buy
