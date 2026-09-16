@@ -25,6 +25,8 @@ STATE_BY_STATUS = {
     'tbd': 'tbd',
 }
 
+SHORT_DESCRIPTION_MAX_LENGTH = 55
+
 MAKE_BUY_BY_TYPE = {
     'make': 'make',
     'buy': 'buy',
@@ -108,7 +110,7 @@ class PartNumber(models.Model):
              "for every existing/imported Part; only a freshly Generated Part Number (see "
              "create_batch_with_generated_number) starts as 'pending' (Pending Approval).")
     vendor_id = fields.Many2one('res.partner', string='Vendor')
-    vendor_ref = fields.Char(string='Vendor Reference')
+    vendor_ref = fields.Char(string='Vendor Part No.')
     reference_price = fields.Float(string='Price (VND)')
     lead_time = fields.Integer(string='LeadTime (W)')
     make_buy = fields.Selection([
@@ -417,6 +419,25 @@ class PartNumber(models.Model):
         self.env['part_number_manager.part_attribute_value'].create(vals)
 
     @api.model
+    def find_duplicate_vendor_refs(self, vendor_refs):
+        """Existing Part Numbers already using one of `vendor_refs` (as-is,
+        exact match - a Vendor Part No is copied verbatim off the vendor's
+        own catalog/quote, so no ilike fuzziness needed). Used by the Create
+        New page's Save confirmation - a duplicate is only a warning, never
+        blocked, since the same Vendor Part No can legitimately map to more
+        than one of our Part Numbers (e.g. re-generated under a different
+        Material Group). Returns {vendor_ref: [part_number, ...]}.
+        """
+        vendor_refs = [v for v in {(v or '').strip() for v in vendor_refs} if v]
+        if not vendor_refs:
+            return {}
+        existing = self.search([('vendor_ref', 'in', vendor_refs)])
+        result = {}
+        for part in existing:
+            result.setdefault(part.vendor_ref, []).append(part.part_number)
+        return result
+
+    @api.model
     def create_batch_with_generated_number(self, vals_list):
         """Single entry point OWL calls on Save, for both the "Create New"
         and "Convert Legacy Code" flows (distinguished per-row by the
@@ -471,6 +492,10 @@ class PartNumber(models.Model):
 
                     if not vals.get('material_group_id'):
                         raise UserError(_('Material Group is required.'))
+                    if len(vals.get('short_description') or '') > SHORT_DESCRIPTION_MAX_LENGTH:
+                        raise UserError(_(
+                            'Short Description is too long (max %s characters).'
+                        ) % SHORT_DESCRIPTION_MAX_LENGTH)
                     if is_conversion and not (conversion_legacy_id or conversion_legacy_text):
                         raise UserError(_('Legacy Part Number is required.'))
                     if is_conversion and target_part_text and not existing_new_part_id:
