@@ -55,7 +55,7 @@ const TOGGLEABLE_COLUMNS = [
     { key: "long_description", label: "Long Description" },
     { key: "part_type", label: "Part Type" },
     { key: "vendor", label: "Vendor" },
-    { key: "vendor_ref", label: "Vendor Reference" },
+    { key: "vendor_ref", label: "Vendor Part No." },
     { key: "make_buy", label: "Make/Buy" },
 ];
 
