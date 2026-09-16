@@ -108,7 +108,7 @@ class PartNumber(models.Model):
              "for every existing/imported Part; only a freshly Generated Part Number (see "
              "create_batch_with_generated_number) starts as 'pending' (Pending Approval).")
     vendor_id = fields.Many2one('res.partner', string='Vendor')
-    vendor_ref = fields.Char(string='Vendor Reference')
+    vendor_ref = fields.Char(string='Vendor Part No.')
     reference_price = fields.Float(string='Price (VND)')
     lead_time = fields.Integer(string='LeadTime (W)')
     make_buy = fields.Selection([

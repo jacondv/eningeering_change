@@ -80,7 +80,7 @@
                         <th t-if="state.columnVisibility.vendor" class="o_pnm_th">Vendor
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('vendor', ev)"/>
                         </th>
-                        <th t-if="state.columnVisibility.vendor_ref" class="o_pnm_th">Vendor Reference
+                        <th t-if="state.columnVisibility.vendor_ref" class="o_pnm_th">Vendor Part No.
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('vendor_ref', ev)"/>
                         </th>
                         <th t-if="state.columnVisibility.make_buy" class="o_pnm_th">Make/Buy
@@ -292,7 +292,7 @@
                             <th class="o_pnm_th">Vendor
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor', ev)"/>
                             </th>
-                            <th class="o_pnm_th">Vendor Reference
+                            <th class="o_pnm_th">Vendor Part No.
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor_ref', ev)"/>
                             </th>
                             <th class="o_pnm_th">Make/Buy
