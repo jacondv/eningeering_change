@@ -104,7 +104,7 @@
                             </group>
                             <group string="New codes that replaced this part">
                                 <field name="supersedes_ids" nolabel="1">
-                                    <list>
+                                    <list editable="bottom">
                                         <field name="new_part_id"/>
                                     </list>
                                 </field>
