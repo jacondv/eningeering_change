@@ -390,6 +390,17 @@
         <field name="model">engineering.change</field>
         <field name="arch" type="xml">
             <search string="Search Engineering Changes">
+                <field name="name" string="Search All" filter_domain="[
+                    '|', '|', '|', '|', '|', '|', '|',
+                    ('name', 'ilike', self),
+                    ('dcr_no', 'ilike', self),
+                    ('title', 'ilike', self),
+                    ('engineer_id.name', 'ilike', self),
+                    ('implement_team_ids.name', 'ilike', self),
+                    ('affected_model_ids.name', 'ilike', self),
+                    ('affected_project_ids.name', 'ilike', self),
+                    ('project_id.name', 'ilike', self),
+                ]"/>
                 <field name="name"/>
                 <field name="dcr_no"/>
                 <field name="title"/>

@@ -203,4 +203,26 @@
         </field>
     </record>
 
+    <record id="view_project_project_filter_inherit_search_all" model="ir.ui.view">
+        <field name="name">project.project.select.inherit.search.all</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.view_project_project_filter"/>
+        <field name="arch" type="xml">
+            <field name="name" position="before">
+                <field name="name" string="Search All" filter_domain="[
+                    '|', '|', '|', '|', '|', '|', '|', '|',
+                    ('name', 'ilike', self),
+                    ('partner_id.name', 'ilike', self),
+                    ('tag_ids.name', 'ilike', self),
+                    ('user_id.name', 'ilike', self),
+                    ('customer_ref', 'ilike', self),
+                    ('model_id.name', 'ilike', self),
+                    ('machine_serial', 'ilike', self),
+                    ('engine_serial', 'ilike', self),
+                    ('vin_tin', 'ilike', self),
+                ]"/>
+            </field>
+        </field>
+    </record>
+
 </odoo>
