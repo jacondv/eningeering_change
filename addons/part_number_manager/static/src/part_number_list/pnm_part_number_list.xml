@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <t t-name="part_number_manager.PartNumberList.Buttons">
+        <div class="d-flex align-items-center gap-1 me-2">
+            <label class="text-muted small mb-0" for="pnm_display_currency_select">Display In</label>
+            <select id="pnm_display_currency_select" class="form-select form-select-sm w-auto"
+                    t-on-change="onDisplayCurrencyChange">
+                <option value="" t-att-selected="!pnmState.displayCurrencyId">Company Currency</option>
+                <t t-foreach="pnmState.currencies" t-as="currency" t-key="currency.id">
+                    <option t-att-value="currency.id" t-att-selected="pnmState.displayCurrencyId === currency.id">
+                        <t t-esc="currency.name"/>
+                    </option>
+                </t>
+            </select>
+        </div>
+    </t>
+
+</templates>

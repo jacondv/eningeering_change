@@ -47,4 +47,14 @@
           action="action_pnm_part_attribute"
           sequence="30"/>
 
+    <!-- Same screen as Invoicing's own Configuration > Accounting >
+         Currencies (base.action_currency_form) - just reachable without
+         needing Invoicing/Accounting access, since Part Number pricing
+         depends on it too (activate a Currency here, add its exchange
+         Rates on its own form). -->
+    <menuitem id="menu_pnm_configuration_currency" name="Currencies"
+          parent="menu_pnm_configuration"
+          action="base.action_currency_form"
+          sequence="40"/>
+
 </odoo>
