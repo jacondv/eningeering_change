@@ -111,7 +111,22 @@ class PartNumber(models.Model):
              "create_batch_with_generated_number) starts as 'pending' (Pending Approval).")
     vendor_id = fields.Many2one('res.partner', string='Vendor')
     vendor_ref = fields.Char(string='Vendor Part No.')
-    reference_price = fields.Float(string='Price (VND)')
+    currency_id = fields.Many2one(
+        'res.currency', string='Currency', default=lambda self: self.env.company.currency_id,
+        help="Currency the Vendor actually quoted this Price in (e.g. USD, AUD) - kept "
+             "separate from the company's own currency so the original quote is never "
+             "lossy-converted just to store it.")
+    reference_price = fields.Monetary(string='Price', currency_field='currency_id')
+    price_display_currency_id = fields.Many2one(
+        'res.currency', string='Display Currency', compute='_compute_price_display',
+        help="Currency Price (Display) is shown in - the company's own currency by default, "
+             "or whatever the \"Display In\" picker on the list is set to.")
+    price_display = fields.Monetary(
+        string='Price (Display)', compute='_compute_price_display',
+        currency_field='price_display_currency_id',
+        help="Price above, converted into the Display Currency at today's exchange rate "
+             "(Currencies menu). Falls back to the untouched original amount if no rate "
+             "is on file yet, rather than blocking the whole list.")
     lead_time = fields.Integer(string='LeadTime (W)')
     make_buy = fields.Selection([
         ('make', 'Make'),
@@ -201,6 +216,47 @@ class PartNumber(models.Model):
         for rec in self:
             if rec.vendor_id:
                 rec.make_buy = 'buy'
+
+    def _currency_has_rate_on_file(self, currency, company):
+        # _convert() itself never raises for a currency with no rate on
+        # file - it silently treats it as rate 1.0, which would show a
+        # wildly wrong "converted" number rather than an obvious blank. So
+        # this is checked explicitly first instead of trusting _convert()
+        # to fail loudly.
+        if currency == company.currency_id:
+            return True
+        return bool(self.env['res.currency.rate'].search_count(
+            [('currency_id', '=', currency.id), ('company_id', 'in', [company.id, False])], limit=1))
+
+    @api.depends('reference_price', 'currency_id')
+    @api.depends_context('display_currency_id')
+    def _compute_price_display(self):
+        # The "Display In" picker above the Part Number list sets
+        # display_currency_id in context; falls back to the company's own
+        # currency (e.g. VND) when nothing is picked, e.g. any RPC that
+        # reads this field outside that list.
+        target_id = self.env.context.get('display_currency_id')
+        company = self.env.company
+        target = self.env['res.currency'].browse(target_id) if target_id else company.currency_id
+        today = fields.Date.context_today(self)
+        for rec in self:
+            if not rec.currency_id or not rec.reference_price or rec.currency_id == target:
+                rec.price_display_currency_id = target
+                rec.price_display = rec.reference_price
+                continue
+            if not (self._currency_has_rate_on_file(rec.currency_id, company)
+                    and self._currency_has_rate_on_file(target, company)):
+                # No exchange rate on file yet for this pair (Currencies
+                # menu) - show the untouched original amount tagged with
+                # its OWN currency, not the target's - tagging an
+                # unconverted number with the target currency's symbol
+                # would silently misstate the amount (e.g. VND 20,000
+                # shown as if it were "$20,000.00").
+                rec.price_display_currency_id = rec.currency_id
+                rec.price_display = rec.reference_price
+                continue
+            rec.price_display_currency_id = target
+            rec.price_display = rec.currency_id._convert(rec.reference_price, target, company, today)
 
     @api.depends('supersedes_ids.new_part_id.part_number')
     def _compute_replacement_display(self):

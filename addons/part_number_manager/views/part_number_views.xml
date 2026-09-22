@@ -5,7 +5,7 @@
         <field name="name">part_number_manager.part_number.list</field>
         <field name="model">part_number_manager.part_number</field>
         <field name="arch" type="xml">
-            <list js_class="jacon_core_list" decoration-muted="state == 'obsolete' or not active">
+            <list js_class="pnm_part_number_list" decoration-muted="state == 'obsolete' or not active">
                 <field name="part_number"/>
                 <field name="short_description" optional="show"/>
                 <field name="long_description" optional="show" class="o_pnm_long_description_cell"/>
@@ -16,7 +16,10 @@
                 <field name="make_buy" optional="hide"/>
                 <field name="vendor_id" optional="show"/>
                 <field name="vendor_ref" string="Vendor PartNo" optional="show"/>
-                <field name="reference_price" optional="hide" digits="[16, 0]"/>
+                <field name="currency_id" optional="hide"/>
+                <field name="reference_price" optional="hide"/>
+                <field name="price_display_currency_id" column_invisible="1"/>
+                <field name="price_display" optional="show" widget="pnm_monetary_thousands"/>
                 <field name="lead_time" optional="hide"/>
                 <field name="attribute_display" string="Attributes" optional="hide"/>
                 <field name="display_description" optional="hide"/>
@@ -71,7 +74,11 @@
                         <group>
                             <field name="vendor_id"/>
                             <field name="vendor_ref"/>
-                            <field name="reference_price" digits="[16, 0]"/>
+                            <field name="currency_id"/>
+                            <field name="reference_price"/>
+                            <field name="price_display_currency_id" invisible="1"/>
+                            <field name="price_display" readonly="1" widget="pnm_monetary_thousands"
+                                   invisible="currency_id == price_display_currency_id"/>
                             <field name="lead_time"/>
                         </group>
                     </group>
