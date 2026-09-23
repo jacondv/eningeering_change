@@ -18,8 +18,8 @@
 
     <!-- group_pnm_manager implies group_pnm_config_viewer (see
          part_number_manager_groups.xml), so Managers still see this -
-         group_pnm_config_viewer can also be granted on its own for
-         read-only access, same as part_number_manager.menu_pnm_configuration. -->
+         group_pnm_config_viewer can also be granted on its own for full
+         edit access, same as part_number_manager.menu_pnm_configuration. -->
     <menuitem id="menu_hfm_config" name="Hose And Fitting Config"
           parent="part_number_manager.menu_pnm_configuration"
           groups="part_number_manager.group_pnm_config_viewer"

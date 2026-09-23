@@ -20,12 +20,13 @@
         </record>
 
         <!-- Independent of User/Manager - granted on its own (Settings > Users
-             > a user's own form > "Other Extra Rights") to let someone see the
-             Configuration menus (Part Number Manager and Hose And Fitting)
-             read-only, without also handing them Part Number create/delete
+             > a user's own form > "Other Extra Rights") to let someone manage
+             the Configuration menus (Part Number Manager and Hose And
+             Fitting) - full read/write/create/delete on those Configuration
+             models - without also handing them Part Number create/delete
              rights (group_pnm_user/group_pnm_manager). -->
         <record id="privilege_pnm_config_viewer" model="res.groups.privilege">
-            <field name="name">Configuration Viewer</field>
+            <field name="name">Configuration Editor</field>
             <field name="category_id" ref="module_category_part_number_manager"/>
             <field name="sequence">15</field>
         </record>
@@ -37,9 +38,9 @@
         </record>
 
         <record id="group_pnm_config_viewer" model="res.groups">
-            <field name="name">Configuration Viewer</field>
+            <field name="name">Configuration Editor</field>
             <field name="privilege_id" ref="privilege_pnm_config_viewer"/>
-            <field name="comment">Read-only access to the Configuration menus (Part Number Manager: Main Categories/Material Groups/Part Types/Part Attributes; Hose And Fitting: Config). Does not grant Part Number create/edit/delete rights.</field>
+            <field name="comment">Full access (create/edit/delete) to the Configuration menus (Part Number Manager: Main Categories/Material Groups/Part Types/Part Attributes; Hose And Fitting: Config). Does not grant Part Number create/edit/delete rights.</field>
         </record>
 
         <record id="group_pnm_manager" model="res.groups">

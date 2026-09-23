@@ -25,8 +25,8 @@
     <!-- group_pnm_manager implies group_pnm_config_viewer, so Managers still
          see this - but group_pnm_config_viewer can also be granted on its
          own (Settings > Users > a user's form > Other Extra Rights) to let
-         a regular User view Configuration read-only without Manager's
-         create/edit/delete rights. -->
+         a regular User manage Configuration (create/edit/delete) without
+         Manager's Part Number rights. -->
     <menuitem id="menu_pnm_configuration" name="Configuration"
           parent="menu_pnm_root"
           groups="part_number_manager.group_pnm_config_viewer"
