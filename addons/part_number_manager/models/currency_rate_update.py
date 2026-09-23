@@ -25,8 +25,11 @@ class ResCurrency(models.Model):
             # A newly-enabled Currency otherwise shows a misleading "1"
             # Current Rate until tomorrow's cron run - refresh right away.
             # Also covers disabling one, in case the company's base
-            # currency itself was the one toggled.
-            self.env['res.currency']._cron_update_rates()
+            # currency itself was the one toggled. Triggered via the cron
+            # (runs in the cron worker moments later) rather than called
+            # inline, since the refresh itself does a blocking HTTP call
+            # per company and would otherwise stall this write's request.
+            self.env.ref('part_number_manager.ir_cron_currency_rate_update')._trigger()
         return result
 
     @api.model

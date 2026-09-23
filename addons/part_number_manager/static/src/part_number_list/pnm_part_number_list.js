@@ -3,8 +3,8 @@
 import { registry } from "@web/core/registry";
 import { useState, onWillStart, onMounted } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
-import { listView } from "@web/views/list/list_view";
 import { ListController } from "@web/views/list/list_controller";
+import { jaconCoreListView } from "@jacon_core/list/left_align_number_list_view";
 
 // Remembered per-browser (not per-user record) so switching it doesn't
 // touch the DB - same idea as part_management_page's own column widths/
@@ -72,7 +72,7 @@ export class PnmPartNumberListController extends ListController {
 }
 
 export const pnmPartNumberListView = {
-    ...listView,
+    ...jaconCoreListView,
     Controller: PnmPartNumberListController,
     buttonTemplate: "part_number_manager.PartNumberList.Buttons",
 };

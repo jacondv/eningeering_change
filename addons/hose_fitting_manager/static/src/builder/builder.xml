@@ -9,7 +9,7 @@
                         <i class="fa fa-table"/> Columns
                     </button>
                     <div class="o_hfm_column_menu_panel" t-if="state.columnMenuOpen">
-                        <t t-foreach="columnKeys" t-as="key" t-key="key">
+                        <t t-foreach="toggleableColumnKeys" t-as="key" t-key="key">
                             <label class="o_hfm_column_menu_item">
                                 <input type="checkbox"
                                        t-att-checked="state.columnVisibility[key]"
@@ -47,6 +47,9 @@
                 <button class="btn btn-secondary" t-on-click="() => this.addRow()">
                     <i class="fa fa-plus"/> Add Row
                 </button>
+                <button class="btn btn-secondary" t-on-click="() => this.onManageItemsClick()">
+                    <i class="fa fa-list"/> Manage Items
+                </button>
                 <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
                     <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
                     Save
@@ -61,6 +64,7 @@
                     <col t-attf-style="width: {{state.columnWidths.symbol}}px" t-attf-class="{{state.columnVisibility.symbol ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.hose_number}}px" t-attf-class="{{state.columnVisibility.hose_number ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.function}}px" t-attf-class="{{state.columnVisibility.function ? '' : 'o_hfm_col_hidden'}}"/>
+                    <col t-attf-style="width: {{state.columnWidths.wire}}px" t-attf-class="{{state.columnVisibility.wire ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.desc_en}}px" t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.desc_vn}}px" t-attf-class="{{state.columnVisibility.desc_vn ? '' : 'o_hfm_col_hidden'}}"/>
                     <col t-attf-style="width: {{state.columnWidths.qty}}px" t-attf-class="{{state.columnVisibility.qty ? '' : 'o_hfm_col_hidden'}}"/>
@@ -89,6 +93,7 @@
                         <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.function ? '' : 'o_hfm_col_hidden'}}">Function
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('function', ev)"/>
                         </th>
+                        <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.wire ? '' : 'o_hfm_col_hidden'}}">Wire</th>
                         <th class="o_pnm_th" t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}">Description EN
                             <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('desc_en', ev)"/>
                         </th>
@@ -156,6 +161,14 @@
                                              disabled="row.status === 'success'"
                                              onInput="(text) => this._setFunctionText(row, text)"
                                              onSelect="(opt) => this._pickFunction(row, opt)"/>
+                            </td>
+                            <td t-attf-class="{{state.columnVisibility.wire ? '' : 'o_hfm_col_hidden'}}">
+                                <button class="btn btn-sm"
+                                        t-attf-class="{{row.to_item_id ? 'btn-outline-success' : 'btn-outline-secondary'}}"
+                                        t-att-disabled="row.status === 'success'"
+                                        t-on-click="() => this.openRowWireWizard(row)">
+                                    <i class="fa fa-link"/> <t t-esc="row.to_item_id ? 'Wired' : 'Wire'"/>
+                                </button>
                             </td>
                             <td t-attf-class="{{state.columnVisibility.desc_en ? '' : 'o_hfm_col_hidden'}}">
                                 <input type="text" class="form-control form-control-sm"
@@ -267,21 +280,39 @@
             </div>
 
             <div class="o_pnm_recent" t-if="state.jobId">
-                <h3>Hose And Fitting Lines for this Job</h3>
+                <div class="o_pnm_header">
+                    <h3>Hose And Fitting Lines for this Job</h3>
+                    <div class="o_hfm_column_menu">
+                        <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.toggleJobLinesColumnMenu()">
+                            <i class="fa fa-table"/> Columns
+                        </button>
+                        <div class="o_hfm_column_menu_panel" t-if="state.jobLinesColumnMenuOpen">
+                            <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
+                                <label class="o_hfm_column_menu_item">
+                                    <input type="checkbox"
+                                           t-att-checked="state.jobLinesColumnVisibility[key]"
+                                           t-on-change="() => this.toggleJobLinesColumnVisibility(key)"/>
+                                    <t t-esc="columnLabels[key]"/>
+                                </label>
+                            </t>
+                        </div>
+                    </div>
+                </div>
                 <p class="text-muted small" t-if="!state.jobLines.length">No lines saved for this Job yet.</p>
                 <div class="o_pnm_table_wrapper o_hfm_job_lines_scroll" t-if="state.jobLines.length" t-ref="jobLinesWrapper">
                 <table class="table table-sm table-bordered table-hover table-striped o_hfm_table">
                     <colgroup>
-                        <t t-foreach="columnKeys" t-as="key" t-key="key">
-                            <col t-attf-style="width: {{state.columnWidths[key]}}px"
-                                 t-attf-class="{{state.columnVisibility[key] ? '' : 'o_hfm_col_hidden'}}"/>
+                        <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
+                            <col t-attf-style="width: {{state.jobLinesColumnWidths[key]}}px"
+                                 t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}"/>
                         </t>
                     </colgroup>
                     <thead>
                         <tr>
-                            <t t-foreach="columnKeys" t-as="key" t-key="key">
-                                <th t-attf-class="{{state.columnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
+                            <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
+                                <th class="o_pnm_th" t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
                                     <t t-esc="columnLabels[key]"/>
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onJobLinesColumnResizeStart(key, ev)"/>
                                 </th>
                             </t>
                         </tr>
@@ -289,8 +320,8 @@
                     <tbody>
                         <t t-foreach="state.jobLines" t-as="l" t-key="l.id">
                             <tr class="o_pnm_recent_row" t-on-click="() => this.openJobLine(l.id)">
-                                <t t-foreach="columnKeys" t-as="key" t-key="key">
-                                    <td t-attf-class="{{state.columnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
+                                <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
+                                    <td t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
                                         <t t-esc="l[key]"/>
                                     </td>
                                 </t>

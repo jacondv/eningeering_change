@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hose_fitting_manager.EquipmentItemsPage">
+        <div class="o_content o_pnm_page o_hfm_page o_hfm_equipment_page">
+            <div class="o_pnm_header">
+                <h2>Equipment Items</h2>
+                <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.goToBuilder()">
+                    <i class="fa fa-arrow-left"/> Back to Create List
+                </button>
+            </div>
+
+            <div class="o_hfm_top_fields">
+                <div class="o_hfm_top_field">
+                    <label>Job Number</label>
+                    <PnmCombobox options="jobOptions"
+                                 text="state.jobText"
+                                 value="state.jobId"
+                                 placeholder="'Select the Job to manage Items for'"
+                                 onInput="(text) => this.onJobInput(text)"
+                                 onSelect="(opt) => this.onJobSelect(opt)"/>
+                </div>
+            </div>
+
+            <t t-if="state.jobId">
+                <h3>New Items</h3>
+                <p class="text-muted small">
+                    Pick a Part below, or click the Part field and paste (Ctrl+V) rows copied from
+                    Excel - <strong>Part Number, Quantity</strong> columns only, Description EN/VN
+                    are always taken from each Part's own Display Description. Nothing is saved
+                    until you click Save.
+                </p>
+                <table class="table table-sm table-bordered o_pnm_table o_hfm_equipment_table">
+                    <colgroup>
+                        <col t-attf-style="width: {{state.columnWidths.part}}px"/>
+                        <col t-attf-style="width: {{state.columnWidths.description_en}}px"/>
+                        <col t-attf-style="width: {{state.columnWidths.description_vn}}px"/>
+                        <col/>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th class="o_pnm_th">Part
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Description (EN)
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('description_en', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Description (VN)
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('description_vn', ev)"/>
+                            </th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="o_hfm_add_item_row">
+                            <td>
+                                <PnmCombobox options="state.partOptions"
+                                             text="state.newPartText"
+                                             value="state.newPartId"
+                                             placeholder="'Type or paste a Part Number...'"
+                                             externalFilter="true"
+                                             onInput="(text) => this.onNewPartInput(text)"
+                                             onSelect="(opt) => this.onNewPartSelect(opt)"
+                                             onPaste="(ev) => this.onNewPartPaste(ev)"/>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="state.newDescriptionEn" placeholder="Description (EN)"/>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control form-control-sm"
+                                       t-model="state.newDescriptionVn" placeholder="Description (VN)"/>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-secondary" t-on-click="() => this.onAddToPending()">
+                                    <i class="fa fa-plus"/> Add
+                                </button>
+                            </td>
+                        </tr>
+                        <t t-foreach="state.pendingRows" t-as="row" t-key="row._localId">
+                            <tr class="o_hfm_pending_row">
+                                <td class="text-muted"><t t-esc="row.part_label"/></td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" t-model="row.description_en"/>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm" t-model="row.description_vn"/>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            t-on-click="() => this.removePendingRow(row._localId)">
+                                        <i class="fa fa-trash"/>
+                                    </button>
+                                </td>
+                            </tr>
+                        </t>
+                        <tr t-if="!state.pendingRows.length">
+                            <td colspan="4" class="text-muted small">
+                                Nothing staged yet - pick a Part above, or paste a list into the Part field.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="o_pnm_actions">
+                    <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
+                        <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
+                        Save <t t-if="state.pendingRows.length">(<t t-esc="state.pendingRows.length"/>)</t>
+                    </button>
+                </div>
+
+                <h3>Equipment Items for this Job</h3>
+                <p class="text-muted small" t-if="!state.rows.length">No Items saved for this Job yet.</p>
+                <table t-if="state.rows.length"
+                       class="table table-sm table-bordered table-hover table-striped o_pnm_table o_hfm_equipment_table">
+                    <colgroup>
+                        <col t-attf-style="width: {{state.columnWidths.part}}px"/>
+                        <col t-attf-style="width: {{state.columnWidths.description_en}}px"/>
+                        <col t-attf-style="width: {{state.columnWidths.description_vn}}px"/>
+                        <col t-attf-style="width: {{state.columnWidths.used_port}}px"/>
+                        <col t-attf-style="width: {{state.columnWidths.open_port}}px"/>
+                        <col/>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th class="o_pnm_th">Part
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Description (EN)
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('description_en', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Description (VN)
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('description_vn', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Used Port
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('used_port', ev)"/>
+                            </th>
+                            <th class="o_pnm_th">Open Port
+                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('open_port', ev)"/>
+                            </th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="state.rows" t-as="row" t-key="row.id">
+                            <tr>
+                                <td class="text-muted"><t t-esc="row.part_label"/></td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm"
+                                           t-model="row.description_en"
+                                           t-on-blur="() => this.onDescriptionBlur(row, 'description_en')"/>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm"
+                                           t-model="row.description_vn"
+                                           t-on-blur="() => this.onDescriptionBlur(row, 'description_vn')"/>
+                                </td>
+                                <td class="text-success"><t t-esc="row.used_ports"/></td>
+                                <td>
+                                    <span t-if="row.open_ports" class="text-danger fw-bold">
+                                        <i class="fa fa-exclamation-triangle"/> <t t-esc="row.open_ports"/>
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            t-on-click="() => this.onRemoveRow(row)">
+                                        <i class="fa fa-trash"/>
+                                    </button>
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </t>
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_hfm_wire_wizard_form" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.wire_wizard.form</field>
+        <field name="model">hose_fitting_manager.wire_wizard</field>
+        <field name="arch" type="xml">
+            <form string="Wire Hose Connection">
+                <group>
+                    <group string="From">
+                        <field name="job_number" invisible="1"/>
+                        <field name="from_item_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="from_available_port_ids" invisible="1"/>
+                        <field name="from_port_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                    </group>
+                    <group string="To">
+                        <field name="to_item_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="to_available_port_ids" invisible="1"/>
+                        <field name="to_port_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                    </group>
+                </group>
+                <group string="Description Preview" invisible="not description_preview_en">
+                    <field name="description_preview_en" string="EN" readonly="1"/>
+                    <field name="description_preview_vn" string="VN" readonly="1"/>
+                </group>
+                <footer>
+                    <button string="Confirm" type="object" name="action_confirm" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

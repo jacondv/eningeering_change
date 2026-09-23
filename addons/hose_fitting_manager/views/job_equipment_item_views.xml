@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_hfm_job_equipment_item_list" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.job_equipment_item.list</field>
+        <field name="model">hose_fitting_manager.job_equipment_item</field>
+        <field name="arch" type="xml">
+            <!-- editable="bottom" doubles as the manual "Add Items" flow -
+                 "Add a line" here, pick a Part; Description EN/VN default
+                 from the Part's own Display Description and can be tweaked
+                 afterward. -->
+            <list js_class="jacon_core_list" editable="bottom">
+                <field name="job_number"/>
+                <field name="part_id" widget="pnm_display_many2one" options="{'show_part_number': true}"/>
+                <field name="description_en" string="Description (EN)"/>
+                <field name="description_vn" string="Description (VN)"/>
+                <field name="used_ports" string="Used Port"/>
+                <field name="open_ports" string="Open Ports"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_hfm_job_equipment_item_search" model="ir.ui.view">
+        <field name="name">hose_fitting_manager.job_equipment_item.search</field>
+        <field name="model">hose_fitting_manager.job_equipment_item</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="job_number"/>
+                <field name="part_id"/>
+                <field name="description_en" string="Description (EN)"/>
+                <field name="description_vn" string="Description (VN)"/>
+                <group>
+                    <filter string="Job Number" name="groupby_job_number" context="{'group_by': 'job_number'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hfm_job_equipment_item" model="ir.actions.act_window">
+        <field name="name">Equipment Items</field>
+        <field name="res_model">hose_fitting_manager.job_equipment_item</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_hfm_job_equipment_item_search"/>
+        <field name="context">{'search_default_groupby_job_number': 1}</field>
+    </record>
+
+
+</odoo>
