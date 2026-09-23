@@ -48,7 +48,7 @@
                     <i class="fa fa-plus"/> Add Row
                 </button>
                 <button class="btn btn-secondary" t-on-click="() => this.onManageItemsClick()">
-                    <i class="fa fa-list"/> Manage Items
+                    <i class="fa fa-list"/> Material List
                 </button>
                 <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
                     <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
