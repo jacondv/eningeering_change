@@ -249,13 +249,27 @@
                                        decoration-warning="rpn_level == 'medium'"
                                        decoration-success="rpn_level == 'low'"/>
                             </group>
-                            <group string="Impact Analysis">
-                                <field name="impact_lead_time" nolabel="1" readonly="not can_edit_engineer_fields"
-                                       placeholder="Lead time impact..."/>
-                                <field name="impact_safety" nolabel="1" readonly="not can_edit_engineer_fields"
-                                       placeholder="Safety impact..."/>
-                                <field name="impact_compliance" nolabel="1" readonly="not can_edit_engineer_fields"
-                                       placeholder="Compliance impact..."/>
+                            <group string="Impact Analysis" col="1">
+                                <!-- A single div, itself the group's only child (colspan="2" so
+                                     it spans the group's full width) - everything inside is our
+                                     OWN CSS grid, not the group's built-in label/field grid.
+                                     Nesting label+field rows directly as group children kept
+                                     fighting that built-in grid (it grid-columns=2 per row
+                                     regardless of "col", so consecutive rows landed side by side
+                                     instead of stacked, and label width couldn't be pinned down).
+                                     A plain, self-contained grid with a fixed 45%/1fr split is
+                                     the reliable way to get every question on one line, all with
+                                     the same label width. -->
+                                <div colspan="2" style="display:grid; grid-template-columns:45% 1fr; row-gap:10px; column-gap:16px; align-items:center;">
+                                    <label for="impact_negative" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_negative" readonly="not can_edit_engineer_fields"/>
+                                    <label for="impact_cost_over_100" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_cost_over_100" readonly="not can_edit_engineer_fields"/>
+                                    <label for="impact_lead_time_over_week" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_lead_time_over_week" readonly="not can_edit_engineer_fields"/>
+                                    <label for="impact_circuit_change" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_circuit_change" readonly="not can_edit_engineer_fields"/>
+                                </div>
                             </group>
                         </page>
 
