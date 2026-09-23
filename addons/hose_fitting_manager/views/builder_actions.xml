@@ -6,4 +6,9 @@
         <field name="tag">hose_fitting_manager.builder</field>
     </record>
 
+    <record id="action_hfm_equipment_items" model="ir.actions.client">
+        <field name="name">Equipment Items</field>
+        <field name="tag">hose_fitting_manager.equipment_items</field>
+    </record>
+
 </odoo>

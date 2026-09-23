@@ -22,7 +22,6 @@ Features:
         'security/part_number_manager_groups.xml',
         'security/ir.model.access.csv',
         'data/part_number_import_mapping_data.xml',
-        'data/hose_type_attribute_data.xml',
         'data/currency_rate_update_cron.xml',
         'views/material_category_views.xml',
         'views/material_group_views.xml',

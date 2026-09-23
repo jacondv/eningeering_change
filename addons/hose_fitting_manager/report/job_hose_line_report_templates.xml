@@ -101,7 +101,7 @@
                                     <td style="text-align:center;"><span t-field="line.hose_number"/></td>
                                     <td><span t-esc="line.description_vn if desc_lang == 'vn' else line.description_en"/></td>
                                     <td style="text-align:center;"><span t-field="line.quantity"/></td>
-                                    <td><span t-esc="line._report_hose_description()"/></td>
+                                    <td>&#160;</td>
                                     <td style="text-align:center;"><span t-field="line.length" t-options="{'widget': 'integer'}"/></td>
                                     <td><span t-esc="line._report_part_description(line.fitting1_id)"/></td>
                                     <td><span t-esc="line._report_part_description(line.ferrule1_id)"/></td>

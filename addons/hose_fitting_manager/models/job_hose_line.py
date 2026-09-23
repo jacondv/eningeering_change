@@ -59,17 +59,37 @@ class JobHoseLine(models.Model):
         help="The assembly Part Number this line resolved to - either reused from an existing "
              "match, or newly generated for this exact BOM + Length.")
 
-    def _report_hose_description(self):
-        """The Hose Part's own "Hose Type" attribute description (e.g.
-        "1/4\" x 2SN") - fixed per Type, not retyped per Hose (see
-        part_number_manager's hose_type_attribute_data.xml) - used by the
-        Hose & Fitting List report's "Hose Description" column. Blank if
-        the Hose has no Hose Type attribute value set.
-        """
+    # Set only via the Wire wizard (action_open_wire_wizard below), never
+    # hand-edited - see JobEquipmentItem.get_open_port_ids for how a
+    # Port's used/open state is derived from these two pairs.
+    from_item_id = fields.Many2one(
+        'hose_fitting_manager.job_equipment_item', string='From Item',
+        domain="[('job_number', '=', job_number)]")
+    from_port_id = fields.Many2one(
+        'part_number_manager.part_attribute_value', string='From Port')
+    to_item_id = fields.Many2one(
+        'hose_fitting_manager.job_equipment_item', string='To Item',
+        domain="[('job_number', '=', job_number)]")
+    to_port_id = fields.Many2one(
+        'part_number_manager.part_attribute_value', string='To Port')
+
+    def action_open_wire_wizard(self):
         self.ensure_one()
-        value = self.hose_id.attribute_value_ids.filtered(
-            lambda v: v.attribute_id.name == 'Hose Type')[:1]
-        return value.option_description or ''
+        wizard = self.env['hose_fitting_manager.wire_wizard'].create({
+            'line_id': self.id,
+            'job_number': self.job_number.id,
+            'from_item_id': self.from_item_id.id,
+            'from_port_id': self.from_port_id.id,
+            'to_item_id': self.to_item_id.id,
+            'to_port_id': self.to_port_id.id,
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'hose_fitting_manager.wire_wizard',
+            'view_mode': 'form',
+            'res_id': wizard.id,
+            'target': 'new',
+        }
 
     def _report_part_description(self, part):
         """Display text for a component Part on the report (Fitting 1/2,

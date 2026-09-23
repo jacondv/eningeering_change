@@ -65,6 +65,16 @@ class PartAttributeValue(models.Model):
              "under Configuration > Part Attributes.")
     display_value = fields.Char(compute='_compute_display_value', store=True)
 
+    @api.depends('attribute_id.name', 'display_value')
+    def _compute_display_name(self):
+        # No Char field of its own to serve as the default display_name
+        # source (unlike most models) - without this override, a Many2one
+        # picking one of these (e.g. hose_fitting_manager's Wire wizard
+        # picking a Port) would show an unhelpful "Part Attribute Value,
+        # 123" instead of e.g. "Port: A".
+        for rec in self:
+            rec.display_name = f'{rec.attribute_id.name}: {rec.display_value}' if rec.attribute_id else rec.display_value
+
     @api.depends('attribute_id.value_type', 'attribute_id.uom', 'value_float', 'value_char', 'value_option_id')
     def _compute_display_value(self):
         for rec in self:
