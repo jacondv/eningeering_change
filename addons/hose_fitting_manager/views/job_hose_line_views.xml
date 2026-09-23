@@ -11,6 +11,8 @@
                 <field name="config_id" string="Hose Symbol"/>
                 <field name="hose_number"/>
                 <field name="function_id"/>
+                <button name="action_open_wire_wizard" type="object" string="Wire"
+                        icon="fa-link" class="btn-sm btn-link"/>
                 <field name="description_en"/>
                 <field name="description_vn"/>
                 <field name="quantity"/>
@@ -34,6 +36,15 @@
                 <field name="hose_guard_id" string="Hose Guard" widget="pnm_display_many2one"
                        options="{'part_type': 'Hose Guard'}" optional="hide"/>
                 <field name="part_id" string="Part Number" optional="show"/>
+                <!-- Set only via the Wire button on the form - the Item
+                     fields are hidden by default (their own Description is
+                     already folded into Description EN/VN above), the
+                     Ports are still useful at a glance so shown by
+                     default. -->
+                <field name="from_item_id" optional="hide"/>
+                <field name="from_port_id" string="From Port" optional="show"/>
+                <field name="to_item_id" optional="hide"/>
+                <field name="to_port_id" string="To Port" optional="show"/>
             </list>
         </field>
     </record>
@@ -43,6 +54,9 @@
         <field name="model">hose_fitting_manager.job_hose_line</field>
         <field name="arch" type="xml">
             <form string="Hose And Fitting Line">
+                <header>
+                    <button string="Wire" type="object" name="action_open_wire_wizard" class="btn-primary"/>
+                </header>
                 <sheet>
                     <group>
                         <group string="Job Info">
@@ -76,6 +90,15 @@
                                    options="{'part_type': 'Hose Guard', 'show_part_number': true}"/>
                             <field name="part_id" string="Hose And Fitting Part" widget="pnm_display_many2one"
                                    options="{'part_type': 'Hose And Fitting', 'show_part_number': true}"/>
+                        </group>
+                        <group string="Wiring">
+                            <!-- Set only via the Wire button above - shown
+                                 here read-only for traceability, not
+                                 meant to be hand-edited. -->
+                            <field name="from_item_id" readonly="1"/>
+                            <field name="from_port_id" readonly="1"/>
+                            <field name="to_item_id" readonly="1"/>
+                            <field name="to_port_id" readonly="1"/>
                         </group>
                     </group>
                 </sheet>

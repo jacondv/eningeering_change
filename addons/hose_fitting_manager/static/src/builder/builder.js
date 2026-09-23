@@ -20,6 +20,7 @@ const DEFAULT_COLUMN_WIDTHS = {
     symbol: 130,
     hose_number: 110,
     function: 130,
+    wire: 90,
     desc_en: 200,
     desc_vn: 200,
     qty: 70,
@@ -34,6 +35,12 @@ const DEFAULT_COLUMN_WIDTHS = {
 };
 
 const COLUMN_VISIBILITY_STORAGE_KEY = "hose_fitting_manager.builder.column_visibility";
+// The Job Lines recap table below keeps its own width/visibility choices,
+// independent of the Create List table above - same column set and labels,
+// but a user may want e.g. Ferrule hidden only on the recap, not while
+// actively building.
+const JOB_LINES_COLUMN_WIDTHS_STORAGE_KEY = "hose_fitting_manager.builder.job_lines_column_widths";
+const JOB_LINES_COLUMN_VISIBILITY_STORAGE_KEY = "hose_fitting_manager.builder.job_lines_column_visibility";
 // Column labels double as the toggle list's captions - keep in sync with
 // DEFAULT_COLUMN_WIDTHS' keys (Actions is never hideable).
 const COLUMN_LABELS = {
@@ -41,6 +48,7 @@ const COLUMN_LABELS = {
     symbol: "Symbol",
     hose_number: "Hose No",
     function: "Function",
+    wire: "Wire",
     desc_en: "Description EN",
     desc_vn: "Description VN",
     qty: "Qty",
@@ -84,9 +92,12 @@ export class HoseFittingBuilder extends Component {
             errors: {},
             isSaving: false,
             jobLines: [], // every Hose and Fitting job_hose_line already saved for state.jobId
-            columnWidths: this._loadColumnWidths(),
-            columnVisibility: this._loadColumnVisibility(),
+            columnWidths: this._loadColumnWidths(COLUMN_WIDTHS_STORAGE_KEY),
+            columnVisibility: this._loadColumnVisibility(COLUMN_VISIBILITY_STORAGE_KEY),
             columnMenuOpen: false,
+            jobLinesColumnWidths: this._loadColumnWidths(JOB_LINES_COLUMN_WIDTHS_STORAGE_KEY),
+            jobLinesColumnVisibility: this._loadColumnVisibility(JOB_LINES_COLUMN_VISIBILITY_STORAGE_KEY),
+            jobLinesColumnMenuOpen: false,
         });
 
         this.jobOptions = [];
@@ -100,6 +111,13 @@ export class HoseFittingBuilder extends Component {
         this.functionOptions = []; // [{id, label}] every Function - shared list, not tied to Symbol/Config
         this.columnLabels = COLUMN_LABELS;
         this.columnKeys = Object.keys(COLUMN_LABELS);
+        // "Wire" is an action column (a button, not real data) - always
+        // shown, so left out of the show/hide toggle menu.
+        this.toggleableColumnKeys = this.columnKeys.filter((k) => k !== "wire");
+        // Wire only applies to rows still being built (top table) - once a
+        // line is saved and shows up here, it's wired via the row it came
+        // from, not from this read-only recap.
+        this.recapColumnKeys = this.columnKeys.filter((k) => k !== "wire");
 
         this.tableWrapperRef = useRef("tableWrapper");
         this.jobLinesWrapperRef = useRef("jobLinesWrapper");
@@ -136,10 +154,11 @@ export class HoseFittingBuilder extends Component {
     // Every Hose and Fitting line already saved for the currently selected
     // Job Number - not just what's been added this session (state.recentLines
     // only covers that) - shown read-only below the Save button, refreshed
-    // whenever the Job changes or a new batch is saved. Same column set,
-    // order and show/hide state as the Create List table above (reuses
-    // state.columnWidths/columnVisibility) - only Display Names are shown
-    // for Hose/Fitting/Ferrule/Fire Wrap, never the raw Part Number code.
+    // whenever the Job changes or a new batch is saved. Same column set and
+    // order as the Create List table above, but its own independent
+    // show/hide and width choices (state.jobLinesColumnWidths/Visibility) -
+    // only Display Names are shown for Hose/Fitting/Ferrule/Fire Wrap, never
+    // the raw Part Number code.
     async _loadJobLines() {
         if (!this.state.jobId) {
             this.state.jobLines = [];
@@ -414,38 +433,38 @@ export class HoseFittingBuilder extends Component {
         return () => observer.disconnect();
     }
 
-    _loadColumnWidths() {
+    _loadColumnWidths(storageKey) {
         let saved = {};
         try {
-            saved = JSON.parse(localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY) || "{}");
+            saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
         } catch {
             saved = {};
         }
         return { ...DEFAULT_COLUMN_WIDTHS, ...saved };
     }
 
-    _saveColumnWidths() {
+    _saveColumnWidths(storageKey, widths) {
         try {
-            localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(this.state.columnWidths));
+            localStorage.setItem(storageKey, JSON.stringify(widths));
         } catch {
             // Private browsing / storage disabled / quota - column widths
             // just won't be remembered next time, nothing else depends on it.
         }
     }
 
-    _loadColumnVisibility() {
+    _loadColumnVisibility(storageKey) {
         let saved = {};
         try {
-            saved = JSON.parse(localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY) || "{}");
+            saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
         } catch {
             saved = {};
         }
         return { ...DEFAULT_COLUMN_VISIBILITY, ...saved };
     }
 
-    _saveColumnVisibility() {
+    _saveColumnVisibility(storageKey, visibility) {
         try {
-            localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify(this.state.columnVisibility));
+            localStorage.setItem(storageKey, JSON.stringify(visibility));
         } catch {
             // storage unavailable - column choices just won't be remembered
         }
@@ -457,20 +476,39 @@ export class HoseFittingBuilder extends Component {
 
     toggleColumnVisibility(columnKey) {
         this.state.columnVisibility[columnKey] = !this.state.columnVisibility[columnKey];
-        this._saveColumnVisibility();
+        this._saveColumnVisibility(COLUMN_VISIBILITY_STORAGE_KEY, this.state.columnVisibility);
     }
 
     onColumnResizeStart(columnKey, ev) {
+        this._startColumnResize(this.state.columnWidths, COLUMN_WIDTHS_STORAGE_KEY, columnKey, ev);
+    }
+
+    // ---- Job Lines recap table - same mechanics as above, own state/keys ----
+    toggleJobLinesColumnMenu() {
+        this.state.jobLinesColumnMenuOpen = !this.state.jobLinesColumnMenuOpen;
+    }
+
+    toggleJobLinesColumnVisibility(columnKey) {
+        this.state.jobLinesColumnVisibility[columnKey] = !this.state.jobLinesColumnVisibility[columnKey];
+        this._saveColumnVisibility(JOB_LINES_COLUMN_VISIBILITY_STORAGE_KEY, this.state.jobLinesColumnVisibility);
+    }
+
+    onJobLinesColumnResizeStart(columnKey, ev) {
+        this._startColumnResize(
+            this.state.jobLinesColumnWidths, JOB_LINES_COLUMN_WIDTHS_STORAGE_KEY, columnKey, ev);
+    }
+
+    _startColumnResize(widths, storageKey, columnKey, ev) {
         ev.preventDefault();
         const startX = ev.clientX;
-        const startWidth = this.state.columnWidths[columnKey];
+        const startWidth = widths[columnKey];
         const onMouseMove = (moveEv) => {
-            this.state.columnWidths[columnKey] = Math.max(60, startWidth + (moveEv.clientX - startX));
+            widths[columnKey] = Math.max(60, startWidth + (moveEv.clientX - startX));
         };
         const onMouseUp = () => {
             window.removeEventListener("mousemove", onMouseMove);
             window.removeEventListener("mouseup", onMouseUp);
-            this._saveColumnWidths();
+            this._saveColumnWidths(storageKey, widths);
         };
         window.addEventListener("mousemove", onMouseMove);
         window.addEventListener("mouseup", onMouseUp);
@@ -497,6 +535,83 @@ export class HoseFittingBuilder extends Component {
             views: [[false, "form"]],
             target: "current",
         });
+    }
+
+    // "Manage Items" opens the dedicated Equipment Items page (paste from
+    // Excel directly, inline edit/remove) for whichever Job is currently
+    // selected here - that page is the one place this backing list (used by
+    // Wire's From/To pickers) is ever managed; it's never its own menu.
+    async onManageItemsClick() {
+        if (!this.state.jobId) {
+            this.notification.add("Select a Job Number first.", { type: "danger" });
+            return;
+        }
+        await this.action.doAction("hose_fitting_manager.action_hfm_equipment_items", {
+            additionalContext: { default_job_number: this.state.jobId },
+        });
+    }
+
+    // Wire, called from a still-unsaved Create List row - there's no
+    // job_hose_line to hang the wizard off of yet, so a wire_wizard record
+    // is created directly (job_number from this page, not from a line),
+    // opened, and its result read back into the row's own state once
+    // closed. Nothing is written to job_hose_line here - the picks just
+    // ride along in the row and get sent as part of the row's own payload
+    // on Save (see onSaveClick).
+    async openRowWireWizard(row) {
+        if (!this.state.jobId) {
+            this.notification.add("Select a Job Number first.", { type: "danger" });
+            return;
+        }
+        // Ports already picked on *other* pending rows in this same batch -
+        // not yet reflected in the database, so the wizard wouldn't
+        // otherwise know to treat them as taken.
+        const excludePortIds = [];
+        for (const other of this.state.rows) {
+            if (other === row) continue;
+            if (other.from_port_id) excludePortIds.push(other.from_port_id);
+            if (other.to_port_id) excludePortIds.push(other.to_port_id);
+        }
+
+        const [wizardId] = await this.orm.create("hose_fitting_manager.wire_wizard", [{
+            job_number: this.state.jobId,
+            from_item_id: row.from_item_id || false,
+            from_port_id: row.from_port_id || false,
+            to_item_id: row.to_item_id || false,
+            to_port_id: row.to_port_id || false,
+            exclude_port_ids: [[6, 0, excludePortIds]],
+        }]);
+        // unlink must happen *inside* onClose, not after doAction resolves -
+        // for a target:"new" dialog, doAction's own promise resolves once
+        // the dialog is opened, not once it's closed, so unlinking straight
+        // after it would delete the record while the user is still picking.
+        await this.action.doAction(
+            {
+                type: "ir.actions.act_window",
+                res_model: "hose_fitting_manager.wire_wizard",
+                res_id: wizardId,
+                views: [[false, "form"]],
+                target: "new",
+            },
+            {
+                onClose: async () => {
+                    const [wiz] = await this.orm.read(
+                        "hose_fitting_manager.wire_wizard", [wizardId],
+                        ["from_item_id", "from_port_id", "to_item_id", "to_port_id",
+                         "description_preview_en", "description_preview_vn"]
+                    );
+                    if (wiz.from_item_id && wiz.from_port_id && wiz.to_item_id && wiz.to_port_id) {
+                        row.from_item_id = wiz.from_item_id[0];
+                        row.from_port_id = wiz.from_port_id[0];
+                        row.to_item_id = wiz.to_item_id[0];
+                        row.to_port_id = wiz.to_port_id[0];
+                        row.description_en = wiz.description_preview_en;
+                        row.description_vn = wiz.description_preview_vn;
+                    }
+                    await this.orm.unlink("hose_fitting_manager.wire_wizard", [wizardId]);
+                },
+            }
+        );
     }
 
     _escapeRegExp(text) {
@@ -562,6 +677,13 @@ export class HoseFittingBuilder extends Component {
             hose_number: "",
             function_id: false,
             function_text: "",
+            // Set only via openRowWireWizard - carried into the create_batch
+            // payload as-is on Save, so a line can be born already Wired
+            // instead of needing a second Wire pass after saving.
+            from_item_id: false,
+            from_port_id: false,
+            to_item_id: false,
+            to_port_id: false,
             description_en: "",
             description_vn: "",
             quantity: 1,
@@ -862,6 +984,10 @@ export class HoseFittingBuilder extends Component {
                 ferrule2_id: row.ferrule2_id || false,
                 fire_wrap_id: row.fire_wrap_id || false,
                 hose_guard_id: row.hose_guard_id || false,
+                from_item_id: row.from_item_id || false,
+                from_port_id: row.from_port_id || false,
+                to_item_id: row.to_item_id || false,
+                to_port_id: row.to_port_id || false,
                 part_id: row.part_id || null,
                 material_group_id: row.part_id ? null : this.state.materialGroupId,
                 length_tolerance: row.length_tolerance || DEFAULT_LENGTH_TOLERANCE,

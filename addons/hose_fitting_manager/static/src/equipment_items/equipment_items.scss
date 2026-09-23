@@ -1,0 +1,13 @@
+// Reuses .o_pnm_page/.o_pnm_table visual rules from part_number_manager's
+// part_management_page.scss (this page's root carries both classes), same
+// convention as builder.scss - only the bits specific to this page live here.
+.o_hfm_equipment_page {
+    .o_hfm_equipment_table {
+        max-width: 1300px;
+    }
+
+    .o_hfm_add_item_row,
+    .o_hfm_pending_row {
+        background: var(--Table-header-background, #f8f9fa);
+    }
+}
