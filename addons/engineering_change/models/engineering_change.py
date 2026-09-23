@@ -27,7 +27,7 @@ class EngineeringChange(models.Model):
     #   that approval).
     ENGINEER_FIELDS = frozenset({
         'title', 'background', 'description', 'engineer_id', 'rpn', 'change_category',
-        'impact_lead_time', 'impact_safety', 'impact_compliance',
+        'impact_negative', 'impact_cost_over_100', 'impact_lead_time_over_week', 'impact_circuit_change',
         'image_ids', 'document_ids', 'default_affected_model_ids',
         'default_affected_project_ids',
         'requester_id', 'line_manager_id', 'approval_date',
@@ -152,9 +152,20 @@ class EngineeringChange(models.Model):
         ('medium', 'Medium'),
         ('high', 'High'),
     ], string='RPN Level', compute='_compute_rpn_level', store=True)
-    impact_lead_time = fields.Text(string='Lead Time Impact', tracking=True)
-    impact_safety = fields.Text(string='Safety Impact', tracking=True)
-    impact_compliance = fields.Text(string='Compliance Impact', tracking=True)
+    # Risk Assessment tab's Impact Analysis: 4 fixed yes/no questions rather
+    # than free text - answers stay optional (not required to Submit), left
+    # blank means "not answered yet" rather than "No".
+    IMPACT_ANSWERS = [('yes', 'Yes'), ('no', 'No')]
+    impact_negative = fields.Selection(
+        IMPACT_ANSWERS, string='Does this change have any negative impact, safety or compliance issues?',
+        tracking=True)
+    impact_cost_over_100 = fields.Selection(
+        IMPACT_ANSWERS, string='Impact cost > $100?', tracking=True)
+    impact_lead_time_over_week = fields.Selection(
+        IMPACT_ANSWERS, string='Impact lead time > 1 week?', tracking=True)
+    impact_circuit_change = fields.Selection(
+        IMPACT_ANSWERS, string='Does this change affect the circuit functionality or specifications?',
+        tracking=True)
 
     bod_approver_id = fields.Many2one('res.users', string='BOC Approver', readonly=True, copy=False)
     reject_reason = fields.Text(readonly=True, copy=False)
