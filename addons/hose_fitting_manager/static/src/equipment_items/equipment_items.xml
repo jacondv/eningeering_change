@@ -29,6 +29,12 @@
                     are always taken from each Part's own Display Description. Nothing is saved
                     until you click Save.
                 </p>
+                <div class="o_pnm_actions">
+                    <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
+                        <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
+                        Save <t t-if="state.pendingRows.length">(<t t-esc="state.pendingRows.length"/>)</t>
+                    </button>
+                </div>
                 <table class="table table-sm table-bordered o_pnm_table o_hfm_equipment_table">
                     <colgroup>
                         <col t-attf-style="width: {{state.columnWidths.part}}px"/>
@@ -100,18 +106,13 @@
                         </tr>
                     </tbody>
                 </table>
-                <div class="o_pnm_actions">
-                    <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
-                        <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
-                        Save <t t-if="state.pendingRows.length">(<t t-esc="state.pendingRows.length"/>)</t>
-                    </button>
-                </div>
 
                 <h3>Equipment Items for this Job</h3>
                 <p class="text-muted small" t-if="!state.rows.length">No Items saved for this Job yet.</p>
                 <table t-if="state.rows.length"
                        class="table table-sm table-bordered table-hover table-striped o_pnm_table o_hfm_equipment_table">
                     <colgroup>
+                        <col style="width: 48px"/>
                         <col t-attf-style="width: {{state.columnWidths.part}}px"/>
                         <col t-attf-style="width: {{state.columnWidths.description_en}}px"/>
                         <col t-attf-style="width: {{state.columnWidths.description_vn}}px"/>
@@ -121,6 +122,7 @@
                     </colgroup>
                     <thead>
                         <tr>
+                            <th class="o_pnm_th">No.</th>
                             <th class="o_pnm_th">Part
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part', ev)"/>
                             </th>
@@ -142,6 +144,7 @@
                     <tbody>
                         <t t-foreach="state.rows" t-as="row" t-key="row.id">
                             <tr>
+                                <td class="text-muted small text-center"><t t-esc="row_index + 1"/></td>
                                 <td class="text-muted"><t t-esc="row.part_label"/></td>
                                 <td>
                                     <input type="text" class="form-control form-control-sm"

@@ -174,11 +174,19 @@
 
     <!-- Same list as "All Part Numbers" above, minus the "New" button -
          every row here was auto-generated (Create/Convert page or Import),
-         never meant to be hand-added from this queue. -->
+         never meant to be hand-added from this queue.
+         mode="primary" is required here - without it, this being a plain
+         "extension" inheriting from view_pnm_part_number_list made Odoo
+         fold create="false" back onto the PARENT view's own combined arch
+         wherever it's used, silently hiding New/Import on "All Part
+         Numbers" too (found while investigating a missing Import button
+         there). mode="primary" makes this its own independent view that
+         only affects Pending Approval. -->
     <record id="view_pnm_part_number_pending_approval_list" model="ir.ui.view">
         <field name="name">part_number_manager.part_number.pending_approval.list</field>
         <field name="model">part_number_manager.part_number</field>
         <field name="inherit_id" ref="view_pnm_part_number_list"/>
+        <field name="mode">primary</field>
         <field name="arch" type="xml">
             <xpath expr="//list" position="attributes">
                 <attribute name="create">false</attribute>
