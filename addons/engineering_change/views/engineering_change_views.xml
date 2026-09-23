@@ -250,25 +250,33 @@
                                        decoration-success="rpn_level == 'low'"/>
                             </group>
                             <group string="Impact Analysis" col="1">
-                                <!-- A single div, itself the group's only child (colspan="2" so
-                                     it spans the group's full width) - everything inside is our
-                                     OWN CSS grid, not the group's built-in label/field grid.
-                                     Nesting label+field rows directly as group children kept
-                                     fighting that built-in grid (it grid-columns=2 per row
-                                     regardless of "col", so consecutive rows landed side by side
-                                     instead of stacked, and label width couldn't be pinned down).
-                                     A plain, self-contained grid with a fixed 45%/1fr split is
-                                     the reliable way to get every question on one line, all with
-                                     the same label width. -->
-                                <div colspan="2" style="display:grid; grid-template-columns:45% 1fr; row-gap:10px; column-gap:16px; align-items:center;">
+                                <!-- Each question is its own flex row (not a shared grid column)
+                                     so the label sizes to its own text - never wraps (nowrap) -
+                                     and the dropdown sits right after it at a small fixed width,
+                                     instead of a shared column pushing it far to the right for
+                                     short questions. colspan="2" makes each row the group's only
+                                     child on that grid row, spanning its full width (see the
+                                     "why not a plain <field>" note on the single-grid version
+                                     this replaced, still in git history). -->
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_negative" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_negative" readonly="not can_edit_engineer_fields"/>
+                                    <field name="impact_negative" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_cost_over_100" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_cost_over_100" readonly="not can_edit_engineer_fields"/>
+                                    <field name="impact_cost_over_100" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_lead_time_over_week" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_lead_time_over_week" readonly="not can_edit_engineer_fields"/>
+                                    <field name="impact_lead_time_over_week" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_circuit_change" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_circuit_change" readonly="not can_edit_engineer_fields"/>
+                                    <field name="impact_circuit_change" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
                                 </div>
                             </group>
                         </page>
