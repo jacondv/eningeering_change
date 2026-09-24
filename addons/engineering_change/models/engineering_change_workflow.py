@@ -4,11 +4,12 @@ from odoo.exceptions import AccessError, UserError
 
 class EngineeringChange(models.Model):
     """The request's state machine (Submit / Approve / Reject / Confirm
-    Sales / Close / Reopen / Revert) and the notification helpers it
-    uses. Split out from engineering_change.py, which owns the record's
-    fields, computed UX hints, and field-level edit guards - this file only
-    ever changes `state` (and its side-effect fields) through the workflow
-    methods below, never through a bare write().
+    Production / Confirm Sale / Close / Reopen / Recall) and the
+    notification helpers it uses. Split out from engineering_change.py,
+    which owns the record's fields, computed UX hints, and field-level edit
+    guards - this file only ever changes `state` (and its side-effect
+    fields) through the workflow methods below, never through a bare
+    write().
     """
     _inherit = 'engineering.change'
 
@@ -27,18 +28,84 @@ class EngineeringChange(models.Model):
         email_values = {'recipient_ids': [(6, 0, partners.ids)]} if partners else {}
         template.send_mail(self.id, force_send=False, email_values=email_values)
 
-    def _notify_implement_team(self, template_xmlid, body=None):
-        for rec in self:
-            partners = rec.implement_team_ids.mapped('partner_id')
-            if partners:
-                rec.message_subscribe(partner_ids=partners.ids)
-            rec._send_template(template_xmlid, partners=partners)
-            if body:
-                rec.message_post(body=body, partner_ids=partners.ids)
+    def _notify(self, partners, body):
+        """Subscribe `partners` (if any) and post `body` to Chatter -
+        the subscribe-then-post pair every workflow transition below ends
+        with, collapsed into one call so the "if partners" guard can't be
+        forgotten in a new one. No mail template/outgoing email here - use
+        _send_template first for that (see _apply_reject, the only
+        remaining caller - Approve no longer sends an email, per request).
+        """
+        self.ensure_one()
+        if partners:
+            self.message_subscribe(partner_ids=partners.ids)
+        self.message_post(body=body, partner_ids=partners.ids)
+
+    def _state_labels(self):
+        return dict(self._fields['state'].selection)
 
     # ------------------------------------------------------------
     # Workflow
     # ------------------------------------------------------------
+    # Change Source values exempt from the Impact Analysis gate below - a
+    # Client Feedback/Support request can Submit without answering any of
+    # the 4 Impact Analysis questions, and always ends up Minor Change (see
+    # _apply_approve's manager branch).
+    IMPACT_GATE_EXEMPT_CATEGORIES = ('client_feedback',)
+
+    def _check_impact_gate(self):
+        """Raises UserError if this request's Impact Analysis answers aren't
+        complete enough to Submit - not exempt (see IMPACT_GATE_EXEMPT_CATEGORIES)
+        and: impact_negative unanswered, or answered 'no' with any of the
+        other 3 questions still unanswered. Doesn't check impact_negative == 'yes'
+        itself - that's allowed to reach Submit and is instead auto-rejected
+        right after (see _auto_reject_negative_impact), so the "Yes" answer
+        and its consequence both end up on record with a Request No/Chatter
+        trail, not silently blocked.
+        """
+        self.ensure_one()
+        if self.change_category in self.IMPACT_GATE_EXEMPT_CATEGORIES:
+            return
+        if not self.impact_negative:
+            raise UserError(_(
+                "Please answer 'Does this change have any negative impact, safety or "
+                "compliance issues?' (Risk Assessment tab) before submitting."))
+        if self.impact_negative == 'no':
+            missing = [self._fields[f].string for f in (
+                'impact_cost_over_100', 'impact_lead_time_over_week', 'impact_circuit_change',
+            ) if not self[f]]
+            if missing:
+                raise UserError(_(
+                    "Please answer the remaining Impact Analysis questions before "
+                    "submitting: %s"
+                ) % ', '.join(missing))
+
+    def _auto_reject_negative_impact(self):
+        """Auto-Reject (outcome='cancel', a dead end - see _apply_reject) right
+        after Submit when Impact Analysis' first question was answered Yes
+        and the Change Source isn't exempt (see _check_impact_gate/
+        IMPACT_GATE_EXEMPT_CATEGORIES) - no human approver decision involved,
+        so this logs directly to approval_log_ids (role='system') instead of
+        going through _apply_reject, whose role-to-mail-template map only
+        knows the 3 human roles.
+        """
+        self.ensure_one()
+        reason = _("Auto-rejected: 'negative impact, safety or compliance issue' was answered Yes.")
+        self.with_context(ec_workflow_write=True).write({'state': 'canceled', 'reject_reason': reason})
+        # sudo(): triggered by whoever clicked Submit (normally the Engineer),
+        # who isn't necessarily Line Manager/BOC Approve - the only 2 groups
+        # granted create on engineering.change.approval.log (see its
+        # ir.model.access.csv). This row logs a system decision, not one made
+        # by the submitter, so it's correct for it to write regardless of
+        # their own approval_log_ids rights.
+        self.env['engineering.change.approval.log'].sudo().create({
+            'change_id': self.id,
+            'role': 'system',
+            'decision': 'rejected',
+            'note': reason,
+        })
+        self._notify(self.engineer_id.partner_id, reason)
+
     def action_submit(self):
         for rec in self:
             if rec.state != 'draft':
@@ -46,18 +113,19 @@ class EngineeringChange(models.Model):
             if not rec.title or not rec.description or not rec.change_category:
                 raise UserError(_(
                     "Title, Description and Change Category are required before submitting."))
+            rec._check_impact_gate()
             if rec.name == 'New':
                 rec.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
             if not rec.project_id:
                 rec._link_ec_project()
             rec.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
             partners = rec._get_group_partners('engineering_change.group_ec_manager')
-            if partners:
-                rec.message_subscribe(partner_ids=partners.ids)
             # No email on Submit (per request) - still logged to chatter/inbox
-            # below, so Line Manager still sees it without an outgoing email.
-            rec.message_post(
-                body=_("Request submitted for Manager approval."), partner_ids=partners.ids)
+            # via _notify, so Line Manager still sees it without an outgoing email.
+            rec._notify(partners, _("Request submitted for Manager approval."))
+            if (rec.change_category not in rec.IMPACT_GATE_EXEMPT_CATEGORIES
+                    and rec.impact_negative == 'yes'):
+                rec._auto_reject_negative_impact()
 
     def _get_direct_manager_user(self):
         """The res.users who is this request's Engineer's direct manager, via
@@ -90,31 +158,38 @@ class EngineeringChange(models.Model):
                     "Only %s, this Engineer's direct Line Manager (set on their "
                     "Employee record), can approve this request."
                 ) % direct_manager.name)
+            # Auto-classify Minor Change vs DCR right here, on Line Manager
+            # approval - Client Feedback/Support is always Minor Change (its
+            # Impact Analysis questions were never required to be answered -
+            # see IMPACT_GATE_EXEMPT_CATEGORIES); everything else is DCR the
+            # moment any of the 3 "impact" questions was answered Yes, Minor
+            # Change otherwise. Still just the classification (request_type) -
+            # the DCR number itself (dcr_no) isn't generated until BOC
+            # approval, same as before.
+            if self.change_category in self.IMPACT_GATE_EXEMPT_CATEGORIES:
+                request_type = 'minor'
+            else:
+                is_dcr = any(self[f] == 'yes' for f in (
+                    'impact_cost_over_100', 'impact_lead_time_over_week', 'impact_circuit_change'))
+                request_type = 'dcr' if is_dcr else 'minor'
+            self.with_context(ec_workflow_write=True).request_type = request_type
             self.with_context(ec_workflow_write=True).state = 'waiting_head_office_approval'
             partners = self._get_group_partners('engineering_change.group_ec_head_office')
-            if partners:
-                self.message_subscribe(partner_ids=partners.ids)
-            self._send_template('engineering_change.mail_template_head_office_review', partners=partners)
-            self.message_post(
-                body=_("Approved by Line Manager, forwarded to Head Manager for review."),
-                partner_ids=partners.ids)
+            # No email on Approve (per request) - still logged to chatter/inbox
+            # via _notify, same as Submit above.
+            self._notify(partners, _("Approved by Line Manager, forwarded to Head Manager for review."))
         elif approve_by == 'head_office':
             if self.state != 'waiting_head_office_approval':
                 raise UserError(_("Only requests waiting for Head Manager approval can be approved."))
             if self.request_type == 'dcr':
                 self.with_context(ec_workflow_write=True).state = 'bod_review'
                 partners = self._get_group_partners('engineering_change.group_ec_bod')
-                if partners:
-                    self.message_subscribe(partner_ids=partners.ids)
-                self._send_template('engineering_change.mail_template_bod_review', partners=partners)
-                self.message_post(
-                    body=_("Approved by Head Manager, forwarded to BOC for review."),
-                    partner_ids=partners.ids)
+                self._notify(partners, _("Approved by Head Manager, forwarded to BOC for review."))
             else:
                 self.with_context(ec_workflow_write=True).state = 'implement'
-                self._notify_implement_team(
-                    'engineering_change.mail_template_implement',
-                    body=_("Approved by Head Manager. Moved to Implementation."))
+                self._notify(
+                    self.implement_team_ids.mapped('partner_id'),
+                    _("Approved by Head Manager. Moved to Implementation."))
         else:
             if self.state != 'bod_review':
                 raise UserError(_("Only requests in BOC Approval can be approved by BOC."))
@@ -125,9 +200,9 @@ class EngineeringChange(models.Model):
                 'dcr_no': self.dcr_no or self._next_dcr_no() or False,
                 'state': 'implement',
             })
-            self._notify_implement_team(
-                'engineering_change.mail_template_implement',
-                body=_("Approved by BOC (%s). Moved to Implementation.") % self.env.user.name)
+            self._notify(
+                self.implement_team_ids.mapped('partner_id'),
+                _("Approved by BOC (%s). Moved to Implementation.") % self.env.user.name)
         self.env['engineering.change.approval.log'].create({
             'change_id': self.id,
             'role': approve_by,
@@ -155,102 +230,52 @@ class EngineeringChange(models.Model):
             'note': reason,
         })
         partners = self.engineer_id.partner_id
+        # .get(), not [reject_by]: an unrecognized reject_by shouldn't crash
+        # the whole rejection over a missing email template - it just skips
+        # the outgoing email and still logs/notifies via Chatter below.
         template_xmlid = {
             'bod': 'engineering_change.mail_template_bod_reject',
             'head_office': 'engineering_change.mail_template_head_office_reject',
             'manager': 'engineering_change.mail_template_manager_reject',
-        }[reject_by]
-        if partners:
-            self.message_subscribe(partner_ids=partners.ids)
-        self._send_template(template_xmlid, partners=partners)
+        }.get(reject_by)
+        if template_xmlid:
+            self._send_template(template_xmlid, partners=partners)
         body = (_("Request rejected and moved back to Draft. Reason: %s") % reason if outcome == 'draft'
                 else _("Request rejected and canceled. Reason: %s") % reason)
-        self.message_post(body=body, partner_ids=partners.ids)
+        self._notify(partners, body)
+
+    def _confirm_stage(self, from_state, to_state, can_confirm_flag, body):
+        """Shared body of action_confirm_production/action_confirm_sale -
+        identical except for which state they move from/to, which
+        can_confirm_* flag gates them, and their Chatter message.
+        """
+        for rec in self:
+            if rec.state != from_state:
+                raise UserError(_(
+                    "Only requests in %s state can move to %s."
+                ) % (rec._state_labels()[from_state], rec._state_labels()[to_state]))
+            if not rec[can_confirm_flag]:
+                raise AccessError(_(
+                    "Only the Manager or the request's Implement Owner can confirm %s."
+                ) % rec._state_labels()[to_state])
+            # sudo(): the Implement Owner allowed through the check above is not
+            # necessarily an Engineer/BOC/Manager Approve holder with base write
+            # access on engineering.change (e.g. a plain team member) - the
+            # can_confirm_flag check just above is the real gate.
+            rec_sudo = rec.sudo()
+            rec_sudo.with_context(ec_workflow_write=True).state = to_state
+            partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
+            rec_sudo._notify(partners, body % self.env.user.name)
 
     def action_confirm_production(self):
-        for rec in self:
-            if rec.state != 'implement':
-                raise UserError(_("Only requests in Design state can move to Production."))
-            if not rec.can_confirm_production:
-                raise AccessError(_(
-                    "Only the Manager or the request's Implement Owner can confirm Production."))
-            # sudo(): the Implement Owner allowed through the check above is not
-            # necessarily an Engineer/BOC/Manager Approve holder with base write
-            # access on engineering.change (e.g. a plain team member) - the
-            # can_confirm_production check just above is the real gate.
-            rec_sudo = rec.sudo()
-            rec_sudo.with_context(ec_workflow_write=True).state = 'production'
-            partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
-            if partners:
-                rec_sudo.message_subscribe(partner_ids=partners.ids)
-            rec_sudo.message_post(
-                body=_("Moved to Production, confirmed by %s.") % self.env.user.name,
-                partner_ids=partners.ids)
+        self._confirm_stage(
+            'implement', 'production', 'can_confirm_production',
+            _("Moved to Production, confirmed by %s."))
 
     def action_confirm_sale(self):
-        for rec in self:
-            if rec.state != 'production':
-                raise UserError(_("Only requests in Production state can move to Sales."))
-            if not rec.can_confirm_sale:
-                raise AccessError(_(
-                    "Only the Manager or the request's Implement Owner can confirm Sales."))
-            # sudo(): the Implement Owner allowed through the check above is not
-            # necessarily an Engineer/BOC/Manager Approve holder with base write
-            # access on engineering.change (e.g. a plain team member) - the
-            # can_confirm_sale check just above is the real gate.
-            rec_sudo = rec.sudo()
-            rec_sudo.with_context(ec_workflow_write=True).state = 'sale'
-            partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
-            if partners:
-                rec_sudo.message_subscribe(partner_ids=partners.ids)
-            rec_sudo.message_post(
-                body=_("Moved to Sales, confirmed by %s.") % self.env.user.name,
-                partner_ids=partners.ids)
-
-    def _previous_workflow_state(self):
-        """The state right before the current one in the normal forward flow,
-        used by action_revert_to_previous_state to undo an accidental click.
-        Not defined for 'draft' (nothing before it) or 'done' (Reopen already
-        owns that specific transition, with its own dedicated button/label).
-        """
-        self.ensure_one()
-        if self.state == 'waiting_manager_approval':
-            return 'draft'
-        if self.state == 'waiting_head_office_approval':
-            return 'waiting_manager_approval'
-        if self.state == 'bod_review':
-            return 'waiting_head_office_approval'
-        if self.state == 'implement':
-            return 'bod_review' if self.request_type == 'dcr' else 'waiting_head_office_approval'
-        if self.state == 'production':
-            return 'implement'
-        if self.state == 'sale':
-            return 'production'
-        return False
-
-    def action_revert_to_previous_state(self):
-        """Manager-only safety valve to undo an accidental workflow click
-        (e.g. Confirm Sale hit by mistake) by stepping back exactly one
-        state, without going through the Reject wizard (which always resets
-        all the way to Draft and requires a reason).
-        """
-        state_labels = dict(self._fields['state'].selection)
-        for rec in self:
-            if not self.env.user.has_group('engineering_change.group_ec_manager'):
-                raise UserError(_("Only Line Manager can revert a request to its previous state."))
-            previous_state = rec._previous_workflow_state()
-            if not previous_state:
-                raise UserError(_("This request has no previous state to revert to."))
-            from_label = state_labels[rec.state]
-            rec.with_context(ec_workflow_write=True).state = previous_state
-            partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
-            rec.message_post(
-                body=_("Reverted from %(from_state)s back to %(to_state)s by %(user)s.") % {
-                    'from_state': from_label,
-                    'to_state': state_labels[previous_state],
-                    'user': self.env.user.name,
-                },
-                partner_ids=partners.ids)
+        self._confirm_stage(
+            'production', 'sale', 'can_confirm_sale',
+            _("Moved to Sales, confirmed by %s."))
 
     def action_close_request(self):
         for rec in self:
@@ -267,9 +292,7 @@ class EngineeringChange(models.Model):
             rec_sudo.with_context(ec_workflow_write=True).write(
                 {'state': 'done', 'close_date': fields.Datetime.now()})
             partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
-            if partners:
-                rec_sudo.message_subscribe(partner_ids=partners.ids)
-            rec_sudo.message_post(body=_("Request closed."), partner_ids=partners.ids)
+            rec_sudo._notify(partners, _("Request closed."))
 
     def action_reopen(self):
         for rec in self:
@@ -280,8 +303,7 @@ class EngineeringChange(models.Model):
             rec.with_context(ec_workflow_write=True).write(
                 {'state': 'sale', 'close_date': False})
             partners = (rec.engineer_id | rec.implement_team_ids).mapped('partner_id')
-            rec.message_post(
-                body=_("Request reopened by %s.") % self.env.user.name, partner_ids=partners.ids)
+            rec._notify(partners, _("Request reopened by %s.") % self.env.user.name)
 
     # ------------------------------------------------------------
     # Reject wizard glue
@@ -372,7 +394,7 @@ class EngineeringChange(models.Model):
             target_state = 'waiting_head_office_approval'
         else:
             raise UserError(_("You cannot recall approval at the current stage."))
-        state_labels = dict(self._fields['state'].selection)
+        state_labels = self._state_labels()
         from_label = state_labels[self.state]
         # sudo(): the Engineer allowed through the first branch above (self.engineer_id
         # == user) is not necessarily a group_ec_engineer holder with base write access
