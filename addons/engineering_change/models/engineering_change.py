@@ -157,12 +157,12 @@ class EngineeringChange(models.Model):
     # blank means "not answered yet" rather than "No".
     IMPACT_ANSWERS = [('yes', 'Yes'), ('no', 'No')]
     impact_negative = fields.Selection(
-        IMPACT_ANSWERS, string='Does this change have any negative impact, safety or compliance issues?',
+        IMPACT_ANSWERS, string='Does this change have any negative impact to safety or compliance issues?',
         tracking=True)
     impact_cost_over_100 = fields.Selection(
-        IMPACT_ANSWERS, string='Impact cost > $100?', tracking=True)
+        IMPACT_ANSWERS, string='Does this change negatively impact cost greater than 100usd?', tracking=True)
     impact_lead_time_over_week = fields.Selection(
-        IMPACT_ANSWERS, string='Impact lead time > 1 week?', tracking=True)
+        IMPACT_ANSWERS, string='Does this change negatively impact lead time greater than 1 week?', tracking=True)
     impact_circuit_change = fields.Selection(
         IMPACT_ANSWERS, string='Does this change affect the circuit functionality or specifications?',
         tracking=True)
