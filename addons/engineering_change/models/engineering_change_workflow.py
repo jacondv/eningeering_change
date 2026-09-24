@@ -48,10 +48,13 @@ class EngineeringChange(models.Model):
     # Workflow
     # ------------------------------------------------------------
     # Change Source values exempt from the Impact Analysis gate below - a
-    # Client Feedback/Support request can Submit without answering any of
-    # the 4 Impact Analysis questions, and always ends up Minor Change (see
-    # _apply_approve's manager branch).
-    IMPACT_GATE_EXEMPT_CATEGORIES = ('client_feedback',)
+    # Client Feedback/Product Support request can Submit without answering
+    # any of the 4 Impact Analysis questions, and always ends up DCR (see
+    # _apply_approve's manager branch). change_category's own technical
+    # value for the latter is the oddly-capitalized 'Product Support' (see
+    # its Selection definition in engineering_change.py) - kept as-is here
+    # rather than renamed, to avoid a data migration on existing records.
+    IMPACT_GATE_EXEMPT_CATEGORIES = ('client_feedback', 'Product Support')
 
     def _impact_gate_missing_fields(self):
         """Returns the list of Impact Analysis field names still unanswered
@@ -129,6 +132,13 @@ class EngineeringChange(models.Model):
             self.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
         if not self.project_id:
             self._link_ec_project()
+        # Client Feedback/Product Support is always DCR - classified right
+        # here on Submit rather than waiting for Line Manager approval (see
+        # IMPACT_GATE_EXEMPT_CATEGORIES); everything else still gets
+        # classified at approval time instead, once the Impact Analysis
+        # answers are on record (see _apply_approve's manager branch).
+        if self.change_category in self.IMPACT_GATE_EXEMPT_CATEGORIES:
+            self.with_context(ec_workflow_write=True).request_type = 'dcr'
         self.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
         partners = self._get_group_partners('engineering_change.group_ec_manager')
         # No email on Submit (per request) - still logged to chatter/inbox
@@ -193,15 +203,18 @@ class EngineeringChange(models.Model):
                     "Employee record), can approve this request."
                 ) % direct_manager.name)
             # Auto-classify Minor Change vs DCR right here, on Line Manager
-            # approval - Client Feedback/Support is always Minor Change (its
-            # Impact Analysis questions were never required to be answered -
-            # see IMPACT_GATE_EXEMPT_CATEGORIES); everything else is DCR the
-            # moment any of the 3 "impact" questions was answered Yes, Minor
-            # Change otherwise. Still just the classification (request_type) -
-            # the DCR number itself (dcr_no) isn't generated until BOC
-            # approval, same as before.
+            # approval - re-evaluated unconditionally (not skipped for
+            # Client Feedback/Product Support, even though _do_submit already
+            # classified those DCR at Submit) because change_category is in
+            # ENGINEER_FIELDS, which the Manager can still edit during their
+            # own stage (can_edit_engineer_fields is True at
+            # waiting_manager_approval) - if they change it, this must
+            # re-classify off the CURRENT change_category/impact answers, or
+            # Submit's one-time classification would go stale. Still just the
+            # classification (request_type) - the DCR number itself
+            # (dcr_no) isn't generated until BOC approval, same as before.
             if self.change_category in self.IMPACT_GATE_EXEMPT_CATEGORIES:
-                request_type = 'minor'
+                request_type = 'dcr'
             else:
                 is_dcr = any(self[f] == 'yes' for f in (
                     'impact_cost_over_100', 'impact_lead_time_over_week', 'impact_circuit_change'))

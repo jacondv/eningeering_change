@@ -164,13 +164,26 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.request_type, 'minor')
 
-    def test_manager_approve_client_feedback_always_minor(self):
+    def test_submit_client_feedback_always_dcr(self):
         change = self._create_request(
-            request_type='dcr', change_category='client_feedback', impact_negative=False,
+            request_type='minor', change_category='client_feedback', impact_negative=False,
             impact_cost_over_100=False, impact_lead_time_over_week=False, impact_circuit_change=False)
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
-        self.assertEqual(change.request_type, 'minor')
+        self.assertEqual(change.request_type, 'dcr')
+
+    def test_submit_product_support_always_dcr(self):
+        change = self._create_request(
+            request_type='minor', change_category='Product Support', impact_negative=False,
+            impact_cost_over_100=False, impact_lead_time_over_week=False, impact_circuit_change=False)
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.request_type, 'dcr')
+
+    def test_product_support_submits_without_impact_answers(self):
+        change = self._create_request(
+            change_category='Product Support', impact_negative=False, impact_cost_over_100=False,
+            impact_lead_time_over_week=False, impact_circuit_change=False)
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'waiting_manager_approval')
 
     def test_submit_requires_change_category(self):
         change = self._create_request(request_type='minor', change_category=False)
