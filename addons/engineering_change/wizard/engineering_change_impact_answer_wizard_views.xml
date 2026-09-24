@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_engineering_change_impact_answer_wizard_form" model="ir.ui.view">
+        <field name="name">engineering.change.impact.answer.wizard.form</field>
+        <field name="model">engineering.change.impact.answer.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Answer Impact Analysis Questions" class="o_ec_impact_answer_wizard">
+                <field name="change_id" invisible="1"/>
+                <p>
+                    Please answer the remaining Impact Analysis questions
+                    (Risk Assessment tab) before submitting.
+                </p>
+                <group>
+                    <field name="impact_negative" required="1"/>
+                    <field name="impact_cost_over_100"
+                           invisible="impact_negative != 'no'"
+                           required="impact_negative == 'no'"/>
+                    <field name="impact_lead_time_over_week"
+                           invisible="impact_negative != 'no'"
+                           required="impact_negative == 'no'"/>
+                    <field name="impact_circuit_change"
+                           invisible="impact_negative != 'no'"
+                           required="impact_negative == 'no'"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm &amp; Submit" class="btn-primary"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

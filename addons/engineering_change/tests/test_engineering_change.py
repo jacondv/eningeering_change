@@ -75,7 +75,7 @@ class TestEngineeringChange(TransactionCase):
     def _create_request(self, request_type='minor', rpn=50, change_category='standard', **impact_answers):
         # Impact Analysis answers default to 'no' across the board - a plain
         # 'standard' category request (not in IMPACT_GATE_EXEMPT_CATEGORIES)
-        # would otherwise fail _check_impact_gate on action_submit() in
+        # would otherwise pop the impact-answer wizard on action_submit() in
         # every test that doesn't care about that gate. Tests exercising the
         # gate/auto-classify behavior itself override via e.g.
         # impact_negative='yes'.
@@ -113,18 +113,31 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_engineer).action_submit()
         self.assertEqual(change.state, 'waiting_manager_approval')
 
-    def test_submit_requires_impact_negative_answer(self):
+    def test_submit_opens_impact_answer_wizard_when_impact_negative_unanswered(self):
         change = self._create_request(change_category='standard', impact_negative=False)
-        with self.assertRaises(UserError):
-            change.with_user(self.user_engineer).action_submit()
+        action = change.with_user(self.user_engineer).action_submit()
         self.assertEqual(change.state, 'draft')
+        self.assertEqual(action['res_model'], 'engineering.change.impact.answer.wizard')
 
-    def test_submit_requires_remaining_impact_questions_when_not_negative(self):
+    def test_submit_opens_impact_answer_wizard_when_remaining_questions_missing(self):
         change = self._create_request(
             change_category='standard', impact_negative='no', impact_cost_over_100=False)
-        with self.assertRaises(UserError):
-            change.with_user(self.user_engineer).action_submit()
+        action = change.with_user(self.user_engineer).action_submit()
         self.assertEqual(change.state, 'draft')
+        self.assertEqual(action['res_model'], 'engineering.change.impact.answer.wizard')
+
+    def test_impact_answer_wizard_confirm_submits(self):
+        change = self._create_request(change_category='standard', impact_negative=False)
+        action = change.with_user(self.user_engineer).action_submit()
+        wizard = self.env['engineering.change.impact.answer.wizard'].with_user(
+            self.user_engineer).with_context(action['context']).create({
+                'impact_negative': 'no',
+                'impact_cost_over_100': 'no',
+                'impact_lead_time_over_week': 'no',
+                'impact_circuit_change': 'no',
+            })
+        wizard.action_confirm()
+        self.assertEqual(change.state, 'waiting_manager_approval')
 
     def test_submit_auto_rejects_when_negative_impact_answered_yes(self):
         change = self._create_request(change_category='standard', impact_negative='yes')
@@ -151,13 +164,26 @@ class TestEngineeringChange(TransactionCase):
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
         self.assertEqual(change.request_type, 'minor')
 
-    def test_manager_approve_client_feedback_always_minor(self):
+    def test_submit_client_feedback_always_dcr(self):
         change = self._create_request(
-            request_type='dcr', change_category='client_feedback', impact_negative=False,
+            request_type='minor', change_category='client_feedback', impact_negative=False,
             impact_cost_over_100=False, impact_lead_time_over_week=False, impact_circuit_change=False)
         change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
-        self.assertEqual(change.request_type, 'minor')
+        self.assertEqual(change.request_type, 'dcr')
+
+    def test_submit_product_support_always_dcr(self):
+        change = self._create_request(
+            request_type='minor', change_category='Product Support', impact_negative=False,
+            impact_cost_over_100=False, impact_lead_time_over_week=False, impact_circuit_change=False)
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.request_type, 'dcr')
+
+    def test_product_support_submits_without_impact_answers(self):
+        change = self._create_request(
+            change_category='Product Support', impact_negative=False, impact_cost_over_100=False,
+            impact_lead_time_over_week=False, impact_circuit_change=False)
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'waiting_manager_approval')
 
     def test_submit_requires_change_category(self):
         change = self._create_request(request_type='minor', change_category=False)

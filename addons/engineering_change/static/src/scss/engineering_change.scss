@@ -34,3 +34,15 @@ label.o_ec_field_header {
     margin: 10px 0 4px 0;
 }
 
+// Impact Analysis answer wizard: the question labels ("Does this change
+// negatively impact cost greater than 100usd?"...) are far longer than
+// Odoo's default 150px label column (see web/static/.../form.scss), so they
+// wrap onto several lines. Widened just for this wizard's own <form> class,
+// not app-wide.
+@media (min-width: 576px) {
+    .o_ec_impact_answer_wizard.o_inner_group,
+    .o_ec_impact_answer_wizard .o_inner_group {
+        grid-template-columns: fit-content(500px) minmax(0, 1fr);
+    }
+}
+

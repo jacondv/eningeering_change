@@ -30,6 +30,7 @@ Features:
         'data/ir_cron_data.xml',
         'wizard/engineering_change_reject_wizard_views.xml',
         'wizard/engineering_change_approve_wizard_views.xml',
+        'wizard/engineering_change_impact_answer_wizard_views.xml',
         'views/engineering_change_views.xml',
         'views/engineering_change_action_views.xml',
         'views/engineering_change_action_evidence_views.xml',
