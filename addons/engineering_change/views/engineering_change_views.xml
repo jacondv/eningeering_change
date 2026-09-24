@@ -276,25 +276,24 @@
                                      child on that grid row, spanning its full width (see the
                                      "why not a plain <field>" note on the single-grid version
                                      this replaced, still in git history). -->
+                                <!-- No border styling here anymore - form_input_underline.scss
+                                     (jacon_core) now gives every editable field app-wide a plain
+                                     bottom-border-only look, so this only needs to size it. -->
                                 <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_negative" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_negative" readonly="not can_edit_engineer_fields"
-                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                    <field name="impact_negative" readonly="not can_edit_engineer_fields" style="width:120px;"/>
                                 </div>
                                 <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_cost_over_100" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_cost_over_100" readonly="not can_edit_engineer_fields"
-                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                    <field name="impact_cost_over_100" readonly="not can_edit_engineer_fields" style="width:120px;"/>
                                 </div>
                                 <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_lead_time_over_week" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_lead_time_over_week" readonly="not can_edit_engineer_fields"
-                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                    <field name="impact_lead_time_over_week" readonly="not can_edit_engineer_fields" style="width:120px;"/>
                                 </div>
                                 <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
                                     <label for="impact_circuit_change" class="o_form_label mb-0" style="white-space:nowrap;"/>
-                                    <field name="impact_circuit_change" readonly="not can_edit_engineer_fields"
-                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                    <field name="impact_circuit_change" readonly="not can_edit_engineer_fields" style="width:120px;"/>
                                 </div>
                             </group>
                         </page>
