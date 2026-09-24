@@ -8,9 +8,27 @@
         <field name="arch" type="xml">
             <form string="Engineering Change Request">
                 <header>
+                    <!-- Two Submit buttons, not one - the client-side confirm= popup
+                         text is static per button, so a dynamic warning needs its own
+                         button rather than one dynamic string. The "will be Rejected"
+                         one only shows when impact_negative='yes' and Change Source
+                         isn't exempt (see IMPACT_GATE_EXEMPT_CATEGORIES in
+                         engineering_change_workflow.py - 'client_feedback' is hardcoded
+                         here too since view expressions can't read that Python
+                         constant; keep both in sync if it ever grows). Both call the
+                         same action_submit(), which already does the actual
+                         auto-reject (_auto_reject_negative_impact) - Cancel on the
+                         popup never reaches the server at all, so Submit simply
+                         doesn't happen. -->
                     <button name="action_submit" string="Submit" type="object"
-                            class="oe_highlight" invisible="state != 'draft'"
+                            class="oe_highlight"
+                            invisible="state != 'draft' or (impact_negative == 'yes' and change_category != 'client_feedback')"
                             confirm="Submit this request for Manager approval?"
+                            groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
+                    <button name="action_submit" string="Submit" type="object"
+                            class="oe_highlight"
+                            invisible="state != 'draft' or not (impact_negative == 'yes' and change_category != 'client_feedback')"
+                            confirm="This request answered Yes to 'negative impact, safety or compliance issues' - it will be REJECTED immediately after Submit. Continue?"
                             groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
                     <button name="action_manager_approve" string="Approve" type="object"
                             class="oe_highlight"
