@@ -53,37 +53,34 @@ class EngineeringChange(models.Model):
     # _apply_approve's manager branch).
     IMPACT_GATE_EXEMPT_CATEGORIES = ('client_feedback',)
 
-    def _check_impact_gate(self):
-        """Raises UserError if this request's Impact Analysis answers aren't
-        complete enough to Submit - not exempt (see IMPACT_GATE_EXEMPT_CATEGORIES)
-        and: impact_negative unanswered, or answered 'no' with any of the
-        other 3 questions still unanswered. Doesn't check impact_negative == 'yes'
-        itself - that's allowed to reach Submit and is instead auto-rejected
-        right after (see _auto_reject_negative_impact), so the "Yes" answer
-        and its consequence both end up on record with a Request No/Chatter
-        trail, not silently blocked.
+    def _impact_gate_missing_fields(self):
+        """Returns the list of Impact Analysis field names still unanswered
+        that block Submit - empty if this request is exempt (see
+        IMPACT_GATE_EXEMPT_CATEGORIES) or already has everything it needs:
+        impact_negative always required, the other 3 only when
+        impact_negative == 'no'. Doesn't flag impact_negative == 'yes' as
+        needing more - that's allowed to reach Submit and is instead
+        auto-rejected right after (see _auto_reject_negative_impact), so the
+        "Yes" answer and its consequence both end up on record with a
+        Request No/Chatter trail, not silently blocked. A non-empty result
+        pops the answer wizard instead of submitting (see action_submit/
+        _open_impact_answer_wizard) rather than raising a plain error.
         """
         self.ensure_one()
         if self.change_category in self.IMPACT_GATE_EXEMPT_CATEGORIES:
-            return
+            return []
         if not self.impact_negative:
-            raise UserError(_(
-                "Please answer 'Does this change have any negative impact, safety or "
-                "compliance issues?' (Risk Assessment tab) before submitting."))
+            return ['impact_negative']
         if self.impact_negative == 'no':
-            missing = [self._fields[f].string for f in (
+            return [f for f in (
                 'impact_cost_over_100', 'impact_lead_time_over_week', 'impact_circuit_change',
             ) if not self[f]]
-            if missing:
-                raise UserError(_(
-                    "Please answer the remaining Impact Analysis questions before "
-                    "submitting: %s"
-                ) % ', '.join(missing))
+        return []
 
     def _auto_reject_negative_impact(self):
         """Auto-Reject (outcome='cancel', a dead end - see _apply_reject) right
         after Submit when Impact Analysis' first question was answered Yes
-        and the Change Source isn't exempt (see _check_impact_gate/
+        and the Change Source isn't exempt (see _impact_gate_missing_fields/
         IMPACT_GATE_EXEMPT_CATEGORIES) - no human approver decision involved,
         so this logs directly to approval_log_ids (role='system') instead of
         going through _apply_reject, whose role-to-mail-template map only
@@ -113,19 +110,56 @@ class EngineeringChange(models.Model):
             if not rec.title or not rec.description or not rec.change_category:
                 raise UserError(_(
                     "Title, Description and Change Category are required before submitting."))
-            rec._check_impact_gate()
-            if rec.name == 'New':
-                rec.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
-            if not rec.project_id:
-                rec._link_ec_project()
-            rec.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
-            partners = rec._get_group_partners('engineering_change.group_ec_manager')
-            # No email on Submit (per request) - still logged to chatter/inbox
-            # via _notify, so Line Manager still sees it without an outgoing email.
-            rec._notify(partners, _("Request submitted for Manager approval."))
-            if (rec.change_category not in rec.IMPACT_GATE_EXEMPT_CATEGORIES
-                    and rec.impact_negative == 'yes'):
-                rec._auto_reject_negative_impact()
+            if rec._impact_gate_missing_fields():
+                # Only meaningful for a single record (the form's own Submit
+                # button) - popping a wizard mid-loop over several records
+                # wouldn't make sense, but Submit is never called that way.
+                return rec._open_impact_answer_wizard()
+            rec._do_submit()
+
+    def _do_submit(self):
+        """The actual Draft -> waiting_manager_approval transition, split out
+        of action_submit so the impact-answer wizard's Confirm button (see
+        engineering_change_impact_answer_wizard.py) can re-enter here once
+        the Impact Analysis gate has already been satisfied, without
+        re-running the earlier state/required-field checks a second time.
+        """
+        self.ensure_one()
+        if self.name == 'New':
+            self.name = self.env['ir.sequence'].next_by_code('engineering.change') or 'New'
+        if not self.project_id:
+            self._link_ec_project()
+        self.with_context(ec_workflow_write=True).state = 'waiting_manager_approval'
+        partners = self._get_group_partners('engineering_change.group_ec_manager')
+        # No email on Submit (per request) - still logged to chatter/inbox
+        # via _notify, so Line Manager still sees it without an outgoing email.
+        self._notify(partners, _("Request submitted for Manager approval."))
+        if (self.change_category not in self.IMPACT_GATE_EXEMPT_CATEGORIES
+                and self.impact_negative == 'yes'):
+            self._auto_reject_negative_impact()
+
+    def _open_impact_answer_wizard(self):
+        """Pops the Impact Analysis answer wizard instead of submitting -
+        see _impact_gate_missing_fields/action_submit. Pre-fills from
+        whatever's already on the record (the object-button's implicit save
+        already persisted the in-progress form values), so any question the
+        user did answer isn't asked again.
+        """
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Answer Impact Analysis Questions'),
+            'res_model': 'engineering.change.impact.answer.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_change_id': self.id,
+                'default_impact_negative': self.impact_negative,
+                'default_impact_cost_over_100': self.impact_cost_over_100,
+                'default_impact_lead_time_over_week': self.impact_lead_time_over_week,
+                'default_impact_circuit_change': self.impact_circuit_change,
+            },
+        }
 
     def _get_direct_manager_user(self):
         """The res.users who is this request's Engineer's direct manager, via
