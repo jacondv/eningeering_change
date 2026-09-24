@@ -71,6 +71,7 @@ Currently provides:
             'jacon_core/static/src/project_status/project_status_colors_patch.js',
             'jacon_core/static/src/project_stage_confirm/project_stage_confirm.js',
             'jacon_core/static/src/scss/form_layout.scss',
+            'jacon_core/static/src/scss/form_input_underline.scss',
             'jacon_core/static/src/navbar/apps_menu_jacon_group.js',
             'jacon_core/static/src/navbar/apps_menu_jacon_group.xml',
             'jacon_core/static/src/navbar/apps_menu_jacon_group.scss',

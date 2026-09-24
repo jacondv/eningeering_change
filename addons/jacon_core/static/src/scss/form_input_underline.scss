@@ -1,0 +1,32 @@
+// Every editable field's input box - Char/Text/Integer/Float, Many2one,
+// Many2many tags, Date/Datetime, and Selection's own dropdown all share
+// Odoo's .o_input class on their actual input/container element - gets a
+// plain underline instead of the default full bordered box, across every
+// form view app-wide. Scoped to .o_form_view so list view's inline grid
+// editing and the top search bar keep their normal boxed-cell look, where
+// a visible full border matters more for scanning a dense table.
+.o_form_view .o_input {
+    border: none !important;
+    border-bottom: 1px solid #ccc !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+}
+
+// Selection field's "button" toggler variant (a non-searchable choice
+// list) doesn't carry .o_input at all - same look, targeted separately.
+.o_form_view .o_select_menu_toggler {
+    border: none !important;
+    border-bottom: 1px solid #ccc !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+}
+
+// Many2many tags' own search box (Many2XAutocomplete) sits nested INSIDE
+// its .o_tags_input wrapper, which already got the underline above from
+// the generic .o_input rule - both carry .o_input, so without this the
+// tag box shows two stacked underlines instead of one. Strip the inner
+// one; the outer wrapper's is the one that should show.
+.o_form_view .o_tags_input .o_input {
+    border: none !important;
+    background-color: transparent !important;
+}
