@@ -8,9 +8,27 @@
         <field name="arch" type="xml">
             <form string="Engineering Change Request">
                 <header>
+                    <!-- Two Submit buttons, not one - the client-side confirm= popup
+                         text is static per button, so a dynamic warning needs its own
+                         button rather than one dynamic string. The "will be Rejected"
+                         one only shows when impact_negative='yes' and Change Source
+                         isn't exempt (see IMPACT_GATE_EXEMPT_CATEGORIES in
+                         engineering_change_workflow.py - 'client_feedback' is hardcoded
+                         here too since view expressions can't read that Python
+                         constant; keep both in sync if it ever grows). Both call the
+                         same action_submit(), which already does the actual
+                         auto-reject (_auto_reject_negative_impact) - Cancel on the
+                         popup never reaches the server at all, so Submit simply
+                         doesn't happen. -->
                     <button name="action_submit" string="Submit" type="object"
-                            class="oe_highlight" invisible="state != 'draft'"
+                            class="oe_highlight"
+                            invisible="state != 'draft' or (impact_negative == 'yes' and change_category != 'client_feedback')"
                             confirm="Submit this request for Manager approval?"
+                            groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
+                    <button name="action_submit" string="Submit" type="object"
+                            class="oe_highlight"
+                            invisible="state != 'draft' or not (impact_negative == 'yes' and change_category != 'client_feedback')"
+                            confirm="This request answered Yes to 'negative impact, safety or compliance issues' - it will be REJECTED immediately after Submit. Continue?"
                             groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
                     <button name="action_manager_approve" string="Approve" type="object"
                             class="oe_highlight"
@@ -249,13 +267,35 @@
                                        decoration-warning="rpn_level == 'medium'"
                                        decoration-success="rpn_level == 'low'"/>
                             </group>
-                            <group string="Impact Analysis">
-                                <field name="impact_lead_time" nolabel="1" readonly="not can_edit_engineer_fields"
-                                       placeholder="Lead time impact..."/>
-                                <field name="impact_safety" nolabel="1" readonly="not can_edit_engineer_fields"
-                                       placeholder="Safety impact..."/>
-                                <field name="impact_compliance" nolabel="1" readonly="not can_edit_engineer_fields"
-                                       placeholder="Compliance impact..."/>
+                            <group string="Impact Analysis" col="1">
+                                <!-- Each question is its own flex row (not a shared grid column)
+                                     so the label sizes to its own text - never wraps (nowrap) -
+                                     and the dropdown sits right after it at a small fixed width,
+                                     instead of a shared column pushing it far to the right for
+                                     short questions. colspan="2" makes each row the group's only
+                                     child on that grid row, spanning its full width (see the
+                                     "why not a plain <field>" note on the single-grid version
+                                     this replaced, still in git history). -->
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
+                                    <label for="impact_negative" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_negative" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
+                                    <label for="impact_cost_over_100" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_cost_over_100" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
+                                    <label for="impact_lead_time_over_week" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_lead_time_over_week" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
+                                <div colspan="2" style="display:flex; align-items:center; column-gap:12px;" class="mb-2">
+                                    <label for="impact_circuit_change" class="o_form_label mb-0" style="white-space:nowrap;"/>
+                                    <field name="impact_circuit_change" readonly="not can_edit_engineer_fields"
+                                           class="o_input" style="width:120px; border:1px solid #ccc; border-radius:4px; padding:2px 6px;"/>
+                                </div>
                             </group>
                         </page>
 

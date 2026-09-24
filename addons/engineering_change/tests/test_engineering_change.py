@@ -72,15 +72,27 @@ class TestEngineeringChange(TransactionCase):
             ])],
         })
 
-    def _create_request(self, request_type='minor', rpn=50, change_category='standard'):
-        return self.env['engineering.change'].with_user(self.user_engineer).create({
+    def _create_request(self, request_type='minor', rpn=50, change_category='standard', **impact_answers):
+        # Impact Analysis answers default to 'no' across the board - a plain
+        # 'standard' category request (not in IMPACT_GATE_EXEMPT_CATEGORIES)
+        # would otherwise fail _check_impact_gate on action_submit() in
+        # every test that doesn't care about that gate. Tests exercising the
+        # gate/auto-classify behavior itself override via e.g.
+        # impact_negative='yes'.
+        vals = {
             'title': 'Test Change',
             'description': '<p>Description</p>',
             'request_type': request_type,
             'rpn': rpn,
             'change_category': change_category,
             'engineer_id': self.user_engineer.id,
-        })
+            'impact_negative': 'no',
+            'impact_cost_over_100': 'no',
+            'impact_lead_time_over_week': 'no',
+            'impact_circuit_change': 'no',
+        }
+        vals.update(impact_answers)
+        return self.env['engineering.change'].with_user(self.user_engineer).create(vals)
 
     def test_minor_change_flow(self):
         change = self._create_request(request_type='minor')
@@ -93,6 +105,59 @@ class TestEngineeringChange(TransactionCase):
 
         change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
         self.assertEqual(change.state, 'implement')
+
+    def test_client_feedback_submits_without_impact_answers(self):
+        change = self._create_request(
+            change_category='client_feedback', impact_negative=False, impact_cost_over_100=False,
+            impact_lead_time_over_week=False, impact_circuit_change=False)
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'waiting_manager_approval')
+
+    def test_submit_requires_impact_negative_answer(self):
+        change = self._create_request(change_category='standard', impact_negative=False)
+        with self.assertRaises(UserError):
+            change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'draft')
+
+    def test_submit_requires_remaining_impact_questions_when_not_negative(self):
+        change = self._create_request(
+            change_category='standard', impact_negative='no', impact_cost_over_100=False)
+        with self.assertRaises(UserError):
+            change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'draft')
+
+    def test_submit_auto_rejects_when_negative_impact_answered_yes(self):
+        change = self._create_request(change_category='standard', impact_negative='yes')
+        change.with_user(self.user_engineer).action_submit()
+        self.assertEqual(change.state, 'canceled')
+        self.assertNotEqual(change.name, 'New')
+        self.assertTrue(change.project_id)
+        self.assertTrue(change.reject_reason)
+        log = change.approval_log_ids
+        self.assertEqual(len(log), 1)
+        self.assertEqual(log.role, 'system')
+        self.assertEqual(log.decision, 'rejected')
+
+    def test_manager_approve_auto_classifies_dcr_when_any_impact_yes(self):
+        change = self._create_request(
+            change_category='standard', impact_negative='no', impact_lead_time_over_week='yes')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.request_type, 'dcr')
+
+    def test_manager_approve_auto_classifies_minor_when_all_impact_no(self):
+        change = self._create_request(request_type='dcr', change_category='standard')
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.request_type, 'minor')
+
+    def test_manager_approve_client_feedback_always_minor(self):
+        change = self._create_request(
+            request_type='dcr', change_category='client_feedback', impact_negative=False,
+            impact_cost_over_100=False, impact_lead_time_over_week=False, impact_circuit_change=False)
+        change.with_user(self.user_engineer).action_submit()
+        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
+        self.assertEqual(change.request_type, 'minor')
 
     def test_submit_requires_change_category(self):
         change = self._create_request(request_type='minor', change_category=False)
@@ -117,7 +182,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(task.project_id, change.project_id)
 
     def test_dcr_flow_and_dcr_no_generation(self):
-        change = self._create_request(request_type='dcr')
+        change = self._create_request(request_type='dcr', impact_circuit_change='yes')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
@@ -132,7 +197,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(change.bod_approver_id, self.user_bod)
 
     def test_approval_log_records_manager_and_bod_approve(self):
-        change = self._create_request(request_type='dcr')
+        change = self._create_request(request_type='dcr', impact_circuit_change='yes')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
 
@@ -196,7 +261,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(change.state, 'implement')
 
     def test_bod_reject_sets_draft_with_reason(self):
-        change = self._create_request(request_type='dcr')
+        change = self._create_request(request_type='dcr', impact_circuit_change='yes')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
@@ -276,61 +341,6 @@ class TestEngineeringChange(TransactionCase):
 
         change.with_user(self.user_manager).action_close_request()
         self.assertEqual(change.state, 'done')
-
-    def test_revert_to_previous_state(self):
-        change = self._create_request(request_type='minor')
-        change.with_user(self.user_engineer).action_submit()
-        self.assertEqual(change.state, 'waiting_manager_approval')
-
-        with self.assertRaises(UserError):
-            change.with_user(self.user_engineer).action_revert_to_previous_state()
-
-        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
-        self.assertEqual(change.state, 'waiting_head_office_approval')
-
-        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
-        self.assertEqual(change.state, 'implement')
-
-        change.with_user(self.user_manager).action_confirm_production()
-        self.assertEqual(change.state, 'production')
-
-        # Accidentally confirmed Sale - Manager steps it back one state.
-        change.with_user(self.user_manager).action_confirm_sale()
-        self.assertEqual(change.state, 'sale')
-        change.with_user(self.user_manager).action_revert_to_previous_state()
-        self.assertEqual(change.state, 'production')
-
-        change.with_user(self.user_manager).action_revert_to_previous_state()
-        self.assertEqual(change.state, 'implement')
-
-        change.with_user(self.user_manager).action_revert_to_previous_state()
-        self.assertEqual(change.state, 'waiting_head_office_approval')
-
-        change.with_user(self.user_manager).action_revert_to_previous_state()
-        self.assertEqual(change.state, 'waiting_manager_approval')
-
-        change.with_user(self.user_manager).action_revert_to_previous_state()
-        self.assertEqual(change.state, 'draft')
-
-        with self.assertRaises(UserError):
-            # Draft has no previous state.
-            change.with_user(self.user_manager).action_revert_to_previous_state()
-
-    def test_revert_to_previous_state_dcr_uses_bod_review(self):
-        change = self._create_request(request_type='dcr')
-        change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
-        change.with_user(self.user_engineer).action_submit()
-        change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')
-        self.assertEqual(change.state, 'waiting_head_office_approval')
-
-        change.with_user(self.user_head_office)._apply_approve('Approved (test)', 'head_office')
-        self.assertEqual(change.state, 'bod_review')
-
-        change.with_user(self.user_bod)._apply_approve('Approved (test)', 'bod')
-        self.assertEqual(change.state, 'implement')
-
-        change.with_user(self.user_manager).action_revert_to_previous_state()
-        self.assertEqual(change.state, 'bod_review')
 
     def test_general_user_can_only_update_status(self):
         change = self._create_request(request_type='minor')
@@ -499,7 +509,7 @@ class TestEngineeringChange(TransactionCase):
             change.with_user(self.user_engineer).action_open_reject_wizard()
 
     def test_bod_can_reject_only_at_bod_review(self):
-        change = self._create_request(request_type='dcr')
+        change = self._create_request(request_type='dcr', impact_circuit_change='yes')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         self.assertFalse(change.with_user(self.user_bod).can_reject)
         change.with_user(self.user_engineer).action_submit()
@@ -855,7 +865,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertTrue(change.active)
 
     def test_recall_approval_steps_back_one_stage(self):
-        change = self._create_request(request_type='dcr')
+        change = self._create_request(request_type='dcr', impact_circuit_change='yes')
         change.with_user(self.user_manager).write({'implement_team_ids': [(6, 0, [self.user_engineer.id])]})
         change.with_user(self.user_engineer).action_submit()
         change.with_user(self.user_manager)._apply_approve('Approved (test)', 'manager')

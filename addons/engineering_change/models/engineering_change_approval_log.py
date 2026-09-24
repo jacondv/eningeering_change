@@ -18,6 +18,10 @@ class EngineeringChangeApprovalLog(models.Model):
         ('manager', 'Line Manager'),
         ('head_office', 'Head Manager'),
         ('bod', 'BOC'),
+        # No human approver decision - see EngineeringChange._auto_reject_negative_impact,
+        # which logs here instead of going through _apply_reject (whose
+        # role-to-mail-template map only knows the 3 human roles above).
+        ('system', 'System'),
     ], required=True)
     decision = fields.Selection([
         ('approved', 'Approved'),

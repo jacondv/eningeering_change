@@ -27,7 +27,7 @@ class EngineeringChange(models.Model):
     #   that approval).
     ENGINEER_FIELDS = frozenset({
         'title', 'background', 'description', 'engineer_id', 'rpn', 'change_category',
-        'impact_lead_time', 'impact_safety', 'impact_compliance',
+        'impact_negative', 'impact_cost_over_100', 'impact_lead_time_over_week', 'impact_circuit_change',
         'image_ids', 'document_ids', 'default_affected_model_ids',
         'default_affected_project_ids',
         'requester_id', 'line_manager_id', 'approval_date',
@@ -152,9 +152,20 @@ class EngineeringChange(models.Model):
         ('medium', 'Medium'),
         ('high', 'High'),
     ], string='RPN Level', compute='_compute_rpn_level', store=True)
-    impact_lead_time = fields.Text(string='Lead Time Impact', tracking=True)
-    impact_safety = fields.Text(string='Safety Impact', tracking=True)
-    impact_compliance = fields.Text(string='Compliance Impact', tracking=True)
+    # Risk Assessment tab's Impact Analysis: 4 fixed yes/no questions rather
+    # than free text - answers stay optional (not required to Submit), left
+    # blank means "not answered yet" rather than "No".
+    IMPACT_ANSWERS = [('yes', 'Yes'), ('no', 'No')]
+    impact_negative = fields.Selection(
+        IMPACT_ANSWERS, string='Does this change have any negative impact, safety or compliance issues?',
+        tracking=True)
+    impact_cost_over_100 = fields.Selection(
+        IMPACT_ANSWERS, string='Impact cost > $100?', tracking=True)
+    impact_lead_time_over_week = fields.Selection(
+        IMPACT_ANSWERS, string='Impact lead time > 1 week?', tracking=True)
+    impact_circuit_change = fields.Selection(
+        IMPACT_ANSWERS, string='Does this change affect the circuit functionality or specifications?',
+        tracking=True)
 
     bod_approver_id = fields.Many2one('res.users', string='BOC Approver', readonly=True, copy=False)
     reject_reason = fields.Text(readonly=True, copy=False)
@@ -310,27 +321,50 @@ class EngineeringChange(models.Model):
             ).mapped('date_deadline')
             rec.next_action_deadline = fields.Date.to_date(min(deadlines)) if deadlines else False
 
+    def _edit_rights_roles(self, user=None):
+        """(is_admin, is_engineer, is_manager, is_head_office, is_bod) for
+        `user` (defaults to the current user) - the 5 role flags both
+        _compute_edit_rights (UI hint) and _check_field_edit_permissions
+        (actual enforcement) need to decide who may touch ENGINEER_FIELDS/
+        MANAGER_FIELDS/request_type right now. Shared here so the two never
+        drift out of sync with each other. is_manager is True for Line
+        Manager AND Head Manager (group_ec_head_office implies
+        group_ec_manager), or Admin.
+        """
+        user = user or self.env.user
+        is_admin = user.has_group('base.group_system')
+        is_engineer = user.has_group('engineering_change.group_ec_engineer')
+        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
+        is_head_office = user.has_group('engineering_change.group_ec_head_office')
+        is_bod = user.has_group('engineering_change.group_ec_bod')
+        return is_admin, is_engineer, is_manager, is_head_office, is_bod
+
+    def _is_own_stage_edit(self, state, roles):
+        """True when whoever holds `roles` (see _edit_rights_roles) is
+        currently holding a request at `state` at their own approval stage -
+        or is Admin while it's still open - the shared gate behind
+        can_edit_engineer_fields/can_edit_drawings and
+        _check_field_edit_permissions's ENGINEER_FIELDS guard. Each own-stage
+        clause keys off `state`, so the stages never overlap in practice.
+        """
+        is_admin, is_engineer, is_manager, is_head_office, is_bod = roles
+        return (
+            (is_admin and state not in self.CLOSED_STATES)
+            or (is_engineer and state == 'draft')
+            or (is_manager and state == 'waiting_manager_approval')
+            or (is_head_office and state == 'waiting_head_office_approval')
+            or (is_bod and state == 'bod_review')
+        )
+
     @api.depends('state', 'implement_owner_id', 'engineer_id', 'implement_team_ids')
     @api.depends_context('uid')
     def _compute_edit_rights(self):
         user = self.env.user
-        is_admin = user.has_group('base.group_system')
-        is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        # is_manager is True for Line Manager AND Head Manager (group_ec_head_office
-        # implies group_ec_manager) - each own-stage clause below still keys off the
-        # record's actual state, so the two stages never overlap in practice.
-        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
-        is_head_office = user.has_group('engineering_change.group_ec_head_office')
-        is_bod = user.has_group('engineering_change.group_ec_bod')
+        roles = self._edit_rights_roles(user)
+        is_admin, is_engineer, is_manager, _is_head_office, is_bod = roles
         can_edit_dcr_no = user.has_group('engineering_change.group_ec_edit_dcr_no')
         for rec in self:
-            own_stage_edit = (
-                (is_admin and rec.state not in self.CLOSED_STATES)
-                or (is_engineer and rec.state == 'draft')
-                or (is_manager and rec.state == 'waiting_manager_approval')
-                or (is_head_office and rec.state == 'waiting_head_office_approval')
-                or (is_bod and rec.state == 'bod_review')
-            )
+            own_stage_edit = self._is_own_stage_edit(rec.state, roles)
             rec.can_edit_engineer_fields = own_stage_edit
             rec.can_edit_drawings = own_stage_edit or (
                 rec.state == 'implement'
@@ -565,27 +599,16 @@ class EngineeringChange(models.Model):
     def _check_field_edit_permissions(self, keys):
         self.ensure_one()
         user = self.env.user
-        is_admin = user.has_group('base.group_system')
-        is_engineer = user.has_group('engineering_change.group_ec_engineer')
-        # is_manager is True for Line Manager AND Head Manager (implied group) -
-        # each clause below still keys off the record's actual state, so the
-        # two stages never overlap in practice. BOC (group_ec_bod) is
-        # deliberately excluded from MANAGER_FIELDS/request_type edit rights -
-        # View + Comment only, per the approval workflow design.
-        is_manager = user.has_group('engineering_change.group_ec_manager') or is_admin
-        is_head_office = user.has_group('engineering_change.group_ec_head_office')
-        is_bod = user.has_group('engineering_change.group_ec_bod')
+        # BOC (group_ec_bod) is deliberately excluded from MANAGER_FIELDS/
+        # request_type edit rights below - View + Comment only, per the
+        # approval workflow design.
+        roles = self._edit_rights_roles(user)
+        is_admin, is_engineer, is_manager, is_head_office, is_bod = roles
+        own_stage_edit = self._is_own_stage_edit(self.state, roles)
 
         engineer_keys = keys & self.ENGINEER_FIELDS
         drawing_keys = engineer_keys & self.DRAWING_FIELDS
         other_engineer_keys = engineer_keys - self.DRAWING_FIELDS
-        own_stage_edit = (
-            (is_admin and self.state not in self.CLOSED_STATES)
-            or (is_engineer and self.state == 'draft')
-            or (is_manager and self.state == 'waiting_manager_approval')
-            or (is_head_office and self.state == 'waiting_head_office_approval')
-            or (is_bod and self.state == 'bod_review')
-        )
 
         if other_engineer_keys and not own_stage_edit:
             raise UserError(_(
