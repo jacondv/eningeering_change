@@ -1,7 +1,11 @@
 .o_hfm_port_board {
     display: flex;
     gap: 16px;
-    margin-bottom: 16px;
+    // Deliberately no bottom margin - the Create List section header right
+    // below (.o_hfm_section_header) already carries its own top margin, and
+    // stacking both here made the gap to "Hose And Fitting Lines to Create"
+    // needlessly large.
+    margin-bottom: 0;
 
     .o_hfm_port_board_items {
         flex: 0 0 320px;
@@ -27,6 +31,46 @@
         th, td {
             vertical-align: middle;
         }
+
+        // Same darker zebra accent as the Create List/recap tables (see
+        // builder.scss) and jacon_core's own list style - only alternates
+        // among base Port rows (the ":nth-child(... of ...)" syntax counts
+        // just those, ignoring how many draft rows sit between them -
+        // same convention jacon_core's own list style uses), never draft
+        // rows (already tinted blue - see .o_hfm_port_board_draft_row).
+        > tbody > tr.o_hfm_port_board_base_row:nth-child(odd of .o_hfm_port_board_base_row) > * {
+            background-color: #dfe3e8;
+        }
+    }
+
+    .o_hfm_port_board_connection_link {
+        text-decoration: none;
+        margin-right: 4px;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    // The "+" (Add line) affordance - dim until the Port's own row is
+    // hovered, same idea as MS Word's row-insert control, so the board
+    // stays clean when nothing's mid-edit; still a real, always-clickable
+    // button underneath (not JS-gated), just visually quiet by default.
+    .o_hfm_port_board_add_line_btn {
+        opacity: 0.25;
+        transition: opacity 0.15s ease-in-out;
+    }
+
+    .o_hfm_port_board_base_row:hover .o_hfm_port_board_add_line_btn {
+        opacity: 1;
+    }
+
+    .o_hfm_port_board_add_line_btn:focus {
+        opacity: 1;
+    }
+
+    .o_hfm_port_board_draft_row td {
+        background: var(--Table-active-background, #eef6ff);
     }
 
     .o_hfm_port_board_item_list {

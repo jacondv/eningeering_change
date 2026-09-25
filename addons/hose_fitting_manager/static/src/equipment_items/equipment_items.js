@@ -55,6 +55,11 @@ export class EquipmentItemsPage extends Component {
             partOptions: [], // live search results backing the "Add Item" Part combobox
             isSaving: false,
             columnWidths: this._loadColumnWidths(),
+            // Multi-select on the already-saved rows table, for bulk delete -
+            // { [row.id]: true }, same plain-object pattern as errors/drafts
+            // elsewhere in this app (OWL's reactivity doesn't track Set
+            // mutations the same way as object key assignment).
+            selectedIds: {},
         });
 
         this.jobOptions = [];
@@ -163,6 +168,7 @@ export class EquipmentItemsPage extends Component {
     }
 
     async _loadRows() {
+        this.state.selectedIds = {};
         if (!this.state.jobId) {
             this.state.rows = [];
             return;
@@ -370,6 +376,49 @@ export class EquipmentItemsPage extends Component {
     async onRemoveRow(row) {
         await this.orm.unlink(JOB_EQUIPMENT_ITEM_MODEL, [row.id]);
         this.state.rows = this.state.rows.filter((r) => r.id !== row.id);
+        delete this.state.selectedIds[row.id];
+        this.props.onRowsChanged?.();
+    }
+
+    // ---- Multi-select on the already-saved rows table, for bulk delete ----
+    get selectedCount() {
+        return Object.keys(this.state.selectedIds).length;
+    }
+
+    get allRowsSelected() {
+        return this.state.rows.length > 0 && this.state.rows.every((r) => this.state.selectedIds[r.id]);
+    }
+
+    toggleRowSelected(row) {
+        if (this.state.selectedIds[row.id]) {
+            delete this.state.selectedIds[row.id];
+        } else {
+            this.state.selectedIds[row.id] = true;
+        }
+    }
+
+    toggleSelectAll() {
+        if (this.allRowsSelected) {
+            this.state.selectedIds = {};
+        } else {
+            for (const row of this.state.rows) {
+                this.state.selectedIds[row.id] = true;
+            }
+        }
+    }
+
+    async onDeleteSelectedClick() {
+        const ids = Object.keys(this.state.selectedIds).map(Number);
+        if (!ids.length) {
+            return;
+        }
+        if (!window.confirm(`Delete ${ids.length} selected Item(s)? This cannot be undone.`)) {
+            return;
+        }
+        await this.orm.unlink(JOB_EQUIPMENT_ITEM_MODEL, ids);
+        this.state.rows = this.state.rows.filter((r) => !ids.includes(r.id));
+        this.state.selectedIds = {};
+        this.notification.add(`${ids.length} Item(s) deleted.`, { type: "success" });
         this.props.onRowsChanged?.();
     }
 

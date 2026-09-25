@@ -38,8 +38,13 @@
                             <td style="width:20%; padding:7.5pt; vertical-align:middle;">
                                 <img src="/hose_fitting_manager/static/img/jacon_logo.png" style="max-height:50pt;width:auto; object-fit:contain;"/>
                             </td>
-                            <td style="width:80%; text-align:center; vertical-align:middle; color:white;">
-                                <div style="font-weight:bold; font-size:16pt; position:relative; right:20mm;">HOSE &amp; FITTING LIST</div>
+                            <td style="width:55%; text-align:center; vertical-align:middle; color:white;">
+                                <div style="font-weight:bold; font-size:16pt;">HOSE &amp; FITTING LIST</div>
+                            </td>
+                            <td style="width:25%; text-align:left; vertical-align:middle; color:white; padding:0 7.5pt; font-size:8pt;">
+                                <div><strong>Job/WI Number: </strong><span t-esc="job.name or ''"/></div>
+                                <div><strong>Created by: </strong><span t-esc="job_lines[:1].create_uid.name or ''"/></div>
+                                <div><strong>Date: </strong><span t-esc="time.strftime('%d-%b-%Y')"/></div>
                             </td>
                         </tr>
                     </table>
@@ -53,18 +58,6 @@
                             table.hfl-bordered tbody tr:nth-child(even) { background-color:#e6f2f0; }
                         </style>
 
-                        <table style="margin-bottom:6pt;">
-                            <tr>
-                                <td><strong>Job/WI Number: </strong><span t-esc="job.name or ''"/></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Created by: </strong><span t-esc="job_lines[:1].create_uid.name or ''"/></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Date: </strong><span t-esc="time.strftime('%d-%b-%Y')"/></td>
-                            </tr>
-                        </table>
-
                         <!-- ================= COLUMN WIDTHS =================
                              Every column's width lives on its <th> below (the
                              <td> cells in <tbody> don't repeat it - a plain
@@ -77,34 +70,28 @@
                             <thead>
                                 <tr style="background-color:#008080; color:white; font-weight:bold;">
                                     <th style="width:2%; text-align:center;">Item</th>
-                                    <th style="width:3%; text-align:center;">Hose Symbol</th>
                                     <th style="width:3%; text-align:center;">Hose Number</th>
                                     <th style="width:30%; text-align:center;">
                                         <t t-esc="'Description VN' if desc_lang == 'vn' else 'Description EN'"/>
                                     </th>
-                                    <th style="width:2%; text-align:center;">Qty.</th>
-                                    <th style="width:7%; text-align:center;">Hose</th>
+                                    <th style="width:9%; text-align:center;">Hose</th>
                                     <th style="width:3%; text-align:center;">Length (mm)</th>
-                                    <th style="width:8%; text-align:center;">Fitting 1</th>
-                                    <th style="width:7%; text-align:center;">Ferrule 1</th>
-                                    <th style="width:8%; text-align:center;">Fitting 2</th>
-                                    <th style="width:7%; text-align:center;">Ferrule 2</th>
-                                    <th style="width:7%; text-align:center;">Fire Wrap</th>
-                                    <th style="width:7%; text-align:center;">Hose Guard</th>
+                                    <th style="width:10%; text-align:center;">Fitting 1</th>
+                                    <th style="width:10%; text-align:center;">Fitting 2</th>
+                                    <th style="width:9%; text-align:center;">Ferrule</th>
+                                    <th style="width:9%; text-align:center;">Fire Wrap</th>
+                                    <th style="width:9%; text-align:center;">Hose Guard</th>
                                     <th style="width:6%; text-align:center;">Note</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr t-foreach="job_lines" t-as="line">
                                     <td style="text-align:center;"><span t-esc="line_index + 1"/></td>
-                                    <td style="text-align:center;"><span t-field="line.config_id.symbol"/></td>
                                     <td style="text-align:center;"><span t-field="line.hose_number"/></td>
                                     <td><span t-esc="line.description_vn if desc_lang == 'vn' else line.description_en"/></td>
-                                    <td style="text-align:center;"><span t-field="line.quantity"/></td>
                                     <td>&#160;</td>
                                     <td style="text-align:center;"><span t-field="line.length" t-options="{'widget': 'integer'}"/></td>
                                     <td><span t-esc="line._report_part_description(line.fitting1_id)"/></td>
-                                    <td><span t-esc="line._report_part_description(line.ferrule1_id)"/></td>
                                     <td><span t-esc="line._report_part_description(line.fitting2_id)"/></td>
                                     <td><span t-esc="line._report_part_description(line.ferrule2_id)"/></td>
                                     <td><span t-esc="line._report_part_description(line.fire_wrap_id)"/></td>

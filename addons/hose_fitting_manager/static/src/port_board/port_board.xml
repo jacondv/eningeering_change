@@ -36,80 +36,110 @@
                     </p>
                     <div class="o_hfm_port_board_table_wrapper" t-if="selectedItem.ports.length">
                     <table class="table table-sm table-bordered o_pnm_table o_hfm_port_board_table">
+                        <colgroup>
+                            <col t-attf-style="width: {{state.columnWidths.port}}px"/>
+                            <col t-attf-style="width: {{state.columnWidths.toItem}}px"/>
+                            <col t-attf-style="width: {{state.columnWidths.toPort}}px"/>
+                            <col t-attf-style="width: {{state.columnWidths.hose}}px"/>
+                            <col t-attf-style="width: {{state.columnWidths.length}}px"/>
+                            <col/>
+                        </colgroup>
                         <thead>
                             <tr>
-                                <th>Port</th>
-                                <th>To Item</th>
-                                <th>To Port</th>
-                                <th>Hose</th>
-                                <th>Length (mm)</th>
+                                <th class="o_pnm_th">Port
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('port', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">To Item
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('toItem', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">To Port
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('toPort', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">Hose
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('hose', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">Length (mm)
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('length', ev)"/>
+                                </th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <t t-foreach="selectedItem.ports" t-as="port" t-key="port.id">
-                                <tr>
+                                <tr class="o_hfm_port_board_base_row">
                                     <td><t t-esc="port.label"/></td>
-                                    <t t-if="portStatus(port) === 'open'">
+                                    <td colspan="4" class="text-muted small">
+                                        <t t-if="port.connections.length">
+                                            <t t-foreach="port.connections" t-as="conn" t-key="conn.job_hose_line_id">
+                                                <a href="#" class="text-success o_hfm_port_board_connection_link"
+                                                   t-on-click.prevent="() => this.onConnectionClick(conn)">
+                                                    → <t t-esc="conn.connected_item_label"/> (<t t-esc="conn.connected_port_label"/>)
+                                                </a><t t-if="!conn_last">, </t>
+                                            </t>
+                                        </t>
+                                        <span t-if="portStatus(port) === 'reserved'" class="badge text-bg-warning">Reserved</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary o_hfm_port_board_add_line_btn"
+                                                title="Add line" t-att-disabled="portStatus(port) === 'reserved'"
+                                                t-on-click="() => this.addDraftLine(port)">
+                                            <i class="fa fa-plus"/>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <t t-foreach="state.connectDrafts[port.id]" t-as="draft" t-key="draft._localId">
+                                    <tr class="o_hfm_port_board_draft_row">
+                                        <td/>
                                         <td>
                                             <PnmCombobox options="otherItemOptions"
-                                                         text="state.connectDrafts[port.id].toItemText"
-                                                         value="state.connectDrafts[port.id].toItemId"
+                                                         text="draft.toItemText"
+                                                         value="draft.toItemId"
                                                          placeholder="'To Item'"
-                                                         onInput="(text) => this.onToItemInput(port, text)"
-                                                         onSelect="(opt) => this.onToItemSelect(port, opt)"/>
+                                                         onInput="(text) => this.onToItemInput(draft, text)"
+                                                         onSelect="(opt) => this.onToItemSelect(draft, opt)"/>
                                         </td>
                                         <td>
-                                            <PnmCombobox options="state.connectDrafts[port.id].toPortOptions"
-                                                         text="state.connectDrafts[port.id].toPortText"
-                                                         value="state.connectDrafts[port.id].toPortId"
+                                            <PnmCombobox options="draft.toPortOptions"
+                                                         text="draft.toPortText"
+                                                         value="draft.toPortId"
                                                          placeholder="'To Port'"
-                                                         disabled="!state.connectDrafts[port.id].toItemId"
-                                                         onInput="(text) => this.onToPortInput(port, text)"
-                                                         onSelect="(opt) => this.onToPortSelect(port, opt)"/>
+                                                         disabled="!draft.toItemId"
+                                                         onInput="(text) => this.onToPortInput(draft, text)"
+                                                         onSelect="(opt) => this.onToPortSelect(draft, opt)"/>
                                         </td>
                                         <td>
                                             <PnmCombobox options="props.hoseOptions"
-                                                         text="state.connectDrafts[port.id].hoseText"
-                                                         value="state.connectDrafts[port.id].hoseId"
+                                                         text="draft.hoseText"
+                                                         value="draft.hoseId"
                                                          placeholder="'Hose'"
-                                                         onInput="(text) => this.onHoseInput(port, text)"
-                                                         onSelect="(opt) => this.onHoseSelect(port, opt)"/>
+                                                         onInput="(text) => this.onHoseInput(draft, text)"
+                                                         onSelect="(opt) => this.onHoseSelect(port, draft, opt)"/>
                                         </td>
                                         <td>
-                                            <PnmCombobox options="state.connectDrafts[port.id].lengthFilteredOptions"
-                                                         text="state.connectDrafts[port.id].lengthText"
-                                                         value="state.connectDrafts[port.id].lengthMatchId"
+                                            <PnmCombobox options="draft.lengthFilteredOptions"
+                                                         text="draft.lengthText"
+                                                         value="draft.lengthMatchId"
                                                          placeholder="'Length (mm)'"
                                                          allowCreate="true"
                                                          externalFilter="true"
-                                                         disabled="!state.connectDrafts[port.id].hoseId"
-                                                         onInput="(text) => this.onLengthInput(port, text)"
-                                                         onSelect="(opt) => this.onLengthSelect(port, opt)"
-                                                         onBlurExtra="() => this.onLengthBlur(port)"/>
+                                                         disabled="!draft.hoseId"
+                                                         onInput="(text) => this.onLengthInput(draft, text)"
+                                                         onSelect="(opt) => this.onLengthSelect(draft, opt)"
+                                                         onBlurExtra="() => this.onLengthBlur(draft)"/>
                                         </td>
-                                        <td class="text-end">
-                                            <button class="btn btn-sm btn-primary" t-att-disabled="!canAdd(port)"
-                                                    t-on-click="() => this.onAddClick(port)">
-                                                <i class="fa fa-plus"/> Add
+                                        <td class="text-end text-nowrap">
+                                            <button class="btn btn-sm btn-primary" t-att-disabled="!canAdd(draft)"
+                                                    t-on-click="() => this.onAddClick(port, draft)">
+                                                <i class="fa fa-check"/>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    title="Remove this line"
+                                                    t-on-click="() => this.removeDraftLine(port, draft)">
+                                                <i class="fa fa-trash"/>
                                             </button>
                                         </td>
-                                    </t>
-                                    <t t-else="">
-                                        <td colspan="4">
-                                            <span t-if="portStatus(port) === 'reserved'" class="badge text-bg-warning">Reserved</span>
-                                            <span t-else="" class="text-success">
-                                                → <t t-esc="port.connected_item_label"/> (Port <t t-esc="port.connected_port_label"/>)
-                                            </span>
-                                        </td>
-                                        <td class="text-end">
-                                            <button t-if="portStatus(port) === 'used'" class="btn btn-sm btn-outline-secondary"
-                                                    t-on-click="() => this.onUsedClick(port)">
-                                                View
-                                            </button>
-                                        </td>
-                                    </t>
-                                </tr>
+                                    </tr>
+                                </t>
                             </t>
                         </tbody>
                     </table>

@@ -85,10 +85,10 @@ class HoseFittingWireWizard(models.TransientModel):
                 # part_attribute_value._compute_display_value). EN uses each
                 # Item's description_en, VN uses description_vn - never
                 # cross-mixed (that used to be the same text for both).
-                rec.description_preview_en = '%s (Port %s) → %s (Port %s)' % (
+                rec.description_preview_en = '%s (%s) → %s (%s)' % (
                     rec.from_item_id.description_en, rec.from_port_id.display_value,
                     rec.to_item_id.description_en, rec.to_port_id.display_value)
-                rec.description_preview_vn = '%s (Port %s) → %s (Port %s)' % (
+                rec.description_preview_vn = '%s (%s) → %s (%s)' % (
                     rec.from_item_id.description_vn, rec.from_port_id.display_value,
                     rec.to_item_id.description_vn, rec.to_port_id.display_value)
             else:
