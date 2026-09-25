@@ -43,12 +43,33 @@
                 </div>
             </div>
 
+            <t t-if="state.jobId">
+                <div class="o_hfm_header_toggle" t-on-click="() => state.equipmentItemsCollapsed = !state.equipmentItemsCollapsed">
+                    <h3>Equipment Items</h3>
+                    <i t-attf-class="fa {{state.equipmentItemsCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
+                </div>
+                <div t-if="!state.equipmentItemsCollapsed">
+                    <EquipmentItemsPage jobId="state.jobId" onRowsChanged="() => state.portBoardReloadToken++"/>
+                </div>
+
+                <h3>Port Connection Board</h3>
+                <p class="text-muted small">
+                    Pick an Equipment Item, then on one of its open Ports pick the To Item/Port and
+                    the Hose/Length, then Add - a new row is staged below already Wired, ready to Save.
+                </p>
+                <PortBoard jobId="state.jobId"
+                           reservedPortIds="reservedPortIds"
+                           reloadToken="state.portBoardReloadToken"
+                           hoseOptions="hoseOptions"
+                           getLengthOptions="(hoseId) => this.getHoseLengthOptions(hoseId)"
+                           onAdd="(fromItem, fromPort, toItem, toPort, hoseOpt, length, lengthMatch) =>
+                               this.addRowFromPortBoard(fromItem, fromPort, toItem, toPort, hoseOpt, length, lengthMatch)"
+                           onUsedPortClick="(id) => this.onUsedPortClick(id)"/>
+            </t>
+
             <div class="o_pnm_actions">
                 <button class="btn btn-secondary" t-on-click="() => this.addRow()">
                     <i class="fa fa-plus"/> Add Row
-                </button>
-                <button class="btn btn-secondary" t-on-click="() => this.onManageItemsClick()">
-                    <i class="fa fa-list"/> Material List
                 </button>
                 <button class="btn btn-primary" t-on-click="() => this.onSaveClick()" t-att-disabled="state.isSaving">
                     <i class="fa fa-spinner fa-spin" t-if="state.isSaving"/>
@@ -319,7 +340,8 @@
                     </thead>
                     <tbody>
                         <t t-foreach="state.jobLines" t-as="l" t-key="l.id">
-                            <tr class="o_pnm_recent_row" t-on-click="() => this.openJobLine(l.id)">
+                            <tr t-attf-class="o_pnm_recent_row {{state.highlightedJobLineId === l.id ? 'o_hfm_recap_row_highlight' : ''}}"
+                                t-att-data-job-line-id="l.id" t-on-click="() => this.openJobLine(l.id)">
                                 <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
                                     <td t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
                                         <t t-esc="l[key]"/>

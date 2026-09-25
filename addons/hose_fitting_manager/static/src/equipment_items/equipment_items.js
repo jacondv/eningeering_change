@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onWillStart, useEffect, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { PnmCombobox } from "@part_number_manager/part_management_page/pnm_combobox";
@@ -26,7 +26,15 @@ const DEFAULT_COLUMN_WIDTHS = {
 export class EquipmentItemsPage extends Component {
     static template = "hose_fitting_manager.EquipmentItemsPage";
     static components = { PnmCombobox };
-    static props = ["*"];
+    // "*" keeps this permissive for the standalone client action (which the
+    // action framework hands generic props like action/actionId/className) -
+    // jobId/onRowsChanged are only used when Builder mounts this directly
+    // (see equipment_items.xml's props.jobId checks and builder.xml).
+    static props = {
+        "*": true,
+        jobId: { type: [Number, Boolean], optional: true },
+        onRowsChanged: { type: Function, optional: true },
+    };
 
     setup() {
         this.orm = useService("orm");
@@ -54,9 +62,37 @@ export class EquipmentItemsPage extends Component {
 
         onWillStart(async () => {
             await this._loadJobs();
-            this._restoreJob();
+            if (this.props.jobId !== undefined) {
+                this._syncFromPropJobId();
+            } else {
+                this._restoreJob();
+            }
             await this._loadRows();
         });
+
+        // Only fires in the embedded case (props.jobId set) - Builder's own
+        // Job picker changing should reload this panel's list without a
+        // remount. In the standalone case props.jobId is always undefined,
+        // so this never runs (the effect's own guard below is redundant
+        // with that, but kept explicit for clarity).
+        useEffect(
+            () => {
+                if (this.props.jobId !== undefined) {
+                    this._syncFromPropJobId();
+                    this._loadRows();
+                }
+            },
+            () => [this.props.jobId]
+        );
+    }
+
+    // Embedded mode only: Builder owns the Job selection (and its own
+    // localStorage persistence) - this panel just mirrors props.jobId,
+    // resolving a label from the Job list already loaded by _loadJobs().
+    _syncFromPropJobId() {
+        this.state.jobId = this.props.jobId;
+        const opt = this.jobOptions.find((o) => o.id === this.props.jobId);
+        this.state.jobText = opt ? opt.label : "";
     }
 
     async _loadJobs() {
@@ -308,6 +344,7 @@ export class EquipmentItemsPage extends Component {
             this.notification.add(`${this.state.pendingRows.length} item(s) saved.`, { type: "success" });
             this.state.pendingRows = [];
             await this._loadRows();
+            this.props.onRowsChanged?.();
         } finally {
             this.state.isSaving = false;
         }
@@ -333,6 +370,7 @@ export class EquipmentItemsPage extends Component {
     async onRemoveRow(row) {
         await this.orm.unlink(JOB_EQUIPMENT_ITEM_MODEL, [row.id]);
         this.state.rows = this.state.rows.filter((r) => r.id !== row.id);
+        this.props.onRowsChanged?.();
     }
 
     goToBuilder() {
