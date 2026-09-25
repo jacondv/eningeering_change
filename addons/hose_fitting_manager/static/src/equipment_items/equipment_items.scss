@@ -10,4 +10,15 @@
     .o_hfm_pending_row {
         background: var(--Table-header-background, #f8f9fa);
     }
+
+    .o_hfm_row_selected {
+        background: var(--Table-active-background, #e7f1ff);
+    }
+
+    // Same darker zebra accent as the Builder page's own tables (see
+    // builder.scss) and jacon_core's own list style - the New Items table's
+    // special rows already have their own background and are excluded.
+    .o_hfm_equipment_table > tbody > tr:nth-child(odd):not(.o_hfm_add_item_row):not(.o_hfm_pending_row):not(.o_hfm_row_selected) > * {
+        background-color: #dfe3e8;
+    }
 }

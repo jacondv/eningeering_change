@@ -109,11 +109,18 @@
                     </tbody>
                 </table>
 
-                <h3>Equipment Items for this Job</h3>
+                <div class="o_pnm_header">
+                    <h3>Equipment Items for this Job</h3>
+                    <button class="btn btn-sm btn-outline-danger" t-if="selectedCount"
+                            t-on-click="() => this.onDeleteSelectedClick()">
+                        <i class="fa fa-trash"/> Delete Selected (<t t-esc="selectedCount"/>)
+                    </button>
+                </div>
                 <p class="text-muted small" t-if="!state.rows.length">No Items saved for this Job yet.</p>
                 <table t-if="state.rows.length"
                        class="table table-sm table-bordered table-hover table-striped o_pnm_table o_hfm_equipment_table">
                     <colgroup>
+                        <col style="width: 32px"/>
                         <col style="width: 48px"/>
                         <col t-attf-style="width: {{state.columnWidths.part}}px"/>
                         <col t-attf-style="width: {{state.columnWidths.description_en}}px"/>
@@ -124,6 +131,9 @@
                     </colgroup>
                     <thead>
                         <tr>
+                            <th class="text-center">
+                                <input type="checkbox" t-att-checked="allRowsSelected" t-on-change="() => this.toggleSelectAll()"/>
+                            </th>
                             <th class="o_pnm_th">No.</th>
                             <th class="o_pnm_th">Part
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('part', ev)"/>
@@ -145,7 +155,11 @@
                     </thead>
                     <tbody>
                         <t t-foreach="state.rows" t-as="row" t-key="row.id">
-                            <tr>
+                            <tr t-attf-class="{{state.selectedIds[row.id] ? 'o_hfm_row_selected' : ''}}">
+                                <td class="text-center">
+                                    <input type="checkbox" t-att-checked="!!state.selectedIds[row.id]"
+                                           t-on-change="() => this.toggleRowSelected(row)"/>
+                                </td>
                                 <td class="text-muted small text-center"><t t-esc="row_index + 1"/></td>
                                 <td class="text-muted"><t t-esc="row.part_label"/></td>
                                 <td>

@@ -1,6 +1,7 @@
 /** @odoo-module **/
 
 import { Component, useEffect, useRef, useState } from "@odoo/owl";
+import { usePosition } from "@web/core/position/position_hook";
 
 // A self-contained, self-drawn dropdown (never the browser's native
 // <datalist> suggestion popup - see part_management_page.js for why: Chrome
@@ -43,6 +44,19 @@ export class PnmCombobox extends Component {
         this.state = useState({ open: false, highlightIndex: -1 });
         this.inputRef = useRef("input");
         this.menuRef = useRef("menu");
+
+        // Positions the dropdown with position:fixed (viewport-relative,
+        // computed by this same hook Odoo's own Many2one AutoComplete uses -
+        // see web's autocomplete.js) instead of position:absolute anchored
+        // to .o_pnm_combobox. Plain position:absolute got silently clipped
+        // whenever this combobox ended up inside a scrollable/overflow
+        // ancestor (e.g. an editable list's own ".table-responsive"
+        // wrapper, as on the Hose And Fitting Config form) - position:fixed
+        // escapes that entirely, everywhere this widget is used, without
+        // needing to know what's clipping it. "bottom-fit" also matches the
+        // menu's width to the input's, replacing the old min-width:100% CSS
+        // rule (which relied on position:absolute's containing block).
+        usePosition("menu", () => this.inputRef.el, { position: "bottom-fit" });
 
         // Keeps the arrow-key-highlighted row scrolled into view, same as
         // Odoo's own Many2one AutoComplete dropdown.

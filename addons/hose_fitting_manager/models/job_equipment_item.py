@@ -97,14 +97,19 @@ class JobEquipmentItem(models.Model):
     def get_port_board_data(self, job_id):
         """Batched, read-only snapshot for the Builder page's Port
         Connection Board: every Job Equipment Item for `job_id`, each with
-        its own Ports carrying id/label/status - and, for a used Port, the
-        other end's Item/Port labels plus the job_hose_line id, so the
-        client can highlight that line's recap row without a second round
+        its own Ports carrying id/label/status - and, for a used Port,
+        *every* other end it's already Wired to (a Port can be reused
+        across more than one Job Hose Line - e.g. a splitter/manifold
+        physically screwed onto one Port, feeding two separate hoses - so
+        this is a list, not a single connection), so the client can
+        highlight any of those lines' recap rows without a second round
         trip. Same one-search-per-Job batching as _compute_port_status, not
         N+1 per item/port. "Reserved" (claimed by another still-unsaved
         Builder row) is deliberately not computed here - that's a
         client-side-only concept the Builder page derives from its own
-        pending rows, so this only ever reports 'open'/'used'.
+        pending rows, so this only ever reports 'open'/'used'. 'used' only
+        means "has at least one connection already" - it's informational,
+        never a restriction on adding another (see get_open_port_ids).
         """
         items = self.search([('job_number', '=', job_id)])
         if not items:
@@ -113,36 +118,33 @@ class JobEquipmentItem(models.Model):
         hose_line_model = self.env['hose_fitting_manager.job_hose_line']
         lines = hose_line_model.search([('job_number', '=', job_id)])
 
-        usage_by_port_id = {}
+        connections_by_port_id = {}
         for line in lines:
             if line.from_item_id and line.from_port_id:
-                usage_by_port_id[line.from_port_id.id] = {
+                connections_by_port_id.setdefault(line.from_port_id.id, []).append({
                     'job_hose_line_id': line.id,
                     'connected_item_id': line.to_item_id.id,
                     'connected_item_label': line.to_item_id.display_name,
                     'connected_port_label': line.to_port_id.display_value,
-                }
+                })
             if line.to_item_id and line.to_port_id:
-                usage_by_port_id[line.to_port_id.id] = {
+                connections_by_port_id.setdefault(line.to_port_id.id, []).append({
                     'job_hose_line_id': line.id,
                     'connected_item_id': line.from_item_id.id,
                     'connected_item_label': line.from_item_id.display_name,
                     'connected_port_label': line.from_port_id.display_value,
-                }
+                })
 
         result = []
         for item in items:
             ports = []
             for value in item.port_ids:
-                usage = usage_by_port_id.get(value.id)
+                connections = connections_by_port_id.get(value.id, [])
                 ports.append({
                     'id': value.id,
                     'label': value.display_value,
-                    'status': 'used' if usage else 'open',
-                    'connected_item_id': usage['connected_item_id'] if usage else False,
-                    'connected_item_label': usage['connected_item_label'] if usage else '',
-                    'connected_port_label': usage['connected_port_label'] if usage else '',
-                    'job_hose_line_id': usage['job_hose_line_id'] if usage else False,
+                    'status': 'used' if connections else 'open',
+                    'connections': connections,
                 })
             result.append({
                 'id': item.id,
@@ -153,22 +155,19 @@ class JobEquipmentItem(models.Model):
         return result
 
     def get_open_port_ids(self, exclude_line=None):
-        """This Item's own Port attribute_value ids minus whichever are
-        already used as a From/To Port on another Wired Job Hose Line in
-        the same Job. `exclude_line` lets the Wire wizard still offer a
-        line's own current From/To Port when re-wiring that same line -
-        a port isn't "taken" by the very connection it's already part of.
+        """This Item's own Port attribute_value ids - every one of them,
+        regardless of whether it's already used as a From/To Port on
+        another Wired Job Hose Line in the same Job. A Port is allowed to
+        be wired more than once (e.g. a splitter/manifold physically
+        screwed onto one Port, feeding two separate hoses) - `open_ports`/
+        `used_ports`/the Port Board's Open/Used status stay purely
+        informational, never a selection restriction. `exclude_line` is
+        kept as a no-op parameter for call-site compatibility (see
+        wire_wizard.py) - nothing is excluded anymore, but the signature
+        stays the same so callers don't need to change.
         """
         self.ensure_one()
-        if not self.port_ids:
-            return []
-        hose_line_model = self.env['hose_fitting_manager.job_hose_line']
-        domain = [('job_number', '=', self.job_number.id)]
-        if exclude_line:
-            domain.append(('id', '!=', exclude_line.id))
-        used_ids = set(hose_line_model.search(domain + [('from_item_id', '=', self.id)]).from_port_id.ids)
-        used_ids |= set(hose_line_model.search(domain + [('to_item_id', '=', self.id)]).to_port_id.ids)
-        return (self.port_ids - self.env[PART_ATTRIBUTE_VALUE_MODEL].browse(used_ids)).ids
+        return self.port_ids.ids
 
     @api.model
     def _parse_paste_quantity(self, text):

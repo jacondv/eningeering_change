@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, onMounted, onWillStart, useEffect, useRef, useState } from "@odoo/owl";
+import { Component, onWillStart, useEffect, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { PnmCombobox } from "@part_number_manager/part_management_page/pnm_combobox";
@@ -102,8 +102,13 @@ export class HoseFittingBuilder extends Component {
             jobLinesColumnMenuOpen: false,
             // Equipment Items panel is collapsed by default - it's an
             // occasional-admin task, not the primary flow now that the Port
-            // Board is the main way to start a connection.
+            // Board is the main way to start a connection. The other
+            // sections below default open (the primary flow), but can all
+            // be collapsed the same way (see .o_hfm_header_toggle).
             equipmentItemsCollapsed: true,
+            portBoardCollapsed: false,
+            createListCollapsed: false,
+            jobLinesCollapsed: false,
             // Bumped whenever something may have changed a Port's open/used
             // status (a Wire wizard closed, a batch Save succeeded, an
             // Equipment Item was added/removed) - PortBoard reloads whenever
@@ -136,22 +141,35 @@ export class HoseFittingBuilder extends Component {
         this.tableWrapperRef = useRef("tableWrapper");
         this.jobLinesWrapperRef = useRef("jobLinesWrapper");
 
-        onMounted(() => {
-            this._setupResizePersistence(this.tableWrapperRef, TABLE_HEIGHT_STORAGE_KEY, DEFAULT_TABLE_HEIGHT);
-        });
-        // The Job Lines table only exists in the DOM once state.jobLines is
-        // non-empty (see builder.xml's t-if) - (re)attach whenever it
-        // (re)appears, since its ResizeObserver target element gets
-        // recreated each time the table toggles off and back on.
+        // Re-attaches whenever the Create List section is collapsed/expanded
+        // too, not just on mount - its ResizeObserver target element gets
+        // torn down and recreated each time state.createListCollapsed
+        // toggles (see builder.xml's t-if), same reasoning as the Job Lines
+        // table's own effect right below.
         useEffect(
             () => {
-                if (this.state.jobLines.length) {
+                if (!this.state.createListCollapsed) {
+                    return this._setupResizePersistence(
+                        this.tableWrapperRef, TABLE_HEIGHT_STORAGE_KEY, DEFAULT_TABLE_HEIGHT
+                    );
+                }
+            },
+            () => [this.state.createListCollapsed]
+        );
+        // The Job Lines table only exists in the DOM once state.jobLines is
+        // non-empty and the section isn't collapsed (see builder.xml's
+        // t-if) - (re)attach whenever either changes, since its
+        // ResizeObserver target element gets recreated each time the table
+        // toggles off and back on.
+        useEffect(
+            () => {
+                if (this.state.jobLines.length && !this.state.jobLinesCollapsed) {
                     return this._setupResizePersistence(
                         this.jobLinesWrapperRef, JOB_LINES_HEIGHT_STORAGE_KEY, DEFAULT_JOB_LINES_HEIGHT
                     );
                 }
             },
-            () => [this.state.jobLines.length > 0]
+            () => [this.state.jobLines.length > 0, this.state.jobLinesCollapsed]
         );
 
         onWillStart(async () => {

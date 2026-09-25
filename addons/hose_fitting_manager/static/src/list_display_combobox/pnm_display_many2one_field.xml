@@ -1,11 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="hose_fitting_manager.PnmDisplayMany2oneField">
-        <PnmCombobox options="state.options"
+        <!-- Plain text, not PnmCombobox, while the row isn't in edition -
+             a disabled *native* <input> (see pnm_combobox.xml's
+             t-att-disabled) stops receiving/bubbling mouse events entirely
+             in every browser, so a click on it never reaches the <td>/<tr>
+             to trigger Odoo's own "click a row to start editing it". Lists
+             whose only editable columns are widgets like this one (e.g.
+             the Config form's Fitting/Ferrule Options) had no other cell
+             left to click instead, making the row impossible to edit at
+             all without deleting and re-adding it. A plain span has no such
+             restriction - clicks pass straight through to the row. -->
+        <!-- Left padding matches .form-control-sm's own (0.5rem) - without
+             it the text jumps left the instant the row leaves edit mode
+             and this span replaces the PnmCombobox's padded input. -->
+        <span t-if="props.readonly" class="text-truncate d-inline-block" style="max-width: 100%; padding-left: 0.5rem;"
+              t-esc="state.text"/>
+        <PnmCombobox t-else="" options="state.options"
                      text="state.text"
                      value="currentId"
                      placeholder="'Select...'"
-                     disabled="props.readonly"
                      onInput="(text) => this.onInput(text)"
                      onSelect="(opt) => this.onSelect(opt)"
                      onBlurExtra="() => this.onBlurExtra()"/>

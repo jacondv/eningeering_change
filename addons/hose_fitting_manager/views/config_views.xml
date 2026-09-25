@@ -5,9 +5,10 @@
         <field name="name">hose_fitting_manager.config.list</field>
         <field name="model">hose_fitting_manager.config</field>
         <field name="arch" type="xml">
-            <list js_class="jacon_core_list">
+            <list>
                 <field name="symbol"/>
-                <field name="hose_id"/>
+                <field name="hose_id" widget="pnm_display_many2one"
+                       options="{'part_type': 'Hose', 'show_part_number': true}"/>
             </list>
         </field>
     </record>
@@ -20,14 +21,20 @@
                 <sheet>
                     <group>
                         <field name="symbol"/>
-                        <field name="hose_id"/>
+                        <!-- "Part Number - Display Description" for every Part
+                             reference - never just the raw code - same widget
+                             the Job Hose Line views use (see
+                             job_hose_line_views.xml). -->
+                        <field name="hose_id" widget="pnm_display_many2one"
+                               options="{'part_type': 'Hose', 'show_part_number': true}"/>
                     </group>
                     <notebook>
                         <page string="Fire Wrap Options" name="fire_wrap">
                             <field name="fire_wrap_option_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
-                                    <field name="fire_wrap_id"/>
+                                    <field name="fire_wrap_id" widget="pnm_display_many2one"
+                                           options="{'part_type': 'Fire Wrap', 'show_part_number': true}"/>
                                 </list>
                             </field>
                         </page>
@@ -35,7 +42,8 @@
                             <field name="hose_guard_option_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
-                                    <field name="hose_guard_id"/>
+                                    <field name="hose_guard_id" widget="pnm_display_many2one"
+                                           options="{'part_type': 'Hose Guard', 'show_part_number': true}"/>
                                 </list>
                             </field>
                         </page>
@@ -44,8 +52,10 @@
                                 <list editable="bottom">
                                     <field name="slot" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
-                                    <field name="fitting_id"/>
-                                    <field name="ferrule_id"/>
+                                    <field name="fitting_id" widget="pnm_display_many2one"
+                                           options="{'part_type': 'Fitting', 'show_part_number': true}"/>
+                                    <field name="ferrule_id" widget="pnm_display_many2one"
+                                           options="{'part_type': 'Ferrule', 'show_part_number': true}"/>
                                 </list>
                             </field>
                         </page>
@@ -54,8 +64,10 @@
                                 <list editable="bottom">
                                     <field name="slot" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
-                                    <field name="fitting_id"/>
-                                    <field name="ferrule_id"/>
+                                    <field name="fitting_id" widget="pnm_display_many2one"
+                                           options="{'part_type': 'Fitting', 'show_part_number': true}"/>
+                                    <field name="ferrule_id" widget="pnm_display_many2one"
+                                           options="{'part_type': 'Ferrule', 'show_part_number': true}"/>
                                 </list>
                             </field>
                         </page>
