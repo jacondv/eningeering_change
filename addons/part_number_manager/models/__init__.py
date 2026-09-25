@@ -6,3 +6,4 @@ from . import part_number
 from . import part_number_mapping
 from . import project_project
 from . import currency_rate_update
+from . import res_config_settings

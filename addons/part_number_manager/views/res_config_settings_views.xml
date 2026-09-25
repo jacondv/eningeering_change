@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_pnm" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.part_number_manager</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="50"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Part Number Manager" string="Part Number Manager"
+                     name="part_number_manager" groups="base.group_system">
+                    <block title="Part Numbers" id="pnm_edit_lock">
+                        <setting id="pnm_require_edit_password_setting"
+                                 help="When off, every Part Number is always directly editable - no Edit button/password step">
+                            <field name="pnm_require_edit_password"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

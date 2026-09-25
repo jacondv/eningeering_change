@@ -17,7 +17,7 @@ Features:
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'project', 'base_import', 'jacon_core'],
+    'depends': ['base', 'base_setup', 'mail', 'project', 'base_import', 'jacon_core'],
     'data': [
         'security/part_number_manager_groups.xml',
         'security/ir.model.access.csv',
@@ -31,6 +31,7 @@ Features:
         'views/part_number_reject_wizard_views.xml',
         'views/part_management_page_actions.xml',
         'views/part_number_menus.xml',
+        'views/res_config_settings_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
