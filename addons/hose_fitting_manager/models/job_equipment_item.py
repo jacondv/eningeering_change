@@ -93,6 +93,65 @@ class JobEquipmentItem(models.Model):
             rec.open_ports = ', '.join(open_values.mapped('display_value'))
             rec.used_ports = ', '.join(used_values.mapped('display_value'))
 
+    @api.model
+    def get_port_board_data(self, job_id):
+        """Batched, read-only snapshot for the Builder page's Port
+        Connection Board: every Job Equipment Item for `job_id`, each with
+        its own Ports carrying id/label/status - and, for a used Port, the
+        other end's Item/Port labels plus the job_hose_line id, so the
+        client can highlight that line's recap row without a second round
+        trip. Same one-search-per-Job batching as _compute_port_status, not
+        N+1 per item/port. "Reserved" (claimed by another still-unsaved
+        Builder row) is deliberately not computed here - that's a
+        client-side-only concept the Builder page derives from its own
+        pending rows, so this only ever reports 'open'/'used'.
+        """
+        items = self.search([('job_number', '=', job_id)])
+        if not items:
+            return []
+
+        hose_line_model = self.env['hose_fitting_manager.job_hose_line']
+        lines = hose_line_model.search([('job_number', '=', job_id)])
+
+        usage_by_port_id = {}
+        for line in lines:
+            if line.from_item_id and line.from_port_id:
+                usage_by_port_id[line.from_port_id.id] = {
+                    'job_hose_line_id': line.id,
+                    'connected_item_id': line.to_item_id.id,
+                    'connected_item_label': line.to_item_id.display_name,
+                    'connected_port_label': line.to_port_id.display_value,
+                }
+            if line.to_item_id and line.to_port_id:
+                usage_by_port_id[line.to_port_id.id] = {
+                    'job_hose_line_id': line.id,
+                    'connected_item_id': line.from_item_id.id,
+                    'connected_item_label': line.from_item_id.display_name,
+                    'connected_port_label': line.from_port_id.display_value,
+                }
+
+        result = []
+        for item in items:
+            ports = []
+            for value in item.port_ids:
+                usage = usage_by_port_id.get(value.id)
+                ports.append({
+                    'id': value.id,
+                    'label': value.display_value,
+                    'status': 'used' if usage else 'open',
+                    'connected_item_id': usage['connected_item_id'] if usage else False,
+                    'connected_item_label': usage['connected_item_label'] if usage else '',
+                    'connected_port_label': usage['connected_port_label'] if usage else '',
+                    'job_hose_line_id': usage['job_hose_line_id'] if usage else False,
+                })
+            result.append({
+                'id': item.id,
+                'part_number': item.part_id.part_number,
+                'description_en': item.description_en,
+                'ports': ports,
+            })
+        return result
+
     def get_open_port_ids(self, exclude_line=None):
         """This Item's own Port attribute_value ids minus whichever are
         already used as a From/To Port on another Wired Job Hose Line in

@@ -121,4 +121,28 @@
         white-space: nowrap;
         margin-bottom: 0;
     }
+
+    // Collapsible section header (Equipment Items) - a plain clickable row,
+    // not a button, so it can sit flush above its panel like an <h3>.
+    .o_hfm_header_toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+
+        h3 {
+            margin-bottom: 0;
+        }
+    }
+}
+
+// Brief flash on the Job Lines recap row a Port Board "Used" click points
+// to - scrolled into view and highlighted instead of navigating anywhere
+// (see onUsedPortClick in builder.js). Not nested under .o_hfm_page since
+// the highlight class is toggled directly on a <tr>, same specificity level
+// as .o_pnm_recent_row.
+.o_hfm_recap_row_highlight {
+    background-color: var(--Table-active-background, #fff3cd) !important;
+    transition: background-color 1.5s ease-out;
 }
