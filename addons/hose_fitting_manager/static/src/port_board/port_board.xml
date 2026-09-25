@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hose_fitting_manager.PortBoard">
+        <div class="o_hfm_port_board">
+            <div class="o_hfm_port_board_items">
+                <input type="text" class="form-control form-control-sm mb-2"
+                       t-model="state.itemSearchText" placeholder="Search Equipment Items..."/>
+                <div class="o_hfm_port_board_item_list">
+                    <t t-foreach="filteredItems" t-as="item" t-key="item.id">
+                        <div t-attf-class="o_hfm_port_board_item {{state.selectedItemId === item.id ? 'o_hfm_port_board_item_active' : ''}}"
+                             t-on-click="() => this.selectItem(item.id)">
+                            <div class="o_hfm_port_board_item_label">
+                                <t t-esc="item.description_en"/> (<t t-esc="item.part_number"/>)
+                            </div>
+                            <div class="o_hfm_port_board_item_badges">
+                                <span class="badge text-bg-primary" t-if="portCounts(item).open">
+                                    <t t-esc="portCounts(item).open"/> open
+                                </span>
+                                <span class="badge text-bg-secondary" t-if="portCounts(item).used">
+                                    <t t-esc="portCounts(item).used"/> used
+                                </span>
+                            </div>
+                        </div>
+                    </t>
+                    <p class="text-muted small" t-if="!filteredItems.length">No Equipment Items match.</p>
+                </div>
+            </div>
+
+            <div class="o_hfm_port_board_ports">
+                <t t-if="selectedItem">
+                    <h4>
+                        <t t-esc="selectedItem.description_en"/> (<t t-esc="selectedItem.part_number"/>)
+                    </h4>
+                    <p class="text-muted small" t-if="!selectedItem.ports.length">
+                        This Item's Part has no Port attribute.
+                    </p>
+                    <div class="o_hfm_port_board_table_wrapper" t-if="selectedItem.ports.length">
+                    <table class="table table-sm table-bordered o_pnm_table o_hfm_port_board_table">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>To Item</th>
+                                <th>To Port</th>
+                                <th>Hose</th>
+                                <th>Length (mm)</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="selectedItem.ports" t-as="port" t-key="port.id">
+                                <tr>
+                                    <td><t t-esc="port.label"/></td>
+                                    <t t-if="portStatus(port) === 'open'">
+                                        <td>
+                                            <PnmCombobox options="otherItemOptions"
+                                                         text="state.connectDrafts[port.id].toItemText"
+                                                         value="state.connectDrafts[port.id].toItemId"
+                                                         placeholder="'To Item'"
+                                                         onInput="(text) => this.onToItemInput(port, text)"
+                                                         onSelect="(opt) => this.onToItemSelect(port, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="state.connectDrafts[port.id].toPortOptions"
+                                                         text="state.connectDrafts[port.id].toPortText"
+                                                         value="state.connectDrafts[port.id].toPortId"
+                                                         placeholder="'To Port'"
+                                                         disabled="!state.connectDrafts[port.id].toItemId"
+                                                         onInput="(text) => this.onToPortInput(port, text)"
+                                                         onSelect="(opt) => this.onToPortSelect(port, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="props.hoseOptions"
+                                                         text="state.connectDrafts[port.id].hoseText"
+                                                         value="state.connectDrafts[port.id].hoseId"
+                                                         placeholder="'Hose'"
+                                                         onInput="(text) => this.onHoseInput(port, text)"
+                                                         onSelect="(opt) => this.onHoseSelect(port, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="state.connectDrafts[port.id].lengthFilteredOptions"
+                                                         text="state.connectDrafts[port.id].lengthText"
+                                                         value="state.connectDrafts[port.id].lengthMatchId"
+                                                         placeholder="'Length (mm)'"
+                                                         allowCreate="true"
+                                                         externalFilter="true"
+                                                         disabled="!state.connectDrafts[port.id].hoseId"
+                                                         onInput="(text) => this.onLengthInput(port, text)"
+                                                         onSelect="(opt) => this.onLengthSelect(port, opt)"
+                                                         onBlurExtra="() => this.onLengthBlur(port)"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-primary" t-att-disabled="!canAdd(port)"
+                                                    t-on-click="() => this.onAddClick(port)">
+                                                <i class="fa fa-plus"/> Add
+                                            </button>
+                                        </td>
+                                    </t>
+                                    <t t-else="">
+                                        <td colspan="4">
+                                            <span t-if="portStatus(port) === 'reserved'" class="badge text-bg-warning">Reserved</span>
+                                            <span t-else="" class="text-success">
+                                                → <t t-esc="port.connected_item_label"/> (Port <t t-esc="port.connected_port_label"/>)
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button t-if="portStatus(port) === 'used'" class="btn btn-sm btn-outline-secondary"
+                                                    t-on-click="() => this.onUsedClick(port)">
+                                                View
+                                            </button>
+                                        </td>
+                                    </t>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                    </div>
+                </t>
+                <p class="text-muted small" t-else="">Select an Equipment Item on the left to see its Ports.</p>
+            </div>
+        </div>
+    </t>
+</templates>

@@ -4,6 +4,8 @@ import { Component, onMounted, onWillStart, useEffect, useRef, useState } from "
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { PnmCombobox } from "@part_number_manager/part_management_page/pnm_combobox";
+import { EquipmentItemsPage } from "../equipment_items/equipment_items";
+import { PortBoard } from "../port_board/port_board";
 
 const PART_NUMBER_MODEL = "part_number_manager.part_number";
 const CONFIG_MODEL = "hose_fitting_manager.config";
@@ -75,7 +77,7 @@ const DEFAULT_JOB_LINES_HEIGHT = 320;
 
 export class HoseFittingBuilder extends Component {
     static template = "hose_fitting_manager.Builder";
-    static components = { PnmCombobox };
+    static components = { PnmCombobox, EquipmentItemsPage, PortBoard };
     static props = ["*"];
 
     setup() {
@@ -98,6 +100,18 @@ export class HoseFittingBuilder extends Component {
             jobLinesColumnWidths: this._loadColumnWidths(JOB_LINES_COLUMN_WIDTHS_STORAGE_KEY),
             jobLinesColumnVisibility: this._loadColumnVisibility(JOB_LINES_COLUMN_VISIBILITY_STORAGE_KEY),
             jobLinesColumnMenuOpen: false,
+            // Equipment Items panel is collapsed by default - it's an
+            // occasional-admin task, not the primary flow now that the Port
+            // Board is the main way to start a connection.
+            equipmentItemsCollapsed: true,
+            // Bumped whenever something may have changed a Port's open/used
+            // status (a Wire wizard closed, a batch Save succeeded, an
+            // Equipment Item was added/removed) - PortBoard reloads whenever
+            // this changes (see its own reloadToken prop/useEffect).
+            portBoardReloadToken: 0,
+            // Briefly set by onUsedPortClick to flash-highlight the matching
+            // recap row instead of navigating anywhere - see builder.xml.
+            highlightedJobLineId: false,
         });
 
         this.jobOptions = [];
@@ -537,18 +551,89 @@ export class HoseFittingBuilder extends Component {
         });
     }
 
-    // "Manage Items" opens the dedicated Equipment Items page (paste from
-    // Excel directly, inline edit/remove) for whichever Job is currently
-    // selected here - that page is the one place this backing list (used by
-    // Wire's From/To pickers) is ever managed; it's never its own menu.
-    async onManageItemsClick() {
-        if (!this.state.jobId) {
-            this.notification.add("Select a Job Number first.", { type: "danger" });
+    // Ports already picked on a *pending* (unsaved) row anywhere in
+    // state.rows - the Port Board shows these as "Reserved" (distinct from
+    // the server's own Open/Used) so two rows in the same session can't
+    // both claim the same port before either is saved. A row already
+    // status==='success' is real DB state by now, already reflected as
+    // "used" by the Board's own next reload - excluded here so it isn't
+    // double-counted as merely "reserved".
+    get reservedPortIds() {
+        const ids = new Set();
+        for (const row of this.state.rows) {
+            if (row.status === "success") continue;
+            if (row.from_port_id) ids.add(row.from_port_id);
+            if (row.to_port_id) ids.add(row.to_port_id);
+        }
+        return ids;
+    }
+
+    // Port Board's inline "Add" action - the user has already picked the To
+    // Item/Port and the Hose/Length directly on the Port row itself (no
+    // Wire wizard dialog at all). Stages a new Create List row with
+    // everything already filled in - not saved yet, same as every other row
+    // (still needs the main Save button below). The From/To Description is
+    // computed by silently creating+reading+discarding a wire_wizard record
+    // (same formula `action_confirm`'s preview already uses - see
+    // wire_wizard.py - never duplicated here), just without ever opening it
+    // as a dialog. Hose picking reuses _pickHose exactly as the grid's own
+    // Hose field does, so Fitting 1/2 (and their Ferrules) auto-fill from
+    // the Hose's Config exactly the same way.
+    async addRowFromPortBoard(fromItem, fromPort, toItem, toPort, hoseOpt, length, lengthMatch) {
+        const [wizardId] = await this.orm.create("hose_fitting_manager.wire_wizard", [{
+            job_number: this.state.jobId,
+            from_item_id: fromItem.id,
+            from_port_id: fromPort.id,
+            to_item_id: toItem.id,
+            to_port_id: toPort.id,
+        }]);
+        const [wiz] = await this.orm.read(
+            "hose_fitting_manager.wire_wizard", [wizardId],
+            ["description_preview_en", "description_preview_vn"]
+        );
+        await this.orm.unlink("hose_fitting_manager.wire_wizard", [wizardId]);
+
+        const lastRow = this.state.rows[this.state.rows.length - 1];
+        if (!lastRow || !this._isRowEmpty(lastRow)) {
+            this.addRow();
+        }
+        const row = this.state.rows[this.state.rows.length - 1];
+        row.from_item_id = fromItem.id;
+        row.from_port_id = fromPort.id;
+        row.to_item_id = toItem.id;
+        row.to_port_id = toPort.id;
+        row.description_en = wiz.description_preview_en;
+        row.description_vn = wiz.description_preview_vn;
+
+        this._pickHose(row, hoseOpt);
+        row.length = length;
+        row.length_text = String(length);
+        if (lengthMatch) {
+            row.part_id = lengthMatch.id;
+            row.resolved_part_number = lengthMatch.part_number;
+        }
+        this._recomputeLengthOptions(row);
+
+        this.state.portBoardReloadToken++;
+    }
+
+    // Port Board's click on a Used port - never navigates away, just
+    // scrolls to and briefly highlights that line's row in the read-only
+    // recap table below, which already lists every saved line for this Job.
+    onUsedPortClick(jobHoseLineId) {
+        const el = this.jobLinesWrapperRef.el?.querySelector(
+            `[data-job-line-id="${jobHoseLineId}"]`
+        );
+        if (!el) {
             return;
         }
-        await this.action.doAction("hose_fitting_manager.action_hfm_equipment_items", {
-            additionalContext: { default_job_number: this.state.jobId },
-        });
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        this.state.highlightedJobLineId = jobHoseLineId;
+        setTimeout(() => {
+            if (this.state.highlightedJobLineId === jobHoseLineId) {
+                this.state.highlightedJobLineId = false;
+            }
+        }, 1500);
     }
 
     // Wire, called from a still-unsaved Create List row - there's no
@@ -609,6 +694,7 @@ export class HoseFittingBuilder extends Component {
                         row.description_vn = wiz.description_preview_vn;
                     }
                     await this.orm.unlink("hose_fitting_manager.wire_wizard", [wizardId]);
+                    this.state.portBoardReloadToken++;
                 },
             }
         );
@@ -696,6 +782,22 @@ export class HoseFittingBuilder extends Component {
 
     addRow() {
         this.state.rows.push(this._makeRow());
+    }
+
+    // True for a row nothing has been filled in on yet (the always-present
+    // trailing blank row from onWillStart/addRow, before the user has typed
+    // or picked anything into it) - used by addRowFromPortBoard so it fills
+    // that row in place instead of leaving it behind as a second, empty row
+    // that Save would then reject.
+    _isRowEmpty(row) {
+        return (
+            row.status === "pending" &&
+            !row.config_id && !row.hose_id && !row.fitting1_id && !row.fitting2_id &&
+            !row.ferrule1_id && !row.ferrule2_id && !row.fire_wrap_id && !row.hose_guard_id &&
+            !row.hose_number && !row.function_id &&
+            !row.from_item_id && !row.to_item_id &&
+            row.length === false
+        );
     }
 
     removeRow(localId) {
@@ -902,6 +1004,17 @@ export class HoseFittingBuilder extends Component {
         row.length_options = source.filter((o) => Math.abs(o.length - row.length) <= tolerance);
     }
 
+    // Shared by _refreshAllLengthOptions (Create List row) and
+    // getHoseLengthOptions (Port Board's inline Length field) - the actual
+    // find_matches call + the {id, label, length, part_number} option shape
+    // lives here once, not duplicated per caller.
+    async _findMatches(componentIds) {
+        const matches = await this.orm.call(JOB_HOSE_LINE_MODEL, "find_matches", [componentIds]);
+        return matches.map((m) => ({
+            id: m.id, label: `${m.length} mm (${m.part_number})`, length: m.length, part_number: m.part_number,
+        }));
+    }
+
     // Re-queries every existing assembled Hose and Fitting Part whose BOM
     // matches this row's currently-picked Hose/Fitting1/Fitting2 (+
     // Ferrules) - Fire Wrap/Hose Guard are deliberately not part of this
@@ -920,7 +1033,7 @@ export class HoseFittingBuilder extends Component {
         if (row.ferrule2_id) componentIds.push(row.ferrule2_id);
         const signature = [...componentIds].sort().join(",");
 
-        const matches = await this.orm.call(JOB_HOSE_LINE_MODEL, "find_matches", [componentIds]);
+        const options = await this._findMatches(componentIds);
 
         const currentIds = [row.hose_id, row.fitting1_id, row.fitting2_id];
         if (row.ferrule1_id) currentIds.push(row.ferrule1_id);
@@ -928,10 +1041,27 @@ export class HoseFittingBuilder extends Component {
         if ([...currentIds].sort().join(",") !== signature) {
             return; // row's component picks changed again while this call was in flight
         }
-        row.all_length_options = matches.map((m) => ({
-            id: m.id, label: `${m.length} mm (${m.part_number})`, length: m.length, part_number: m.part_number,
-        }));
+        row.all_length_options = options;
         this._recomputeLengthOptions(row);
+    }
+
+    // Port Board's inline Length field - same BOM-match query as the Create
+    // List row's own Length field (_refreshAllLengthOptions), but keyed off
+    // just a Hose id: Fitting 1/2 (+ their Ferrules) are resolved via the
+    // same Config lookup _pickHose uses, since the Port Board never shows
+    // those fields itself. Returns [] if this Hose has no Config (nothing
+    // to match against yet, same as the grid's own empty-state).
+    async getHoseLengthOptions(hoseId) {
+        const cfg = hoseId ? this.configsByHoseId[hoseId] : null;
+        const fitting1 = cfg?.fitting1_options[0];
+        const fitting2 = cfg?.fitting2_options[0];
+        if (!fitting1 || !fitting2) {
+            return [];
+        }
+        const componentIds = [hoseId, fitting1.id, fitting2.id];
+        if (fitting1.ferrule_id) componentIds.push(fitting1.ferrule_id);
+        if (fitting2.ferrule_id) componentIds.push(fitting2.ferrule_id);
+        return this._findMatches(componentIds);
     }
 
     validateClientSide() {
@@ -940,7 +1070,7 @@ export class HoseFittingBuilder extends Component {
             errors.job = "Select a Job Number first";
         }
         for (const row of this.state.rows) {
-            if (row.status === "success") continue;
+            if (row.status === "success" || this._isRowEmpty(row)) continue;
             if (!row.hose_id) errors[`${row._localId}_hose`] = "Pick a Hose first";
             if (!row.fitting1_id) errors[`${row._localId}_fitting1`] = "Required";
             if (!row.fitting2_id) errors[`${row._localId}_fitting2`] = "Required";
@@ -960,7 +1090,7 @@ export class HoseFittingBuilder extends Component {
             return;
         }
 
-        const pendingRows = this.state.rows.filter((r) => r.status !== "success");
+        const pendingRows = this.state.rows.filter((r) => r.status !== "success" && !this._isRowEmpty(r));
         if (!pendingRows.length) {
             this.notification.add("Nothing to save.", { type: "info" });
             return;
@@ -1012,6 +1142,7 @@ export class HoseFittingBuilder extends Component {
 
             if (successCount > 0) {
                 this._loadJobLines();
+                this.state.portBoardReloadToken++;
             }
 
             if (failCount === 0) {

@@ -2,24 +2,26 @@
 <templates xml:space="preserve">
     <t t-name="hose_fitting_manager.EquipmentItemsPage">
         <div class="o_content o_pnm_page o_hfm_page o_hfm_equipment_page">
-            <div class="o_pnm_header">
-                <h2>Equipment Items</h2>
-                <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.goToBuilder()">
-                    <i class="fa fa-arrow-left"/> Back to Create List
-                </button>
-            </div>
-
-            <div class="o_hfm_top_fields">
-                <div class="o_hfm_top_field">
-                    <label>Job Number</label>
-                    <PnmCombobox options="jobOptions"
-                                 text="state.jobText"
-                                 value="state.jobId"
-                                 placeholder="'Select the Job to manage Items for'"
-                                 onInput="(text) => this.onJobInput(text)"
-                                 onSelect="(opt) => this.onJobSelect(opt)"/>
+            <t t-if="props.jobId === undefined">
+                <div class="o_pnm_header">
+                    <h2>Equipment Items</h2>
+                    <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.goToBuilder()">
+                        <i class="fa fa-arrow-left"/> Back to Create List
+                    </button>
                 </div>
-            </div>
+
+                <div class="o_hfm_top_fields">
+                    <div class="o_hfm_top_field">
+                        <label>Job Number</label>
+                        <PnmCombobox options="jobOptions"
+                                     text="state.jobText"
+                                     value="state.jobId"
+                                     placeholder="'Select the Job to manage Items for'"
+                                     onInput="(text) => this.onJobInput(text)"
+                                     onSelect="(opt) => this.onJobSelect(opt)"/>
+                    </div>
+                </div>
+            </t>
 
             <t t-if="state.jobId">
                 <h3>New Items</h3>

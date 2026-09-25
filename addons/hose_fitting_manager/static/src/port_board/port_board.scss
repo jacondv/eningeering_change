@@ -1,0 +1,71 @@
+.o_hfm_port_board {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    .o_hfm_port_board_items {
+        flex: 0 0 320px;
+        min-width: 0;
+    }
+
+    .o_hfm_port_board_ports {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .o_hfm_port_board_table_wrapper {
+        overflow-x: auto;
+        // Room for a combobox dropdown opened on the last row - same reason
+        // as .o_hfm_page's .o_pnm_table_wrapper (overflow-x: auto forces
+        // overflow-y: auto too, which would otherwise clip the menu).
+        padding-bottom: 180px;
+    }
+
+    .o_hfm_port_board_table {
+        min-width: 720px;
+
+        th, td {
+            vertical-align: middle;
+        }
+    }
+
+    .o_hfm_port_board_item_list {
+        max-height: 360px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 4px;
+    }
+
+    .o_hfm_port_board_item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border-color, #dee2e6);
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &:hover {
+            background: var(--Table-header-background, #f8f9fa);
+        }
+    }
+
+    .o_hfm_port_board_item_active {
+        background: var(--Table-active-background, #e7f1ff);
+    }
+
+    .o_hfm_port_board_item_label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .o_hfm_port_board_item_badges {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+}
