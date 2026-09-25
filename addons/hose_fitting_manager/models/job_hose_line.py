@@ -188,6 +188,14 @@ class JobHoseLine(models.Model):
                             raise UserError(_('Part Type "Hose And Fitting" was not found - check Part Types.'))
                         suffix = part_model._get_next_suffix(material_group_id)
                         group = self.env['part_number_manager.material_group'].browse(material_group_id)
+                        # "1.2m - 1/2" x 6SN (8EFG6K) Hose Assy" - Length in
+                        # meters (mm stored / 1000, trailing zeros trimmed)
+                        # + the Hose component's own description, same
+                        # fallback order used everywhere else a component's
+                        # description is shown (see _report_part_description).
+                        hose = part_model.browse(hose_id)
+                        hose_desc = hose.display_description or hose.short_description or ''
+                        short_description = f'{length / 1000.0:g}m - {hose_desc} Hose Assy'.strip()
                         new_part = part_model.with_context(skip_job_number_check=True).create({
                             'material_group_id': material_group_id,
                             'sequence_suffix': suffix,
@@ -196,6 +204,7 @@ class JobHoseLine(models.Model):
                             'make_buy': 'make',
                             'length': length,
                             'length_tolerance': length_tolerance or DEFAULT_LENGTH_TOLERANCE,
+                            'short_description': short_description,
                         })
                         lines = [
                             {'parent_part_id': new_part.id, 'component_part_id': hose_id,
