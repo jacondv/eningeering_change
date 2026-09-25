@@ -157,23 +157,34 @@ class PartNumber(models.Model):
     is_unlocked = fields.Boolean(
         string='Unlocked for Editing', compute='_compute_is_unlocked',
         inverse='_inverse_is_unlocked',
-        help="Not stored - always recomputed on load, so a part is always locked again after "
-             "being saved or the page is refreshed. New (unsaved) parts are always unlocked. "
-             "See the Edit button on the form.")
+        help="Not stored - always recomputed on load. Whether an existing Part is locked at all "
+             "depends on Settings > General Settings > Part Numbers > \"Require password to edit "
+             "Part Numbers\" - off (default): always unlocked; on: locked again after every save "
+             "or page refresh until the Edit button + the current user's own password unlocks it "
+             "for that session. New (unsaved) parts are always unlocked either way.")
 
     _part_number_unique = models.Constraint(
         'unique(part_number)',
         'This Part Number already exists. The advisory lock in _get_next_suffix should have prevented this.')
 
     def _compute_is_unlocked(self):
-        # TEMPORARY: Edit-lock/password feature disabled - every Part Number
-        # is always unlocked, no password prompt. To restore the original
-        # behavior (existing records locked until the Edit button + the
-        # current user's own password unlocks them for that session), change
-        # this back to `part.is_unlocked = not part.id` and undo the
-        # matching change in part_number_relock_on_save_patch.js.
+        # Settings > General Settings > Part Numbers > "Require password to
+        # edit Part Numbers" (config_parameter part_number_manager.
+        # require_edit_password, see res_config_settings.py) - off by
+        # default, so every Part Number is always directly editable until
+        # someone opts back into the Edit-button/password step.
+        # get_param always returns a string ('True'/'False') or None, never
+        # a real bool - comparing the raw value would treat the string
+        # 'False' as truthy, so it has to be parsed explicitly.
+        raw_value = self.env['ir.config_parameter'].sudo().get_param(
+            'part_number_manager.require_edit_password')
+        require_password = str(raw_value).lower() in ('1', 'true')
+        if not require_password:
+            for part in self:
+                part.is_unlocked = True
+            return
         for part in self:
-            part.is_unlocked = True
+            part.is_unlocked = not part.id
 
     def _inverse_is_unlocked(self):
         # No-op: this field is intentionally never persisted - see the help
