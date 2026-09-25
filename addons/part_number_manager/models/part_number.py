@@ -166,8 +166,14 @@ class PartNumber(models.Model):
         'This Part Number already exists. The advisory lock in _get_next_suffix should have prevented this.')
 
     def _compute_is_unlocked(self):
+        # TEMPORARY: Edit-lock/password feature disabled - every Part Number
+        # is always unlocked, no password prompt. To restore the original
+        # behavior (existing records locked until the Edit button + the
+        # current user's own password unlocks them for that session), change
+        # this back to `part.is_unlocked = not part.id` and undo the
+        # matching change in part_number_relock_on_save_patch.js.
         for part in self:
-            part.is_unlocked = not part.id
+            part.is_unlocked = True
 
     def _inverse_is_unlocked(self):
         # No-op: this field is intentionally never persisted - see the help
