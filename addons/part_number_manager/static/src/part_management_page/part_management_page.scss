@@ -237,11 +237,12 @@
     }
 
     .o_pnm_combobox_menu {
-        position: absolute;
+        // position/top/left/width come from usePosition (see pnm_combobox.js) -
+        // fixed rather than absolute so an ancestor's overflow:hidden/auto
+        // (e.g. an editable list's own table-responsive wrapper) can never
+        // clip it, wherever this combobox ends up being used.
+        position: fixed;
         z-index: 1000;
-        top: 100%;
-        left: 0;
-        min-width: 100%;
         max-width: 320px;
         max-height: 440px;
         overflow-y: auto;

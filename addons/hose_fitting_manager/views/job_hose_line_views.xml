@@ -6,17 +6,23 @@
         <field name="model">hose_fitting_manager.job_hose_line</field>
         <field name="arch" type="xml">
             <list js_class="jacon_core_list">
-                <!-- Left: identifying/job info, always shown -->
-                <field name="job_number"/>
-                <field name="config_id" string="Hose Symbol"/>
-                <field name="hose_number"/>
-                <field name="function_id"/>
+                <!-- Left: identifying/job info - every column toggleable
+                     via the list view's own column-picker, these just
+                     default to shown. -->
+                <field name="job_number" optional="show"/>
+                <field name="config_id" string="Hose Symbol" optional="show"/>
+                <field name="hose_number" optional="show"/>
+                <field name="function_id" optional="show"/>
+                <!-- Odoo's column-picker only supports <field> nodes, not
+                     <button> ones, so this can't be offered as a toggle -
+                     always hidden instead; Wire is still reachable from the
+                     record's own form (see the header button below). -->
                 <button name="action_open_wire_wizard" type="object" string="Wire"
-                        icon="fa-link" class="btn-sm btn-link"/>
-                <field name="description_en"/>
-                <field name="description_vn"/>
-                <field name="quantity"/>
-                <field name="length" digits="[16, 0]"/>
+                        icon="fa-link" class="btn-sm btn-link" column_invisible="1"/>
+                <field name="description_en" optional="show"/>
+                <field name="description_vn" optional="show"/>
+                <field name="quantity" optional="show"/>
+                <field name="length" digits="[16, 0]" optional="show"/>
                 <!-- Right: BOM detail - editable dropdowns showing/searching
                      by the component Part's Display Name, never its raw
                      part_number code (same widget/convention as the Builder

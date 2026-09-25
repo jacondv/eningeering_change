@@ -29,6 +29,15 @@
             padding: 3px 6px;
         }
 
+        // Bootstrap's default table-striped accent is too light to tell
+        // rows apart at a glance - same darker accent jacon_core's own list
+        // style uses (see left_align_number_list_view.scss), applied
+        // unconditionally here rather than gated on .table-striped since
+        // this table doesn't carry that class.
+        > tbody > tr:nth-child(odd):not(.o_pnm_row_success):not(.o_pnm_row_error) > * {
+            background-color: #dfe3e8;
+        }
+
         .o_pnm_combobox_input_group input,
         input.form-control-sm {
             padding: 2px 6px;
@@ -107,6 +116,10 @@
         max-height: 320px;
         overflow-y: auto;
         background: var(--bg-color, #fff);
+        // A white popup, but it can now sit inside a purple .o_hfm_section_header
+        // (color: #fff) - without resetting it here the checkbox labels
+        // inherit white-on-white and become invisible.
+        color: var(--text-color, #212529);
         border: 1px solid var(--border-color, #dee2e6);
         border-radius: 4px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -125,16 +138,60 @@
     // Collapsible section header (Equipment Items) - a plain clickable row,
     // not a button, so it can sit flush above its panel like an <h3>.
     .o_hfm_header_toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
         cursor: pointer;
         user-select: none;
+    }
 
-        h3 {
+    // Full-width colored bar marking off each section (Equipment Items,
+    // Port Connection Board, the Create List grid, the read-only recap) -
+    // makes the page's structure scannable at a glance instead of relying
+    // on a plain <h3> that blends into the surrounding text.
+    .o_hfm_section_header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        // Odoo's current backend brand purple ($o-community-color in
+        // primary_variables.scss) - not exposed as a runtime CSS custom
+        // property, so hardcoded straight from that value.
+        background: #71639e;
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 4px;
+        margin: 16px 0 8px;
+
+        h2, h3 {
             margin-bottom: 0;
+            color: inherit;
+        }
+
+        &:first-child {
+            margin-top: 0;
         }
     }
+
+    // Sits right under the Port Connection Board with nothing in between -
+    // the default 16px top margin doubled up with PortBoard's own spacing
+    // and left too much air between the two sections.
+    .o_hfm_section_header_tight {
+        margin-top: 4px;
+    }
+
+    // Holds a section header's own extra controls (e.g. the Columns menu)
+    // next to its collapse chevron - kept apart from the header's own
+    // space-between pair (title / this) so the controls stay grouped
+    // together on the right instead of being spread across the bar.
+    .o_hfm_section_header_actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    // The Port Connection Board sits directly above the Create List grid's
+    // own header now - no helper paragraph between them anymore, and the
+    // grid's section header itself carries the spacing (margin-top above),
+    // so nothing extra is needed here; PortBoard's own bottom margin (see
+    // port_board.scss) is what's been tightened to close the gap.
 }
 
 // Brief flash on the Job Lines recap row a Port Board "Used" click points

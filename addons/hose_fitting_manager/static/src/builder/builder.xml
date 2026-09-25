@@ -4,21 +4,6 @@
         <div class="o_content o_pnm_page o_hfm_page">
             <div class="o_pnm_header">
                 <h2>Hose &amp; Fitting Builder</h2>
-                <div class="o_hfm_column_menu">
-                    <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.toggleColumnMenu()">
-                        <i class="fa fa-table"/> Columns
-                    </button>
-                    <div class="o_hfm_column_menu_panel" t-if="state.columnMenuOpen">
-                        <t t-foreach="toggleableColumnKeys" t-as="key" t-key="key">
-                            <label class="o_hfm_column_menu_item">
-                                <input type="checkbox"
-                                       t-att-checked="state.columnVisibility[key]"
-                                       t-on-change="() => this.toggleColumnVisibility(key)"/>
-                                <t t-esc="columnLabels[key]"/>
-                            </label>
-                        </t>
-                    </div>
-                </div>
             </div>
 
             <div class="o_hfm_top_fields">
@@ -44,7 +29,7 @@
             </div>
 
             <t t-if="state.jobId">
-                <div class="o_hfm_header_toggle" t-on-click="() => state.equipmentItemsCollapsed = !state.equipmentItemsCollapsed">
+                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => state.equipmentItemsCollapsed = !state.equipmentItemsCollapsed">
                     <h3>Equipment Items</h3>
                     <i t-attf-class="fa {{state.equipmentItemsCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
                 </div>
@@ -52,12 +37,12 @@
                     <EquipmentItemsPage jobId="state.jobId" onRowsChanged="() => state.portBoardReloadToken++"/>
                 </div>
 
-                <h3>Port Connection Board</h3>
-                <p class="text-muted small">
-                    Pick an Equipment Item, then on one of its open Ports pick the To Item/Port and
-                    the Hose/Length, then Add - a new row is staged below already Wired, ready to Save.
-                </p>
-                <PortBoard jobId="state.jobId"
+                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => state.portBoardCollapsed = !state.portBoardCollapsed">
+                    <h3>Port Connection Board</h3>
+                    <i t-attf-class="fa {{state.portBoardCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
+                </div>
+                <PortBoard t-if="!state.portBoardCollapsed"
+                           jobId="state.jobId"
                            reservedPortIds="reservedPortIds"
                            reloadToken="state.portBoardReloadToken"
                            hoseOptions="hoseOptions"
@@ -67,6 +52,29 @@
                            onUsedPortClick="(id) => this.onUsedPortClick(id)"/>
             </t>
 
+            <div class="o_hfm_section_header o_hfm_section_header_tight o_hfm_header_toggle"
+                 t-on-click="() => state.createListCollapsed = !state.createListCollapsed">
+                <h3>Hose And Fitting Lines to Create</h3>
+                <div class="o_hfm_section_header_actions">
+                    <div class="o_hfm_column_menu" t-on-click.stop="">
+                        <button class="btn btn-outline-light btn-sm" t-on-click="() => this.toggleColumnMenu()">
+                            <i class="fa fa-table"/> Columns
+                        </button>
+                        <div class="o_hfm_column_menu_panel" t-if="state.columnMenuOpen">
+                            <t t-foreach="toggleableColumnKeys" t-as="key" t-key="key">
+                                <label class="o_hfm_column_menu_item">
+                                    <input type="checkbox"
+                                           t-att-checked="state.columnVisibility[key]"
+                                           t-on-change="() => this.toggleColumnVisibility(key)"/>
+                                    <t t-esc="columnLabels[key]"/>
+                                </label>
+                            </t>
+                        </div>
+                    </div>
+                    <i t-attf-class="fa {{state.createListCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
+                </div>
+            </div>
+            <t t-if="!state.createListCollapsed">
             <div class="o_pnm_actions">
                 <button class="btn btn-secondary" t-on-click="() => this.addRow()">
                     <i class="fa fa-plus"/> Add Row
@@ -299,26 +307,32 @@
                 </tbody>
             </table>
             </div>
+            </t>
 
             <div class="o_pnm_recent" t-if="state.jobId">
-                <div class="o_pnm_header">
+                <div class="o_hfm_section_header o_pnm_header o_hfm_header_toggle"
+                     t-on-click="() => state.jobLinesCollapsed = !state.jobLinesCollapsed">
                     <h3>Hose And Fitting Lines for this Job</h3>
-                    <div class="o_hfm_column_menu">
-                        <button class="btn btn-outline-secondary btn-sm" t-on-click="() => this.toggleJobLinesColumnMenu()">
-                            <i class="fa fa-table"/> Columns
-                        </button>
-                        <div class="o_hfm_column_menu_panel" t-if="state.jobLinesColumnMenuOpen">
-                            <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
-                                <label class="o_hfm_column_menu_item">
-                                    <input type="checkbox"
-                                           t-att-checked="state.jobLinesColumnVisibility[key]"
-                                           t-on-change="() => this.toggleJobLinesColumnVisibility(key)"/>
-                                    <t t-esc="columnLabels[key]"/>
-                                </label>
-                            </t>
+                    <div class="o_hfm_section_header_actions">
+                        <div class="o_hfm_column_menu" t-on-click.stop="">
+                            <button class="btn btn-outline-light btn-sm" t-on-click="() => this.toggleJobLinesColumnMenu()">
+                                <i class="fa fa-table"/> Columns
+                            </button>
+                            <div class="o_hfm_column_menu_panel" t-if="state.jobLinesColumnMenuOpen">
+                                <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
+                                    <label class="o_hfm_column_menu_item">
+                                        <input type="checkbox"
+                                               t-att-checked="state.jobLinesColumnVisibility[key]"
+                                               t-on-change="() => this.toggleJobLinesColumnVisibility(key)"/>
+                                        <t t-esc="columnLabels[key]"/>
+                                    </label>
+                                </t>
+                            </div>
                         </div>
+                        <i t-attf-class="fa {{state.jobLinesCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
                     </div>
                 </div>
+                <t t-if="!state.jobLinesCollapsed">
                 <p class="text-muted small" t-if="!state.jobLines.length">No lines saved for this Job yet.</p>
                 <div class="o_pnm_table_wrapper o_hfm_job_lines_scroll" t-if="state.jobLines.length" t-ref="jobLinesWrapper">
                 <table class="table table-sm table-bordered table-hover table-striped o_hfm_table">
@@ -352,6 +366,7 @@
                     </tbody>
                 </table>
                 </div>
+                </t>
             </div>
         </div>
     </t>
