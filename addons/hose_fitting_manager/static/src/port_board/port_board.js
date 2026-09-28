@@ -197,12 +197,18 @@ export class PortBoard extends Component {
         return { used, total };
     }
 
-    // True when at least one of this Item's Ports has no connection yet -
-    // drives the red warning icon in the Item list (per user request: flag
-    // any Item that isn't fully wired up).
-    hasOpenPorts(item) {
-        const counts = this.portCounts(item);
-        return counts.used < counts.total;
+    // Badge color for the Item list's "used/total" count: blue when nothing
+    // is connected yet, red while partially wired (still needs attention),
+    // green once every Port has a connection.
+    portCountBadgeClass(item) {
+        const { used, total } = this.portCounts(item);
+        if (used === 0) {
+            return "text-bg-primary";
+        }
+        if (used < total) {
+            return "text-bg-danger";
+        }
+        return "text-bg-success";
     }
 
     portStatus(port) {

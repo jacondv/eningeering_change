@@ -10,12 +10,10 @@
                         <div t-attf-class="o_hfm_port_board_item {{state.selectedItemId === item.id ? 'o_hfm_port_board_item_active' : ''}}"
                              t-on-click="() => this.selectItem(item.id)">
                             <div class="o_hfm_port_board_item_label">
-                                <i class="fa fa-exclamation-triangle text-danger me-1"
-                                   t-if="hasOpenPorts(item)" title="Some Ports not yet connected"/>
                                 <t t-esc="item.description_en"/> (<t t-esc="item.part_number"/>)
                             </div>
                             <div class="o_hfm_port_board_item_badges">
-                                <span class="badge text-bg-secondary">
+                                <span t-attf-class="badge {{portCountBadgeClass(item)}}">
                                     <t t-esc="portCounts(item).used"/>/<t t-esc="portCounts(item).total"/> used
                                 </span>
                             </div>
