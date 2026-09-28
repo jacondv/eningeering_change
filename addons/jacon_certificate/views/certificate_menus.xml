@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_certificate_root" name="Certificate"
+          parent="jacon_documents.menu_jacon_documents_root"
+          groups="jacon_certificate.group_certificate_user"
+          sequence="20"/>
+
+    <menuitem id="menu_certificate_all" name="Certificates"
+          parent="menu_certificate_root"
+          action="action_equipment_certificate_explorer"
+          sequence="10"/>
+
+</odoo>
