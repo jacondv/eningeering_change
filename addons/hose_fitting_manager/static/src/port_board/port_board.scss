@@ -8,8 +8,24 @@
     margin-bottom: 0;
 
     .o_hfm_port_board_items {
-        flex: 0 0 320px;
+        // Width itself comes from an inline style (state.itemsPanelWidth,
+        // draggable via .o_hfm_port_board_items_resize_handle) - flex:
+        // 0 0 auto just stops it from stretching/shrinking with the row.
+        flex: 0 0 auto;
         min-width: 0;
+    }
+
+    // Thin vertical splitter between the Item list and the Ports panel -
+    // same drag-to-resize idea as .o_pnm_col_resize_handle, just a
+    // standalone element here instead of one pinned to a <th>'s edge.
+    .o_hfm_port_board_items_resize_handle {
+        flex: 0 0 6px;
+        cursor: col-resize;
+        background: transparent;
+
+        &:hover {
+            background: var(--border-color, #dee2e6);
+        }
     }
 
     .o_hfm_port_board_ports {
@@ -99,7 +115,17 @@
     }
 
     .o_hfm_port_board_item_active {
-        background: var(--Table-active-background, #e7f1ff);
+        background: #e5e0f0;
+        color: #4a4363;
+        font-weight: bold;
+
+        .o_hfm_port_board_item_label {
+            font-weight: bold;
+        }
+
+        &:hover {
+            background: #e5e0f0;
+        }
     }
 
     .o_hfm_port_board_item_label {

@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
     <t t-name="hose_fitting_manager.PortBoard">
         <div class="o_hfm_port_board">
-            <div class="o_hfm_port_board_items">
+            <div class="o_hfm_port_board_items" t-attf-style="width: {{state.itemsPanelWidth}}px">
                 <input type="text" class="form-control form-control-sm mb-2"
                        t-model="state.itemSearchText" placeholder="Search Equipment Items..."/>
                 <div class="o_hfm_port_board_item_list">
@@ -10,14 +10,13 @@
                         <div t-attf-class="o_hfm_port_board_item {{state.selectedItemId === item.id ? 'o_hfm_port_board_item_active' : ''}}"
                              t-on-click="() => this.selectItem(item.id)">
                             <div class="o_hfm_port_board_item_label">
+                                <i class="fa fa-exclamation-triangle text-danger me-1"
+                                   t-if="hasOpenPorts(item)" title="Some Ports not yet connected"/>
                                 <t t-esc="item.description_en"/> (<t t-esc="item.part_number"/>)
                             </div>
                             <div class="o_hfm_port_board_item_badges">
-                                <span class="badge text-bg-primary" t-if="portCounts(item).open">
-                                    <t t-esc="portCounts(item).open"/> open
-                                </span>
-                                <span class="badge text-bg-secondary" t-if="portCounts(item).used">
-                                    <t t-esc="portCounts(item).used"/> used
+                                <span class="badge text-bg-secondary">
+                                    <t t-esc="portCounts(item).used"/>/<t t-esc="portCounts(item).total"/> used
                                 </span>
                             </div>
                         </div>
@@ -25,6 +24,8 @@
                     <p class="text-muted small" t-if="!filteredItems.length">No Equipment Items match.</p>
                 </div>
             </div>
+
+            <div class="o_hfm_port_board_items_resize_handle" t-on-mousedown="(ev) => this.onItemsPanelResizeStart(ev)"/>
 
             <div class="o_hfm_port_board_ports">
                 <t t-if="selectedItem">
