@@ -13,7 +13,7 @@ const JACON_APP_MODULES = [
     "project",
     "engineering_change",
     "part_number_manager",
-    "qc_checksheet",
+    "jacon_documents",
     "equipment_model",
     "inventor_connector",
 ];
@@ -22,7 +22,7 @@ const JACON_APP_ICONS = {
     project: "fa-tasks",
     engineering_change: "fa-refresh",
     part_number_manager: "fa-hashtag",
-    qc_checksheet: "fa-check-square-o",
+    jacon_documents: "fa-file-text-o",
     equipment_model: "fa-cubes",
     inventor_connector: "fa-plug",
 };
