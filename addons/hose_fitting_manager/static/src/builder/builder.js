@@ -412,13 +412,16 @@ export class HoseFittingBuilder extends Component {
                 this.configsByHoseId[cfg.hose_id] = cfg;
             }
         }
-        const hoseParts = await this.orm.searchRead(
-            PART_NUMBER_MODEL, [["part_type_id.name", "=", "Hose"]],
-            ["display_description", "short_description", "part_number"]
-        );
-        this.hoseOptions = hoseParts.map((p) => ({
-            id: p.id,
-            label: p.display_description || p.short_description || `(No description) ${p.part_number}`,
+        // Only Hoses actually referenced by a Hose And Fitting Config -
+        // never every Hose-type Part Number in the system - so the Port
+        // Board/Create List's Hose picker only ever offers Hoses someone
+        // has deliberately set up a Config for (with its own Fitting/
+        // Ferrule/Fire Wrap/Hose Guard options), same source `configs`
+        // above already loaded, not a separate broader query.
+        const hoseIds = [...new Set(configs.filter((c) => c.hose_id).map((c) => c.hose_id[0]))];
+        this.hoseOptions = hoseIds.map((id) => ({
+            id,
+            label: labelById[id] || "(No description)",
         }));
     }
 
