@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
-    <t t-name="equipment_model.CertificateExplorer" owl="1">
+    <t t-name="jacon_certificate.CertificateExplorer" owl="1">
         <div class="o_certificate_explorer d-flex h-100">
             <div class="o_certificate_tree border-end p-2 overflow-auto" style="width: 320px; min-width: 280px;">
                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -19,7 +19,7 @@
                     </button>
                 </div>
                 <t t-foreach="rootNodes" t-as="node" t-key="node.id">
-                    <t t-call="equipment_model.CertificateExplorer.TreeNode">
+                    <t t-call="jacon_certificate.CertificateExplorer.TreeNode">
                         <t t-set="node" t-value="node"/>
                         <t t-set="level" t-value="0"/>
                     </t>
@@ -53,7 +53,7 @@
         </div>
     </t>
 
-    <t t-name="equipment_model.CertificateExplorer.TreeNode" owl="1">
+    <t t-name="jacon_certificate.CertificateExplorer.TreeNode" owl="1">
         <div class="o_certificate_node">
             <div t-attf-class="o_certificate_row d-flex align-items-center rounded cursor-pointer {{ state.selectedId === node.id ? 'o_certificate_row_selected' : '' }}"
                  t-on-click="() => this.selectNode(node.id)">
@@ -76,7 +76,7 @@
             </div>
             <div t-if="isExpanded(node.id)" class="o_certificate_children">
                 <t t-foreach="childrenOf(node.id)" t-as="child" t-key="child.id">
-                    <t t-call="equipment_model.CertificateExplorer.TreeNode">
+                    <t t-call="jacon_certificate.CertificateExplorer.TreeNode">
                         <t t-set="node" t-value="child"/>
                         <t t-set="level" t-value="level + 1"/>
                     </t>

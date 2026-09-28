@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_certificate_user,equipment.certificate.user,model_equipment_certificate,group_certificate_user,1,0,0,0
+access_certificate_manager,equipment.certificate.manager,model_equipment_certificate,group_certificate_manager,1,1,1,1
+access_certificate_all_users,equipment.certificate.all_users,model_equipment_certificate,base.group_user,1,0,0,0

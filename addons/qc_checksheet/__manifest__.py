@@ -17,7 +17,7 @@ Features:
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'web', 'project', 'inventor_connector'],
+    'depends': ['base', 'web', 'project', 'inventor_connector', 'jacon_documents'],
     'data': [
         'security/qc_checksheet_groups.xml',
         'security/ir.model.access.csv',
@@ -36,6 +36,6 @@ Features:
         ],
     },
     'installable': True,
-    'application': True,
+    'application': False,
     'post_init_hook': 'post_init_hook',
 }

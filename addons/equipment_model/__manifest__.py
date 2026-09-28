@@ -25,16 +25,8 @@ business logic.
         'views/equipment_model_category_views.xml',
         'views/equipment_model_family_views.xml',
         'views/equipment_model_views.xml',
-        'views/equipment_certificate_views.xml',
         'views/equipment_model_menus.xml',
     ],
-    'assets': {
-        'web.assets_backend': [
-            'equipment_model/static/src/certificate_explorer/certificate_explorer.js',
-            'equipment_model/static/src/certificate_explorer/certificate_explorer.xml',
-            'equipment_model/static/src/certificate_explorer/certificate_explorer.scss',
-        ],
-    },
     'installable': True,
     'application': True,
 }

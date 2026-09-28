@@ -7,7 +7,7 @@ import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_d
 import { _t } from "@web/core/l10n/translation";
 
 export class CertificateExplorer extends Component {
-    static template = "equipment_model.CertificateExplorer";
+    static template = "jacon_certificate.CertificateExplorer";
     static props = ["*"];
 
     setup() {

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Root App menu only - every document-type addon (QC Check Sheet,
+         Certificate, ...) parents its own menu under this one. -->
+    <menuitem id="menu_jacon_documents_root" name="Documents" sequence="45"/>
+
+</odoo>
