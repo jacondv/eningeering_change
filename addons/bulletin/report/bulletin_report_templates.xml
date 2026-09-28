@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_bulletin_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <div class="header" style="width:100%; background-color:#008080; padding:5pt 0 6pt 0; box-sizing:border-box; overflow:hidden; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <!-- Same header-bleed fix as qc_checksheet/engineering_change's own reports -
+                         wkhtmltopdf renders the header in its own document wrapped in a Bootstrap
+                         ".container" with a fixed max-width; neutralize it here. -->
+                    <style>
+                        body.container { max-width:none !important; width:100% !important; margin:0 !important; padding:0 !important; }
+                    </style>
+                    <!-- Plain floated divs, not a <table> - wkhtmltopdf's PDF backend draws
+                         table cells as separate rectangles that don't always align at
+                         sub-pixel boundaries, showing as thin white seams between cells in
+                         some PDF viewers (Acrobat) even with border:none/border-collapse set.
+                         Floats don't go through that cell-rendering path. -->
+                    <div style="float:left; width:40%; padding:7.5pt; box-sizing:border-box;">
+                        <img src="/bulletin/static/img/jacon_logo.png" style="max-height:60pt;width:auto; object-fit:contain;"/>
+                    </div>
+                    <div style="float:left; width:60%; padding-left:10pt; color:white; box-sizing:border-box;">
+                        <div style="font-weight:bold; font-size:20pt; margin-top:6pt;" t-esc="(o.template_id.name or '').upper()"/>
+                        <div style="margin-top:4pt; margin-left:15pt; font-size:10pt;">
+                            <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Document number:</span><span t-esc="o.name"/></div>
+                            <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Date:</span><span t-esc="o.date.strftime('%d-%b-%Y')"/></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin:10pt 24pt; font-family:'Liberation Sans', Arial, sans-serif; font-size:10pt;">
+                    <div class="page">
+                        <style>
+                            .bulletin-section-bar { background-color:#008080; color:white; font-weight:bold; padding:3pt 6pt; margin-top:10pt; }
+                            /* Section content is free-form Html - a table pasted in via the editor's
+                               own Table tool carries fixed px widths sized for the editor's screen
+                               width, wider than this report's printable area, so wkhtmltopdf would
+                               otherwise clip the overflow instead of wrapping. max-width (not a
+                               forced width:100%) caps it to the printable area without stretching
+                               narrow tables - e.g. a table holding just one image - out to the full
+                               page width. */
+                            .bulletin-html-content table { max-width:100%; }
+                            .bulletin-html-content table td, .bulletin-html-content table th { padding:1.4px 2.8px 1.4px 5px !important; word-wrap:break-word; overflow-wrap:break-word; }
+                            /* The editor wraps every paragraph of text (including inside table
+                               cells) in its own paragraph tag, which carries the browser's
+                               default ~1em margin - that margin, not the td padding above, is
+                               what shows as leftover empty space below the text. Same fix
+                               qc_checksheet and engineering_change's own reports already use. */
+                            .bulletin-html-content p { margin:0 0 3pt 0; }
+                            .bulletin-html-content p:last-child { margin-bottom:0; }
+                            .bulletin-html-content table img { max-width:100%; height:auto; }
+                        </style>
+
+                        <t t-foreach="o.section_ids" t-as="section">
+                            <div class="bulletin-section-bar" t-esc="section.name"/>
+
+                            <div t-if="section.content_type == 'html'" class="bulletin-html-content mt-2" t-out="section.content"/>
+
+                            <div t-if="section.content_type == 'authorisation'" class="mt-2">
+                                <!-- Blank space left for the approver to sign by hand on the printed page. -->
+                                <div style="height:60pt;"/>
+                                <div style="font-weight:bold;" t-esc="section.approver_id.name"/>
+                                <div t-esc="section.approver_job_title"/>
+                                <div t-esc="o.company_id.name"/>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+
+                <div class="footer" style="position:relative; width:100%; height:25mm; font-size:9pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <div style="position:absolute; left:24pt; bottom:8mm; right:80pt; font-size:7pt;">
+                        <div t-if="o._get_subject_text()">Subject: <t t-esc="o._get_subject_text()"/></div>
+                        <div>Version: <t t-esc="o.version"/> | Date: <t t-esc="o.date.strftime('%d-%m-%Y')"/></div>
+                    </div>
+                    <span style="position:absolute; right:24pt; bottom:10mm; font-size:9pt;">
+                        Page: <span class="page"/> of <span class="topage"/>
+                    </span>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>

@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bulletin_section_user,bulletin.section.user,model_bulletin_section,group_bulletin_user,1,0,0,0
+access_bulletin_section_manager,bulletin.section.manager,model_bulletin_section,group_bulletin_manager,1,1,1,1
+access_bulletin_template_user,bulletin.template.user,model_bulletin_template,group_bulletin_user,1,0,0,0
+access_bulletin_template_manager,bulletin.template.manager,model_bulletin_template,group_bulletin_manager,1,1,1,1
+access_bulletin_template_section_user,bulletin.template.section.user,model_bulletin_template_section,group_bulletin_user,1,0,0,0
+access_bulletin_template_section_manager,bulletin.template.section.manager,model_bulletin_template_section,group_bulletin_manager,1,1,1,1
+access_bulletin_bulletin_user,bulletin.bulletin.user,model_bulletin_bulletin,group_bulletin_user,1,1,1,0
+access_bulletin_bulletin_manager,bulletin.bulletin.manager,model_bulletin_bulletin,group_bulletin_manager,1,1,1,1
+access_bulletin_bulletin_section_user,bulletin.bulletin.section.user,model_bulletin_bulletin_section,group_bulletin_user,1,1,1,1
+access_bulletin_bulletin_section_manager,bulletin.bulletin.section.manager,model_bulletin_bulletin_section,group_bulletin_manager,1,1,1,1
