@@ -17,6 +17,12 @@ const DEFAULT_LENGTH_TOLERANCE = 100.0;
 const COLUMN_WIDTHS_STORAGE_KEY = "hose_fitting_manager.port_board.column_widths";
 const DEFAULT_COLUMN_WIDTHS = { port: 90, toItem: 220, toPort: 130, hose: 200, length: 170 };
 
+// Same convention for the left Item list panel's own width - a single
+// number rather than a per-column map, dragged via the vertical splitter
+// between the two panels (see onItemsPanelResizeStart).
+const ITEMS_PANEL_WIDTH_STORAGE_KEY = "hose_fitting_manager.port_board.items_panel_width";
+const DEFAULT_ITEMS_PANEL_WIDTH = 320;
+
 // A Port row's *effective* status blends the server's open/used with
 // Builder's own client-side "claimed by another still-unsaved row this
 // session" concept (props.reservedPortIds) - the server has no notion of
@@ -100,6 +106,7 @@ export class PortBoard extends Component {
             // own array of drafts is never touched by that.
             connectDrafts: {},
             columnWidths: this._loadColumnWidths(),
+            itemsPanelWidth: this._loadItemsPanelWidth(),
         });
 
         onWillStart(() => this._reload());
@@ -179,18 +186,23 @@ export class PortBoard extends Component {
             .map((it) => ({ id: it.id, label: `${it.description_en} (${it.part_number})` }));
     }
 
+    // Compact "used/total" count for the Item list - status here is the
+    // Port's raw backend status (a Port is "used" the moment it has at
+    // least one real, saved connection - see get_port_board_data), not the
+    // client-only Reserved concept, since the warning icon below is about
+    // real, saved wiring gaps, not this session's still-unsaved drafts.
     portCounts(item) {
-        let open = 0;
-        let used = 0;
-        for (const port of item.ports) {
-            const status = effectiveStatus(port, this.props.reservedPortIds);
-            if (status === "used") {
-                used++;
-            } else if (status === "open") {
-                open++;
-            }
-        }
-        return { open, used };
+        const total = item.ports.length;
+        const used = item.ports.filter((p) => p.status === "used").length;
+        return { used, total };
+    }
+
+    // True when at least one of this Item's Ports has no connection yet -
+    // drives the red warning icon in the Item list (per user request: flag
+    // any Item that isn't fully wired up).
+    hasOpenPorts(item) {
+        const counts = this.portCounts(item);
+        return counts.used < counts.total;
     }
 
     portStatus(port) {
@@ -219,6 +231,35 @@ export class PortBoard extends Component {
         } catch {
             // storage unavailable - widths just won't be remembered next time
         }
+    }
+
+    _loadItemsPanelWidth() {
+        const saved = parseInt(localStorage.getItem(ITEMS_PANEL_WIDTH_STORAGE_KEY), 10);
+        return Number.isFinite(saved) ? saved : DEFAULT_ITEMS_PANEL_WIDTH;
+    }
+
+    _saveItemsPanelWidth() {
+        try {
+            localStorage.setItem(ITEMS_PANEL_WIDTH_STORAGE_KEY, String(this.state.itemsPanelWidth));
+        } catch {
+            // storage unavailable - width just won't be remembered next time
+        }
+    }
+
+    onItemsPanelResizeStart(ev) {
+        ev.preventDefault();
+        const startX = ev.clientX;
+        const startWidth = this.state.itemsPanelWidth;
+        const onMouseMove = (moveEv) => {
+            this.state.itemsPanelWidth = Math.max(180, startWidth + (moveEv.clientX - startX));
+        };
+        const onMouseUp = () => {
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+            this._saveItemsPanelWidth();
+        };
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
     }
 
     onColumnResizeStart(columnKey, ev) {
