@@ -341,6 +341,7 @@
                             <col t-attf-style="width: {{state.jobLinesColumnWidths[key]}}px"
                                  t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}"/>
                         </t>
+                        <col/>
                     </colgroup>
                     <thead>
                         <tr>
@@ -350,6 +351,7 @@
                                     <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onJobLinesColumnResizeStart(key, ev)"/>
                                 </th>
                             </t>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -361,6 +363,13 @@
                                         <t t-esc="l[key]"/>
                                     </td>
                                 </t>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            title="Delete this line"
+                                            t-on-click="(ev) => this.onDeleteJobLine(ev, l.id)">
+                                        <i class="fa fa-trash"/>
+                                    </button>
+                                </td>
                             </tr>
                         </t>
                     </tbody>
