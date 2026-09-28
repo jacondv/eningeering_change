@@ -1,0 +1,27 @@
+.o_bulletin_section_header {
+    display: block;
+    background-color: #e0e0e0;
+    font-weight: bold;
+    padding: 3px 6px;
+    margin: 10px 0 4px 0;
+}
+
+.o_bulletin_section_content {
+    display: block;
+    width: 100%;
+
+    > * {
+        width: 100%;
+    }
+
+    .odoo-editor-editable,
+    .note-editable {
+        display: block;
+        width: 100%;
+        min-height: 100px;
+        border: 1px solid #dee2e6;
+        border-radius: 3px;
+        padding: 6px 8px;
+        box-sizing: border-box;
+    }
+}

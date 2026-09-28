@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Same A4/no-smart-shrinking setup as qc_checksheet's own paperformat -
+         see that module's comment for why: wkhtmltopdf's shrink-to-fit
+         otherwise silently rescales content by an unpredictable factor. -->
+    <record id="paperformat_bulletin" model="report.paperformat">
+        <field name="name">Bulletin (A4, no smart-shrinking)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">40</field>
+        <field name="margin_bottom">25</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="header_spacing">40</field>
+        <field name="header_line" eval="False"/>
+        <field name="dpi">90</field>
+        <field name="disable_shrinking" eval="True"/>
+    </record>
+
+    <record id="action_report_bulletin" model="ir.actions.report">
+        <field name="name">Bulletin</field>
+        <field name="model">bulletin.bulletin</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">bulletin.report_bulletin_document</field>
+        <field name="report_file">bulletin.report_bulletin_document</field>
+        <field name="print_report_name">object.name</field>
+        <field name="paperformat_id" ref="paperformat_bulletin"/>
+        <field name="binding_model_id" ref="model_bulletin_bulletin"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>
