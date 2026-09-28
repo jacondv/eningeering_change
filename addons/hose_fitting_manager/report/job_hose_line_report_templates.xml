@@ -89,7 +89,7 @@
                                     <td style="text-align:center;"><span t-esc="line_index + 1"/></td>
                                     <td style="text-align:center;"><span t-field="line.hose_number"/></td>
                                     <td><span t-esc="line.description_vn if desc_lang == 'vn' else line.description_en"/></td>
-                                    <td>&#160;</td>
+                                    <td><span t-esc="line._report_part_description(line.hose_id)"/></td>
                                     <td style="text-align:center;"><span t-field="line.length" t-options="{'widget': 'integer'}"/></td>
                                     <td><span t-esc="line._report_part_description(line.fitting1_id)"/></td>
                                     <td><span t-esc="line._report_part_description(line.fitting2_id)"/></td>
