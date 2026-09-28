@@ -572,6 +572,21 @@ export class HoseFittingBuilder extends Component {
         });
     }
 
+    // Deletes an already-saved Hose And Fitting line straight from the
+    // recap table - stops the row's own click (which would otherwise also
+    // open the line's form) and confirms first since this can't be undone.
+    // Reloads the recap list and bumps the Port Board's reload token so any
+    // Port this line had wired goes back to Open immediately.
+    async onDeleteJobLine(ev, lineId) {
+        ev.stopPropagation();
+        if (!window.confirm("Delete this Hose And Fitting line? This cannot be undone.")) {
+            return;
+        }
+        await this.orm.unlink(JOB_HOSE_LINE_MODEL, [lineId]);
+        await this._loadJobLines();
+        this.state.portBoardReloadToken++;
+    }
+
     // Ports already picked on a *pending* (unsaved) row anywhere in
     // state.rows - the Port Board shows these as "Reserved" (distinct from
     // the server's own Open/Used) so two rows in the same session can't
