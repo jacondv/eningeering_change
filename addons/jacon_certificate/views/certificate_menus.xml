@@ -4,7 +4,7 @@
     <menuitem id="menu_certificate_root" name="Certificate"
           parent="jacon_documents.menu_jacon_documents_root"
           groups="jacon_certificate.group_certificate_user"
-          sequence="20"/>
+          sequence="10"/>
 
     <menuitem id="menu_certificate_all" name="Certificates"
           parent="menu_certificate_root"

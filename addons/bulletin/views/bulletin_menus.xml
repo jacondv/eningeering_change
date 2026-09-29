@@ -4,7 +4,7 @@
     <menuitem id="menu_bulletin_root" name="Bulletin"
           parent="jacon_documents.menu_jacon_documents_root"
           groups="bulletin.group_bulletin_user"
-          sequence="30"/>
+          sequence="20"/>
 
     <menuitem id="menu_bulletin_all" name="Bulletins"
           parent="menu_bulletin_root"
