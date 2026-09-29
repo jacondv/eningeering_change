@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_product_support.Dashboard">
+        <div t-att-class="props.className">
+            <Layout display="props.display">
+                <t t-set-slot="layout-actions">
+                    <SearchBar toggler="searchBarToggler"/>
+                </t>
+                <t t-set-slot="control-panel-navigation-additional">
+                    <t t-component="searchBarToggler.component" t-props="searchBarToggler.props"/>
+                </t>
+                <div class="o_ps_dashboard">
+                    <div t-if="!state.data" class="text-center p-5">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+                    <t t-else="">
+                        <div class="o_ps_kpi_row">
+                            <div class="o_ps_kpi_card" t-on-click="() => this.openRequests([], 'All Requests')">
+                                <div class="o_ps_kpi_value" t-esc="state.data.total"/>
+                                <div class="o_ps_kpi_label">Total Requests</div>
+                            </div>
+                            <t t-foreach="kpis" t-as="kpi" t-key="kpi.label">
+                                <div t-attf-class="o_ps_kpi_card {{kpi.css}}" t-on-click="() => this.openRequests(kpi.domain, kpi.label)">
+                                    <div class="o_ps_kpi_value" t-esc="kpi.value"/>
+                                    <div class="o_ps_kpi_label" t-esc="kpi.label"/>
+                                </div>
+                            </t>
+                            <div class="o_ps_kpi_card o_ps_kpi_static">
+                                <div class="o_ps_kpi_value"><t t-esc="state.data.avg_resolution_hours"/> h</div>
+                                <div class="o_ps_kpi_label">Avg. Resolution Time</div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-1">
+                            <t t-foreach="panels" t-as="panel" t-key="panel.field">
+                                <div class="col-lg-6">
+                                    <div class="o_ps_panel">
+                                        <h4 t-esc="panel.title"/>
+                                        <div t-if="!panel.items.length" class="text-muted">No data</div>
+                                        <t t-foreach="panel.items" t-as="item" t-key="item_index">
+                                            <div class="o_ps_bar_row" t-on-click="() => this.openRequests([[panel.field, '=', item.key]], item.label)">
+                                                <span class="o_ps_bar_label" t-esc="item.label"/>
+                                                <div class="o_ps_bar_track">
+                                                    <div class="o_ps_bar_fill" t-attf-style="width: {{percentOf(item.count)}}%"/>
+                                                </div>
+                                                <span class="o_ps_bar_count" t-esc="item.count"/>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <div class="o_ps_panel mt-3">
+                            <h4>Recent Requests</h4>
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Request No</th>
+                                        <th>Title</th>
+                                        <th>Job Number</th>
+                                        <th>Customer</th>
+                                        <th>Requester</th>
+                                        <th>Priority</th>
+                                        <th class="text-end">Stage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.data.recent" t-as="rec" t-key="rec.id"
+                                        class="o_ps_clickable" t-on-click="() => this.openRecord(rec.id)">
+                                        <td class="text-muted" t-esc="rec.name"/>
+                                        <td t-esc="rec.title"/>
+                                        <td t-esc="rec.job"/>
+                                        <td t-esc="rec.customer"/>
+                                        <td t-esc="rec.requester"/>
+                                        <td class="text-nowrap">
+                                            <i t-foreach="[1, 2, 3]" t-as="star" t-key="star"
+                                               t-attf-class="fa {{ star &lt;= rec.priority ? 'fa-star text-warning' : 'fa-star-o text-muted' }}"/>
+                                        </td>
+                                        <td class="text-end" t-esc="rec.state"/>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+                </div>
+            </Layout>
+        </div>
+    </t>
+
+</templates>
