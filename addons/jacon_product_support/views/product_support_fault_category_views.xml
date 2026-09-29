@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_product_support_fault_category_list" model="ir.ui.view">
+        <field name="name">product.support.fault.category.list</field>
+        <field name="model">product.support.fault.category</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_product_support_fault_category" model="ir.actions.act_window">
+        <field name="name">Fault Categories</field>
+        <field name="res_model">product.support.fault.category</field>
+        <field name="view_mode">list</field>
+    </record>
+
+</odoo>

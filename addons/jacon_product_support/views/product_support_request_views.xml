@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_product_support_request_form" model="ir.ui.view">
+        <field name="name">product.support.request.form</field>
+        <field name="model">product.support.request</field>
+        <field name="arch" type="xml">
+            <!-- delete="0": deletion goes through the password-confirmed
+                 "Delete" server action in the gear menu instead. -->
+            <form string="Support Request" delete="0">
+                <header>
+                    <field name="state" widget="statusbar" options="{'clickable': '1', 'confirm': '1'}"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <div class="text-muted"><field name="name" readonly="1"/></div>
+                        <h1 class="d-flex flex-row align-items-center">
+                            <field name="title" class="flex-grow-1" placeholder="e.g. Hydraulic pressure loss on boom"/>
+                            <field name="priority" widget="priority" class="ms-3"/>
+                        </h1>
+                    </div>
+                    <group col="3">
+                        <group string="Machine Info">
+                            <field name="job_id" options="{'no_create': True}"/>
+                            <field name="model_id"/>
+                            <field name="hour_meter"/>
+                            <field name="machine_location"/>
+                            <field name="warranty"/>
+                        </group>
+                        <group string="Request">
+                            <field name="requester_id"/>
+                            <field name="engineer_id"/>
+                            <field name="machine_status"/>
+                            <field name="fault_category_id" options="{'no_create': True}"/>
+                            <label for="request_date"/>
+                            <div class="o_row">
+                                <field name="request_date" widget="datetime_short"/>
+                                <span class="text-muted text-nowrap" invisible="not resolved_date">Resolved:</span>
+                                <field name="resolved_date" widget="datetime_short" invisible="not resolved_date"/>
+                            </div>
+                            <field name="closed_date" widget="datetime_short" invisible="not closed_date"/>
+                            <label for="ec_id"/>
+                            <div class="o_row">
+                                <field name="ec_id" options="{'no_create': True}"/>
+                                <button name="action_create_engineering_change" type="object"
+                                        icon="fa-plus" class="btn-link px-1" title="Create Engineering Change"
+                                        invisible="ec_id or not id"
+                                        groups="engineering_change.group_ec_engineer,engineering_change.group_ec_manager"/>
+                                <field name="ec_state" widget="badge" invisible="not ec_id"
+                                       decoration-info="ec_state not in ('done', 'canceled')"
+                                       decoration-success="ec_state == 'done'"
+                                       decoration-danger="ec_state == 'canceled'"/>
+                            </div>
+                        </group>
+                        <group string="Customer">
+                            <field name="partner_id"/>
+                            <field name="site_id"/>
+                            <field name="contact_id" context="{'default_parent_id': partner_id}"
+                                   placeholder="Pick or create a contact"/>
+                            <field name="contact_company_id" invisible="not contact_company_id"/>
+                            <field name="contact_function" invisible="not contact_function"/>
+                            <field name="contact_phone" widget="phone" invisible="not contact_phone"/>
+                            <field name="contact_email" widget="email" invisible="not contact_email"/>
+                            <label for="customer_confirmed"/>
+                            <div class="o_row">
+                                <field name="customer_confirmed" nolabel="1"/>
+                                <field name="customer_confirmed_date" nolabel="1" invisible="not customer_confirmed"/>
+                            </div>
+                        </group>
+                    </group>
+                    <!-- The widget draws its own label cell (label + attach icon), see many2many_binary_preview_field.xml -->
+                    <field name="attachment_ids" widget="many2many_binary_preview" class="o_ps_attachments mb-3" nolabel="1"/>
+                    <notebook>
+                        <page string="Description" name="description">
+                            <field name="description" placeholder="What does the customer report? Symptoms, when it happens, fault codes..."/>
+                        </page>
+                        <page string="Resolution" name="resolution">
+                            <separator string="Root Cause"/>
+                            <field name="root_cause" placeholder="Required before Resolved"/>
+                            <separator string="Solution / Instruction"/>
+                            <field name="solution" placeholder="Required before Resolved - what was done or explained to the customer"/>
+                        </page>
+                        <page string="Actions" name="actions">
+                            <field name="action_ids"
+                                   context="{'default_support_request_id': id}">
+                                <list editable="bottom" open_form_view="True">
+                                    <field name="name" string="Action"/>
+                                    <field name="user_ids" widget="many2many_avatar_user" optional="show"/>
+                                    <field name="date_deadline" optional="show"/>
+                                    <field name="allocated_hours" widget="float_time" optional="hide"/>
+                                    <field name="state" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <field name="active" invisible="1"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_product_support_request_list" model="ir.ui.view">
+        <field name="name">product.support.request.list</field>
+        <field name="model">product.support.request</field>
+        <field name="arch" type="xml">
+            <list delete="0" decoration-muted="state in ('closed', 'canceled')"
+                  decoration-danger="machine_status == 'down' and state in ('draft', 'diagnosing', 'repairing')">
+                <field name="priority" widget="priority" optional="show" nolabel="1"/>
+                <field name="name" optional="show"/>
+                <field name="title" optional="show"/>
+                <field name="job_id" optional="show"/>
+                <field name="model_id" optional="show"/>
+                <field name="hour_meter" optional="hide"/>
+                <field name="machine_location" optional="hide"/>
+                <field name="warranty" optional="hide"/>
+                <field name="partner_id" optional="show"/>
+                <field name="site_id" optional="hide"/>
+                <field name="contact_id" optional="hide"/>
+                <field name="requester_id" widget="many2one_avatar_user" optional="hide"/>
+                <field name="engineer_id" widget="many2one_avatar_user" optional="show"/>
+                <field name="fault_category_id" optional="hide"/>
+                <field name="machine_status" optional="show"/>
+                <field name="ec_id" optional="hide"/>
+                <field name="customer_confirmed" optional="hide"/>
+                <field name="request_date" widget="datetime_short" optional="show"/>
+                <field name="resolved_date" widget="datetime_short" optional="hide"/>
+                <field name="closed_date" widget="datetime_short" optional="hide"/>
+                <field name="resolution_hours" widget="float_time" optional="hide"/>
+                <field name="state" widget="badge" optional="show"
+                       decoration-info="state in ('diagnosing', 'repairing')"
+                       decoration-success="state in ('resolved', 'closed')"
+                       decoration-muted="state == 'canceled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_product_support_request_kanban" model="ir.ui.view">
+        <field name="name">product.support.request.kanban</field>
+        <field name="model">product.support.request</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" group_create="0" group_delete="0" quick_create="0">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex">
+                            <field name="name" class="text-muted small"/>
+                            <field name="priority" widget="priority" class="ms-auto"/>
+                        </div>
+                        <field name="title" class="fw-bold"/>
+                        <field name="job_id"/>
+                        <field name="partner_id" class="text-muted"/>
+                        <footer>
+                            <field name="machine_status" widget="badge"
+                                   decoration-danger="machine_status == 'down'"
+                                   decoration-warning="machine_status == 'limited'"/>
+                            <field name="engineer_id" widget="many2one_avatar_user" class="ms-auto"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_product_support_request_pivot" model="ir.ui.view">
+        <field name="name">product.support.request.pivot</field>
+        <field name="model">product.support.request</field>
+        <field name="arch" type="xml">
+            <pivot string="Support Analysis">
+                <field name="model_id" type="row"/>
+                <field name="fault_category_id" type="col"/>
+                <field name="resolution_hours" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_product_support_request_graph" model="ir.ui.view">
+        <field name="name">product.support.request.graph</field>
+        <field name="model">product.support.request</field>
+        <field name="arch" type="xml">
+            <graph string="Support Analysis" type="bar">
+                <field name="request_date" interval="month"/>
+                <field name="fault_category_id"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_product_support_request_search" model="ir.ui.view">
+        <field name="name">product.support.request.search</field>
+        <field name="model">product.support.request</field>
+        <field name="arch" type="xml">
+            <search string="Search Support Requests">
+                <field name="name" string="Search All" filter_domain="[
+                    '|', '|', '|', '|', '|', '|',
+                    ('name', 'ilike', self),
+                    ('title', 'ilike', self),
+                    ('job_id.name', 'ilike', self),
+                    ('partner_id.name', 'ilike', self),
+                    ('site_id.name', 'ilike', self),
+                    ('model_id.name', 'ilike', self),
+                    ('description', 'ilike', self),
+                ]"/>
+                <field name="name"/>
+                <field name="title"/>
+                <field name="job_id"/>
+                <field name="partner_id"/>
+                <field name="model_id"/>
+                <field name="engineer_id"/>
+                <field name="fault_category_id"/>
+                <separator/>
+                <filter string="My Requests" name="my_requests" domain="[('engineer_id', '=', uid)]"/>
+                <separator/>
+                <filter string="Open" name="open" domain="[('state', 'in', ('draft', 'diagnosing', 'repairing'))]"/>
+                <filter string="Machine Down" name="machine_down" domain="[('machine_status', '=', 'down')]"/>
+                <filter string="Resolved" name="resolved" domain="[('state', '=', 'resolved')]"/>
+                <filter string="Closed" name="closed" domain="[('state', '=', 'closed')]"/>
+                <filter string="Canceled" name="canceled" domain="[('state', '=', 'canceled')]"/>
+                <separator/>
+                <filter string="Request Date" name="filter_request_date" date="request_date"/>
+                <separator/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                <filter string="Stage" name="group_state" context="{'group_by': 'state'}"/>
+                <filter string="Customer" name="group_customer" context="{'group_by': 'partner_id'}"/>
+                <filter string="Model" name="group_model" context="{'group_by': 'model_id'}"/>
+                <filter string="Fault Category" name="group_category" context="{'group_by': 'fault_category_id'}"/>
+                <filter string="Support Engineer" name="group_engineer" context="{'group_by': 'engineer_id'}"/>
+                <filter string="Month" name="group_month" context="{'group_by': 'request_date:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_product_support_request" model="ir.actions.act_window">
+        <field name="name">Support Requests</field>
+        <field name="res_model">product.support.request</field>
+        <field name="view_mode">list,kanban,form,pivot,graph</field>
+        <field name="search_view_id" ref="view_product_support_request_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Log your first support request</p>
+            <p>Record a customer's machine fault, then track diagnosis, actions and solution.</p>
+        </field>
+    </record>
+
+    <record id="action_product_support_request_my" model="ir.actions.act_window">
+        <field name="name">My Requests</field>
+        <field name="res_model">product.support.request</field>
+        <field name="view_mode">list,kanban,form,pivot,graph</field>
+        <field name="search_view_id" ref="view_product_support_request_search"/>
+        <field name="context">{'search_default_my_requests': 1, 'search_default_open': 1}</field>
+    </record>
+
+    <record id="action_product_support_request_analysis" model="ir.actions.act_window">
+        <field name="name">Analysis</field>
+        <field name="res_model">product.support.request</field>
+        <field name="view_mode">pivot,graph,list,form</field>
+        <field name="search_view_id" ref="view_product_support_request_search"/>
+    </record>
+
+    <record id="action_server_product_support_request_delete" model="ir.actions.server">
+        <field name="name">Delete</field>
+        <field name="model_id" ref="model_product_support_request"/>
+        <field name="binding_model_id" ref="model_product_support_request"/>
+        <field name="binding_view_types">form</field>
+        <field name="group_ids" eval="[(4, ref('group_ps_manager'))]"/>
+        <field name="state">code</field>
+        <field name="code">action = record.action_delete_with_password()</field>
+    </record>
+
+</odoo>

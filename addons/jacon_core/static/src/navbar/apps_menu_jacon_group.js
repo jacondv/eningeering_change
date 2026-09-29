@@ -12,6 +12,7 @@ import { NavBar } from "@web/webclient/navbar/navbar";
 const JACON_APP_MODULES = [
     "project",
     "engineering_change",
+    "jacon_product_support",
     "part_number_manager",
     "jacon_documents",
     "equipment_model",
@@ -21,6 +22,7 @@ const JACON_APP_MODULES = [
 const JACON_APP_ICONS = {
     project: "fa-tasks",
     engineering_change: "fa-refresh",
+    jacon_product_support: "fa-life-ring",
     part_number_manager: "fa-hashtag",
     jacon_documents: "fa-file-text-o",
     equipment_model: "fa-cubes",

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Laid out like a form row: label + icon-only Attach button on the left,
+         the file chips in the value column on the right. -->
+    <t t-name="jacon_product_support.Many2ManyBinaryPreviewField">
+        <div t-attf-class="oe_fileupload d-flex align-items-start {{props.className or ''}}" aria-atomic="true">
+            <div class="o_ps_attach_head d-flex align-items-center">
+                <span class="o_form_label" t-esc="uploadText"/>
+                <FileInput t-if="!props.readonly"
+                    acceptedFileExtensions="props.acceptedFileExtensions"
+                    multiUpload="true"
+                    onUpload.bind="onFileUploaded"
+                    resModel="props.record.resModel"
+                    resId="props.record.resId or 0">
+                    <button class="btn btn-sm btn-link o_attach p-0 ms-2" data-tooltip="Attach files">
+                        <span class="fa fa-paperclip fa-2x" aria-label="Attach"/>
+                    </button>
+                </FileInput>
+            </div>
+            <div class="o_attachments flex-grow-1">
+                <t t-foreach="files" t-as="file" t-key="file_index">
+                    <t t-call="jacon_product_support.Many2ManyBinaryPreviewField.attachment_preview"/>
+                </t>
+            </div>
+        </div>
+    </t>
+
+    <!-- Thumbnail and file name open the viewer; the extension label + icon downloads. -->
+    <t t-name="jacon_product_support.Many2ManyBinaryPreviewField.attachment_preview" t-inherit="web.Many2ManyBinaryField.attachment_preview" t-inherit-mode="primary">
+        <xpath expr="//div[hasclass('o_image_box')]" position="attributes">
+            <attribute name="t-att-data-tooltip">'Open ' + file.name</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('o_image_box')]/a" position="attributes">
+            <attribute name="t-on-click">(ev) => this.onFileClick(ev, file)</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('caption')][1]/a" position="attributes">
+            <attribute name="t-att-data-tooltip">'Open ' + file.name</attribute>
+            <attribute name="t-on-click">(ev) => this.onFileClick(ev, file)</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('caption')][2]/a" position="attributes">
+            <attribute name="t-att-data-tooltip">'Download ' + file.name</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('caption')][2]/a" position="inside">
+            <i class="fa fa-download ms-1" role="img" aria-label="Download"/>
+        </xpath>
+    </t>
+
+</templates>

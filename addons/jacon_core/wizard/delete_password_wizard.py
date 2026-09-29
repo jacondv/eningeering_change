@@ -33,6 +33,7 @@ class JaconDeletePasswordWizard(models.TransientModel):
             raise UserError(_("Incorrect password."))
         record = self.env[self.res_model].browse(self.res_id)
         record.with_context(
+            delete_password_confirmed=True,
             ec_delete_password_confirmed=True,
             project_delete_password_confirmed=True,
         ).unlink()

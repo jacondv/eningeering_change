@@ -1,0 +1,75 @@
+$ps-teal: #008080;
+
+.o_ps_dashboard {
+    padding: 16px;
+    overflow: auto;
+
+    .o_ps_kpi_row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .o_ps_kpi_card {
+        flex: 1 1 150px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        border-left: 5px solid $ps-teal;
+        background-color: var(--o-view-background-color, $white);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        cursor: pointer;
+
+        &:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+        &.o_ps_kpi_open { border-left-color: $info; }
+        &.o_ps_kpi_down { border-left-color: $danger; }
+        &.o_ps_kpi_resolved { border-left-color: $warning; }
+        &.o_ps_kpi_closed { border-left-color: $success; }
+        &.o_ps_kpi_static { cursor: default; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+    }
+
+    .o_ps_kpi_value { font-size: 1.8rem; font-weight: bold; }
+    .o_ps_kpi_label { color: $text-muted; }
+
+    .o_ps_panel {
+        height: 100%;
+        padding: 14px 16px;
+        border-radius: 8px;
+        background-color: var(--o-view-background-color, $white);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+        h4 { font-size: 1rem; font-weight: bold; margin-bottom: 10px; }
+    }
+
+    .o_ps_bar_row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+        cursor: pointer;
+
+        &:hover .o_ps_bar_label { text-decoration: underline; }
+    }
+
+    .o_ps_bar_label {
+        flex: 0 0 35%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .o_ps_bar_track {
+        flex: 1;
+        height: 10px;
+        border-radius: 5px;
+        background-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .o_ps_bar_fill {
+        height: 100%;
+        border-radius: 5px;
+        background-color: $ps-teal;
+    }
+
+    .o_ps_bar_count { flex: 0 0 32px; text-align: right; font-weight: bold; }
+    .o_ps_clickable { cursor: pointer; }
+}

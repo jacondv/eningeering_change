@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_product_support_root" name="Product Support"
+          web_icon="jacon_product_support,static/description/icon.png"
+          groups="jacon_product_support.group_ps_user"
+          sequence="36"/>
+
+    <menuitem id="menu_product_support_dashboard" name="Dashboard"
+          parent="menu_product_support_root"
+          action="action_product_support_dashboard"
+          sequence="10"/>
+
+    <menuitem id="menu_product_support_requests" name="Requests"
+          parent="menu_product_support_root"
+          sequence="20"/>
+
+    <menuitem id="menu_product_support_request_all" name="All Requests"
+          parent="menu_product_support_requests"
+          action="action_product_support_request"
+          sequence="10"/>
+
+    <menuitem id="menu_product_support_request_my" name="My Requests"
+          parent="menu_product_support_requests"
+          action="action_product_support_request_my"
+          sequence="20"/>
+
+    <menuitem id="menu_product_support_reporting" name="Reporting"
+          parent="menu_product_support_root"
+          sequence="80"/>
+
+    <menuitem id="menu_product_support_analysis" name="Analysis"
+          parent="menu_product_support_reporting"
+          action="action_product_support_request_analysis"
+          sequence="10"/>
+
+    <menuitem id="menu_product_support_config" name="Configuration"
+          parent="menu_product_support_root"
+          groups="jacon_product_support.group_ps_manager"
+          sequence="90"/>
+
+    <menuitem id="menu_product_support_fault_category" name="Fault Categories"
+          parent="menu_product_support_config"
+          action="action_product_support_fault_category"
+          sequence="10"/>
+
+</odoo>

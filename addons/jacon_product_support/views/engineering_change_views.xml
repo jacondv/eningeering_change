@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_engineering_change_form_inherit_product_support" model="ir.ui.view">
+        <field name="name">engineering.change.form.inherit.product.support</field>
+        <field name="model">engineering.change</field>
+        <field name="inherit_id" ref="engineering_change.view_engineering_change_form"/>
+        <field name="arch" type="xml">
+            <field name="change_category" position="after">
+                <field name="support_request_id" invisible="not support_request_id"
+                       groups="jacon_product_support.group_ps_user"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>

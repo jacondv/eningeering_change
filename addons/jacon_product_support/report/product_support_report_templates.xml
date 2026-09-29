@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_product_support_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <!-- Floated divs rather than a table: wkhtmltopdf draws table cells
+                     as separate rectangles that show white seams in some viewers. -->
+                <div class="header" style="width:100%; background-color:#008080; padding:5pt 0 6pt 0; box-sizing:border-box; overflow:hidden; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <style>
+                        body.container { max-width:none !important; width:100% !important; margin:0 !important; padding:0 !important; }
+                    </style>
+                    <div style="float:left; width:40%; padding:7.5pt; box-sizing:border-box;">
+                        <img src="/jacon_product_support/static/img/jacon_logo.png" style="max-height:60pt; width:auto;"/>
+                    </div>
+                    <div style="float:left; width:60%; padding-left:10pt; color:white; box-sizing:border-box;">
+                        <div style="font-weight:bold; font-size:20pt; margin-top:6pt;">SERVICE REPORT</div>
+                        <div style="margin-top:4pt; margin-left:15pt; font-size:10pt;">
+                            <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Request No:</span><span t-esc="o.name"/></div>
+                            <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Request Date:</span><span t-esc="o._report_date(o.request_date)"/></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin:10pt 24pt; font-family:'Liberation Sans', Arial, sans-serif; font-size:10pt;">
+                    <div class="page">
+                        <style>
+                            .ps-bar { background-color:#008080; color:white; font-weight:bold; padding:3pt 6pt; margin-top:10pt; }
+                            .ps-info { width:100%; border-collapse:collapse; margin-top:3pt; }
+                            .ps-info td { padding:2pt 6pt 2pt 0; vertical-align:top; border-bottom:0.5pt solid #d9e6e6; }
+                            .ps-info td.ps-label { font-weight:bold; white-space:nowrap; width:18%; color:#35514f; }
+                            .ps-info td.ps-value { width:32%; }
+                            .ps-sub { font-weight:bold; color:#008080; margin-top:8pt; border-bottom:1pt solid #008080; padding-bottom:1pt; }
+                            .ps-html table { max-width:100%; }
+                            .ps-html img { max-width:100%; height:auto; }
+                            .ps-html p { margin:0 0 3pt 0; }
+                            .ps-html p:last-child { margin-bottom:0; }
+                        </style>
+
+                        <div style="font-size:13pt; font-weight:bold; margin-top:4pt;" t-esc="o.title"/>
+
+                        <t t-set="sections" t-value="o._report_info_sections()"/>
+                        <t t-call="jacon_product_support.report_product_support_info_section">
+                            <t t-set="section" t-value="sections[0]"/>
+                        </t>
+                        <t t-call="jacon_product_support.report_product_support_info_section">
+                            <t t-set="section" t-value="sections[1]"/>
+                        </t>
+
+                        <div class="ps-bar">Description</div>
+                        <div class="ps-html mt-2" t-out="o.description"/>
+
+                        <t t-if="o.root_cause or o.solution">
+                            <div class="ps-bar">Resolution</div>
+                            <t t-if="o.root_cause">
+                                <div class="ps-sub">Root Cause</div>
+                                <div class="ps-html mt-1" t-out="o.root_cause"/>
+                            </t>
+                            <t t-if="o.solution">
+                                <div class="ps-sub">Solution / Instruction</div>
+                                <div class="ps-html mt-1" t-out="o.solution"/>
+                            </t>
+                        </t>
+
+                        <t t-call="jacon_product_support.report_product_support_info_section">
+                            <t t-set="section" t-value="sections[2]"/>
+                        </t>
+                    </div>
+                </div>
+
+                <div class="footer" style="position:relative; width:100%; height:20mm; font-size:8pt; font-family:'Liberation Sans', Arial, sans-serif;">
+                    <span style="position:absolute; left:24pt; bottom:8mm;" t-esc="o.name"/>
+                    <span style="position:absolute; right:24pt; bottom:8mm;">
+                        Page: <span class="page"/> of <span class="topage"/>
+                    </span>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- One titled bar + 4-column label/value grid; `section` = (title, rows),
+         each row a pair of (label, value). Values sit in inner spans since
+         QWeb drops an element whose own t-esc is empty. -->
+    <template id="report_product_support_info_section">
+        <div class="ps-bar" t-esc="section[0]"/>
+        <table class="ps-info">
+            <tr t-foreach="section[1]" t-as="row">
+                <t t-foreach="row" t-as="cell">
+                    <t t-if="cell">
+                        <td class="ps-label"><span t-esc="cell[0]"/>:</td>
+                        <td class="ps-value"><span t-esc="cell[1] or '-'"/></td>
+                    </t>
+                    <t t-else=""><td class="ps-label"/><td class="ps-value"/></t>
+                </t>
+            </tr>
+        </table>
+    </template>
+
+</odoo>

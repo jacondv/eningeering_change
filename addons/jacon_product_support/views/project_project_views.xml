@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Hide the Support Requests' container projects from the Project app's
+         own screens, on top of engineering_change's identical filter for its
+         own container projects (same records overridden again here, since
+         act_window domains can't be inherited). -->
+    <record id="project.open_view_project_all" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False), ("is_ps_project", "=", False)]</field>
+    </record>
+
+    <record id="project.open_view_project_all_group_stage" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False), ("is_ps_project", "=", False)]</field>
+    </record>
+
+    <record id="project.open_view_project_all_config" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False), ("is_ps_project", "=", False)]</field>
+    </record>
+
+    <record id="project.open_view_project_all_config_group_stage" model="ir.actions.act_window">
+        <field name="domain">[("is_template", "=", False), ("is_ec_project", "=", False), ("is_ps_project", "=", False)]</field>
+    </record>
+
+    <record id="edit_project_inherit_product_support" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.product.support</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Product Support" name="product_support"
+                      invisible="is_ec_project or is_ps_project"
+                      groups="jacon_product_support.group_ps_user">
+                    <field name="support_request_ids" readonly="1">
+                        <list decoration-muted="state in ('closed', 'canceled')">
+                            <field name="name"/>
+                            <field name="title"/>
+                            <field name="request_date"/>
+                            <field name="fault_category_id"/>
+                            <field name="machine_status"/>
+                            <field name="engineer_id" widget="many2one_avatar_user"/>
+                            <field name="state" widget="badge"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+            <xpath expr="//notebook" position="before">
+                <field name="is_ec_project" invisible="1"/>
+                <field name="is_ps_project" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
