@@ -4,24 +4,25 @@
     <template id="report_engineering_change_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <div class="header" style="width:100%; background-color:#008080; display:flex; align-items:center; padding:5pt 0 6pt 0; box-sizing:border-box; font-family:'Liberation Sans', Arial, sans-serif;">
-                    <!-- The header is rendered by wkhtmltopdf in its own document, wrapped by
-                         Odoo's minimal_layout in a Bootstrap ".container" body (fixed max-width
-                         and side padding) - neutralize it here so the teal bar bleeds edge to
-                         edge, same fix as qc_checksheet's report header. -->
+                <!-- Same header as the Service Report / Bulletin: floated divs rather
+                     than a table, since wkhtmltopdf draws table cells as separate
+                     rectangles that show white seams in some PDF viewers. The header is
+                     rendered in its own document wrapped in a Bootstrap ".container"
+                     body - neutralized below so the teal bar bleeds edge to edge. -->
+                <div class="header" style="width:100%; background-color:#008080; padding:5pt 0 6pt 0; box-sizing:border-box; overflow:hidden; font-family:'Liberation Sans', Arial, sans-serif;">
                     <style>
                         body.container { max-width:none !important; width:100% !important; margin:0 !important; padding:0 !important; }
                     </style>
-                    <table style="width:100%; border-collapse:separate; border-spacing:0;">
-                        <tr>
-                            <td style="width:20%; padding:7.5pt; vertical-align:middle;">
-                                <img src="/engineering_change/static/img/jacon_logo.png" style="max-height:50pt;width:auto; object-fit:contain;"/>
-                            </td>
-                            <td style="width:80%; text-align:center; vertical-align:middle; color:white;">
-                                <div style="font-weight:bold; font-size:16pt; position:relative; right:20mm;">DESIGN CHANGE REQUEST</div>
-                            </td>
-                        </tr>
-                    </table>
+                    <div style="float:left; width:40%; padding:7.5pt; box-sizing:border-box;">
+                        <img src="/engineering_change/static/img/jacon_logo.png" style="max-height:60pt; width:auto;"/>
+                    </div>
+                    <div style="float:left; width:60%; padding-left:10pt; color:white; box-sizing:border-box;">
+                        <div style="font-weight:bold; font-size:20pt; margin-top:6pt;">DESIGN CHANGE REQUEST</div>
+                        <div style="margin-top:4pt; margin-left:15pt; font-size:10pt;">
+                            <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Request No:</span><span t-esc="o.name"/></div>
+                            <div t-if="o.request_date" style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Request Date:</span><span t-esc="o.request_date.strftime('%d-%b-%Y')"/></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" style="margin:10pt 24pt; font-family:'Liberation Sans', Arial, sans-serif; font-size:10pt;">

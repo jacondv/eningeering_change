@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_ps_request_user,product.support.request.user,model_product_support_request,group_ps_user,1,1,1,0
+access_ps_request_manager,product.support.request.manager,model_product_support_request,group_ps_manager,1,1,1,1
+access_ps_fault_category_user,product.support.fault.category.user,model_product_support_fault_category,group_ps_user,1,0,0,0
+access_ps_fault_category_manager,product.support.fault.category.manager,model_product_support_fault_category,group_ps_manager,1,1,1,1
