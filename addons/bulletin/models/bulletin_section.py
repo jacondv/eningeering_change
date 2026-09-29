@@ -9,9 +9,9 @@ class BulletinSection(models.Model):
     _order = 'name'
 
     name = fields.Char(required=True)
-    help_text = fields.Text(
-        string='Help Text',
-        help="Shown to the author as guidance when filling this section on a Bulletin.")
+    default_value = fields.Html(
+        string='Default Value', sanitize_attributes=False,
+        help="Auto-inserted into this Section's content whenever a new Bulletin is created.")
     content_type = fields.Selection([
         ('html', 'Free Text'),
         ('authorisation', 'Approval & Signature'),

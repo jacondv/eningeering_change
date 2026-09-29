@@ -23,7 +23,7 @@
                         <div style="font-weight:bold; font-size:20pt; margin-top:6pt;" t-esc="(o.template_id.name or '').upper()"/>
                         <div style="margin-top:4pt; margin-left:15pt; font-size:10pt;">
                             <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Document number:</span><span t-esc="o.name"/></div>
-                            <div style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Date:</span><span t-esc="o.date.strftime('%d-%b-%Y')"/></div>
+                            <div t-if="o.date" style="white-space:nowrap;"><span style="display:inline-block; width:140px;">Date:</span><span t-esc="o.date.strftime('%d-%b-%Y')"/></div>
                         </div>
                     </div>
                 </div>
@@ -70,7 +70,7 @@
                 <div class="footer" style="position:relative; width:100%; height:25mm; font-size:9pt; font-family:'Liberation Sans', Arial, sans-serif;">
                     <div style="position:absolute; left:24pt; bottom:8mm; right:80pt; font-size:7pt;">
                         <div t-if="o._get_subject_text()">Subject: <t t-esc="o._get_subject_text()"/></div>
-                        <div>Version: <t t-esc="o.version"/> | Date: <t t-esc="o.date.strftime('%d-%m-%Y')"/></div>
+                        <div>Version: <t t-esc="o.version"/><t t-if="o.date"> | Date: <t t-esc="o.date.strftime('%d-%m-%Y')"/></t></div>
                     </div>
                     <span style="position:absolute; right:24pt; bottom:10mm; font-size:9pt;">
                         Page: <span class="page"/> of <span class="topage"/>
