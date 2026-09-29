@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="bulletin.BulletinSectionsField" owl="1">
+        <div class="o_bulletin_sections">
+            <t t-foreach="records" t-as="section" t-key="section.id">
+                <div class="o_bulletin_section mb-4">
+                    <label class="o_bulletin_section_header" t-esc="section.data.name"/>
+
+                    <t t-if="section.data.content_type === 'html'">
+                        <div class="o_bulletin_section_content">
+                            <HtmlField name="'content'" record="section"/>
+                        </div>
+                    </t>
+
+                    <t t-if="section.data.content_type === 'authorisation'">
+                        <div class="o_bulletin_authorisation">
+                            <div style="max-width:280px;">
+                                <Many2OneField name="'approver_id'" record="section"/>
+                            </div>
+                            <div t-if="section.data.approver_id" class="mt-2">
+                                <div class="fw-bold" t-esc="section.data.approver_name"/>
+                                <div t-esc="section.data.approver_job_title"/>
+                                <div t-esc="section.data.company_name"/>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>

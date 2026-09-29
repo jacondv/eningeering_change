@@ -4,7 +4,7 @@
     <menuitem id="menu_qc_checksheet_root" name="QC Check Sheet"
           parent="jacon_documents.menu_jacon_documents_root"
           groups="qc_checksheet.group_qc_user"
-          sequence="10"/>
+          sequence="30"/>
 
     <!-- Single entry point: browse/manage check sheets, with the standard
          Odoo "New" button on the list for creation - no separate wizard menu. -->
