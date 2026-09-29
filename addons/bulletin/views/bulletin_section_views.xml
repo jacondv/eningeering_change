@@ -25,7 +25,7 @@
                         <field name="content_type"/>
                         <field name="active" invisible="1"/>
                     </group>
-                    <field name="help_text" placeholder="Guidance shown to the author when filling this section..."/>
+                    <field name="default_value" placeholder="Auto-inserted into this Section's content on every new Bulletin..."/>
                 </sheet>
             </form>
         </field>

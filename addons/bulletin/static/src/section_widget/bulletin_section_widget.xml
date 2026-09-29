@@ -6,7 +6,6 @@
             <t t-foreach="records" t-as="section" t-key="section.id">
                 <div class="o_bulletin_section mb-4">
                     <label class="o_bulletin_section_header" t-esc="section.data.name"/>
-                    <div t-if="section.data.help_text" class="text-muted small mb-1" t-esc="section.data.help_text"/>
 
                     <t t-if="section.data.content_type === 'html'">
                         <div class="o_bulletin_section_content">
