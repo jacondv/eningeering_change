@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="paperformat_product_support" model="report.paperformat">
+        <field name="name">Product Support (A4, no smart-shrinking)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">40</field>
+        <field name="margin_bottom">20</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="header_spacing">40</field>
+        <field name="header_line" eval="False"/>
+        <field name="dpi">90</field>
+        <field name="disable_shrinking" eval="True"/>
+    </record>
+
+    <record id="action_report_product_support" model="ir.actions.report">
+        <field name="name">Service Report</field>
+        <field name="model">product.support.request</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">jacon_product_support.report_product_support_document</field>
+        <field name="report_file">jacon_product_support.report_product_support_document</field>
+        <field name="print_report_name">'%s - %s - [%s]' % (object.name, object.title, object.job_id.name)</field>
+        <field name="paperformat_id" ref="paperformat_product_support"/>
+        <field name="binding_model_id" ref="model_product_support_request"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- PDF rendering is handled in models/ir_actions_report.py (EC report +
+         the linked request's Service Report, merged). report_name must be
+         unique: the /report/pdf/<report_name> route looks the report up by it,
+         so sharing the EC report's name would resolve to the plain EC report. -->
+    <template id="report_ec_with_service_report">
+        <t t-call="engineering_change.report_engineering_change_document"/>
+    </template>
+
+    <record id="action_report_ec_with_service_report" model="ir.actions.report">
+        <field name="name">Engineering Change + Service Report</field>
+        <field name="model">engineering.change</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">jacon_product_support.report_ec_with_service_report</field>
+        <field name="report_file">jacon_product_support.report_ec_with_service_report</field>
+        <field name="print_report_name">'EC - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="engineering_change.paperformat_engineering_change"/>
+        <field name="binding_model_id" ref="engineering_change.model_engineering_change"/>
+        <field name="binding_type">report</field>
+    </record>
+
+</odoo>

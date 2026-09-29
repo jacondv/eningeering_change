@@ -1,0 +1,45 @@
+// Compact many2many_binary: attachments flow as small chips on one row
+// (wrapping) instead of one full-width block per file.
+$ps-attachment-thumb: 30px;
+
+.o_ps_attachments {
+    .o_attachments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .o_attachment {
+        width: 200px;
+        padding: 0;
+
+        .o_attachment_wrap {
+            padding: 3px $ps-attachment-thumb 3px 3px;
+        }
+
+        .o_image_box {
+            margin-right: 6px;
+        }
+
+        .o_preview_image {
+            width: $ps-attachment-thumb;
+            height: $ps-attachment-thumb;
+        }
+
+        .caption {
+            line-height: 1.2;
+        }
+
+        .o_attachment_uploaded,
+        .o_attachment_delete {
+            width: $ps-attachment-thumb;
+        }
+    }
+
+    // Same width as the form's label column so files line up with the fields above.
+    .o_ps_attach_head {
+        flex: 0 0 auto;
+        min-width: 150px;
+        padding-right: 16px;
+    }
+}
