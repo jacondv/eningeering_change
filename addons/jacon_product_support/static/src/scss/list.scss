@@ -1,0 +1,5 @@
+// Smaller priority stars in the Request list - through the variable core's
+// priority widget reads, since its own star rule outranks a plain override.
+.o_ps_priority_small {
+    --Priority-font-size: 0.8rem;
+}
