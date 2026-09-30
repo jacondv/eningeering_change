@@ -1,3 +1,5 @@
+import base64
+
 from odoo import fields
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import TransactionCase, tagged
@@ -112,6 +114,42 @@ class TestEngineeringChange(TransactionCase):
             impact_lead_time_over_week=False, impact_circuit_change=False)
         change.with_user(self.user_engineer).action_submit()
         self.assertEqual(change.state, 'waiting_manager_approval')
+
+    def _create_orphan_image_attachment(self):
+        # res_id=0 reproduces the exact "adoption failed" state from the
+        # 2608-003 incident - Odoo's HTML editor uploads the image as its
+        # own attachment immediately, tagged with the right res_model but
+        # res_id=0 until a second client call links it to the actual record.
+        return self.env['ir.attachment'].sudo().create({
+            'name': 'image.png', 'res_model': 'engineering.change', 'res_id': 0,
+            'type': 'binary', 'datas': base64.b64encode(b'fake-png-bytes'),
+            'mimetype': 'image/png',
+        })
+
+    def test_create_adopts_orphaned_embedded_image_attachment(self):
+        att = self._create_orphan_image_attachment()
+        change = self._create_request(
+            description='<p>x</p><img src="/web/image/%d-abc123/image.png">' % att.id)
+        att.invalidate_recordset()
+        self.assertEqual(att.res_model, 'engineering.change')
+        self.assertEqual(att.res_id, change.id)
+
+    def test_write_adopts_orphaned_embedded_image_attachment(self):
+        change = self._create_request()
+        att = self._create_orphan_image_attachment()
+        change.with_user(self.user_engineer).description = (
+            '<p>x</p><img src="/web/image/%d-abc123/image.png">' % att.id)
+        att.invalidate_recordset()
+        self.assertEqual(att.res_model, 'engineering.change')
+        self.assertEqual(att.res_id, change.id)
+
+    def test_missing_embedded_image_warns_on_chatter_without_blocking_save(self):
+        missing_id = 999999
+        self.assertFalse(self.env['ir.attachment'].browse(missing_id).exists())
+        change = self._create_request(
+            description='<p>x</p><img src="/web/image/%d-abc123/image.png">' % missing_id)
+        self.assertTrue(any(
+            'could not be found' in (m.body or '') for m in change.message_ids))
 
     def test_submit_opens_impact_answer_wizard_when_impact_negative_unanswered(self):
         change = self._create_request(change_category='standard', impact_negative=False)
