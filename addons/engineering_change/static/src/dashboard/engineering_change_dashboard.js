@@ -1,20 +1,32 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onWillStart, onWillUpdateProps, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { Layout } from "@web/search/layout";
+import { SearchBar } from "@web/search/search_bar/search_bar";
+import { useSearchBarToggler } from "@web/search/search_bar/search_bar_toggler";
 
+const MODEL = "engineering.change";
+
+// Stands in for a list view's controller (see view_engineering_change_dashboard):
+// the search bar's domain arrives as props.domain and every figure is reloaded from it.
 export class EngineeringChangeDashboard extends Component {
     static template = "engineering_change.Dashboard";
+    static components = { Layout, SearchBar };
     static props = ["*"];
 
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.searchBarToggler = useSearchBarToggler();
         this.state = useState({ data: null });
-        onWillStart(async () => {
-            this.state.data = await this.orm.call("engineering.change", "get_dashboard_data", []);
-        });
+        onWillStart(() => this.load(this.props.domain));
+        onWillUpdateProps((nextProps) => this.load(nextProps.domain));
+    }
+
+    async load(domain) {
+        this.state.data = await this.orm.call(MODEL, "get_dashboard_data", [domain]);
     }
 
     countOf(list, key) {
@@ -35,13 +47,13 @@ export class EngineeringChangeDashboard extends Component {
         this.action.doAction({
             type: "ir.actions.act_window",
             name,
-            res_model: "engineering.change",
+            res_model: MODEL,
             views: [
                 [false, "list"],
                 [false, "kanban"],
                 [false, "form"],
             ],
-            domain,
+            domain: [...this.props.domain, ...domain],
         });
     }
 
@@ -63,7 +75,7 @@ export class EngineeringChangeDashboard extends Component {
         // but project.task has several competing default views (core
         // Project, project_sms, project_todo...) so it can't just rely on
         // `[false, "list"/"form"]` picking ours like engineering.change does.
-        const action = await this.orm.call("engineering.change", "get_ec_task_action", [], {
+        const action = await this.orm.call(MODEL, "get_ec_task_action", [], {
             domain,
             res_id: resId,
         });
@@ -81,4 +93,7 @@ export class EngineeringChangeDashboard extends Component {
     }
 }
 
-registry.category("actions").add("engineering_change_dashboard", EngineeringChangeDashboard);
+registry.category("views").add("engineering_change_dashboard", {
+    type: "list",
+    Controller: EngineeringChangeDashboard,
+});

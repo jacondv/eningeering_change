@@ -92,18 +92,26 @@ class EngineeringChange(models.Model):
     # Dashboard
     # ------------------------------------------------------------
     @api.model
-    def get_dashboard_data(self):
-        """Aggregate stats for the Dashboard client action. Uses search_read +
-        Python aggregation (instead of read_group) since dataset sizes here are
+    def get_dashboard_data(self, domain=None):
+        """Aggregate stats for the Dashboard. Uses search_read + Python
+        aggregation (instead of read_group) since dataset sizes here are
         small and it sidesteps any read_group API differences in this build.
         Respects ir.rule like any other read, so every role sees the same
         totals (matches the "everyone can view everything" design).
+
+        `domain` comes from the Dashboard's own search bar (see
+        engineering_change_dashboard.js) and only scopes the
+        engineering.change-level figures (state/type/rpn counts, Recent
+        Requests, total) - the Task-based panels (Task Progress, My Open
+        Tasks) are a different model with no equivalent in the search bar's
+        fields, so they stay unfiltered, same as before this was added.
         """
         Change = self.env['engineering.change']
         Task = self.env['project.task']
+        domain = list(domain or [])
 
         changes = Change.search_read(
-            [], ['state', 'request_type', 'rpn_level', 'has_overdue_action'])
+            domain, ['state', 'request_type', 'rpn_level', 'has_overdue_action'])
         state_selection = Change._fields['state'].selection
         type_selection = Change._fields['request_type'].selection
         rpn_selection = Change._fields['rpn_level'].selection
@@ -135,7 +143,7 @@ class EngineeringChange(models.Model):
         task_progress = round(done_tasks / total_tasks * 100, 1) if total_tasks else 0.0
 
         recent_requests = Change.search_read(
-            [], ['name', 'title', 'state', 'request_type', 'engineer_id'],
+            domain, ['name', 'title', 'state', 'request_type', 'engineer_id'],
             order='create_date desc', limit=8)
 
         my_open_tasks = Task.search_read(

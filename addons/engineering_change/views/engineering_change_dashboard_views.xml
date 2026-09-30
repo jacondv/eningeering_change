@@ -1,9 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <record id="action_engineering_change_dashboard" model="ir.actions.client">
+    <!-- Was an <ir.actions.client> (see menu_engineering_change_dashboard) -
+         switched to an act_window on a list view with a js_class so it gets
+         the standard control panel and search bar for free (needed to add a
+         search bar to the Dashboard), same pattern as jacon_product_support's
+         own dashboard. Odoo refuses to change an existing xmlid's model on
+         upgrade, so this is a new id + an explicit delete of the old
+         ir.actions.client record below, rather than reusing
+         action_engineering_change_dashboard in place. -->
+    <delete model="ir.actions.client" id="action_engineering_change_dashboard"/>
+
+    <record id="view_engineering_change_dashboard" model="ir.ui.view">
+        <field name="name">engineering.change.dashboard</field>
+        <field name="model">engineering.change</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <list js_class="engineering_change_dashboard">
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_engineering_change_dashboard_window" model="ir.actions.act_window">
         <field name="name">Dashboard</field>
-        <field name="tag">engineering_change_dashboard</field>
+        <field name="res_model">engineering.change</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_engineering_change_dashboard"/>
+        <field name="search_view_id" ref="view_engineering_change_search"/>
     </record>
 
 </odoo>
