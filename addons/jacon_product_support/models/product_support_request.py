@@ -43,8 +43,8 @@ class ProductSupportRequest(models.Model):
     hour_meter = fields.Float(string='Operating Hours', tracking=True)
     machine_location = fields.Char()
     warranty = fields.Selection([
-        ('in', 'In Warranty'), ('out', 'Out of Warranty'), ('unknown', 'Unknown'),
-    ], default='unknown', tracking=True)
+        ('in', 'In Warranty'), ('out', 'Out of Warranty'),
+    ], tracking=True)
 
     # Customer contact
     contact_id = fields.Many2one('res.partner', string='Contact', tracking=True)
