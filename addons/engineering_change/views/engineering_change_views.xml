@@ -112,9 +112,21 @@
                         </button>
                     </div>
                     <div class="oe_title">
-                        <h1>
-                            <field name="name" readonly="1"/>
-                        </h1>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="text-muted">
+                                <field name="name" readonly="1"/>
+                            </div>
+                            <h1 class="d-flex flex-row align-items-center flex-grow-1 m-0">
+                                <field name="title" required="1" class="flex-grow-1"
+                                       placeholder="Short title of the change..."
+                                       readonly="not can_edit_engineer_fields"/>
+                            </h1>
+                            <div style="flex:0 0 auto; min-width:220px;">
+                                <label for="change_category"/>
+                                <field name="change_category" required="1"
+                                       readonly="not can_edit_engineer_fields"/>
+                            </div>
+                        </div>
                     </div>
                     <div class="row">
                         <div class="col-6" invisible="not affected_model_ids">
@@ -133,10 +145,6 @@
                         <page string="General Info" name="general_info">
                             <group col="3">
                                 <group>
-                                    <field name="title" required="1" placeholder="Short title of the change..."
-                                           readonly="not can_edit_engineer_fields"/>
-                                    <field name="change_category" required="1"
-                                           readonly="not can_edit_engineer_fields"/>
                                     <label for="default_affected_family_ids" class="text-nowrap"/>
                                     <field name="default_affected_family_ids" widget="many2many_tags"
                                            readonly="not can_edit_engineer_fields" nolabel="1"/>
@@ -150,13 +158,23 @@
                                 <group>
                                     <field name="request_type" widget="radio" options="{'horizontal': true}"
                                            readonly="not can_edit_request_type"/>
-                                    <field name="dcr_no" readonly="not can_edit_dcr_no"/>
-                                    <field name="project_id" invisible="not project_id"/>
+                                    <!-- DCR No + RPN Level on one line, same flex-row pattern used
+                                         by the Impact Analysis questions below (colspan="2" so this
+                                         div is the group's only child on its grid row). -->
+                                    <div colspan="2" style="display:flex; align-items:center; column-gap:24px; flex-wrap:nowrap;">
+                                        <div style="display:flex; align-items:center; column-gap:8px; flex-shrink:0;">
+                                            <label for="dcr_no" class="o_form_label mb-0" style="white-space:nowrap; flex-shrink:0;"/>
+                                            <field name="dcr_no" readonly="not can_edit_dcr_no" nolabel="1" style="width:140px;"/>
+                                        </div>
+                                        <div style="display:flex; align-items:center; column-gap:8px; flex-shrink:0;">
+                                            <label for="rpn_level" class="o_form_label mb-0" style="white-space:nowrap; flex-shrink:0;"/>
+                                            <field name="rpn_level" widget="badge" nolabel="1" style="width:140px;"
+                                                   decoration-danger="rpn_level == 'high'"
+                                                   decoration-warning="rpn_level == 'medium'"
+                                                   decoration-success="rpn_level == 'low'"/>
+                                        </div>
+                                    </div>
                                     <field name="close_date" invisible="not close_date"/>
-                                    <field name="rpn_level" widget="badge"
-                                           decoration-danger="rpn_level == 'high'"
-                                           decoration-warning="rpn_level == 'medium'"
-                                           decoration-success="rpn_level == 'low'"/>
                                     <field name="engineer_id" readonly="not can_edit_engineer_fields"/>
                                     <field name="can_edit_engineer_fields" invisible="1"/>
                                     <field name="can_edit_manager_fields" invisible="1"/>
