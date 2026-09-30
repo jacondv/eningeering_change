@@ -7,7 +7,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import html2plaintext
 
-OPEN_STATES = ('draft', 'diagnosing', 'repairing')
+OPEN_STATES = ('draft',)
 RESOLVED_STATES = ('resolved', 'closed')
 
 
@@ -25,7 +25,7 @@ class ProductSupportRequest(models.Model):
     request_date = fields.Datetime(required=True, default=fields.Datetime.now, tracking=True)
     requester_id = fields.Many2one('res.users', string='Requester', tracking=True,
                                    default=lambda self: self.env.user)
-    engineer_id = fields.Many2one('res.users', string='Support Engineer', tracking=True,
+    engineer_id = fields.Many2one('res.users', string='Engineer', tracking=True,
                                   default=lambda self: self.env.user)
     priority = fields.Selection([
         ('0', 'Low'), ('1', 'Normal'), ('2', 'High'), ('3', 'Critical'),
@@ -65,26 +65,30 @@ class ProductSupportRequest(models.Model):
         'ir.attachment', 'product_support_request_attachment_rel', 'request_id', 'attachment_id',
         string='Attachments', copy=False)
 
+    document_ids = fields.One2many(
+        'product.support.document', 'request_id', string='Related Drawings')
+
     # Resolution
+    diagnosis = fields.Html(string='Diagnosing',
+                            help="Analysis data collected while working on the request.")
     root_cause = fields.Html()
     solution = fields.Html(string='Solution / Instruction')
-    customer_confirmed = fields.Boolean(string='Customer Confirmation', tracking=True, copy=False)
-    customer_confirmed_date = fields.Date(
-        string='Confirmation Date', compute='_compute_customer_confirmed_date', store=True,
-        readonly=False)
-    ec_id = fields.Many2one('engineering.change', string='Engineering Change',
+    # A confirmation date on its own means the customer has confirmed.
+    customer_confirmed_date = fields.Date(string='Confirmation Date', tracking=True, copy=False)
+    customer_confirmation_note = fields.Html(
+        string='Evidence', copy=False,
+        help="Proof the customer confirmed the support is OK (email, message, photo...).")
+    ec_id = fields.Many2one('engineering.change', string='ECN No.',
                             copy=False, ondelete='set null', tracking=True,
                             domain=[('support_request_ids', '=', False)])
     ec_state = fields.Selection(related='ec_id.state', string='EC Status')
 
     # Workflow
     state = fields.Selection([
-        ('draft', 'Draft'),
-        ('diagnosing', 'Diagnosing'),
-        ('repairing', 'Guiding / Repairing'),
+        ('draft', 'Open'),
         ('resolved', 'Resolved'),
         ('closed', 'Closed'),
-        ('canceled', 'Canceled'),
+        ('canceled', 'Cancelled'),
     ], default='draft', required=True, copy=False, index=True, tracking=True)
     resolved_date = fields.Datetime(compute='_compute_resolved_date', store=True, copy=False)
     closed_date = fields.Datetime(compute='_compute_closed_date', store=True, copy=False)
@@ -105,14 +109,6 @@ class ProductSupportRequest(models.Model):
     # ------------------------------------------------------------
     # Computes & constraints
     # ------------------------------------------------------------
-    @api.depends('customer_confirmed')
-    def _compute_customer_confirmed_date(self):
-        for rec in self:
-            if not rec.customer_confirmed:
-                rec.customer_confirmed_date = False
-            elif not rec.customer_confirmed_date:
-                rec.customer_confirmed_date = fields.Date.context_today(rec)
-
     @api.depends('state')
     def _compute_resolved_date(self):
         for rec in self:
@@ -166,7 +162,16 @@ class ProductSupportRequest(models.Model):
         return records
 
     def write(self, vals):
+        if 'active' in vals or vals.get('state') == 'canceled':
+            self._check_is_manager()
+        # Leaving Cancelled any other way than Unarchive must also bring the
+        # request back out of Archive, or it would be "Open" but invisible.
+        revived = self.browse()
+        if vals.get('state', 'canceled') != 'canceled' and 'active' not in vals:
+            revived = self.filtered(lambda r: r.state == 'canceled' and not r.active)
         result = super().write(vals)
+        if revived:
+            super(ProductSupportRequest, revived).write({'active': True})
         if {'hour_meter', 'job_id'} & vals.keys():
             self._sync_job_operating_hours()
         return result
@@ -257,6 +262,19 @@ class ProductSupportRequest(models.Model):
     # ------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------
+    def _check_is_manager(self):
+        if not self.env.su and not self.env.user.has_group('jacon_product_support.group_ps_manager'):
+            raise UserError(_("Only a Product Support Manager can cancel, archive or unarchive a request."))
+
+    def action_cancel(self):
+        """Cancelled requests are archived straight away."""
+        self.write({'state': 'canceled', 'active': False})
+
+    def action_unarchive(self):
+        result = super().action_unarchive()
+        self.filtered(lambda r: r.state == 'canceled').state = 'draft'
+        return result
+
     def action_delete_with_password(self):
         self.ensure_one()
         return {
@@ -311,8 +329,7 @@ class ProductSupportRequest(models.Model):
         pair leaves that half of the row blank."""
         self.ensure_one()
         contact = self.contact_id
-        confirmation = (self._report_date(self.customer_confirmed_date)
-                        if self.customer_confirmed else _('Not confirmed'))
+        confirmation = self._report_date(self.customer_confirmed_date) or _('Not confirmed')
         return [
             (_('General Information'), [
                 ((_('Job Number'), self.job_id.name), (_('Customer'), self.partner_id.display_name)),
@@ -326,15 +343,14 @@ class ProductSupportRequest(models.Model):
                  (_('Fault Category'), self.fault_category_id.name)),
                 ((_('Requester'), self.requester_id.name),
                  (_('Machine Status'), self._report_label('machine_status'))),
-                ((_('Support Engineer'), self.engineer_id.name),
+                ((_('Engineer'), self.engineer_id.name),
                  (_('Priority'), self._report_label('priority'))),
             ]),
             (_('Closure'), [
                 ((_('Resolved Date'), self._report_date(self.resolved_date)),
                  (_('Closed Date'), self._report_date(self.closed_date))),
                 ((_('Customer Confirmation'), confirmation),
-                 (_('Engineering Change'),
-                  self.ec_id.name or '')),
+                 (_('ECN No.'), self.ec_id.name or '')),
                 ((_('Status'), self._report_label('state')), None),
             ]),
         ]

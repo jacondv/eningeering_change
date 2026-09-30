@@ -6,10 +6,16 @@
         <field name="model">engineering.change</field>
         <field name="inherit_id" ref="engineering_change.view_engineering_change_form"/>
         <field name="arch" type="xml">
-            <field name="change_category" position="after">
+            <!-- Anchored on default_affected_family_ids's own label (still
+                 inside the General Info tab's first <group> column, so it
+                 keeps the auto-generated label) rather than change_category -
+                 engineering_change moved Change Source out of that group
+                 into the form's header title row, where a Many2one link
+                 field like this one doesn't belong. -->
+            <label for="default_affected_family_ids" position="before">
                 <field name="support_request_id" invisible="not support_request_id"
                        groups="jacon_product_support.group_ps_user"/>
-            </field>
+            </label>
         </field>
     </record>
 

@@ -9,28 +9,41 @@
                  "Delete" server action in the gear menu instead. -->
             <form string="Support Request" delete="0">
                 <header>
-                    <field name="state" widget="statusbar" options="{'clickable': '1', 'confirm': '1'}"/>
+                    <button name="action_cancel" type="object" string="Cancel" class="btn-danger"
+                            invisible="state == 'canceled' or not id"
+                            confirm="Cancel this request? It will be moved to Archive."
+                            groups="jacon_product_support.group_ps_manager"/>
+                    <!-- Cancelled is left off the bar: only the Cancel button above reaches it. -->
+                    <field name="state" widget="statusbar" statusbar_visible="draft,resolved,closed"
+                           options="{'clickable': '1', 'confirm': '1'}"/>
                 </header>
                 <sheet>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_title">
-                        <div class="text-muted"><field name="name" readonly="1"/></div>
-                        <h1 class="d-flex flex-row align-items-center">
-                            <field name="title" class="flex-grow-1" placeholder="e.g. Hydraulic pressure loss on boom"/>
-                            <field name="priority" widget="priority" class="ms-3"/>
-                        </h1>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="text-muted">
+                                <field name="name" readonly="1"/>
+                            </div>
+                            <h1 class="d-flex flex-row align-items-center flex-grow-1 m-0">
+                                <field name="title" class="flex-grow-1" placeholder="e.g. Hydraulic pressure loss on boom"/>
+                                <field name="priority" widget="priority" class="ms-3"/>
+                            </h1>
+                        </div>
                     </div>
                     <group col="3">
                         <group string="Machine Info">
                             <field name="job_id" options="{'no_create': True}"/>
-                            <field name="model_id"/>
                             <field name="hour_meter"/>
                             <field name="machine_location"/>
                             <field name="warranty"/>
                         </group>
                         <group string="Request">
-                            <field name="requester_id"/>
-                            <field name="engineer_id"/>
+                            <label for="requester_id"/>
+                            <div class="o_row">
+                                <field name="requester_id"/>
+                                <span class="text-muted text-nowrap">Engineer:</span>
+                                <field name="engineer_id"/>
+                            </div>
                             <field name="machine_status"/>
                             <field name="fault_category_id" options="{'no_create': True}"/>
                             <label for="request_date"/>
@@ -40,6 +53,16 @@
                                 <field name="resolved_date" widget="datetime_short" invisible="not resolved_date"/>
                             </div>
                             <field name="closed_date" widget="datetime_short" invisible="not closed_date"/>
+                        </group>
+                        <group string="Additional Info">
+                            <field name="partner_id"/>
+                            <field name="site_id"/>
+                            <field name="contact_id" context="{'default_parent_id': partner_id}"
+                                   placeholder="Pick or create a contact"/>
+                            <field name="contact_company_id" invisible="not contact_company_id"/>
+                            <field name="contact_function" invisible="not contact_function"/>
+                            <field name="contact_phone" widget="phone" invisible="not contact_phone"/>
+                            <field name="contact_email" widget="email" invisible="not contact_email"/>
                             <label for="ec_id"/>
                             <div class="o_row">
                                 <field name="ec_id" options="{'no_create': True}"/>
@@ -53,29 +76,14 @@
                                        decoration-danger="ec_state == 'canceled'"/>
                             </div>
                         </group>
-                        <group string="Customer">
-                            <field name="partner_id"/>
-                            <field name="site_id"/>
-                            <field name="contact_id" context="{'default_parent_id': partner_id}"
-                                   placeholder="Pick or create a contact"/>
-                            <field name="contact_company_id" invisible="not contact_company_id"/>
-                            <field name="contact_function" invisible="not contact_function"/>
-                            <field name="contact_phone" widget="phone" invisible="not contact_phone"/>
-                            <field name="contact_email" widget="email" invisible="not contact_email"/>
-                            <label for="customer_confirmed"/>
-                            <div class="o_row">
-                                <field name="customer_confirmed" nolabel="1"/>
-                                <field name="customer_confirmed_date" nolabel="1" invisible="not customer_confirmed"/>
-                            </div>
-                        </group>
                     </group>
-                    <!-- The widget draws its own label cell (label + attach icon), see many2many_binary_preview_field.xml -->
-                    <field name="attachment_ids" widget="many2many_binary_preview" class="o_ps_attachments mb-3" nolabel="1"/>
                     <notebook>
                         <page string="Description" name="description">
                             <field name="description" placeholder="What does the customer report? Symptoms, when it happens, fault codes..."/>
                         </page>
                         <page string="Resolution" name="resolution">
+                            <separator string="Diagnosing"/>
+                            <field name="diagnosis" placeholder="Analysis data collected while working on the request: checks, measurements, findings..."/>
                             <separator string="Root Cause"/>
                             <field name="root_cause" placeholder="Required before Resolved"/>
                             <separator string="Solution / Instruction"/>
@@ -93,6 +101,32 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Customer Confirmation" name="customer_confirmation">
+                            <group>
+                                <group>
+                                    <field name="customer_confirmed_date"
+                                           help="Setting a date means the customer has confirmed the support is OK."/>
+                                </group>
+                            </group>
+                            <separator string="Evidence"/>
+                            <field name="customer_confirmation_note"
+                                   placeholder="Paste or describe the customer's confirmation: email, message, photo..."/>
+                        </page>
+                        <page string="Related Drawings" name="documents">
+                            <field name="document_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="doc_type"/>
+                                    <field name="link" invisible="doc_type != 'link'"/>
+                                    <field name="attachment" filename="attachment_filename"
+                                           invisible="doc_type != 'file'"/>
+                                    <field name="attachment_filename" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Attachments" name="attachments">
+                            <field name="attachment_ids" widget="many2many_binary_preview" class="o_ps_attachments" nolabel="1"/>
+                        </page>
                     </notebook>
                     <field name="active" invisible="1"/>
                 </sheet>
@@ -105,8 +139,7 @@
         <field name="name">product.support.request.list</field>
         <field name="model">product.support.request</field>
         <field name="arch" type="xml">
-            <list delete="0" decoration-muted="state in ('closed', 'canceled')"
-                  decoration-danger="machine_status == 'down' and state in ('draft', 'diagnosing', 'repairing')">
+            <list js_class="jacon_core_list" delete="0" decoration-muted="state in ('closed', 'canceled')">
                 <field name="priority" widget="priority" optional="show" nolabel="1"/>
                 <field name="name" optional="show"/>
                 <field name="title" optional="show"/>
@@ -121,15 +154,18 @@
                 <field name="requester_id" widget="many2one_avatar_user" optional="hide"/>
                 <field name="engineer_id" widget="many2one_avatar_user" optional="show"/>
                 <field name="fault_category_id" optional="hide"/>
-                <field name="machine_status" optional="show"/>
+                <field name="machine_status" widget="badge" optional="show"
+                       decoration-danger="machine_status == 'down'"
+                       decoration-warning="machine_status == 'limited'"
+                       decoration-success="machine_status == 'normal'"/>
                 <field name="ec_id" optional="hide"/>
-                <field name="customer_confirmed" optional="hide"/>
+                <field name="customer_confirmed_date" optional="hide"/>
                 <field name="request_date" widget="datetime_short" optional="show"/>
                 <field name="resolved_date" widget="datetime_short" optional="hide"/>
                 <field name="closed_date" widget="datetime_short" optional="hide"/>
                 <field name="resolution_hours" widget="float_time" optional="hide"/>
                 <field name="state" widget="badge" optional="show"
-                       decoration-info="state in ('diagnosing', 'repairing')"
+                       decoration-info="state == 'draft'"
                        decoration-success="state in ('resolved', 'closed')"
                        decoration-muted="state == 'canceled'"/>
             </list>
@@ -210,11 +246,11 @@
                 <separator/>
                 <filter string="My Requests" name="my_requests" domain="[('engineer_id', '=', uid)]"/>
                 <separator/>
-                <filter string="Open" name="open" domain="[('state', 'in', ('draft', 'diagnosing', 'repairing'))]"/>
+                <filter string="Open" name="open" domain="[('state', '=', 'draft')]"/>
                 <filter string="Machine Down" name="machine_down" domain="[('machine_status', '=', 'down')]"/>
                 <filter string="Resolved" name="resolved" domain="[('state', '=', 'resolved')]"/>
                 <filter string="Closed" name="closed" domain="[('state', '=', 'closed')]"/>
-                <filter string="Canceled" name="canceled" domain="[('state', '=', 'canceled')]"/>
+                <filter string="Cancelled" name="canceled" domain="[('state', '=', 'canceled'), ('active', 'in', (True, False))]"/>
                 <separator/>
                 <filter string="Request Date" name="filter_request_date" date="request_date"/>
                 <separator/>
