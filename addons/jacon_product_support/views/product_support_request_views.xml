@@ -140,7 +140,6 @@
         <field name="model">product.support.request</field>
         <field name="arch" type="xml">
             <list js_class="jacon_core_list" delete="0" decoration-muted="state in ('closed', 'canceled')">
-                <field name="priority" widget="priority" optional="show" nolabel="1"/>
                 <field name="name" optional="show"/>
                 <field name="title" optional="show"/>
                 <field name="job_id" optional="show"/>
@@ -164,6 +163,7 @@
                 <field name="resolved_date" widget="datetime_short" optional="hide"/>
                 <field name="closed_date" widget="datetime_short" optional="hide"/>
                 <field name="resolution_hours" widget="float_time" optional="hide"/>
+                <field name="priority" widget="priority" optional="show" class="o_ps_priority_small"/>
                 <field name="state" widget="badge" optional="show"
                        decoration-info="state == 'draft'"
                        decoration-success="state in ('resolved', 'closed')"
@@ -266,7 +266,7 @@
     </record>
 
     <record id="action_product_support_request" model="ir.actions.act_window">
-        <field name="name">Support Requests</field>
+        <field name="name">All Requests</field>
         <field name="res_model">product.support.request</field>
         <field name="view_mode">list,kanban,form,pivot,graph</field>
         <field name="search_view_id" ref="view_product_support_request_search"/>
