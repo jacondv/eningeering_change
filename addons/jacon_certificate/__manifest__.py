@@ -16,7 +16,7 @@ since it is not tied to any Equipment Model data.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'jacon_documents', 'web_hierarchy'],
+    'depends': ['base', 'jacon_documents', 'web_hierarchy', 'jacon_core'],
     'data': [
         'security/certificate_groups.xml',
         'security/ir.model.access.csv',
