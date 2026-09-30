@@ -32,9 +32,9 @@ export class SupportDashboardController extends Component {
         const { kpis } = this.state.data;
         return [
             { label: _t("Open"), value: kpis.open, css: "o_ps_kpi_open",
-              domain: [["state", "in", ["draft", "diagnosing", "repairing"]]] },
+              domain: [["state", "=", "draft"]] },
             { label: _t("Machine Down"), value: kpis.down, css: "o_ps_kpi_down",
-              domain: [["state", "in", ["draft", "diagnosing", "repairing"]], ["machine_status", "=", "down"]] },
+              domain: [["state", "=", "draft"], ["machine_status", "=", "down"]] },
             { label: _t("Resolved (to close)"), value: kpis.resolved, css: "o_ps_kpi_resolved",
               domain: [["state", "=", "resolved"]] },
             { label: _t("Closed this month"), value: kpis.closed_month, css: "o_ps_kpi_closed",
