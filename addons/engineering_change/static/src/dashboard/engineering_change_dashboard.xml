@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="engineering_change.Dashboard">
-        <div class="o_ec_dashboard">
-            <div class="o_ec_dashboard_header">
-                <h2>Engineering Change Dashboard</h2>
-            </div>
-            <t t-if="!state.data">
-                <div class="text-center p-5">
-                    <i class="fa fa-spinner fa-spin fa-2x"/>
+        <div t-att-class="props.className">
+            <Layout display="props.display">
+                <t t-set-slot="layout-actions">
+                    <SearchBar toggler="searchBarToggler"/>
+                </t>
+                <t t-set-slot="control-panel-navigation-additional">
+                    <t t-component="searchBarToggler.component" t-props="searchBarToggler.props"/>
+                </t>
+                <div class="o_ec_dashboard">
+                    <div class="o_ec_dashboard_header">
+                    <h2>Engineering Change Dashboard</h2>
                 </div>
-            </t>
-            <t t-else="">
-                <div class="o_ec_kpi_row">
+                <t t-if="!state.data">
+                    <div class="text-center p-5">
+                        <i class="fa fa-spinner fa-spin fa-2x"/>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="o_ec_kpi_row">
                     <div class="o_ec_kpi_card" t-on-click="() => this.openRequests([], 'All Requests')">
                         <div class="o_ec_kpi_value"><t t-esc="state.data.total_requests"/></div>
                         <div class="o_ec_kpi_label">Total Requests</div>
@@ -160,7 +168,9 @@
                         </div>
                     </div>
                 </div>
-            </t>
+                </t>
+            </div>
+            </Layout>
         </div>
     </t>
 </templates>
