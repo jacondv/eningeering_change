@@ -16,12 +16,12 @@
           sequence="20"/>
 
     <menuitem id="menu_product_support_request_all" name="All Requests"
-          parent="menu_product_support_requests"
+          parent="menu_product_support_root"
           action="action_product_support_request"
           sequence="10"/>
 
     <menuitem id="menu_product_support_request_my" name="My Requests"
-          parent="menu_product_support_requests"
+          parent="menu_product_support_root"
           action="action_product_support_request_my"
           sequence="20"/>
 
