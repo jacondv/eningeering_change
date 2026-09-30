@@ -28,7 +28,7 @@
 
     <menuitem id="menu_engineering_change_dashboard" name="Dashboard"
           parent="menu_engineering_change_root"
-          action="action_engineering_change_dashboard"
+          action="action_engineering_change_dashboard_window"
           sequence="5"/>
 
     <menuitem id="menu_engineering_change_my" name="My Requests"
