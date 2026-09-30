@@ -22,7 +22,7 @@ to PDF.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'hr', 'jacon_documents'],
+    'depends': ['base', 'mail', 'hr', 'jacon_documents', 'jacon_core'],
     'data': [
         'security/bulletin_groups.xml',
         'security/ir.model.access.csv',
