@@ -49,6 +49,14 @@ class JaconHtmlAttachmentMixin(models.AbstractModel):
         of the src, it never checks the checksum Odoo's own image route
         would enforce) - found and fixed during review of the first user of
         this mixin, engineering.change.
+
+        It must also have been uploaded *for this model* (res_model ==
+        rec._name, which is what the editor sends when uploading from the
+        record's own form). res_id=0 alone isn't enough: html_editor stores
+        the shared Media Library / website images as res_model='ir.ui.view',
+        res_id=0 - adopting one of those just because someone inserted it
+        here would pull it out of the Media Library for everyone, and
+        deleting this record would then delete it everywhere it's used.
         """
         Attachment = self.env['ir.attachment'].sudo()
         for rec in self:
@@ -59,7 +67,8 @@ class JaconHtmlAttachmentMixin(models.AbstractModel):
                 continue
             attachments = Attachment.browse(att_ids).exists()
             missing = att_ids - set(attachments.ids)
-            to_adopt = attachments.filtered(lambda a: not a.res_id)
+            to_adopt = attachments.filtered(
+                lambda a: not a.res_id and a.res_model == rec._name)
             if to_adopt:
                 to_adopt.write({'res_model': rec._name, 'res_id': rec.id})
             if missing:
