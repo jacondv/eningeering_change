@@ -229,7 +229,7 @@ class ProductSupportRequest(models.Model):
         return result
 
     def _next_request_no(self):
-        """PS-YYMM-NNN from one ir.sequence whose counter restarts every month.
+        """YYMMPSNN from one ir.sequence whose counter restarts every month.
 
         Odoo only auto-creates yearly date ranges, so this month's range is
         created here on first use. The advisory lock stops two concurrent
