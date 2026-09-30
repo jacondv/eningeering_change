@@ -114,6 +114,7 @@ class Bulletin(models.Model):
 class BulletinBulletinSection(models.Model):
     _name = 'bulletin.bulletin.section'
     _description = 'Bulletin Content Section'
+    _inherit = ['jacon.html.attachment.mixin']
     _order = 'sequence, id'
 
     bulletin_id = fields.Many2one('bulletin.bulletin', required=True, ondelete='cascade')
@@ -142,3 +143,15 @@ class BulletinBulletinSection(models.Model):
         for rec in self:
             if rec.template_section_id:
                 rec.sequence = rec.template_section_id.sequence
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._adopt_embedded_image_attachments(('content',))
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if 'content' in vals:
+            self._adopt_embedded_image_attachments(('content',))
+        return result

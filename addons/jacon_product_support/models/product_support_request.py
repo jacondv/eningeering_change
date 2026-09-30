@@ -14,9 +14,15 @@ RESOLVED_STATES = ('resolved', 'closed')
 class ProductSupportRequest(models.Model):
     _name = 'product.support.request'
     _description = 'Product Support Request'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'jacon.html.attachment.mixin']
     _order = 'id desc'
     _rec_names_search = ['name', 'title']
+
+    # Every Html field a user can paste an image into - see
+    # jacon.html.attachment.mixin/create()/write() below.
+    HTML_FIELDS = frozenset({
+        'description', 'diagnosis', 'root_cause', 'solution', 'customer_confirmation_note',
+    })
 
     # Identification
     name = fields.Char(string='Request No', required=True, readonly=True, copy=False,
@@ -159,6 +165,7 @@ class ProductSupportRequest(models.Model):
         records._create_container_project()
         records._notify_new_request()
         records._sync_job_operating_hours()
+        records._adopt_embedded_image_attachments(self.HTML_FIELDS)
         return records
 
     def write(self, vals):
@@ -174,6 +181,8 @@ class ProductSupportRequest(models.Model):
             super(ProductSupportRequest, revived).write({'active': True})
         if {'hour_meter', 'job_id'} & vals.keys():
             self._sync_job_operating_hours()
+        if self.HTML_FIELDS & vals.keys():
+            self._adopt_embedded_image_attachments(self.HTML_FIELDS)
         return result
 
     def _sync_job_operating_hours(self):

@@ -10,6 +10,7 @@ class EquipmentCertificate(models.Model):
     """
     _name = 'equipment.certificate'
     _description = 'Equipment Certificate Reference'
+    _inherit = ['jacon.html.attachment.mixin']
     _order = 'sequence, name'
     _parent_store = True
     _parent_name = 'parent_id'
@@ -49,3 +50,15 @@ class EquipmentCertificate(models.Model):
         if name:
             domain = ['|', ('name', operator, name), ('complete_name', operator, name)] + domain
         return self._search(domain, limit=limit, order=order)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._adopt_embedded_image_attachments(('description',))
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if 'description' in vals:
+            self._adopt_embedded_image_attachments(('description',))
+        return result

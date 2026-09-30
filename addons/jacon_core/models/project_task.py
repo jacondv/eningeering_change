@@ -28,7 +28,7 @@ TASK_TYPE_SELECTION = [
 
 class ProjectTask(models.Model):
     _name = 'project.task'
-    _inherit = ['project.task', 'jacon.field.change.log.mixin']
+    _inherit = ['project.task', 'jacon.field.change.log.mixin', 'jacon.html.attachment.mixin']
 
     # Default to the creating user - core only does this when created from
     # a "My Tasks" personal-stage context, not from a Project's Tasks list.
@@ -241,6 +241,7 @@ class ProjectTask(models.Model):
         for task in tasks:
             if task.user_ids:
                 task._notify_managers_of_assignment(task.user_ids)
+        tasks._adopt_embedded_image_attachments(('description',))
         return tasks
 
     def write(self, vals):
@@ -264,6 +265,7 @@ class ProjectTask(models.Model):
                 if new_users:
                     task._notify_managers_of_assignment(new_users)
         if 'description' in vals:
+            self._adopt_embedded_image_attachments(('description',))
             for task in self:
                 # _log_html_field_change (see jacon.field.change.log.mixin)
                 # is the generic evidence-trail log, viewed via the History
