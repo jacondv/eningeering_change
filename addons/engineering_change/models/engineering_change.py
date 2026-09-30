@@ -497,8 +497,15 @@ class EngineeringChange(models.Model):
                 continue
             attachments = Attachment.browse(att_ids).exists()
             missing = att_ids - set(attachments.ids)
-            to_adopt = attachments.filtered(
-                lambda a, rec=rec: a.res_model != rec._name or a.res_id != rec.id)
+            # res_id in (0, False) only - a genuinely orphaned attachment,
+            # never one already linked to some other real record. Without
+            # this guard, this sudo() write would let anyone who can edit an
+            # EC's description hijack an arbitrary attachment elsewhere in
+            # the system just by referencing its id in an <img> tag (it
+            # doesn't need to actually resolve/load - the regex only reads
+            # the id out of the src, it never checks the checksum Odoo's own
+            # image route would enforce).
+            to_adopt = attachments.filtered(lambda a: not a.res_id)
             if to_adopt:
                 to_adopt.write({'res_model': rec._name, 'res_id': rec.id})
             if missing:

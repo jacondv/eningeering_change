@@ -143,6 +143,24 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(att.res_model, 'engineering.change')
         self.assertEqual(att.res_id, change.id)
 
+    def test_embedded_image_referencing_another_records_attachment_is_not_hijacked(self):
+        # Guards the fix for a real vulnerability: an EC's Description could
+        # reference *any* attachment id (nothing requires it to actually be
+        # an image the user uploaded here) - without checking res_id is
+        # genuinely orphaned (0) first, _adopt_embedded_image_attachments
+        # would silently reassign an attachment that's already legitimately
+        # owned by some other, unrelated record to this EC instead.
+        other = self.env['ir.attachment'].sudo().create({
+            'name': 'other.png', 'res_model': 'res.partner', 'res_id': self.user_manager.partner_id.id,
+            'type': 'binary', 'datas': base64.b64encode(b'fake-png-bytes'),
+            'mimetype': 'image/png',
+        })
+        change = self._create_request(
+            description='<p>x</p><img src="/web/image/%d-abc123/image.png">' % other.id)
+        other.invalidate_recordset()
+        self.assertEqual(other.res_model, 'res.partner')
+        self.assertEqual(other.res_id, self.user_manager.partner_id.id)
+
     def test_missing_embedded_image_warns_on_chatter_without_blocking_save(self):
         missing_id = 999999
         self.assertFalse(self.env['ir.attachment'].browse(missing_id).exists())
