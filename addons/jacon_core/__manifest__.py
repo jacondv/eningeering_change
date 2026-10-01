@@ -1,6 +1,6 @@
 {
     'name': 'Jacon Core',
-    'version': '19.0.1.3.0',
+    'version': '19.0.1.4.0',
     'category': 'Hidden/Tools',
     'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
     'description': """
@@ -19,6 +19,8 @@ Currently provides:
 - Evidence: proof-of-completion file attachments on any Task (moved here from engineering_change, which originally restricted it to its own tasks).
 - Project Model: exposes equipment_model's `project.project.model_id` on the Project form and quick-create dialog.
 - Equipment Serials: Machine Serial, Engine Serial, VIN/TIN free-text fields on the Project form, next to the Model field.
+- Project Allocated Time: defaults to the total Allocated Time of the project's tasks (subtasks included, cancelled/archived tasks left out), recalculated whenever a task is added/removed/archived/moved or its Allocated Time or status changes. Can still be overridden by hand, until the next such task change. Changes aren't logged in the chatter.
+- Tags hidden: Tags are removed from the Project form and list (the data stays, and Search All still matches tag names).
 - Project Events: a "Project Events" tab on the Project form (PO Received Date, IOF/BOM/Drawing Release, QC Checksheet, Photo Taken + Note).
 - Date-or-N/A field widget: a Date field variant that shows "N/A" instead of blank when unset.
 - Day-month date field widget: a Date field variant that always shows "5 Aug, 2026" (fixed day-before-month) instead of the browser locale's default order or relative wording ("Tomorrow", "In 26 days") - used on the Task Deadline (Kanban card).
