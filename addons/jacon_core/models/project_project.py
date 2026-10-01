@@ -63,6 +63,29 @@ class ProjectProject(models.Model):
         for project in self:
             project.can_change_last_update_status = is_admin or is_head_office
 
+    # hr_timesheet's plain, hand-entered field turned into the total of the
+    # project's tasks (subtasks included - their time is entered on its own,
+    # not rolled up into the parent). Cancelled tasks are left out; archived
+    # ones too, via _read_group's active_test. Queried directly rather than
+    # through task_ids, whose core domain may hide some tasks. Still editable:
+    # a hand-entered value holds until one of the project's tasks changes
+    # (see @api.depends), which recomputes it back to the total. Not tracked:
+    # core's tracking=True would post to the chatter on every task change.
+    allocated_hours = fields.Float(
+        compute='_compute_allocated_hours', store=True, readonly=False, tracking=False,
+        help="Defaults to the total Allocated Time of this project's tasks "
+             "(cancelled and archived tasks not counted). Can be overridden "
+             "by hand, until a task's Allocated Time, status or project "
+             "changes - then it's recalculated from the tasks.")
+
+    @api.depends('task_ids.allocated_hours', 'task_ids.state', 'task_ids.active')
+    def _compute_allocated_hours(self):
+        totals = dict(self.env['project.task']._read_group(
+            [('project_id', 'in', self.ids), ('state', '!=', '1_canceled')],
+            ['project_id'], ['allocated_hours:sum']))
+        for project in self:
+            project.allocated_hours = totals.get(project._origin, 0.0)
+
     customer_ref = fields.Char(string='Customer Reference',
         help="The customer's own code/reference for this Project, when they "
              "assign one on their end (distinct from Jacon's own Job "
