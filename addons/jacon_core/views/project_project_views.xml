@@ -57,6 +57,11 @@
         <field name="priority">99</field>
         <field name="arch" type="xml">
             <field name="tag_ids" position="replace"/>
+            <!-- Whole hours only (231:45 shows as 232) - see the list view's
+                 same override below. -->
+            <field name="allocated_hours" position="attributes">
+                <attribute name="widget">integer</attribute>
+            </field>
         </field>
     </record>
 
@@ -170,6 +175,11 @@
                 <button string="Tasks" name="action_view_tasks" type="object"/>
             </field>
             <field name="tag_ids" position="replace"/>
+            <!-- Allocated Time in whole hours, rounded (231:45 -> 232),
+                 instead of hr_timesheet's HH:MM. -->
+            <field name="allocated_hours" position="attributes">
+                <attribute name="widget">integer</attribute>
+            </field>
             <field name="stage_id" position="after">
                 <field name="customer_ref" optional="hide"/>
                 <field name="op_hours" optional="hide"/>
