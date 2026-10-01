@@ -45,23 +45,18 @@
         </field>
     </record>
 
-    <!-- Move Tags from the left header group (Name of Tasks/Customer/
-         Company) to the bottom of the right one, after Project Manager/
-         Planned Date/Allocated Time - can't relocate an element in place
-         via inheritance, so this removes it from its original spot and
-         adds an equivalent field (same widget/options as core) in the new
-         one. Depends on hr_timesheet's own inherit of this same view
-         (adds allocated_hours) having already applied - see priority. -->
+    <!-- Tags aren't used on Jacon projects - hidden from the form (the
+         field and its data stay, and "Search All" still matches tag names).
+         The xmlid is from when this view moved Tags elsewhere instead -
+         kept as-is, since renaming it would leave the old view record
+         behind as an orphan on upgraded databases. -->
     <record id="edit_project_move_tags_to_manager_group" model="ir.ui.view">
-        <field name="name">project.project.form.move.tags.to.manager.group</field>
+        <field name="name">project.project.form.hide.tags</field>
         <field name="model">project.project</field>
         <field name="inherit_id" ref="project.edit_project"/>
         <field name="priority">99</field>
         <field name="arch" type="xml">
             <field name="tag_ids" position="replace"/>
-            <field name="allocated_hours" position="after">
-                <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
-            </field>
         </field>
     </record>
 
@@ -174,6 +169,7 @@
             <field name="name" position="before">
                 <button string="Tasks" name="action_view_tasks" type="object"/>
             </field>
+            <field name="tag_ids" position="replace"/>
             <field name="stage_id" position="after">
                 <field name="customer_ref" optional="hide"/>
                 <field name="op_hours" optional="hide"/>
