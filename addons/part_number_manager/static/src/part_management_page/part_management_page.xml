@@ -216,15 +216,22 @@
                                 <PnmCombobox options="vendorOptions"
                                              text="row.vendor_text"
                                              value="row.vendor_id"
-                                             placeholder="'Type to search or enter a new name'"
+                                             placeholder="'Search name or code'"
                                              allowCreate="true"
+                                             externalFilter="true"
+                                             createLabel="'Create Vendor'"
+                                             onCreate="(text) => this.openCreateVendor(row, text)"
                                              disabled="row.status === 'success'"
                                              onInput="(text) => this._setVendorText(row, text)"
-                                             onSelect="(opt) => this._setVendorText(row, opt.label)"
+                                             onSelect="(opt) => this._applyVendor(row, opt)"
                                              onPaste="(ev) => this.onCellPaste(row, 'vendor_id', ev)"
+                                             onBlurExtra="() => this._resolveVendorExact(row)"
                                              onFocusExtra="() => this._searchVendors(row.vendor_text)"/>
-                                <div class="text-muted small" t-if="row.vendor_text and !row.vendor_id">
-                                    Will create new Vendor "<t t-esc="row.vendor_text"/>"
+                                <div class="text-danger small" t-if="state.errors[row._localId + '_vendor']">
+                                    <t t-esc="state.errors[row._localId + '_vendor']"/>
+                                </div>
+                                <div class="text-muted small" t-elif="row.vendor_text and !row.vendor_id">
+                                    Not found - pick a Vendor or use + Create Vendor
                                 </div>
                             </td>
                             <td t-if="state.columnVisibility.vendor_ref">

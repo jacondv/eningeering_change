@@ -1,6 +1,6 @@
 {
     'name': 'Part Number Manager',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     'category': 'Manufacturing',
     'summary': 'Generate and manage company part numbers, independent from product.product',
     'description': """
@@ -17,10 +17,11 @@ Features:
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'base_setup', 'mail', 'project', 'base_import', 'jacon_core'],
+    'depends': ['base', 'base_setup', 'mail', 'project', 'base_import', 'product', 'jacon_core'],
     'data': [
         'security/part_number_manager_groups.xml',
         'security/ir.model.access.csv',
+        'data/partner_data.xml',
         'data/part_number_import_mapping_data.xml',
         'data/currency_rate_update_cron.xml',
         'views/material_category_views.xml',
@@ -28,6 +29,7 @@ Features:
         'views/part_type_views.xml',
         'views/part_attribute_views.xml',
         'views/part_number_views.xml',
+        'views/product_views.xml',
         'views/part_number_reject_wizard_views.xml',
         'views/part_management_page_actions.xml',
         'views/part_number_menus.xml',
@@ -44,6 +46,8 @@ Features:
             'part_number_manager/static/src/part_management_page/part_management_page.scss',
             'part_number_manager/static/src/part_management_page/pnm_combobox.js',
             'part_number_manager/static/src/part_management_page/pnm_combobox.xml',
+            'part_number_manager/static/src/part_management_page/vendor_create_dialog.js',
+            'part_number_manager/static/src/part_management_page/vendor_create_dialog.xml',
             'part_number_manager/static/src/part_management_page/part_management_page.js',
             'part_number_manager/static/src/part_management_page/part_management_page.xml',
             'part_number_manager/static/src/part_number_lock/part_number_unlock_dialog.js',

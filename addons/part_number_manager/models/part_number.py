@@ -1,8 +1,10 @@
 import datetime
 import logging
+import math
 import re
 
 from dateutil import parser as dateutil_parser
+from markupsafe import Markup, escape
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessDenied, AccessError, UserError, ValidationError
@@ -31,6 +33,17 @@ MAKE_BUY_BY_TYPE = {
     'make': 'make',
     'buy': 'buy',
 }
+
+# Part fields mirrored one-way onto the linked product (see _sync_product).
+PRODUCT_SYNC_FIELDS = {'part_number', 'short_description', 'long_description', 'active', 'product_id'}
+
+# The five Vendor fields shown on a Part are a stored mirror of its product's
+# main supplierinfo line, which holds the real data (see _compute_main_seller).
+VENDOR_FIELDS = ('vendor_id', 'vendor_ref', 'reference_price', 'currency_id', 'lead_time')
+
+# Products exist only to carry Part data into Odoo's own models - never to
+# be sold/bought through Odoo yet, and created without chatter noise.
+PRODUCT_CREATE_CONTEXT = {'tracking_disable': True, 'mail_create_nolog': True, 'mail_notrack': True}
 
 
 class PartNumber(models.Model):
@@ -109,14 +122,29 @@ class PartNumber(models.Model):
         help="Head Engineer approval gate - unrelated to `state` above. Defaults to 'approved' "
              "for every existing/imported Part; only a freshly Generated Part Number (see "
              "create_batch_with_generated_number) starts as 'pending' (Pending Approval).")
-    vendor_id = fields.Many2one('res.partner', string='Vendor')
-    vendor_ref = fields.Char(string='Vendor Part No.')
+    product_id = fields.Many2one(
+        'product.product', string='Product', copy=False, index=True, ondelete='restrict', readonly=True,
+        help="Odoo product carrying this Part's Vendor data. Created only when needed (Vendor data "
+             "entered, or Create / Link Product) - most Parts never have one.")
+    vendor_id = fields.Many2one(
+        'res.partner', string='Vendor', copy=True,
+        compute='_compute_main_seller', inverse='_inverse_main_seller', store=True, readonly=False)
+    vendor_ref = fields.Char(
+        string='Vendor Part No.', copy=True,
+        compute='_compute_main_seller', inverse='_inverse_main_seller', store=True, readonly=False,
+        help="Order code of this Part at its main Vendor.")
+    all_vendor_refs = fields.Char(
+        string='Vendor Part No. (any Vendor)', compute='_compute_all_vendor_refs',
+        search='_search_all_vendor_refs')
     currency_id = fields.Many2one(
-        'res.currency', string='Currency', default=lambda self: self.env.company.currency_id,
+        'res.currency', string='Currency', copy=True,
+        compute='_compute_main_seller', inverse='_inverse_main_seller', store=True, readonly=False,
         help="Currency the Vendor actually quoted this Price in (e.g. USD, AUD) - kept "
              "separate from the company's own currency so the original quote is never "
              "lossy-converted just to store it.")
-    reference_price = fields.Monetary(string='Price', currency_field='currency_id')
+    reference_price = fields.Monetary(
+        string='Price', currency_field='currency_id', copy=True,
+        compute='_compute_main_seller', inverse='_inverse_main_seller', store=True, readonly=False)
     price_display_currency_id = fields.Many2one(
         'res.currency', string='Display Currency', compute='_compute_price_display',
         help="Currency Price (Display) is shown in - the company's own currency by default, "
@@ -127,7 +155,12 @@ class PartNumber(models.Model):
         help="Price above, converted into the Display Currency at today's exchange rate "
              "(Currencies menu). Falls back to the untouched original amount if no rate "
              "is on file yet, rather than blocking the whole list.")
-    lead_time = fields.Integer(string='LeadTime (W)')
+    lead_time = fields.Integer(
+        string='LeadTime (W)', copy=True,
+        compute='_compute_main_seller', inverse='_inverse_main_seller', store=True, readonly=False,
+        help="Weeks. Stored on the Vendor line in days (x7); read back rounded up to whole weeks.")
+    seller_ids = fields.One2many(
+        'product.supplierinfo', string='Vendors', related='product_id.product_tmpl_id.variant_seller_ids')
     make_buy = fields.Selection([
         ('make', 'Make'),
         ('buy', 'Buy'),
@@ -166,6 +199,174 @@ class PartNumber(models.Model):
     _part_number_unique = models.Constraint(
         'unique(part_number)',
         'This Part Number already exists. The advisory lock in _get_next_suffix should have prevented this.')
+    _product_unique = models.UniqueIndex('(product_id) WHERE product_id IS NOT NULL')
+
+    # ------------------------------------------------------------------
+    # Product link + Vendor data (Part is the source, product the carrier)
+    # ------------------------------------------------------------------
+
+    def _main_seller(self):
+        self.ensure_one()
+        sellers = self.product_id.product_tmpl_id.variant_seller_ids
+        return sellers.sorted(lambda s: (s.sequence, s.id))[:1]
+
+    def _has_vendor_data(self):
+        self.ensure_one()
+        return bool(self.vendor_id or self.vendor_ref or self.reference_price or self.lead_time)
+
+    @api.depends(
+        'product_id.product_tmpl_id.variant_seller_ids.partner_id',
+        'product_id.product_tmpl_id.variant_seller_ids.product_code',
+        'product_id.product_tmpl_id.variant_seller_ids.price',
+        'product_id.product_tmpl_id.variant_seller_ids.currency_id',
+        'product_id.product_tmpl_id.variant_seller_ids.delay',
+        'product_id.product_tmpl_id.variant_seller_ids.sequence',
+    )
+    def _compute_main_seller(self):
+        company_currency = self.env.company.currency_id
+        for part in self:
+            seller = part._main_seller()
+            part.vendor_id = seller.partner_id
+            part.vendor_ref = seller.product_code or False
+            part.reference_price = seller.price
+            part.currency_id = seller.currency_id or company_currency
+            part.lead_time = math.ceil(seller.delay / 7) if seller else 0
+
+    def _inverse_main_seller(self):
+        # One inverse shared by all five Vendor fields: Odoo groups fields by
+        # inverse method, so a save touching several of them writes the
+        # Vendor line once instead of once per field.
+        unknown_vendor = self.env.ref('part_number_manager.partner_unknown_vendor')
+        with_data = self.filtered(lambda p: p._has_vendor_data())
+        with_data._ensure_product()
+        for part in self:
+            seller = part._main_seller().sudo()
+            if not part._has_vendor_data():
+                seller.unlink()
+                continue
+            vals = {
+                'partner_id': (part.vendor_id or unknown_vendor).id,
+                'product_code': part.vendor_ref or False,
+                'price': part.reference_price or 0.0,
+                'currency_id': (part.currency_id or self.env.company.currency_id).id,
+                'delay': (part.lead_time or 0) * 7,
+            }
+            if seller:
+                seller.write(vals)
+            else:
+                self.env['product.supplierinfo'].sudo().create(
+                    dict(vals, product_tmpl_id=part.product_id.product_tmpl_id.id))
+        # Fields being written are protected from recompute, so they'd keep
+        # what the user typed even where the Vendor line was filled in
+        # (Unknown Vendor, company currency) - re-read them from it.
+        for fname in VENDOR_FIELDS:
+            self.env.add_to_compute(self._fields[fname], self)
+
+    @api.depends('product_id.product_tmpl_id.variant_seller_ids.product_code')
+    def _compute_all_vendor_refs(self):
+        for part in self:
+            refs = part.product_id.product_tmpl_id.variant_seller_ids.mapped('product_code')
+            part.all_vendor_refs = ', '.join(r for r in refs if r)
+
+    def _search_all_vendor_refs(self, operator, value):
+        return [('product_id.product_tmpl_id.variant_seller_ids.product_code', operator, value)]
+
+    def _prepare_product_vals(self):
+        self.ensure_one()
+        return {
+            'name': self.short_description or self.part_number or _('Part #%s', self.id),
+            'default_code': self.part_number or False,
+            'description_purchase': self.long_description or False,
+            'type': 'consu',
+            'sale_ok': False,
+            'purchase_ok': False,
+            'active': self.active,
+        }
+
+    def _ensure_product(self):
+        """Give every Part in self a product: reuse an unlinked product with
+        the same Internal Reference if one exists, otherwise create one -
+        batched, so a large import or migration stays one create() call."""
+        missing = self.filtered(lambda p: not p.product_id)
+        if not missing:
+            return
+        product_model = self.env['product.product'].sudo().with_context(
+            active_test=False, **PRODUCT_CREATE_CONTEXT)
+        codes = [p.part_number for p in missing if p.part_number]
+        reusable = product_model.search([('default_code', 'in', codes), ('pnm_part_ids', '=', False)])
+        reusable_by_code = {p.default_code: p for p in reusable}
+        to_create = missing.filtered(lambda p: p.part_number not in reusable_by_code)
+        created = product_model.create([p._prepare_product_vals() for p in to_create])
+        for part in missing - to_create:
+            part.product_id = reusable_by_code[part.part_number]
+        for part, product in zip(to_create, created):
+            part.product_id = product
+
+    def _sync_product(self):
+        """One-way Part -> product: only writes what actually differs."""
+        for part in self.filtered('product_id'):
+            product = part.product_id.sudo().with_context(pnm_sync=True, **PRODUCT_CREATE_CONTEXT)
+            expected = part._prepare_product_vals()
+            active = expected.pop('active')
+            changed = {k: v for k, v in expected.items() if product[k] != v}
+            if changed:
+                product.write(changed)
+            if product.active != active:
+                if active:
+                    product.action_unarchive()
+                else:
+                    product.action_archive()
+
+    def action_create_link_product(self):
+        parts = self.filtered(lambda p: p.part_number and not p.product_id)
+        if not parts:
+            raise UserError(_('Nothing to do: the selected Parts already have a Product or no Part Number yet.'))
+        parts._ensure_product()
+
+    def action_open_product(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'product.template',
+            'res_id': self.product_id.product_tmpl_id.id,
+            'view_mode': 'form',
+        }
+
+    def _clear_vendors_for_make(self):
+        """Make = produced in-house, so no Vendor data. Logged on the Part's
+        chatter before removal so a mistaken switch can still be traced."""
+        for part in self.filtered('product_id'):
+            sellers = part.product_id.product_tmpl_id.variant_seller_ids.sudo()
+            if not sellers:
+                continue
+            lines = Markup('').join(
+                Markup('<li>%s - %s - %s %s - %s</li>') % (
+                    s.partner_id.display_name, s.product_code or '-', s.price, s.currency_id.name,
+                    _('%s day(s)', s.delay))
+                for s in sellers)
+            part.message_post(body=Markup('%s<ul>%s</ul>') % (
+                escape(_('Switched to Make - Vendor data removed:')), lines))
+            sellers.unlink()
+
+    @api.onchange('make_buy')
+    def _onchange_make_buy_warn_vendor_removal(self):
+        if self.make_buy != 'make' or self._origin.make_buy == 'make':
+            return
+        count = len(self._origin.product_id.product_tmpl_id.variant_seller_ids)
+        if count:
+            return {'warning': {
+                'title': _('Vendor data will be removed'),
+                'message': _('Switching to Make removes this Part\'s %s Vendor line(s) on Save '
+                             '(they are logged in the chatter).', count),
+            }}
+
+    @api.constrains('make_buy', 'vendor_id', 'vendor_ref', 'reference_price', 'lead_time')
+    def _check_make_has_no_vendor(self):
+        for part in self:
+            if part.make_buy == 'make' and part._has_vendor_data():
+                raise ValidationError(_(
+                    'Part %s is Make (produced in-house) and cannot have Vendor data.',
+                    part.part_number or part.id))
 
     def _compute_is_unlocked(self):
         # Settings > General Settings > Part Numbers > "Require password to
@@ -412,6 +613,23 @@ class PartNumber(models.Model):
                     raise UserError(_('Job Number is required when creating a part.'))
         return super().create(vals_list)
 
+    def write(self, vals):
+        if vals.get('make_buy') == 'make':
+            self.filtered(lambda p: p.make_buy != 'make')._clear_vendors_for_make()
+        result = super().write(vals)
+        if PRODUCT_SYNC_FIELDS & vals.keys():
+            self._sync_product()
+        return result
+
+    def unlink(self):
+        # Delete the product too unless it already has history elsewhere,
+        # in which case Odoo's own _unlink_or_archive archives it instead.
+        products = self.product_id
+        result = super().unlink()
+        if products:
+            products.sudo()._unlink_or_archive()
+        return result
+
     @api.model
     def _get_next_suffix(self, material_group_id):
         """Real suffix, used on Save. Takes a Postgres advisory transaction
@@ -504,10 +722,18 @@ class PartNumber(models.Model):
         vendor_refs = [v for v in {(v or '').strip() for v in vendor_refs} if v]
         if not vendor_refs:
             return {}
-        existing = self.search([('vendor_ref', 'in', vendor_refs)])
+        # Every Vendor line, not just each Part's main one.
+        sellers = self.env['product.supplierinfo'].sudo().search([('product_code', 'in', vendor_refs)])
+        parts = self.search([('product_id.product_tmpl_id', 'in', sellers.product_tmpl_id.ids)])
+        parts_by_template = {}
+        for part in parts:
+            parts_by_template.setdefault(part.product_id.product_tmpl_id, []).append(part.part_number)
         result = {}
-        for part in existing:
-            result.setdefault(part.vendor_ref, []).append(part.part_number)
+        for seller in sellers:
+            for part_number in parts_by_template.get(seller.product_tmpl_id, []):
+                numbers = result.setdefault(seller.product_code, [])
+                if part_number not in numbers:
+                    numbers.append(part_number)
         return result
 
     @api.model
@@ -828,6 +1054,20 @@ class PartNumber(models.Model):
                             "'%(code)s' - it was not imported.") % {'pn': part_number, 'code': group.code},
                     })
                     continue
+
+            # load() is all-or-nothing, so a Make row carrying Vendor data
+            # (rejected by _check_make_has_no_vendor) is excluded up front
+            # and reported on its own instead of failing the whole file.
+            raw_make_buy = row.get('make_buy')
+            is_make = isinstance(raw_make_buy, str) and MAKE_BUY_BY_TYPE.get(raw_make_buy.strip().lower()) == 'make'
+            if is_make and any(row.get(f) not in (None, '', 0, '0') for f in VENDOR_FIELDS if f != 'currency_id'):
+                conflict_messages.append({
+                    'type': 'error',
+                    'message': _(
+                        "Part Number '%(pn)s' is Make (produced in-house) but has Vendor data - "
+                        "it was not imported.") % {'pn': part_number},
+                })
+                continue
 
             row = dict(row)
             row['material_group_id'] = str(group.id) if group else ''

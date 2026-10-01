@@ -10,6 +10,18 @@
           action="action_pnm_part_number"
           sequence="10"/>
 
+    <menuitem id="menu_pnm_design" name="Design Parts"
+          parent="menu_pnm_root"
+          groups="part_number_manager.group_pnm_user"
+          action="action_pnm_part_number_design"
+          sequence="12"/>
+
+    <menuitem id="menu_pnm_purchased" name="Purchased Parts"
+          parent="menu_pnm_root"
+          groups="part_number_manager.group_pnm_user"
+          action="action_pnm_part_number_purchased"
+          sequence="14"/>
+
     <menuitem id="menu_pnm_create_convert" name="Create / Convert"
           parent="menu_pnm_root"
           groups="part_number_manager.group_pnm_user"

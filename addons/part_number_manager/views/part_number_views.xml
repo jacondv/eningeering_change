@@ -14,7 +14,7 @@
                 <field name="job_number" optional="show"/>
                 <field name="part_type_id" optional="show"/>
                 <field name="make_buy" optional="hide"/>
-                <field name="vendor_id" optional="show"/>
+                <field name="vendor_id" optional="show" context="{'pnm_vendor_display': True}"/>
                 <field name="vendor_ref" string="Vendor PartNo" optional="show"/>
                 <field name="currency_id" optional="hide"/>
                 <field name="reference_price" optional="hide"/>
@@ -46,12 +46,23 @@
             <form string="Part Number">
                 <header>
                     <field name="is_unlocked" widget="part_number_edit_lock_button" nolabel="1"/>
+                    <button name="action_create_link_product" type="object" string="Create / Link Product"
+                            invisible="product_id or not part_number"/>
                     <field name="approval_state" widget="badge" invisible="approval_state == 'approved'"
                            decoration-warning="approval_state == 'pending'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,active,obsolete,y,tbd"
                            options="{'clickable': '1'}"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_product" type="object" class="oe_stat_button"
+                                icon="fa-cube" invisible="not product_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Product</span>
+                            </div>
+                        </button>
+                    </div>
+                    <field name="product_id" invisible="1"/>
                     <div class="oe_title">
                         <h1>
                             <field name="part_number" readonly="1" placeholder="Generated on Save"/>
@@ -71,8 +82,8 @@
                             <field name="part_type_id"/>
                             <field name="make_buy"/>
                         </group>
-                        <group>
-                            <field name="vendor_id"/>
+                        <group invisible="make_buy == 'make'">
+                            <field name="vendor_id" context="{'pnm_vendor_display': True}"/>
                             <field name="vendor_ref"/>
                             <field name="currency_id"/>
                             <field name="reference_price"/>
@@ -98,6 +109,18 @@
                                     <field name="option_description" readonly="1" string="Option Description"
                                            invisible="value_type != 'selection'"/>
                                     <field name="display_value" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Vendors" name="vendors" invisible="make_buy == 'make' or not product_id">
+                            <field name="seller_ids" readonly="1">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="partner_id" context="{'pnm_vendor_display': True}"/>
+                                    <field name="product_code"/>
+                                    <field name="price"/>
+                                    <field name="currency_id"/>
+                                    <field name="delay" string="Lead Time (days)"/>
                                 </list>
                             </field>
                         </page>
@@ -138,7 +161,7 @@
                            ('legacy_codes_display', 'ilike', self),
                            ('replacement_display', 'ilike', self),
                            ('vendor_id', 'ilike', self),
-                           ('vendor_ref', 'ilike', self)]"/>
+                           ('all_vendor_refs', 'ilike', self)]"/>
                 <field name="part_number"/>
                 <field name="short_description" string="Short Description"/>
                 <field name="long_description"/>
@@ -146,7 +169,7 @@
                 <field name="material_group_id"/>
                 <field name="job_number" string="Project"/>
                 <field name="part_type_id"/>
-                <field name="vendor_id"/>
+                <field name="vendor_id" string="Vendor (name or code)"/>
                 <field name="legacy_codes_display" string="Legacy Code"/>
                 <field name="replacement_display" string="Replaced By"/>
                 <field name="create_uid" string="Created By"/>
@@ -154,6 +177,12 @@
                 <filter string="Production" name="filter_active" domain="[('state', '=', 'active')]"/>
                 <filter string="Not Use" name="filter_obsolete" domain="[('state', '=', 'obsolete')]"/>
                 <filter string="Archived" name="filter_archived" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter string="Needs Review" name="filter_needs_review"
+                        help="Make/Buy not set, Buy without a Vendor, or Vendor is Unknown Vendor"
+                        domain="['|', '|', ('make_buy', '=', False),
+                                 '&amp;', ('make_buy', '=', 'buy'), ('vendor_id', '=', False),
+                                 ('vendor_id', '=', %(part_number_manager.partner_unknown_vendor)d)]"/>
                 <group>
                     <filter string="Material Group" name="groupby_material_group" context="{'group_by': 'material_group_id'}"/>
                     <filter string="Part Type" name="groupby_part_type" context="{'group_by': 'part_type_id'}"/>
@@ -170,6 +199,33 @@
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_pnm_part_number_search"/>
         <field name="context">{'search_default_filter_draft': 0}</field>
+    </record>
+
+    <record id="action_pnm_part_number_design" model="ir.actions.act_window">
+        <field name="name">Design Parts</field>
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_pnm_part_number_search"/>
+        <field name="domain">[('make_buy', '=', 'make')]</field>
+        <field name="context">{'default_make_buy': 'make'}</field>
+    </record>
+
+    <record id="action_pnm_part_number_purchased" model="ir.actions.act_window">
+        <field name="name">Purchased Parts</field>
+        <field name="res_model">part_number_manager.part_number</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_pnm_part_number_search"/>
+        <field name="domain">[('make_buy', '=', 'buy')]</field>
+        <field name="context">{'default_make_buy': 'buy'}</field>
+    </record>
+
+    <record id="action_pnm_part_number_create_link_product" model="ir.actions.server">
+        <field name="name">Create / Link Product</field>
+        <field name="model_id" ref="model_part_number_manager_part_number"/>
+        <field name="binding_model_id" ref="model_part_number_manager_part_number"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_create_link_product()</field>
     </record>
 
     <!-- Same list as "All Part Numbers" above, minus the "New" button -

@@ -5,6 +5,7 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { PnmCombobox } from "./pnm_combobox";
+import { VendorCreateDialog } from "./vendor_create_dialog";
 
 const PART_NUMBER_MODEL = "part_number_manager.part_number";
 // Kept in sync with SHORT_DESCRIPTION_MAX_LENGTH in part_number.py - the
@@ -142,10 +143,11 @@ export class PartManagementPage extends Component {
         this.jobNumberOptions = jobs.filter((j) => j.name).map((j) => ({ id: j.id, label: j.name }));
     }
 
+    // Matches Vendor Name or Vendor Code; labels are "<code> - <name>".
     async _searchVendors(text) {
-        const domain = text ? [["name", "ilike", text]] : [];
-        const vendors = await this.orm.searchRead("res.partner", domain, ["name"], { limit: SEARCH_LIMIT });
-        this.state.vendorOptions = vendors.filter((v) => v.name).map((v) => ({ id: v.id, label: v.name }));
+        this.state.vendorOptions = await this.orm.call(
+            "res.partner", "pnm_search_vendors", [text || "", SEARCH_LIMIT]
+        );
     }
 
     async _loadPartTypesAndAttributes() {
@@ -529,9 +531,9 @@ export class PartManagementPage extends Component {
         row.job_number = this.resolveIdByLabel(this.jobNumberOptions, text);
     }
 
-    // Vendor allows creating on the fly, like Old Part Number: an unmatched
-    // name is kept as vendor_text and sent to the server as vendor_name, to
-    // be find-or-created there (see create_batch_with_generated_number).
+    // Unmatched Vendor text is left visible (flagged, and blocking Save) so
+    // the user sees what didn't match - a new Vendor is only ever created
+    // explicitly, through "+ Create Vendor" (VendorCreateDialog).
     _setVendorText(row, text) {
         row.vendor_text = text || "";
         row.vendor_id = this.resolveIdByLabel(this.state.vendorOptions, text);
@@ -542,6 +544,36 @@ export class PartManagementPage extends Component {
             row.make_buy = "buy";
         }
         this._debouncedSearch("vendor", () => this._searchVendors(row.vendor_text));
+    }
+
+    _applyVendor(row, vendor) {
+        row.vendor_id = vendor.id;
+        row.vendor_text = vendor.label;
+        row.make_buy = "buy";
+        if (!this.state.vendorOptions.some((o) => o.id === vendor.id)) {
+            this.state.vendorOptions = [vendor, ...this.state.vendorOptions];
+        }
+    }
+
+    // Typed (on blur) or pasted text that exactly equals a Vendor Code, a
+    // Vendor Name or a full "<code> - <name>" label is accepted as that
+    // Vendor without having to pick it from the dropdown.
+    async _resolveVendorExact(row) {
+        const text = (row.vendor_text || "").trim();
+        if (!text || row.vendor_id) {
+            return;
+        }
+        const vendor = await this.orm.call("res.partner", "pnm_match_vendor", [text]);
+        if (vendor && (row.vendor_text || "").trim() === text && !row.vendor_id) {
+            this._applyVendor(row, vendor);
+        }
+    }
+
+    openCreateVendor(row, text) {
+        this.dialog.add(VendorCreateDialog, {
+            initialText: text,
+            onDone: (vendor) => this._applyVendor(row, vendor),
+        });
     }
 
     onAttributeValueChange(attr, value) {
@@ -622,7 +654,7 @@ export class PartManagementPage extends Component {
         const [legacy] = await this.orm.read(PART_NUMBER_MODEL, [legacyId], [
             "material_group_id", "job_number", "short_description", "long_description",
             "vendor_id", "vendor_ref", "part_type_id", "make_buy", "attribute_value_ids",
-        ]);
+        ], { context: { pnm_vendor_display: true } });
         // The row may have been pointed at a different Old Part Number (or
         // cleared) again by the time this resolves - only apply if it's
         // still the pick this fetch was for.
@@ -721,6 +753,7 @@ export class PartManagementPage extends Component {
                 break;
             case "vendor_id":
                 this._setVendorText(row, text);
+                this._resolveVendorExact(row);
                 break;
             case "vendor_ref":
                 row.vendor_ref = (text || "").trim();
@@ -800,6 +833,9 @@ export class PartManagementPage extends Component {
             }
             if (!row.make_buy) {
                 errors[`${row._localId}_make_buy`] = "Required";
+            }
+            if ((row.vendor_text || "").trim() && !row.vendor_id) {
+                errors[`${row._localId}_vendor`] = "Vendor not found - pick one or use + Create Vendor";
             }
             if ((row.short_description || "").length > SHORT_DESCRIPTION_MAX_LENGTH) {
                 errors[`${row._localId}_short_description`] =
@@ -896,9 +932,6 @@ export class PartManagementPage extends Component {
                 short_description: row.short_description,
                 long_description: row.long_description,
                 vendor_id: row.vendor_id || false,
-                // Unmatched Vendor text is find-or-created server-side, same
-                // idea as an unmatched Old Part Number.
-                vendor_name: row.vendor_id ? null : ((row.vendor_text || "").trim() || null),
                 vendor_ref: row.vendor_ref,
                 part_type_id: row.part_type_id || false,
                 make_buy: row.make_buy || false,

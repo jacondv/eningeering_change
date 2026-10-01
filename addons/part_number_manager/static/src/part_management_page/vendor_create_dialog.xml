@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="part_number_manager.VendorCreateDialog">
+        <Dialog title="'Create Vendor'" size="'md'">
+            <div class="mb-3">
+                <label class="form-label" for="pnm_vendor_name">Vendor Name</label>
+                <input id="pnm_vendor_name" type="text" class="form-control"
+                       t-model="state.name" t-on-input="onInput" placeholder="e.g. ABC Company"/>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="pnm_vendor_code">Vendor Code</label>
+                <input id="pnm_vendor_code" type="text" class="form-control"
+                       t-model="state.code" t-on-input="onInput" placeholder="e.g. 10293442"/>
+            </div>
+            <p class="text-muted small mb-0">Either a Name or a Code is enough.</p>
+
+            <div class="alert alert-danger mt-3 mb-0" t-if="state.error" t-esc="state.error"/>
+            <div class="alert alert-warning mt-3 mb-0" t-if="state.existing">
+                <t t-if="state.existing.status === 'duplicate_code'">
+                    Vendor Code "<t t-esc="state.code.trim()"/>" is already used by
+                    <strong t-esc="state.existing.vendor.label"/>.
+                </t>
+                <t t-else="">
+                    A Vendor with this name already exists:
+                    <strong t-esc="state.existing.vendor.label"/>.
+                </t>
+            </div>
+
+            <t t-set-slot="footer">
+                <t t-if="state.existing">
+                    <button class="btn btn-primary" t-on-click="onUseExisting">Use this Vendor</button>
+                    <button class="btn btn-secondary" t-if="state.existing.status === 'same_name'"
+                            t-att-disabled="state.saving" t-on-click="() => this.onCreate(true)">
+                        Create anyway
+                    </button>
+                </t>
+                <button t-else="" class="btn btn-primary" t-att-disabled="!canCreate"
+                        t-on-click="() => this.onCreate(false)">Create</button>
+                <button class="btn btn-secondary" t-on-click="props.close">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

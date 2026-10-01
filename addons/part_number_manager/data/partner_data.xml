@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Placeholder Vendor for Vendor lines whose real Vendor was never
+         recorded (an order code or price without a Vendor) - Odoo requires
+         a Vendor on every supplierinfo line. Listed under "Needs Review". -->
+    <record id="partner_unknown_vendor" model="res.partner">
+        <field name="name">Unknown Vendor</field>
+        <field name="is_company" eval="True"/>
+    </record>
+
+</odoo>
