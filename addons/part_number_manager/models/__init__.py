@@ -3,6 +3,8 @@ from . import material_group
 from . import part_type
 from . import part_attribute
 from . import part_number
+from . import product
+from . import res_partner
 from . import part_number_mapping
 from . import project_project
 from . import currency_rate_update

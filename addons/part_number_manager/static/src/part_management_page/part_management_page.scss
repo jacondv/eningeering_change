@@ -271,4 +271,10 @@
         color: var(--muted-text-color, #6c757d);
         font-style: italic;
     }
+
+    .o_pnm_combobox_create {
+        border-top: 1px solid var(--border-color, #dee2e6);
+        color: var(--primary, #71639e);
+        font-weight: 500;
+    }
 }

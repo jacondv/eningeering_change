@@ -29,6 +29,12 @@ export class PnmCombobox extends Component {
         onPaste: { type: Function, optional: true }, // (ev) => void
         onBlurExtra: { type: Function, optional: true }, // () => void - runs after this component's own blur handling
         onFocusExtra: { type: Function, optional: true }, // () => void - runs after this component's own focus handling (e.g. to load options on click, not just on keystroke)
+        // When set, a '+ <createLabel> "<typed text>"...' entry closes the
+        // dropdown and hands the typed text to onCreate (e.g. to open a
+        // creation dialog) - never shown without it, so other callers keep
+        // their exact behavior.
+        createLabel: { type: String, optional: true },
+        onCreate: { type: Function, optional: true }, // (text) => void
     };
     static defaultProps = {
         placeholder: "Type to search...",
@@ -121,6 +127,12 @@ export class PnmCombobox extends Component {
 
     onOptionMouseDown(opt) {
         this._selectOption(opt);
+    }
+
+    onCreateMouseDown() {
+        this.state.open = false;
+        this.state.highlightIndex = -1;
+        this.props.onCreate((this.props.text || "").trim());
     }
 
     onOptionMouseEnter(index) {

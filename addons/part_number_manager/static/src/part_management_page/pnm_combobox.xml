@@ -35,9 +35,14 @@
                         <t t-esc="opt.label"/>
                     </div>
                 </t>
-                <div t-else="" class="o_pnm_combobox_empty">
+                <div t-elif="!props.onCreate" class="o_pnm_combobox_empty">
                     <t t-if="props.allowCreate and props.text">Leave the field to create "<t t-esc="props.text"/>"</t>
                     <t t-else="">No match</t>
+                </div>
+                <div t-if="props.onCreate" class="o_pnm_combobox_option o_pnm_combobox_create"
+                     t-on-mousedown.prevent="onCreateMouseDown">
+                    <i class="fa fa-plus me-1"/><t t-esc="props.createLabel or 'Create'"/>
+                    <t t-if="props.text"> "<t t-esc="props.text"/>"</t>...
                 </div>
             </div>
         </div>
