@@ -50,4 +50,17 @@
         </field>
     </record>
 
+    <!-- engineering_change's tab is also empty on a Support Request's own
+         container project - hide it there too. -->
+    <record id="edit_project_inherit_engineering_change_tab_ps" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.engineering.change.tab.ps</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="engineering_change.edit_project_inherit_engineering_change_tab"/>
+        <field name="arch" type="xml">
+            <page name="engineering_change" position="attributes">
+                <attribute name="invisible">is_ec_project or is_ps_project</attribute>
+            </page>
+        </field>
+    </record>
+
 </odoo>
