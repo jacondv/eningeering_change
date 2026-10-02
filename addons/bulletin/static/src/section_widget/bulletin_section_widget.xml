@@ -21,7 +21,6 @@
                             <div t-if="section.data.approver_id" class="mt-2">
                                 <div class="fw-bold" t-esc="section.data.approver_name"/>
                                 <div t-esc="section.data.approver_job_title"/>
-                                <div t-esc="section.data.company_name"/>
                             </div>
                         </div>
                     </t>
