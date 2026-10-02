@@ -61,7 +61,6 @@
                                 <div style="height:60pt;"/>
                                 <div style="font-weight:bold;" t-esc="section.approver_id.name"/>
                                 <div t-esc="section.approver_job_title"/>
-                                <div t-esc="o.company_id.name"/>
                             </div>
                         </t>
                     </div>
