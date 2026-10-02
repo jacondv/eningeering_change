@@ -467,6 +467,18 @@ class TestEngineeringChange(TransactionCase):
         # Rolls up onto the parent request.
         self.assertEqual(set(change.affected_model_ids.ids), {model_a.id, model_b.id})
 
+    def test_job_number_lists_ecs_impacting_it(self):
+        change = self._create_request(request_type='minor')
+        job = self.env['project.project'].create({'name': 'Job 1'})
+        other_job = self.env['project.project'].create({'name': 'Job 2'})
+        self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id,
+            'name': 'Do the thing',
+            'affected_project_ids': [(6, 0, [job.id])],
+        })
+        self.assertEqual(job.engineering_change_ids, change)
+        self.assertFalse(other_job.engineering_change_ids)
+
     def test_unlink_requires_password_confirmation_context(self):
         # Plain unlink() (the standard Action > Delete menu) always refuses,
         # even for a Delete-group holder and even in Draft - only the
