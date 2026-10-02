@@ -52,7 +52,6 @@
                             <field name="approver_id"/>
                             <field name="approver_name"/>
                             <field name="approver_job_title"/>
-                            <field name="company_name"/>
                         </list>
                     </field>
                     <div class="alert alert-info" role="alert" invisible="template_id">

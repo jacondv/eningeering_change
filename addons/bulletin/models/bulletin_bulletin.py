@@ -131,7 +131,6 @@ class BulletinBulletinSection(models.Model):
     approver_id = fields.Many2one('hr.employee', string='Approver')
     approver_name = fields.Char(related='approver_id.name', readonly=True)
     approver_job_title = fields.Char(related='approver_id.job_title', readonly=True)
-    company_name = fields.Char(related='bulletin_id.company_id.name', readonly=True)
 
     @api.depends('template_section_id.sequence')
     def _compute_sequence(self):
