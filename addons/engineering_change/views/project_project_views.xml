@@ -44,4 +44,39 @@
         </field>
     </record>
 
+    <!-- DCR/ECN requests related to this Job Number (see
+         ProjectProject.engineering_change_ids). Hidden on EC containers - a
+         container belongs to exactly one request, so the tab would be empty. -->
+    <record id="edit_project_inherit_engineering_change_tab" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.engineering.change.tab</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='settings']" position="after">
+                <page string="Engineering Change" name="engineering_change"
+                      invisible="is_ec_project"
+                      groups="engineering_change.group_ec_user">
+                    <field name="engineering_change_ids" readonly="1">
+                        <list decoration-muted="state in ('done', 'canceled')">
+                            <field name="name" string="EC Number"/>
+                            <field name="dcr_no"/>
+                            <field name="title"/>
+                            <field name="change_category"/>
+                            <field name="request_type"/>
+                            <field name="rpn_level" widget="badge"
+                                   decoration-danger="rpn_level == 'high'"
+                                   decoration-warning="rpn_level == 'medium'"
+                                   decoration-success="rpn_level == 'low'"/>
+                            <field name="engineer_id" widget="many2one_avatar_user"/>
+                            <field name="state" widget="badge"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+            <xpath expr="//notebook" position="before">
+                <field name="is_ec_project" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>
