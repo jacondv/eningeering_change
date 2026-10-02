@@ -342,7 +342,7 @@ class ProductSupportRequest(models.Model):
         return [
             (_('General Information'), [
                 ((_('Job Number'), self.job_id.name), (_('Customer'), self.partner_id.display_name)),
-                ((_('Model'), self.model_id.display_name), (_('Site'), self.site_id.display_name)),
+                ((_('Customer Unit No.'), self.job_id.customer_ref), (_('Site'), self.site_id.display_name)),
                 ((_('Operating Hours'), f'{self.hour_meter:g}'), (_('Contact'), contact.name)),
                 ((_('Warranty'), self._report_label('warranty')), (_('Phone'), contact.phone)),
                 ((_('Machine Location'), self.machine_location), (_('Email'), contact.email)),
