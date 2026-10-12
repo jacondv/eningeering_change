@@ -436,7 +436,9 @@ class PartNumber(models.Model):
     @api.model
     def _compute_next_suffix(self, material_group_id):
         group = self.env['part_number_manager.material_group'].browse(material_group_id)
-        records = self.search([('material_group_id', '=', material_group_id)])
+        # Archived parts still own their number (the part_number unique
+        # constraint covers them too), so they must not be handed out again.
+        records = self.with_context(active_test=False).search([('material_group_id', '=', material_group_id)])
         used = set()
         for rec in records:
             # sequence_suffix is normally always populated for a record in
@@ -588,7 +590,9 @@ class PartNumber(models.Model):
                             # can be stale (e.g. someone else just created
                             # this exact code). Reuse it instead of hitting
                             # the part_number unique constraint.
-                            legacy = self.search([('part_number', '=', conversion_legacy_text)], limit=1)
+                            # Archived ones included - they still hold the number.
+                            legacy = self.with_context(active_test=False).search(
+                                [('part_number', '=', conversion_legacy_text)], limit=1)
                             if not legacy:
                                 legacy = self.with_context(skip_job_number_check=True).create({
                                     'material_group_id': vals['material_group_id'],
