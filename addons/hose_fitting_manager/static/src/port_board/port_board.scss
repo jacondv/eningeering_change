@@ -42,7 +42,11 @@
     }
 
     .o_hfm_port_board_table {
-        min-width: 720px;
+        // Fills the panel, columns sized by share (see columnStyle in
+        // port_board.js) so all of them stay visible - the wrapper above
+        // only scrolls sideways once the panel is narrower than this.
+        width: 100%;
+        min-width: 1000px;
 
         th, td {
             vertical-align: middle;

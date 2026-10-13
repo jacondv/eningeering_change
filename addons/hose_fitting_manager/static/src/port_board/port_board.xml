@@ -36,12 +36,17 @@
                     <div class="o_hfm_port_board_table_wrapper" t-if="selectedItem.ports.length">
                     <table class="table table-sm table-bordered o_pnm_table o_hfm_port_board_table">
                         <colgroup>
-                            <col t-attf-style="width: {{state.columnWidths.port}}px"/>
-                            <col t-attf-style="width: {{state.columnWidths.toItem}}px"/>
-                            <col t-attf-style="width: {{state.columnWidths.toPort}}px"/>
-                            <col t-attf-style="width: {{state.columnWidths.hose}}px"/>
-                            <col t-attf-style="width: {{state.columnWidths.length}}px"/>
-                            <col/>
+                            <col t-att-style="columnStyle('port')"/>
+                            <col t-att-style="columnStyle('toItem')"/>
+                            <col t-att-style="columnStyle('toPort')"/>
+                            <col t-att-style="columnStyle('hose')"/>
+                            <col t-att-style="columnStyle('length')"/>
+                            <col t-att-style="columnStyle('fitting1')"/>
+                            <col t-att-style="columnStyle('fitting2')"/>
+                            <col t-att-style="columnStyle('fireWrap')"/>
+                            <col t-att-style="columnStyle('hoseGuard')"/>
+                            <col t-att-style="columnStyle('function')"/>
+                            <col style="width: 76px"/>
                         </colgroup>
                         <thead>
                             <tr>
@@ -60,6 +65,21 @@
                                 <th class="o_pnm_th">Length (mm)
                                     <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('length', ev)"/>
                                 </th>
+                                <th class="o_pnm_th">Fitting 1
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fitting1', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">Fitting 2
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fitting2', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">Fire Wrap
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('fireWrap', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">Hose Guard
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('hoseGuard', ev)"/>
+                                </th>
+                                <th class="o_pnm_th">Function
+                                    <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onColumnResizeStart('function', ev)"/>
+                                </th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
@@ -67,7 +87,7 @@
                             <t t-foreach="selectedItem.ports" t-as="port" t-key="port.id">
                                 <tr class="o_hfm_port_board_base_row">
                                     <td><t t-esc="port.label"/></td>
-                                    <td colspan="4" class="text-muted small">
+                                    <td colspan="9" class="text-muted small">
                                         <t t-if="port.connections.length">
                                             <t t-foreach="port.connections" t-as="conn" t-key="conn.job_hose_line_id">
                                                 <a href="#" class="text-success o_hfm_port_board_connection_link"
@@ -108,34 +128,89 @@
                                         </td>
                                         <td>
                                             <PnmCombobox options="props.hoseOptions"
-                                                         text="draft.hoseText"
-                                                         value="draft.hoseId"
+                                                         text="draft.hose_text"
+                                                         value="draft.hose_id"
                                                          placeholder="'Hose'"
-                                                         onInput="(text) => this.onHoseInput(draft, text)"
-                                                         onSelect="(opt) => this.onHoseSelect(port, draft, opt)"/>
+                                                         onInput="(text) => props.rowApi.setHoseText(draft, text)"
+                                                         onSelect="(opt) => props.rowApi.pickHose(draft, opt)"/>
                                         </td>
                                         <td>
-                                            <PnmCombobox options="draft.lengthFilteredOptions"
-                                                         text="draft.lengthText"
-                                                         value="draft.lengthMatchId"
+                                            <PnmCombobox options="draft.length_options"
+                                                         text="draft.length_text"
+                                                         value="draft.part_id"
                                                          placeholder="'Length (mm)'"
                                                          allowCreate="true"
                                                          externalFilter="true"
-                                                         disabled="!draft.hoseId"
-                                                         onInput="(text) => this.onLengthInput(draft, text)"
-                                                         onSelect="(opt) => this.onLengthSelect(draft, opt)"
-                                                         onBlurExtra="() => this.onLengthBlur(draft)"/>
+                                                         disabled="!draft.hose_id"
+                                                         onInput="(text) => props.rowApi.setLengthText(draft, text)"
+                                                         onSelect="(opt) => props.rowApi.selectLengthMatch(draft, opt)"
+                                                         onBlurExtra="() => props.rowApi.lengthBlur(draft)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="draft.fitting1_options"
+                                                         text="draft.fitting1_text"
+                                                         value="draft.fitting1_id"
+                                                         placeholder="'Fitting 1'"
+                                                         disabled="!draft.config_id"
+                                                         onInput="(text) => props.rowApi.setFittingText(draft, 1, text)"
+                                                         onSelect="(opt) => props.rowApi.pickFitting(draft, 1, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="draft.fitting2_options"
+                                                         text="draft.fitting2_text"
+                                                         value="draft.fitting2_id"
+                                                         placeholder="'Fitting 2'"
+                                                         disabled="!draft.config_id"
+                                                         onInput="(text) => props.rowApi.setFittingText(draft, 2, text)"
+                                                         onSelect="(opt) => props.rowApi.pickFitting(draft, 2, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="draft.fire_wrap_options"
+                                                         text="draft.fire_wrap_text"
+                                                         value="draft.fire_wrap_id"
+                                                         placeholder="'None'"
+                                                         disabled="!draft.fire_wrap_options.length"
+                                                         onInput="(text) => props.rowApi.setFireWrapText(draft, text)"
+                                                         onSelect="(opt) => props.rowApi.pickFireWrap(draft, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="draft.hose_guard_options"
+                                                         text="draft.hose_guard_text"
+                                                         value="draft.hose_guard_id"
+                                                         placeholder="'None'"
+                                                         disabled="!draft.hose_guard_options.length"
+                                                         onInput="(text) => props.rowApi.setHoseGuardText(draft, text)"
+                                                         onSelect="(opt) => props.rowApi.pickHoseGuard(draft, opt)"/>
+                                        </td>
+                                        <td>
+                                            <PnmCombobox options="props.functionOptions"
+                                                         text="draft.function_text"
+                                                         value="draft.function_id"
+                                                         placeholder="'None'"
+                                                         onInput="(text) => props.rowApi.setFunctionText(draft, text)"
+                                                         onSelect="(opt) => props.rowApi.pickFunction(draft, opt)"/>
                                         </td>
                                         <td class="text-end text-nowrap">
                                             <button class="btn btn-sm btn-primary" t-att-disabled="!canAdd(draft)"
+                                                    title="Create this Hose and Fitting line"
                                                     t-on-click="() => this.onAddClick(port, draft)">
-                                                <i class="fa fa-check"/>
+                                                <i t-attf-class="fa {{draft.busy ? 'fa-spinner fa-spin' : 'fa-check'}}"/>
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger"
                                                     title="Remove this line"
+                                                    t-att-disabled="draft.busy"
                                                     t-on-click="() => this.removeDraftLine(port, draft)">
                                                 <i class="fa fa-trash"/>
                                             </button>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="draft.error or missingMaterialGroup(draft)" class="o_hfm_port_board_draft_row">
+                                        <td/>
+                                        <td colspan="10" class="small">
+                                            <span t-if="draft.error" class="text-danger"><t t-esc="draft.error"/></span>
+                                            <span t-else="" class="text-warning">
+                                                No existing Part matches this Length - pick a Material Group at the top to create a new Part Number.
+                                            </span>
                                         </td>
                                     </tr>
                                 </t>
