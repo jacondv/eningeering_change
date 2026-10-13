@@ -47,22 +47,10 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Fitting 1 Options" name="fitting1">
-                            <field name="fitting1_option_ids">
+                        <page string="Fitting Options" name="fittings">
+                            <p class="text-muted">Applies to both Fitting 1 and Fitting 2.</p>
+                            <field name="fitting_option_ids">
                                 <list editable="bottom">
-                                    <field name="slot" column_invisible="1"/>
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="fitting_id" widget="pnm_display_many2one"
-                                           options="{'part_type': 'Fitting', 'show_part_number': true}"/>
-                                    <field name="ferrule_id" widget="pnm_display_many2one"
-                                           options="{'part_type': 'Ferrule', 'show_part_number': true}"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Fitting 2 Options" name="fitting2">
-                            <field name="fitting2_option_ids">
-                                <list editable="bottom">
-                                    <field name="slot" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
                                     <field name="fitting_id" widget="pnm_display_many2one"
                                            options="{'part_type': 'Fitting', 'show_part_number': true}"/>

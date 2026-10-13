@@ -29,7 +29,7 @@
             </div>
 
             <t t-if="state.jobId">
-                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => state.equipmentItemsCollapsed = !state.equipmentItemsCollapsed">
+                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => this.toggleSection('equipmentItemsCollapsed')">
                     <h3>Equipment Items</h3>
                     <i t-attf-class="fa {{state.equipmentItemsCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
                 </div>
@@ -37,7 +37,7 @@
                     <EquipmentItemsPage jobId="state.jobId" onRowsChanged="() => state.portBoardReloadToken++"/>
                 </div>
 
-                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => state.portBoardCollapsed = !state.portBoardCollapsed">
+                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => this.toggleSection('portBoardCollapsed')">
                     <h3>Port Connection Board</h3>
                     <i t-attf-class="fa {{state.portBoardCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
                 </div>
@@ -55,7 +55,7 @@
             </t>
 
             <div class="o_hfm_section_header o_hfm_section_header_tight o_hfm_header_toggle"
-                 t-on-click="() => state.createListCollapsed = !state.createListCollapsed">
+                 t-on-click="() => this.toggleSection('createListCollapsed')">
                 <h3>Manual Lines</h3>
                 <div class="o_hfm_section_header_actions">
                     <div class="o_hfm_column_menu" t-on-click.stop="">
@@ -235,7 +235,7 @@
                                 </div>
                             </td>
                             <td t-attf-class="{{state.columnVisibility.fitting1 ? '' : 'o_hfm_col_hidden'}}">
-                                <PnmCombobox options="row.fitting1_options"
+                                <PnmCombobox options="row.fitting_options"
                                              text="row.fitting1_text"
                                              value="row.fitting1_id"
                                              disabled="row.status === 'success' || !row.config_id"
@@ -249,7 +249,7 @@
                                 <span class="text-muted small" t-if="row.ferrule1_text"><t t-esc="row.ferrule1_text"/></span>
                             </td>
                             <td t-attf-class="{{state.columnVisibility.fitting2 ? '' : 'o_hfm_col_hidden'}}">
-                                <PnmCombobox options="row.fitting2_options"
+                                <PnmCombobox options="row.fitting_options"
                                              text="row.fitting2_text"
                                              value="row.fitting2_id"
                                              disabled="row.status === 'success' || !row.config_id"
@@ -313,7 +313,7 @@
 
             <div class="o_pnm_recent" t-if="state.jobId">
                 <div class="o_hfm_section_header o_pnm_header o_hfm_header_toggle"
-                     t-on-click="() => state.jobLinesCollapsed = !state.jobLinesCollapsed">
+                     t-on-click="() => this.toggleSection('jobLinesCollapsed')">
                     <h3>Hose And Fitting Lines for this Job</h3>
                     <div class="o_hfm_section_header_actions">
                         <div class="o_hfm_column_menu" t-on-click.stop="">
@@ -399,13 +399,13 @@
                                                          onBlurExtra="() => this.onLengthBlur(row)"/>
                                         </t>
                                         <t t-elif="key === 'fitting1'">
-                                            <PnmCombobox options="row.fitting1_options" text="row.fitting1_text" value="row.fitting1_id"
+                                            <PnmCombobox options="row.fitting_options" text="row.fitting1_text" value="row.fitting1_id"
                                                          disabled="!row.config_id"
                                                          onInput="(text) => this._setFittingText(row, 1, text)"
                                                          onSelect="(opt) => this._pickFittingOption(row, 1, opt)"/>
                                         </t>
                                         <t t-elif="key === 'fitting2'">
-                                            <PnmCombobox options="row.fitting2_options" text="row.fitting2_text" value="row.fitting2_id"
+                                            <PnmCombobox options="row.fitting_options" text="row.fitting2_text" value="row.fitting2_id"
                                                          disabled="!row.config_id"
                                                          onInput="(text) => this._setFittingText(row, 2, text)"
                                                          onSelect="(opt) => this._pickFittingOption(row, 2, opt)"/>
