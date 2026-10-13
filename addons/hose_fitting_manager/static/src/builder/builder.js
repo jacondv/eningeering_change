@@ -69,6 +69,16 @@ const DEFAULT_COLUMN_VISIBILITY = Object.fromEntries(
 );
 
 const LAST_JOB_STORAGE_KEY = "hose_fitting_manager.builder.last_job";
+// Which page sections are collapsed - {stateKey: bool}, remembered per
+// browser like the column widths. Equipment Items starts collapsed (an
+// occasional-admin task); the rest start open.
+const COLLAPSED_SECTIONS_STORAGE_KEY = "hose_fitting_manager.builder.collapsed_sections";
+const DEFAULT_COLLAPSED_SECTIONS = {
+    equipmentItemsCollapsed: true,
+    portBoardCollapsed: false,
+    createListCollapsed: false,
+    jobLinesCollapsed: false,
+};
 const LAST_MATERIAL_GROUP_STORAGE_KEY = "hose_fitting_manager.builder.last_material_group";
 
 const TABLE_HEIGHT_STORAGE_KEY = "hose_fitting_manager.builder.table_height";
@@ -107,10 +117,7 @@ export class HoseFittingBuilder extends Component {
             // Board is the main way to start a connection. The other
             // sections below default open (the primary flow), but can all
             // be collapsed the same way (see .o_hfm_header_toggle).
-            equipmentItemsCollapsed: true,
-            portBoardCollapsed: false,
-            createListCollapsed: false,
-            jobLinesCollapsed: false,
+            ...this._loadCollapsedSections(),
             // Bumped whenever something may have changed a Port's open/used
             // status (a Wire wizard closed, a batch Save succeeded, an
             // Equipment Item was added/removed) - PortBoard reloads whenever
@@ -129,7 +136,7 @@ export class HoseFittingBuilder extends Component {
         this.materialGroupOptions = [];
         this.configOptions = []; // [{id, label: symbol}]
         this.configsById = {}; // id -> {id, symbol, hose_id, hose_text,
-                                //        fitting1_options: [{id, label, ferrule_id, ferrule_label}], fitting2_options: [...],
+                                //        fitting_options: [{id, label, ferrule_id, ferrule_label}] (both ends),
                                 //        fire_wrap_options: [{id, label}]}
         this.configsByHoseId = {}; // hose Part id -> same config object as above (first match wins)
         this.hoseOptions = []; // [{id, label}] every Hose-type Part - the primary pick now
@@ -354,7 +361,7 @@ export class HoseFittingBuilder extends Component {
     async _loadConfigs() {
         const configs = await this.orm.searchRead(CONFIG_MODEL, [], ["symbol", "hose_id"]);
         const options = await this.orm.searchRead(
-            CONFIG_OPTION_MODEL, [], ["config_id", "slot", "fitting_id", "ferrule_id"]
+            CONFIG_OPTION_MODEL, [], ["config_id", "fitting_id", "ferrule_id"]
         );
         const fireWrapOptions = await this.orm.searchRead(
             CONFIG_FIRE_WRAP_OPTION_MODEL, [], ["config_id", "fire_wrap_id"]
@@ -399,8 +406,7 @@ export class HoseFittingBuilder extends Component {
                 symbol: c.symbol,
                 hose_id: c.hose_id ? c.hose_id[0] : false,
                 hose_text: c.hose_id ? labelById[c.hose_id[0]] : "",
-                fitting1_options: [],
-                fitting2_options: [],
+                fitting_options: [],
                 fire_wrap_options: [],
                 hose_guard_options: [],
             };
@@ -414,7 +420,7 @@ export class HoseFittingBuilder extends Component {
                 ferrule_id: o.ferrule_id ? o.ferrule_id[0] : false,
                 ferrule_label: o.ferrule_id ? labelById[o.ferrule_id[0]] : "",
             };
-            (o.slot === "1" ? cfg.fitting1_options : cfg.fitting2_options).push(entry);
+            cfg.fitting_options.push(entry);
         }
         for (const f of fireWrapOptions) {
             const cfg = this.configsById[f.config_id[0]];
@@ -512,6 +518,34 @@ export class HoseFittingBuilder extends Component {
         } catch {
             // Private browsing / storage disabled / quota - column widths
             // just won't be remembered next time, nothing else depends on it.
+        }
+    }
+
+    _loadCollapsedSections() {
+        let saved = {};
+        try {
+            saved = JSON.parse(localStorage.getItem(COLLAPSED_SECTIONS_STORAGE_KEY) || "{}");
+        } catch {
+            saved = {};
+        }
+        const sections = { ...DEFAULT_COLLAPSED_SECTIONS };
+        for (const key of Object.keys(sections)) {
+            if (typeof saved[key] === "boolean") {
+                sections[key] = saved[key];
+            }
+        }
+        return sections;
+    }
+
+    toggleSection(stateKey) {
+        this.state[stateKey] = !this.state[stateKey];
+        const sections = Object.fromEntries(
+            Object.keys(DEFAULT_COLLAPSED_SECTIONS).map((key) => [key, this.state[key]])
+        );
+        try {
+            localStorage.setItem(COLLAPSED_SECTIONS_STORAGE_KEY, JSON.stringify(sections));
+        } catch {
+            // storage unavailable - just won't be remembered next time
         }
     }
 
@@ -807,12 +841,11 @@ export class HoseFittingBuilder extends Component {
             all_length_options: [], // every Part matching the row's BOM (Hose/Fitting1/Fitting2/Ferrules), any Length
             length_options: [], // all_length_options narrowed to the currently typed Length +/- tolerance
                                  // (or a plain copy of all_length_options while Length is blank)
-            fitting1_options: [],
+            fitting_options: [], // the Config's Fitting list - offered for both Fitting 1 and Fitting 2
             fitting1_id: false,
             fitting1_text: "",
             ferrule1_id: false,
             ferrule1_text: "",
-            fitting2_options: [],
             fitting2_id: false,
             fitting2_text: "",
             ferrule2_id: false,
@@ -889,12 +922,11 @@ export class HoseFittingBuilder extends Component {
         if (cfg) {
             row.config_id = cfg.id;
             row.config_text = cfg.symbol;
-            row.fitting1_options = cfg.fitting1_options;
-            row.fitting2_options = cfg.fitting2_options;
+            row.fitting_options = cfg.fitting_options;
             row.fire_wrap_options = cfg.fire_wrap_options;
             row.hose_guard_options = cfg.hose_guard_options;
-            this._pickFittingOption(row, 1, cfg.fitting1_options[0] || null);
-            this._pickFittingOption(row, 2, cfg.fitting2_options[0] || null);
+            this._pickFittingOption(row, 1, cfg.fitting_options[0] || null);
+            this._pickFittingOption(row, 2, cfg.fitting_options[0] || null);
             // Fire Wrap/Hose Guard are never pre-selected, even if the
             // Symbol has option(s) configured - always an explicit pick by
             // the user.
@@ -909,8 +941,7 @@ export class HoseFittingBuilder extends Component {
         } else {
             row.config_id = false;
             row.config_text = "";
-            row.fitting1_options = [];
-            row.fitting2_options = [];
+            row.fitting_options = [];
             row.fire_wrap_options = [];
             row.hose_guard_options = [];
             this._pickFittingOption(row, 1, null);
@@ -934,8 +965,7 @@ export class HoseFittingBuilder extends Component {
     }
 
     _setFittingText(row, slot, text) {
-        const options = slot === 1 ? row.fitting1_options : row.fitting2_options;
-        const opt = options.find((o) => o.label.toLowerCase() === (text || "").trim().toLowerCase());
+        const opt = row.fitting_options.find((o) => o.label.toLowerCase() === (text || "").trim().toLowerCase());
         this._pickFittingOption(row, slot, opt || null);
         if (!opt) {
             const idKey = slot === 1 ? "fitting1_text" : "fitting2_text";
@@ -1151,8 +1181,7 @@ export class HoseFittingBuilder extends Component {
         if (cfg) {
             row.config_id = cfg.id;
             row.config_text = cfg.symbol;
-            row.fitting1_options = cfg.fitting1_options;
-            row.fitting2_options = cfg.fitting2_options;
+            row.fitting_options = cfg.fitting_options;
             row.fire_wrap_options = cfg.fire_wrap_options;
             row.hose_guard_options = cfg.hose_guard_options;
         }

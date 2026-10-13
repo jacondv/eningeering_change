@@ -147,7 +147,7 @@
                                                          onBlurExtra="() => props.rowApi.lengthBlur(draft)"/>
                                         </td>
                                         <td>
-                                            <PnmCombobox options="draft.fitting1_options"
+                                            <PnmCombobox options="draft.fitting_options"
                                                          text="draft.fitting1_text"
                                                          value="draft.fitting1_id"
                                                          placeholder="'Fitting 1'"
@@ -156,7 +156,7 @@
                                                          onSelect="(opt) => props.rowApi.pickFitting(draft, 1, opt)"/>
                                         </td>
                                         <td>
-                                            <PnmCombobox options="draft.fitting2_options"
+                                            <PnmCombobox options="draft.fitting_options"
                                                          text="draft.fitting2_text"
                                                          value="draft.fitting2_id"
                                                          placeholder="'Fitting 2'"
