@@ -138,18 +138,121 @@ class JobHoseLine(models.Model):
             matches.append({'id': part.id, 'part_number': part.part_number, 'length': part.length})
         return matches
 
+
+    # Fields that make up an assembly's BOM - changing any of them (or the
+    # Length) on a saved line means its Part Number may no longer fit.
+    COMPONENT_FIELDS = ('hose_id', 'fitting1_id', 'ferrule1_id', 'fitting2_id', 'ferrule2_id',
+                        'fire_wrap_id', 'hose_guard_id')
+    # Everything update_line lets the Builder's Job Lines table change.
+    EDITABLE_FIELDS = COMPONENT_FIELDS + ('length', 'config_id', 'hose_number', 'function_id',
+                                          'description_en', 'description_vn', 'quantity')
+
+    @api.model
+    def _create_assembly_part(self, vals, material_group_id, length_tolerance=None):
+        """New "Hose And Fitting" Part Number + its BOM for the components
+        and Length in `vals` - shared by create_batch and update_line,
+        whenever no existing assembly fits."""
+        if not material_group_id:
+            raise UserError(_('Material Group is required to generate a new Hose and Fitting Part Number.'))
+        part_model = self.env[PART_NUMBER_MODEL]
+        # Case-insensitive - the actual record is named "Hose And Fitting"
+        # (capital A); matching case-sensitively previously found nothing,
+        # silently leaving every generated assembly Part with no Part Type.
+        part_type = self.env['part_number_manager.part_type'].search(
+            [('name', '=ilike', 'Hose and Fitting')], limit=1)
+        if not part_type:
+            raise UserError(_('Part Type "Hose And Fitting" was not found - check Part Types.'))
+        length = vals['length']
+        suffix = part_model._get_next_suffix(material_group_id)
+        group = self.env['part_number_manager.material_group'].browse(material_group_id)
+        # "1.2m - 1/2" x 6SN (8EFG6K) Hose Assy" - Length in meters (mm
+        # stored / 1000, trailing zeros trimmed) + the Hose component's own
+        # description, same fallback order as _report_part_description.
+        hose = part_model.browse(vals['hose_id'])
+        hose_desc = hose.display_description or hose.short_description or ''
+        new_part = part_model.with_context(skip_job_number_check=True).create({
+            'material_group_id': material_group_id,
+            'sequence_suffix': suffix,
+            'part_number': f'{group.code}{suffix}',
+            'part_type_id': part_type.id,
+            'make_buy': 'make',
+            'length': length,
+            'length_tolerance': length_tolerance or DEFAULT_LENGTH_TOLERANCE,
+            'short_description': f'{length / 1000.0:g}m - {hose_desc} Hose Assy'.strip(),
+        })
+        roles = [('hose_id', 'hose', 10), ('fitting1_id', 'fitting', 20), ('fitting2_id', 'fitting', 30),
+                 ('ferrule1_id', 'ferrule', 40), ('ferrule2_id', 'ferrule', 50),
+                 ('fire_wrap_id', 'fire_wrap', 60), ('hose_guard_id', 'hose_guard', 70)]
+        self.env['hose_fitting_manager.bom_line'].create([
+            {'parent_part_id': new_part.id, 'component_part_id': vals[field], 'role': role, 'sequence': seq}
+            for field, role, seq in roles if vals.get(field)
+        ])
+        return new_part
+
+    def _part_fits(self, part, component_ids, length):
+        """Whether `part`'s BOM is exactly `component_ids` (as a multiset)
+        and its Length is exactly `length`."""
+        if not part:
+            return False
+        bom = self.env['hose_fitting_manager.bom_line'].search([('parent_part_id', '=', part.id)])
+        return (Counter(bom.mapped('component_part_id').ids) == Counter(component_ids)
+                and abs(part.length - length) < 1e-6)
+
+    def update_line(self, vals, part_id=False, material_group_id=False, length_tolerance=None,
+                    confirm_new_part=False):
+        """Saves an edit made in the Builder's Job Lines table.
+
+        Changing only Function/Hose Number/Descriptions/Quantity keeps the
+        line's Part Number. Changing a component or the Length re-resolves
+        it: the current Part if it still fits, else `part_id` (the user's
+        pick from the Length dropdown) if it fits, else any existing Part
+        with exactly this BOM and Length, else a brand new one - created
+        only once the user has confirmed it (`confirm_new_part`), since it
+        adds a Part Number to the Material Group. The old Part is never
+        touched - other lines/Jobs may still use it.
+
+        Returns {'status': 'saved', 'part_number': ...},
+        {'status': 'needs_material_group'} or {'status': 'needs_confirmation'}.
+        """
+        self.ensure_one()
+        vals = {key: value for key, value in vals.items() if key in self.EDITABLE_FIELDS}
+        merged = {field: vals.get(field, self[field].id) or False for field in self.COMPONENT_FIELDS}
+        merged['length'] = vals.get('length', self.length)
+        if not (merged['hose_id'] and merged['fitting1_id'] and merged['fitting2_id']):
+            raise UserError(_('Hose and both Fittings are required.'))
+
+        changed = (any(merged[field] != (self[field].id or False) for field in self.COMPONENT_FIELDS)
+                   or abs(merged['length'] - self.length) >= 1e-6)
+        part = self.part_id
+        if changed:
+            component_ids = [merged[field] for field in self.COMPONENT_FIELDS if merged[field]]
+            part_model = self.env[PART_NUMBER_MODEL]
+            part = next((candidate for candidate in (self.part_id, part_model.browse(part_id or []))
+                         if self._part_fits(candidate, component_ids, merged['length'])), None)
+            if not part:
+                match = self.find_matches(component_ids, merged['length'], tolerance=0)
+                part = part_model.browse(match[0]['id']) if match else None
+            if not part:
+                if not material_group_id:
+                    return {'status': 'needs_material_group'}
+                if not confirm_new_part:
+                    return {'status': 'needs_confirmation'}
+                part = self._create_assembly_part(merged, material_group_id, length_tolerance)
+
+        self.write(dict(vals, part_id=part.id))
+        return {'status': 'saved', 'part_number': part.part_number}
+
     @api.model
     def create_batch(self, vals_list):
-        """Single entry point the OWL Builder page calls on Save. Each row
-        runs in its own savepoint, same partial-success pattern as
-        part_number_manager's own create_batch_with_generated_number.
-        `part_id` already set means the row matched an existing assembly to
-        reuse; unset means a brand new one is generated (requiring
-        `material_group_id`, a transient input not stored on this model -
-        Material Group belongs to the assembly Part Number, not the line).
+        """Single entry point the OWL Builder page calls on Save (Manual
+        Lines) and on the Port Board's per-line create. Each row runs in its
+        own savepoint, same partial-success pattern as part_number_manager's
+        own create_batch_with_generated_number. `part_id` already set means
+        the row matched an existing assembly to reuse; unset means a brand
+        new one is generated (requiring `material_group_id`, a transient
+        input not stored on this model - Material Group belongs to the
+        assembly Part Number, not the line).
         """
-        part_model = self.env[PART_NUMBER_MODEL]
-        bom_line_model = self.env['hose_fitting_manager.bom_line']
         results = []
         for idx, vals in enumerate(vals_list):
             result = {'index': idx, 'success': False, 'id': None, 'part_number': None, 'error': None}
@@ -159,75 +262,14 @@ class JobHoseLine(models.Model):
                     part_id = vals.pop('part_id', None)
                     material_group_id = vals.pop('material_group_id', None)
                     length_tolerance = vals.pop('length_tolerance', None)
-                    hose_id = vals.get('hose_id')
-                    fitting1_id = vals.get('fitting1_id')
-                    fitting2_id = vals.get('fitting2_id')
-                    ferrule1_id = vals.get('ferrule1_id')
-                    ferrule2_id = vals.get('ferrule2_id')
-                    fire_wrap_id = vals.get('fire_wrap_id')
-                    hose_guard_id = vals.get('hose_guard_id')
-                    length = vals.get('length')
 
-                    if not (hose_id and fitting1_id and fitting2_id):
+                    if not (vals.get('hose_id') and vals.get('fitting1_id') and vals.get('fitting2_id')):
                         raise UserError(_('Hose and both Fittings are required.'))
                     if not vals.get('job_number'):
                         raise UserError(_('Job Number is required.'))
 
                     if not part_id:
-                        if not material_group_id:
-                            raise UserError(_(
-                                'Material Group is required to generate a new Hose and Fitting Part Number.'))
-                        # Case-insensitive - the actual record is named
-                        # "Hose And Fitting" (capital A); matching case-
-                        # sensitively here previously found nothing, silently
-                        # leaving every generated assembly Part with no
-                        # Part Type at all.
-                        part_type = self.env['part_number_manager.part_type'].search(
-                            [('name', '=ilike', 'Hose and Fitting')], limit=1)
-                        if not part_type:
-                            raise UserError(_('Part Type "Hose And Fitting" was not found - check Part Types.'))
-                        suffix = part_model._get_next_suffix(material_group_id)
-                        group = self.env['part_number_manager.material_group'].browse(material_group_id)
-                        # "1.2m - 1/2" x 6SN (8EFG6K) Hose Assy" - Length in
-                        # meters (mm stored / 1000, trailing zeros trimmed)
-                        # + the Hose component's own description, same
-                        # fallback order used everywhere else a component's
-                        # description is shown (see _report_part_description).
-                        hose = part_model.browse(hose_id)
-                        hose_desc = hose.display_description or hose.short_description or ''
-                        short_description = f'{length / 1000.0:g}m - {hose_desc} Hose Assy'.strip()
-                        new_part = part_model.with_context(skip_job_number_check=True).create({
-                            'material_group_id': material_group_id,
-                            'sequence_suffix': suffix,
-                            'part_number': f'{group.code}{suffix}',
-                            'part_type_id': part_type.id,
-                            'make_buy': 'make',
-                            'length': length,
-                            'length_tolerance': length_tolerance or DEFAULT_LENGTH_TOLERANCE,
-                            'short_description': short_description,
-                        })
-                        lines = [
-                            {'parent_part_id': new_part.id, 'component_part_id': hose_id,
-                             'role': 'hose', 'sequence': 10},
-                            {'parent_part_id': new_part.id, 'component_part_id': fitting1_id,
-                             'role': 'fitting', 'sequence': 20},
-                            {'parent_part_id': new_part.id, 'component_part_id': fitting2_id,
-                             'role': 'fitting', 'sequence': 30},
-                        ]
-                        if ferrule1_id:
-                            lines.append({'parent_part_id': new_part.id, 'component_part_id': ferrule1_id,
-                                           'role': 'ferrule', 'sequence': 40})
-                        if ferrule2_id:
-                            lines.append({'parent_part_id': new_part.id, 'component_part_id': ferrule2_id,
-                                           'role': 'ferrule', 'sequence': 50})
-                        if fire_wrap_id:
-                            lines.append({'parent_part_id': new_part.id, 'component_part_id': fire_wrap_id,
-                                           'role': 'fire_wrap', 'sequence': 60})
-                        if hose_guard_id:
-                            lines.append({'parent_part_id': new_part.id, 'component_part_id': hose_guard_id,
-                                           'role': 'hose_guard', 'sequence': 70})
-                        bom_line_model.create(lines)
-                        part_id = new_part.id
+                        part_id = self._create_assembly_part(vals, material_group_id, length_tolerance).id
 
                     vals['part_id'] = part_id
                     line = self.create(vals)
