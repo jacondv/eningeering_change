@@ -130,7 +130,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="short_description" string="All"
-                       filter_domain="['|','|','|','|','|','|','|',
+                       filter_domain="['|','|','|','|','|','|','|','|',
                            ('part_number', 'ilike', self),
                            ('short_description', 'ilike', self),
                            ('long_description', 'ilike', self),
@@ -138,13 +138,14 @@
                            ('legacy_codes_display', 'ilike', self),
                            ('replacement_display', 'ilike', self),
                            ('vendor_id', 'ilike', self),
-                           ('vendor_ref', 'ilike', self)]"/>
+                           ('vendor_ref', 'ilike', self),
+                           ('job_number', 'ilike', self)]"/>
                 <field name="part_number"/>
                 <field name="short_description" string="Short Description"/>
                 <field name="long_description"/>
                 <field name="display_description"/>
                 <field name="material_group_id"/>
-                <field name="job_number" string="Project"/>
+                <field name="job_number" string="Job Number"/>
                 <field name="part_type_id"/>
                 <field name="vendor_id"/>
                 <field name="legacy_codes_display" string="Legacy Code"/>
