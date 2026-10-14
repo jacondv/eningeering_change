@@ -5,17 +5,15 @@ import { useService } from "@web/core/utils/hooks";
 import { PnmCombobox } from "@part_number_manager/part_management_page/pnm_combobox";
 
 const JOB_EQUIPMENT_ITEM_MODEL = "hose_fitting_manager.job_equipment_item";
-// Same value as builder.js's own DEFAULT_LENGTH_TOLERANCE - kept as a
-// separate constant here rather than a shared import since this is the only
-// other place a raw tolerance number is needed (narrowing lengthOptions as
-// the user types, mirroring the Create List row's own Length field).
-const DEFAULT_LENGTH_TOLERANCE = 100.0;
 
 // Same resize + persist-to-localStorage convention as builder.js's own
 // Create List/Job Lines tables (see its _startColumnResize) - a separate
 // key/component here since this is a different table with its own columns.
 const COLUMN_WIDTHS_STORAGE_KEY = "hose_fitting_manager.port_board.column_widths";
-const DEFAULT_COLUMN_WIDTHS = { port: 90, toItem: 220, toPort: 130, hose: 200, length: 170 };
+const DEFAULT_COLUMN_WIDTHS = {
+    port: 90, toItem: 220, toPort: 130, hose: 220, length: 170,
+    fitting1: 180, fitting2: 180, fireWrap: 150, hoseGuard: 150, function: 140,
+};
 
 // Same convention for the left Item list panel's own width - a single
 // number rather than a per-column map, dragged via the vertical splitter
@@ -39,34 +37,6 @@ function effectiveStatus(port, reservedPortIds) {
     return port.status;
 }
 
-let nextDraftId = 1;
-
-function emptyDraft() {
-    return {
-        _localId: nextDraftId++,
-        toItemId: false,
-        toItemText: "",
-        toPortId: false,
-        toPortText: "",
-        toPortOptions: [],
-        hoseId: false,
-        hoseText: "",
-        length: false,
-        lengthText: "",
-        // Every existing assembled Part whose BOM matches the picked Hose
-        // (via getLengthOptions) - lengthFilteredOptions narrows this by
-        // whatever's typed, same two-tier scheme as the Create List row's
-        // own all_length_options/length_options.
-        lengthOptions: [],
-        lengthFilteredOptions: [],
-        // Set only by an explicit pick from lengthFilteredOptions - carried
-        // through onAdd so Builder can reuse that exact Part instead of
-        // re-deriving it, same as the grid's own row.part_id.
-        lengthMatchId: false,
-        lengthMatchPartNumber: "",
-    };
-}
-
 export class PortBoard extends Component {
     static template = "hose_fitting_manager.PortBoard";
     static components = { PnmCombobox };
@@ -75,17 +45,17 @@ export class PortBoard extends Component {
         reservedPortIds: Object, // Set<number>
         reloadToken: Number,
         hoseOptions: Array, // [{id, label}] - same list Builder's own Hose field uses
-        // (hoseId) => Promise<[{id, label, length, part_number}]> - Builder's
-        // own find_matches query (see getHoseLengthOptions), resolving
-        // Fitting 1/2 + Ferrules from the Hose's Config the same way
-        // _pickHose does, since the Port Board never shows those fields.
-        getLengthOptions: Function,
-        // (fromItem, fromPort, toItem, toPort, hoseOpt, length, lengthMatch) => void
-        // - Builder stages a new Create List row with all of this already
-        // filled in; nothing is saved to the database from here.
-        // lengthMatch is the picked lengthOptions entry, or null if the
-        // user typed a custom Length instead of picking an existing match.
-        onAdd: Function,
+        functionOptions: Array, // [{id, label}] - same list Builder's own Function field uses
+        // Builder's row helpers (see its rowApi) - each draft line here is a
+        // regular Builder row, so Hose/Fitting/Fire Wrap/Hose Guard/Function/
+        // Length behave exactly like the Manual Lines table.
+        rowApi: Object,
+        // Needed only when a line's Length matches no existing Part (a new
+        // Part Number is generated) - picked at the top of the Builder page.
+        materialGroupId: [Number, Boolean],
+        // async (fromItem, fromPort, toItem, toPort, draft) => {success, error}
+        // - creates the line right away (see Builder.createFromPortBoard).
+        onCreate: Function,
         onUsedPortClick: Function, // (jobHoseLineId) => void
     };
 
@@ -143,6 +113,19 @@ export class PortBoard extends Component {
     // needed - but only the *first* time it's seen: once the user's own
     // "+"/trash actions have touched it, later reloads leave it alone
     // (otherwise a manually-trashed default line would keep coming back).
+    _newDraft() {
+        return {
+            ...this.props.rowApi.makeRow(),
+            toItemId: false,
+            toItemText: "",
+            toPortId: false,
+            toPortText: "",
+            toPortOptions: [],
+            busy: false, // create call in flight - see onAddClick
+            error: null, // last create error, shown under the line
+        };
+    }
+
     _syncDrafts() {
         const livePortIds = new Set();
         for (const item of this.state.items) {
@@ -150,7 +133,7 @@ export class PortBoard extends Component {
                 livePortIds.add(port.id);
                 if (!(port.id in this.state.connectDrafts)) {
                     this.state.connectDrafts[port.id] =
-                        effectiveStatus(port, this.props.reservedPortIds) === "open" ? [emptyDraft()] : [];
+                        effectiveStatus(port, this.props.reservedPortIds) === "open" ? [this._newDraft()] : [];
                 }
             }
         }
@@ -268,6 +251,16 @@ export class PortBoard extends Component {
         window.addEventListener("mouseup", onMouseUp);
     }
 
+    // Column widths are kept as relative weights and rendered as a share of
+    // the table's width (the Action column is a fixed 76px), so every column
+    // fits on screen without a horizontal scrollbar - dragging a column still
+    // works, it just shifts its share against the others.
+    columnStyle(columnKey) {
+        const widths = this.state.columnWidths;
+        const total = Object.keys(DEFAULT_COLUMN_WIDTHS).reduce((sum, key) => sum + widths[key], 0);
+        return `width: ${((widths[columnKey] / total) * 100).toFixed(2)}%`;
+    }
+
     onColumnResizeStart(columnKey, ev) {
         ev.preventDefault();
         const startX = ev.clientX;
@@ -288,7 +281,7 @@ export class PortBoard extends Component {
     // to fill in. Disabled (see the template) while the Port is Reserved,
     // same guard the old single-draft-per-port version had.
     addDraftLine(port) {
-        this.state.connectDrafts[port.id].push(emptyDraft());
+        this.state.connectDrafts[port.id].push(this._newDraft());
     }
 
     removeDraftLine(port, draft) {
@@ -299,8 +292,19 @@ export class PortBoard extends Component {
         }
     }
 
+    // Everything a line needs except a Material Group - which only matters
+    // when no existing Part matches the Length (see missingMaterialGroup).
+    _isComplete(draft) {
+        return !!(draft.toItemId && draft.toPortId && draft.hose_id &&
+            draft.fitting1_id && draft.fitting2_id && draft.length !== false);
+    }
+
+    missingMaterialGroup(draft) {
+        return this._isComplete(draft) && !draft.part_id && !this.props.materialGroupId;
+    }
+
     canAdd(draft) {
-        return !!(draft.toItemId && draft.toPortId && draft.hoseId && draft.length);
+        return this._isComplete(draft) && !this.missingMaterialGroup(draft) && !draft.busy;
     }
 
     onToItemInput(draft, text) {
@@ -332,108 +336,21 @@ export class PortBoard extends Component {
         draft.toPortText = opt.label;
     }
 
-    onHoseInput(draft, text) {
-        draft.hoseText = text || "";
-        draft.hoseId = false;
-        draft.length = false;
-        draft.lengthText = "";
-        draft.lengthOptions = [];
-        draft.lengthFilteredOptions = [];
-        draft.lengthMatchId = false;
-        draft.lengthMatchPartNumber = "";
-    }
-
-    // Picking a Hose immediately queries its matching existing Parts (same
-    // BOM-match Builder's own Length field uses) - draft.length itself
-    // stays blank until the user picks one of those or types a value, same
-    // as the Create List row's Length field.
-    async onHoseSelect(port, draft, opt) {
-        draft.hoseId = opt.id;
-        draft.hoseText = opt.label;
-        draft.length = false;
-        draft.lengthText = "";
-        draft.lengthOptions = [];
-        draft.lengthFilteredOptions = [];
-        draft.lengthMatchId = false;
-        draft.lengthMatchPartNumber = "";
-
-        const options = await this.props.getLengthOptions(opt.id);
-        // Race-guard: only apply if this draft is still around and still on
-        // the Hose that was picked when the call started.
-        const stillThere = (this.state.connectDrafts[port.id] || []).includes(draft);
-        if (stillThere && draft.hoseId === opt.id) {
-            draft.lengthOptions = options;
-            draft.lengthFilteredOptions = options;
-        }
-    }
-
-    onLengthInput(draft, text) {
-        draft.lengthText = text || "";
-        const parsed = parseFloat(text);
-        draft.length = Number.isFinite(parsed) ? parsed : false;
-        draft.lengthMatchId = false;
-        draft.lengthMatchPartNumber = "";
-        if (draft.length === false) {
-            draft.lengthFilteredOptions = draft.lengthOptions;
-            return;
-        }
-        draft.lengthFilteredOptions = draft.lengthOptions.filter(
-            (o) => Math.abs(o.length - draft.length) <= DEFAULT_LENGTH_TOLERANCE
-        );
-    }
-
-    onLengthSelect(draft, opt) {
-        draft.length = opt.length;
-        draft.lengthText = String(opt.length);
-        draft.lengthMatchId = opt.id;
-        draft.lengthMatchPartNumber = opt.part_number;
-    }
-
-    // Same rounding rule as the Create List row's own Length field
-    // (builder.js's _roundLengthNearest) - 50mm steps under 1000mm, 100mm
-    // steps from 1000mm up (e.g. 471 -> 450, not 500), so slightly
-    // different typed lengths converge on the same standard value.
-    _roundLengthNearest(value) {
-        const step = value < 1000 ? 50 : 100;
-        return Math.round(value / step) * step;
-    }
-
-    // Only runs once typing is done (on blur) and only when nothing was
-    // explicitly picked from the dropdown - mirrors builder.js's own
-    // onLengthBlur: round the typed value to the nearest standard
-    // increment, then check whether a Part at exactly that rounded Length
-    // already exists for the picked Hose's BOM - if so, silently reuse it;
-    // if not, the rounded value is what gets used to generate a new Part
-    // on Add.
-    onLengthBlur(draft) {
-        if (draft.lengthMatchId || draft.length === false) {
-            return;
-        }
-        const rounded = this._roundLengthNearest(draft.length);
-        draft.length = rounded;
-        draft.lengthText = String(rounded);
-        draft.lengthFilteredOptions = draft.lengthOptions.filter(
-            (o) => Math.abs(o.length - rounded) <= DEFAULT_LENGTH_TOLERANCE
-        );
-
-        const exact = draft.lengthOptions.find((o) => o.length === rounded);
-        if (exact) {
-            draft.lengthMatchId = exact.id;
-            draft.lengthMatchPartNumber = exact.part_number;
-        }
-    }
-
-    onAddClick(port, draft) {
+    async onAddClick(port, draft) {
         const toItem = this.state.items.find((it) => it.id === draft.toItemId);
         const toPort = toItem.ports.find((p) => p.id === draft.toPortId);
-        const lengthMatch = draft.lengthMatchId
-            ? { id: draft.lengthMatchId, part_number: draft.lengthMatchPartNumber, length: draft.length }
-            : null;
-        this.props.onAdd(
-            this.selectedItem, port, toItem, toPort,
-            { id: draft.hoseId, label: draft.hoseText }, draft.length, lengthMatch
-        );
-        this.removeDraftLine(port, draft);
+        draft.busy = true;
+        draft.error = null;
+        try {
+            const result = await this.props.onCreate(this.selectedItem, port, toItem, toPort, draft);
+            if (result.success) {
+                this.removeDraftLine(port, draft);
+            } else {
+                draft.error = result.error;
+            }
+        } finally {
+            draft.busy = false;
+        }
     }
 
     onConnectionClick(connection) {

@@ -203,3 +203,10 @@
     background-color: var(--Table-active-background, #fff3cd) !important;
     transition: background-color 1.5s ease-out;
 }
+
+// A Job Lines row while it's being edited in place (see startEditJobLine) -
+// tinted like the Port Board's draft rows so it reads as "not saved yet".
+.o_hfm_recap_row_editing > td {
+    background-color: #eaf2fb !important;
+    vertical-align: middle;
+}

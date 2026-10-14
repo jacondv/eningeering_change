@@ -29,7 +29,7 @@
             </div>
 
             <t t-if="state.jobId">
-                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => state.equipmentItemsCollapsed = !state.equipmentItemsCollapsed">
+                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => this.toggleSection('equipmentItemsCollapsed')">
                     <h3>Equipment Items</h3>
                     <i t-attf-class="fa {{state.equipmentItemsCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
                 </div>
@@ -37,7 +37,7 @@
                     <EquipmentItemsPage jobId="state.jobId" onRowsChanged="() => state.portBoardReloadToken++"/>
                 </div>
 
-                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => state.portBoardCollapsed = !state.portBoardCollapsed">
+                <div class="o_hfm_section_header o_hfm_header_toggle" t-on-click="() => this.toggleSection('portBoardCollapsed')">
                     <h3>Port Connection Board</h3>
                     <i t-attf-class="fa {{state.portBoardCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}}"/>
                 </div>
@@ -46,15 +46,17 @@
                            reservedPortIds="reservedPortIds"
                            reloadToken="state.portBoardReloadToken"
                            hoseOptions="hoseOptions"
-                           getLengthOptions="(hoseId) => this.getHoseLengthOptions(hoseId)"
-                           onAdd="(fromItem, fromPort, toItem, toPort, hoseOpt, length, lengthMatch) =>
-                               this.addRowFromPortBoard(fromItem, fromPort, toItem, toPort, hoseOpt, length, lengthMatch)"
+                           functionOptions="functionOptions"
+                           rowApi="rowApi"
+                           materialGroupId="state.materialGroupId"
+                           onCreate="(fromItem, fromPort, toItem, toPort, draft) =>
+                               this.createFromPortBoard(fromItem, fromPort, toItem, toPort, draft)"
                            onUsedPortClick="(id) => this.onUsedPortClick(id)"/>
             </t>
 
             <div class="o_hfm_section_header o_hfm_section_header_tight o_hfm_header_toggle"
-                 t-on-click="() => state.createListCollapsed = !state.createListCollapsed">
-                <h3>Hose And Fitting Lines to Create</h3>
+                 t-on-click="() => this.toggleSection('createListCollapsed')">
+                <h3>Manual Lines</h3>
                 <div class="o_hfm_section_header_actions">
                     <div class="o_hfm_column_menu" t-on-click.stop="">
                         <button class="btn btn-outline-light btn-sm" t-on-click="() => this.toggleColumnMenu()">
@@ -233,7 +235,7 @@
                                 </div>
                             </td>
                             <td t-attf-class="{{state.columnVisibility.fitting1 ? '' : 'o_hfm_col_hidden'}}">
-                                <PnmCombobox options="row.fitting1_options"
+                                <PnmCombobox options="row.fitting_options"
                                              text="row.fitting1_text"
                                              value="row.fitting1_id"
                                              disabled="row.status === 'success' || !row.config_id"
@@ -247,7 +249,7 @@
                                 <span class="text-muted small" t-if="row.ferrule1_text"><t t-esc="row.ferrule1_text"/></span>
                             </td>
                             <td t-attf-class="{{state.columnVisibility.fitting2 ? '' : 'o_hfm_col_hidden'}}">
-                                <PnmCombobox options="row.fitting2_options"
+                                <PnmCombobox options="row.fitting_options"
                                              text="row.fitting2_text"
                                              value="row.fitting2_id"
                                              disabled="row.status === 'success' || !row.config_id"
@@ -311,7 +313,7 @@
 
             <div class="o_pnm_recent" t-if="state.jobId">
                 <div class="o_hfm_section_header o_pnm_header o_hfm_header_toggle"
-                     t-on-click="() => state.jobLinesCollapsed = !state.jobLinesCollapsed">
+                     t-on-click="() => this.toggleSection('jobLinesCollapsed')">
                     <h3>Hose And Fitting Lines for this Job</h3>
                     <div class="o_hfm_section_header_actions">
                         <div class="o_hfm_column_menu" t-on-click.stop="">
@@ -356,14 +358,107 @@
                     </thead>
                     <tbody>
                         <t t-foreach="state.jobLines" t-as="l" t-key="l.id">
-                            <tr t-attf-class="o_pnm_recent_row {{state.highlightedJobLineId === l.id ? 'o_hfm_recap_row_highlight' : ''}}"
+                            <!-- Being edited in place: the same cells as Manual Lines, driven by
+                                 the same row helpers (see startEditJobLine). -->
+                            <tr t-if="state.editingRow and state.editingRow.lineId === l.id"
+                                class="o_hfm_recap_row_editing" t-att-data-job-line-id="l.id">
+                                <t t-set="row" t-value="state.editingRow"/>
+                                <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
+                                    <td t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
+                                        <t t-if="key === 'hose'">
+                                            <PnmCombobox options="hoseOptions" text="row.hose_text" value="row.hose_id"
+                                                         onInput="(text) => this._setHoseText(row, text)"
+                                                         onSelect="(opt) => this._pickHose(row, opt)"/>
+                                        </t>
+                                        <t t-elif="key === 'symbol'">
+                                            <span class="text-muted small"><t t-esc="row.config_text"/></span>
+                                        </t>
+                                        <t t-elif="key === 'hose_number'">
+                                            <input type="text" class="form-control form-control-sm" t-model="row.hose_number"/>
+                                        </t>
+                                        <t t-elif="key === 'function'">
+                                            <PnmCombobox options="functionOptions" text="row.function_text" value="row.function_id"
+                                                         placeholder="'None'"
+                                                         onInput="(text) => this._setFunctionText(row, text)"
+                                                         onSelect="(opt) => this._pickFunction(row, opt)"/>
+                                        </t>
+                                        <t t-elif="key === 'desc_en'">
+                                            <input type="text" class="form-control form-control-sm" t-model="row.description_en"/>
+                                        </t>
+                                        <t t-elif="key === 'desc_vn'">
+                                            <input type="text" class="form-control form-control-sm" t-model="row.description_vn"/>
+                                        </t>
+                                        <t t-elif="key === 'qty'">
+                                            <input type="number" min="1" class="form-control form-control-sm" t-model.number="row.quantity"/>
+                                        </t>
+                                        <t t-elif="key === 'length'">
+                                            <PnmCombobox options="row.length_options" text="row.length_text" value="row.part_id"
+                                                         allowCreate="true" externalFilter="true"
+                                                         onInput="(text) => this._setLengthText(row, text)"
+                                                         onSelect="(opt) => this._selectLengthMatch(row, opt)"
+                                                         onBlurExtra="() => this.onLengthBlur(row)"/>
+                                        </t>
+                                        <t t-elif="key === 'fitting1'">
+                                            <PnmCombobox options="row.fitting_options" text="row.fitting1_text" value="row.fitting1_id"
+                                                         disabled="!row.config_id"
+                                                         onInput="(text) => this._setFittingText(row, 1, text)"
+                                                         onSelect="(opt) => this._pickFittingOption(row, 1, opt)"/>
+                                        </t>
+                                        <t t-elif="key === 'fitting2'">
+                                            <PnmCombobox options="row.fitting_options" text="row.fitting2_text" value="row.fitting2_id"
+                                                         disabled="!row.config_id"
+                                                         onInput="(text) => this._setFittingText(row, 2, text)"
+                                                         onSelect="(opt) => this._pickFittingOption(row, 2, opt)"/>
+                                        </t>
+                                        <t t-elif="key === 'ferrule1'">
+                                            <span class="text-muted small"><t t-esc="row.ferrule1_text"/></span>
+                                        </t>
+                                        <t t-elif="key === 'ferrule2'">
+                                            <span class="text-muted small"><t t-esc="row.ferrule2_text"/></span>
+                                        </t>
+                                        <t t-elif="key === 'fire_wrap'">
+                                            <PnmCombobox options="row.fire_wrap_options" text="row.fire_wrap_text" value="row.fire_wrap_id"
+                                                         placeholder="'None'" disabled="!row.fire_wrap_options.length"
+                                                         onInput="(text) => this._setFireWrapText(row, text)"
+                                                         onSelect="(opt) => this._pickFireWrap(row, opt)"/>
+                                        </t>
+                                        <t t-elif="key === 'hose_guard'">
+                                            <PnmCombobox options="row.hose_guard_options" text="row.hose_guard_text" value="row.hose_guard_id"
+                                                         placeholder="'None'" disabled="!row.hose_guard_options.length"
+                                                         onInput="(text) => this._setHoseGuardText(row, text)"
+                                                         onSelect="(opt) => this._pickHoseGuard(row, opt)"/>
+                                        </t>
+                                        <t t-elif="key === 'part_number'">
+                                            <span t-if="row.part_id" class="badge text-bg-success"><t t-esc="row.resolved_part_number"/></span>
+                                            <span t-else="" class="text-muted small">Resolved on Save</span>
+                                        </t>
+                                    </td>
+                                </t>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-primary" title="Save changes"
+                                            t-on-click="() => this.saveEditJobLine()">
+                                        <i class="fa fa-check"/>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancel"
+                                            t-on-click="() => this.cancelEditJobLine()">
+                                        <i class="fa fa-times"/>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr t-else="" t-attf-class="o_pnm_recent_row {{state.highlightedJobLineId === l.id ? 'o_hfm_recap_row_highlight' : ''}}"
                                 t-att-data-job-line-id="l.id" t-on-click="() => this.openJobLine(l.id)">
                                 <t t-foreach="recapColumnKeys" t-as="key" t-key="key">
                                     <td t-attf-class="{{state.jobLinesColumnVisibility[key] ? '' : 'o_hfm_col_hidden'}}">
                                         <t t-esc="l[key]"/>
                                     </td>
                                 </t>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            title="Edit this line"
+                                            t-att-disabled="!!state.editingRow"
+                                            t-on-click="(ev) => this.startEditJobLine(ev, l)">
+                                        <i class="fa fa-pencil"/>
+                                    </button>
                                     <button type="button" class="btn btn-sm btn-outline-danger"
                                             title="Delete this line"
                                             t-on-click="(ev) => this.onDeleteJobLine(ev, l.id)">

@@ -1,6 +1,6 @@
 {
     'name': 'Hose And Fitting Manager',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Manufacturing',
     'summary': 'Configure and quickly build Hose and Fitting assemblies per Job, on top of Part Number Manager',
     'description': """
