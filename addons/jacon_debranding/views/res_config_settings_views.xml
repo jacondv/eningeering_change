@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Settings is admin-only, so only administrators see or change these. -->
+    <record id="res_config_settings_view_form_debranding" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.jacon.debranding</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@id='about']" position="before">
+                <block title="Debranding" name="jacon_debranding_setting_container">
+                    <setting string="User menu" help="Items in the menu under your avatar, top right.">
+                        <div class="mt-2">
+                            <div><field name="jacon_hide_odoo_account"/> <label for="jacon_hide_odoo_account"/></div>
+                            <div><field name="jacon_hide_help"/> <label for="jacon_hide_help"/></div>
+                        </div>
+                    </setting>
+                    <setting string="Login page">
+                        <div class="mt-2">
+                            <div><field name="jacon_hide_login_powered_by"/> <label for="jacon_hide_login_powered_by"/></div>
+                            <div><field name="jacon_hide_manage_databases"/> <label for="jacon_hide_manage_databases"/></div>
+                        </div>
+                    </setting>
+                    <setting string="Emails and portal">
+                        <div class="mt-2">
+                            <div><field name="jacon_hide_email_powered_by"/> <label for="jacon_hide_email_powered_by"/></div>
+                            <div><field name="jacon_hide_portal_powered_by"/> <label for="jacon_hide_portal_powered_by"/></div>
+                        </div>
+                    </setting>
+                    <setting id="jacon_tab_title" string="Browser tab"
+                             help="Shown instead of &quot;Odoo&quot; while a page has no title of its own (login page, while loading).">
+                        <div class="mt-2">
+                            <div><field name="jacon_replace_tab_title"/> <label for="jacon_replace_tab_title"/></div>
+                            <field name="jacon_tab_title" invisible="not jacon_replace_tab_title"
+                                   required="jacon_replace_tab_title"/>
+                        </div>
+                    </setting>
+                    <setting string="Odoo.com statistics"
+                             help="Odoo sends the number of users, installed apps and similar figures to odoo.com every week.">
+                        <div class="mt-2">
+                            <div><field name="jacon_disable_publisher"/> <label for="jacon_disable_publisher"/></div>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
