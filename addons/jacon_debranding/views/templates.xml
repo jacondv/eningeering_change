@@ -2,7 +2,8 @@
 <odoo>
 
     <!-- Server-rendered pages read the switches through res_company (see
-         models/res_company.py) - QWeb provides it on every render. -->
+         models/res_company.py), which QWeb provides on web pages. Emails render
+         with a minimal context that does not have it, so they use company. -->
 
     <!-- Browser tab title before the web client takes over (login page,
          first load). -->
@@ -33,12 +34,12 @@
     <template id="mail_notification_layout_debranding" inherit_id="mail.mail_notification_layout">
         <xpath expr="//div[a[contains(@href, 'utm_medium=email')]]" position="replace">
             <div t-if="show_footer" style="color: #555555; font-size:11px;">
-                <t t-if="not res_company.jacon_debranding_hidden('hide_email_powered_by')">
+                <t t-if="not company.jacon_debranding_hidden('hide_email_powered_by')">
                     Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=email"
                                   t-att-style="'color: ' + (company.email_secondary_color or '#875A7B') + ';'">Odoo</a>
                 </t>
                 <span t-if="show_unfollow" id="mail_unfollow">
-                    <t t-if="not res_company.jacon_debranding_hidden('hide_email_powered_by')">| </t><a href="/mail/unfollow" style="text-decoration:none; color:#555555;">Unfollow</a>
+                    <t t-if="not company.jacon_debranding_hidden('hide_email_powered_by')">| </t><a href="/mail/unfollow" style="text-decoration:none; color:#555555;">Unfollow</a>
                 </span>
             </div>
         </xpath>
@@ -47,12 +48,12 @@
     <template id="mail_notification_light_debranding" inherit_id="mail.mail_notification_light">
         <xpath expr="//td[a[contains(@href, 'utm_medium=email')]]" position="replace">
             <td align="center" style="min-width: 590px;">
-                <t t-if="not res_company.jacon_debranding_hidden('hide_email_powered_by')">
+                <t t-if="not company.jacon_debranding_hidden('hide_email_powered_by')">
                     Powered by <a target="_blank" href="https://www.odoo.com?utm_source=db&amp;utm_medium=email"
                                   t-att-style="'color: ' + (company.email_secondary_color or '#875A7B') + ';'">Odoo</a>
                 </t>
                 <span t-if="show_unfollow" id="mail_unfollow">
-                    <t t-if="not res_company.jacon_debranding_hidden('hide_email_powered_by')">| </t><a href="/mail/unfollow" style="text-decoration:none; color:#555555;">Unfollow</a>
+                    <t t-if="not company.jacon_debranding_hidden('hide_email_powered_by')">| </t><a href="/mail/unfollow" style="text-decoration:none; color:#555555;">Unfollow</a>
                 </span>
             </td>
         </xpath>
