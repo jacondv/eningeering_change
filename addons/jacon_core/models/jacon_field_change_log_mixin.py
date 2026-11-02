@@ -46,6 +46,8 @@ class JaconFieldChangeLogMixin(models.AbstractModel):
         notify someone about the change (e.g. project.task's Chatter/popup)
         can key off this instead of re-deriving the same comparison."""
         self.ensure_one()
+        if self.env.context.get('skip_html_change_log'):
+            return False
         old_text = html2plaintext(self._html_images_to_text(old_value)).splitlines()
         new_text = html2plaintext(self._html_images_to_text(self[field_name])).splitlines()
         if old_text == new_text:

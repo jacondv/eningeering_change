@@ -230,11 +230,16 @@ class ProjectTask(models.Model):
         is_manager = self._is_ec_manager()
         Change = self.env['engineering.change']
         for vals in vals_list:
-            change_id = vals.get('change_id')
+            # A sub-task belongs to its parent's request, wherever it's created
+            # from - set here so it goes through the same checks as any action.
+            # Its project is left to core, which takes the parent's.
+            parent = self.browse(vals.get('parent_id', self.env.context.get('default_parent_id')))
+            change_id = vals.get('change_id') or parent.change_id.id
             if change_id:
+                vals['change_id'] = change_id
                 change = Change.browse(change_id)
                 self._check_ec_create_access(change, is_manager=is_manager)
-                if not vals.get('project_id'):
+                if not vals.get('project_id') and not parent:
                     vals['project_id'] = self._get_or_create_ec_project(change).id
         tasks = super().create(vals_list)
         ec_tasks = tasks.filtered('change_id')
