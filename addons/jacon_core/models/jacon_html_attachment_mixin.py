@@ -2,6 +2,7 @@ import logging
 import re
 
 from odoo import _, models
+from odoo.tools import consteq
 
 _logger = logging.getLogger(__name__)
 
@@ -9,6 +10,11 @@ _logger = logging.getLogger(__name__)
 # generated <img src="/web/image/473-31d6df3b/image.png?..."> markup - see
 # _adopt_embedded_image_attachments.
 IMG_ATTACHMENT_RE = re.compile(r'/web/image/(\d+)-')
+# Same markup, this time the whole src: (full src, attachment id, checksum
+# prefix) - see _copy_borrowed_images. The editor's copy turns a src absolute,
+# so that's what a pasted image comes with.
+IMG_SRC_RE = re.compile(r'src="((?:https?://[^/"]+)?/web/image/(\d+)-([0-9a-f]+)[^"]*)"')
+IMG_ACCESS_TOKEN_RE = re.compile(r'[?&;]access_token=([^&"]+)')
 
 
 class JaconHtmlAttachmentMixin(models.AbstractModel):
@@ -85,3 +91,73 @@ class JaconHtmlAttachmentMixin(models.AbstractModel):
                     _logger.warning(
                         "%s(%s): %s (missing attachment ids: %s)",
                         rec._name, rec.id, message, sorted(missing))
+        self._copy_borrowed_images(field_names)
+
+    def _copy_borrowed_images(self, field_names):
+        """Gives this record its own copy of every image in `field_names`
+        that still belongs to another record, and points the <img> at it.
+
+        Copy/pasting an image between Html fields only carries its src, while
+        the attachment stays linked to the record it was uploaded on - and
+        deleting that record deletes the attachment, breaking the image
+        everywhere it was pasted. The copy shares the same file on disk, so
+        this costs no storage.
+
+        Goes through write() rather than around it so html_field_history's
+        patches keep applying to the stored content, which does add a version
+        to it. Not a user edit though, so jacon.field.change.log.mixin skips it.
+        """
+        for rec in self:
+            local_srcs = {}
+
+            def local_src(match):
+                src = match[1]
+                if src not in local_srcs:
+                    attachment = rec._get_borrowed_attachment(int(match[2]), match[3], src)
+                    local_srcs[src] = attachment and rec._copy_image_attachment(attachment)
+                return f'src="{local_srcs[src]}"' if local_srcs[src] else match[0]
+
+            vals = {}
+            for field_name in field_names:
+                content = rec[field_name] or ''
+                new_content = IMG_SRC_RE.sub(local_src, content)
+                if new_content != content:
+                    vals[field_name] = new_content
+            if vals:
+                rec.with_context(skip_html_change_log=True).write(vals)
+
+    def _get_borrowed_attachment(self, attachment_id, checksum_prefix, src):
+        """The attachment behind `src` if it's one this record should copy.
+
+        This runs in sudo on an id read out of content the user wrote, so it
+        must not become a way to read an attachment they couldn't otherwise
+        see: the src has to carry the attachment's real checksum, and either
+        its access token or a user who has read access to it. The checksum
+        also catches a src whose id now means an unrelated attachment.
+
+        Shared Media Library / public images don't depend on any record, so
+        there's nothing to protect them from - see
+        _adopt_embedded_image_attachments for the same distinction.
+        """
+        self.ensure_one()
+        Attachment = self.env['ir.attachment']
+        attachment = Attachment.sudo().browse(attachment_id).exists()
+        if (not attachment
+                or attachment.public
+                or attachment.res_model == 'ir.ui.view'
+                or attachment.res_field
+                or not attachment.image_src
+                or attachment.checksum[:len(checksum_prefix)] != checksum_prefix
+                or (attachment.res_model == self._name and attachment.res_id == self.id)):
+            return Attachment
+        token = IMG_ACCESS_TOKEN_RE.search(src)
+        if token and consteq(attachment.access_token or '', token[1]):
+            return attachment
+        return attachment if Attachment.browse(attachment_id).has_access('read') else Attachment
+
+    def _copy_image_attachment(self, attachment):
+        """Copies `attachment` onto this record, returning the new image's src."""
+        self.ensure_one()
+        image = attachment.copy({'res_model': self._name, 'res_id': self.id, 'access_token': False})
+        image.generate_access_token()
+        return f'{image.image_src}?access_token={image.access_token}'
