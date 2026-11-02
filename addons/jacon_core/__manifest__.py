@@ -33,11 +33,12 @@ Currently provides:
 - Schedule change request: a Task's assignee cannot edit Start Date/Deadline/Allocated Hours directly - only propose new values (with a reason) instead; their direct HR manager (Employee > Manager) sees an Approve/Reject banner on the task and is the only one who can apply it. Assigning a Task also notifies the assignee's manager.
 - App Switcher grouping: the App Switcher dropdown (top-left grid icon) groups Jacon's own custom apps under a "JACON" header, separate from standard Odoo apps under "General", each with a small icon per row, restyled as a rounded card.
 - Header Back/Forward: browser-style Back/Forward buttons in the header, right after the Apps Menu grid icon, driving the browser's own history.
+- Task title tree widget: title autocomplete plus sub-task indentation and count, for lists of tasks shown as a tree (Engineering Change and Product Support Actions).
 - Field Change Log: a reusable mixin (jacon.field.change.log.mixin) any model can inherit to get a diff-based evidence trail (who changed what, with a "History" smart button) for its own HTML fields - currently used by Task's Description.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'project', 'hr_timesheet', 'hr_holidays', 'equipment_model'],
+    'depends': ['base', 'project', 'hr_timesheet', 'hr_holidays', 'equipment_model', 'project_custom_views'],
     'data': [
         'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
@@ -58,6 +59,8 @@ Currently provides:
             'jacon_core/static/src/fields/day_month_date_field.js',
             'jacon_core/static/src/fields/task_title_autocomplete_field.js',
             'jacon_core/static/src/fields/task_title_autocomplete_field.xml',
+            'jacon_core/static/src/fields/task_title_tree_field.js',
+            'jacon_core/static/src/fields/task_title_tree_field.xml',
             'jacon_core/static/src/list/resizable_column_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.js',
             'jacon_core/static/src/list/left_align_number_list_view.scss',

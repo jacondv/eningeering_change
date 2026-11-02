@@ -124,7 +124,7 @@
                         <!-- "Action" only takes section 4 when there's something to
                              print - Checklist falls back to being section 4 itself
                              instead of leaving a numbering gap when it's empty. -->
-                        <t t-set="report_actions" t-value="o.task_ids.filtered('include_in_report')"/>
+                        <t t-set="report_actions" t-value="o.task_ids.filtered('include_in_report').sorted('hierarchy_sort_key')"/>
                         <t t-if="report_actions">
                             <div class="ec-section-bar">4. Action</div>
                             <table class="ec-bordered">
@@ -138,7 +138,7 @@
                                 </thead>
                                 <tbody>
                                     <tr t-foreach="report_actions" t-as="task">
-                                        <td style="text-align:left;" t-out="task.name"/>
+                                        <td style="text-align:left;"><div t-attf-style="padding-left: #{task.hierarchy_depth * 12}pt;" t-out="task.name"/></td>
                                         <td style="text-align:center;" t-out="', '.join(task.user_ids.mapped('name')) or '-'"/>
                                         <td style="text-align:center;"><t t-esc="task.date_deadline and task.date_deadline.strftime('%d %b, %y')"/></td>
                                         <td style="text-align:center;"><span t-field="task.state"/></td>

@@ -832,6 +832,46 @@ class TestEngineeringChange(TransactionCase):
         task.with_user(self.user_bod).unlink()
         self.assertFalse(task.exists())
 
+    def test_sub_task_joins_its_parents_request(self):
+        change = self._create_request()
+        parent = self.env['project.task'].create({'name': 'Parent', 'change_id': change.id})
+
+        child = self.env['project.task'].create({'name': 'Child', 'parent_id': parent.id})
+
+        self.assertEqual(child.change_id, change)
+        self.assertEqual(child.project_id, parent.project_id)
+        self.assertIn(child, change.task_ids)
+        self.assertEqual(change.action_count, 2)
+
+    def test_sub_task_created_from_the_parents_sub_tasks_action_joins_too(self):
+        change = self._create_request()
+        parent = self.env['project.task'].create({'name': 'Parent', 'change_id': change.id})
+
+        child = self.env['project.task'].with_context(default_parent_id=parent.id).create({
+            'name': 'Child', 'project_id': parent.project_id.id,  # as the form sends it
+        })
+
+        self.assertEqual(child.change_id, change)
+
+    def test_sub_task_stays_in_its_parents_project(self):
+        change = self._create_request()
+        parent = self.env['project.task'].create({'name': 'Parent', 'change_id': change.id})
+        job = self.env['project.project'].create({'name': 'Job'})
+        parent.sudo().project_id = job
+
+        child = self.env['project.task'].create({'name': 'Child', 'parent_id': parent.id})
+
+        self.assertEqual(child.project_id, job)
+
+    def test_sub_task_of_a_plain_task_stays_unlinked(self):
+        project = self.env['project.project'].create({'name': 'Plain'})
+        parent = self.env['project.task'].create({'name': 'Parent', 'project_id': project.id})
+
+        child = self.env['project.task'].create({'name': 'Child', 'parent_id': parent.id})
+
+        self.assertFalse(child.change_id)
+        self.assertEqual(child.project_id, project)
+
     def test_unrelated_user_cannot_write_task(self):
         change = self._create_request(request_type='minor')
         change.with_user(self.user_engineer).action_submit()
