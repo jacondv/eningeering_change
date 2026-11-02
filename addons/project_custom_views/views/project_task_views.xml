@@ -2,8 +2,8 @@
 <odoo>
 
     <!-- Indent sub-tasks under their parent in the Tasks list view: sort
-         rows by parent_path so a sub-task always sits directly under its
-         parent (instead of Odoo's normal stage/priority/date ordering),
+         rows by hierarchy_sort_key so a sub-task always sits directly under
+         its parent (instead of Odoo's normal stage/priority/date ordering),
          and swap the Title field's widget for one that pads its text based
          on hierarchy_depth (see models/project_task.py). Inheriting the
          "main base" list view so this reaches every List built on top of
@@ -14,7 +14,7 @@
         <field name="inherit_id" ref="project.project_task_view_tree_main_base"/>
         <field name="arch" type="xml">
             <xpath expr="//list" position="attributes">
-                <attribute name="default_order">parent_path, priority desc, sequence, state, date_deadline asc, id desc</attribute>
+                <attribute name="default_order">hierarchy_sort_key</attribute>
             </xpath>
             <xpath expr="//field[@name='name']" position="attributes">
                 <attribute name="widget">task_name_indent</attribute>
