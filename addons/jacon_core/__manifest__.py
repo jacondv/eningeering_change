@@ -35,6 +35,7 @@ Currently provides:
 - Header Back/Forward: browser-style Back/Forward buttons in the header, right after the Apps Menu grid icon, driving the browser's own history.
 - Task title tree widget: title autocomplete plus sub-task indentation and count, for lists of tasks shown as a tree (Engineering Change and Product Support Actions).
 - Field Change Log: a reusable mixin (jacon.field.change.log.mixin) any model can inherit to get a diff-based evidence trail (who changed what, with a "History" smart button) for its own HTML fields - currently used by Task's Description.
+- Html image guard: a reusable mixin (jacon.html.attachment.mixin) that keeps images in HTML fields from getting lost - claims pasted images that never got linked to their record, and gives a record its own copy of any image pasted from another record, so deleting that other record doesn't break it.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
