@@ -6,8 +6,9 @@ from .res_config_settings import DEFAULT_TAB_TITLE, PARAM_PREFIX
 class ResCompany(models.Model):
     _inherit = 'res.company'
 
-    # Read from server-rendered templates (login page, emails, portal) via
-    # `res_company`, which QWeb provides on every render.
+    # Read from server-rendered templates: web pages (login page, portal) via
+    # `res_company`, emails via `company` - their minimal QWeb context has no
+    # `res_company`.
 
     def jacon_debranding_hidden(self, key):
         """Whether the debranding switch `key` (e.g. 'hide_login_powered_by') is on."""
