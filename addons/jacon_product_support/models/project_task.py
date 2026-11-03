@@ -13,8 +13,12 @@ class ProjectTask(models.Model):
         # whatever project the creating context would otherwise default to.
         Request = self.env['product.support.request']
         for vals in vals_list:
-            if vals.get('support_request_id'):
-                project = Request.browse(vals['support_request_id']).project_id
+            # A sub-task belongs to its parent's request, wherever it's created from.
+            parent = self.browse(vals.get('parent_id', self.env.context.get('default_parent_id')))
+            request_id = vals.get('support_request_id') or parent.support_request_id.id
+            if request_id:
+                vals['support_request_id'] = request_id
+                project = Request.browse(request_id).project_id
                 if project:
                     vals['project_id'] = project.id
         return super().create(vals_list)
