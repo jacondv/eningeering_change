@@ -24,6 +24,7 @@ and the solution given - see docs/Product_Support_TechSpec.md.
         'views/product_support_fault_category_views.xml',
         'views/product_support_dashboard_views.xml',
         'views/project_project_views.xml',
+        'views/project_task_views.xml',
         'views/engineering_change_views.xml',
         'views/product_support_menus.xml',
         'report/product_support_report.xml',

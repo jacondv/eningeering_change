@@ -360,13 +360,13 @@ class ProjectTask(models.Model):
     # ------------------------------------------------------------
     def action_open_ec_task_form(self):
         """Open this task's own EC-specific form (with the Evidence tab and
-        chatter) full-screen, for use as an "Open" button on rows of the
-        Actions tab's embedded task list - that list is editable="bottom",
-        so clicking a row otherwise just starts inline editing instead of
-        opening the full form. target='fullscreen' (not 'new') replaces the
-        whole page rather than opening a small dialog on top of the EC
-        form, with a breadcrumb to go back - there's more room to work with
-        a task's Description/Evidence than a popup allows.
+        chatter), for use as an "Open" button on rows of the Actions tab's
+        embedded task list - that list is editable="bottom", so clicking a
+        row otherwise just starts inline editing instead of opening the full
+        form. target='current' (not 'new') replaces the EC form rather than
+        opening a small dialog on top of it, with a breadcrumb to go back -
+        there's more room to work with a task's Description/Evidence than a
+        popup allows - and keeps the app's menu bar, which 'fullscreen' hides.
         """
         self.ensure_one()
         return {
@@ -375,7 +375,7 @@ class ProjectTask(models.Model):
             'res_id': self.id,
             'view_mode': 'form',
             'views': [(self.env.ref('engineering_change.view_engineering_change_action_form').id, 'form')],
-            'target': 'fullscreen',
+            'target': 'current',
         }
 
     # ------------------------------------------------------------
