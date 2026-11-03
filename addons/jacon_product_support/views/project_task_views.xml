@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Link from an Action back to its Support Request, right under the
+         Project it sits in - which is the request's own container project,
+         so not one to change by hand. -->
+    <record id="view_task_form2_support_request" model="ir.ui.view">
+        <field name="name">project.task.form.support.request</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <field name="project_id" position="attributes">
+                <attribute name="readonly">support_request_id</attribute>
+            </field>
+            <field name="project_id" position="after">
+                <field name="support_request_id" readonly="1" invisible="not support_request_id"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>
