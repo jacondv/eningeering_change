@@ -170,9 +170,16 @@
     .o_pnm_recent {
         margin-top: 32px;
 
+        .o_pnm_recent_header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
         h3 {
             font-size: 1.1em;
-            margin-bottom: 8px;
+            margin: 0;
         }
 
         // Tighter than table-sm's own padding - this panel is a scan-back
@@ -184,17 +191,65 @@
     }
 
     .o_pnm_recent_row {
-        td:not(.o_pnm_action_col, .o_pnm_sequence_cell) {
+        .o_pnm_recent_cell {
             cursor: copy;
+            user-select: none; // dragging selects whole cells, see PnmRecentPartsTable
+        }
+
+        .o_pnm_cell_selected {
+            // A box-shadow is what Bootstrap's table-hover paints over the cell with.
+            box-shadow: inset 0 0 0 9999px rgba(113, 75, 103, 0.2);
         }
     }
 
-    .o_pnm_sort_label {
+    .o_pnm_header_btn {
         padding: 0;
         border: 0;
         background: none;
         color: inherit;
         font: inherit;
+    }
+
+    // Pinned next to the resize handle, out of the reach of the header's
+    // ellipsis, so that it stays clickable however narrow the column gets.
+    .o_pnm_recent .o_pnm_th:has(.o_pnm_col_copy) {
+        padding-right: 26px;
+    }
+
+    .o_pnm_col_copy {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        transform: translateY(-50%);
+        color: var(--muted-text-color, #6c757d);
+
+        &:hover {
+            color: var(--o-brand-primary, #714B67);
+        }
+    }
+
+    .o_pnm_clearable {
+        display: flex;
+        align-items: stretch;
+
+        input, textarea {
+            flex: 1 1 auto;
+            min-width: 0;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+    }
+
+    .o_pnm_clear_btn {
+        flex: 0 0 auto;
+        border: 1px solid var(--border-color, #ced4da);
+        border-left: none;
+        border-top-right-radius: 0.25rem;
+        border-bottom-right-radius: 0.25rem;
+        background-color: var(--Table-background, #fff);
+        color: var(--muted-text-color, #6c757d);
+        padding: 0 6px;
+        font-size: 0.85em;
     }
 
     .o_pnm_action_col {

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="part_number_manager.PnmRecentPartsTable">
+        <div class="o_pnm_recent">
+            <t t-set="visibleColumns" t-value="columns"/>
+            <div class="o_pnm_recent_header">
+                <h3>Recently Created / Converted Parts</h3>
+                <button type="button" class="btn btn-sm btn-outline-secondary" t-on-click="() => this.props.onClear()">
+                    <i class="fa fa-eraser"/> Clear
+                </button>
+            </div>
+            <div class="o_pnm_table_wrapper">
+                <table class="table table-sm table-bordered table-hover o_pnm_table">
+                    <colgroup>
+                        <col t-foreach="visibleColumns" t-as="column" t-key="column.key"
+                             t-attf-style="width: {{state.columnWidths[column.key]}}px"/>
+                        <col/>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th t-foreach="visibleColumns" t-as="column" t-key="column.key" class="o_pnm_th"
+                                t-att-aria-sort="column.sortable ? sortDirection : false">
+                                <!-- The click sits on the label rather than the whole <th>: a column
+                                     resize that ends inside the header fires a click on the <th>,
+                                     which would otherwise re-sort the table. -->
+                                <button t-if="column.sortable" type="button" class="o_pnm_header_btn"
+                                        t-on-click="() => this.toggleOrder()">
+                                    <t t-esc="column.label"/>
+                                    <i t-attf-class="fa ms-1 {{state.newestFirst ? 'fa-caret-down' : 'fa-caret-up'}}"/>
+                                </button>
+                                <t t-else="" t-esc="column.label"/>
+                                <button t-if="column.copyable" type="button" class="o_pnm_header_btn o_pnm_col_copy"
+                                        t-attf-title="Copy all of {{column.label}}"
+                                        t-on-click="() => this.onCopyColumn(column)">
+                                    <i class="fa fa-copy"/>
+                                </button>
+                                <span class="o_pnm_col_resize_handle"
+                                      t-on-mousedown="(ev) => this.onColumnResizeStart(column.key, ev)"/>
+                            </th>
+                            <th class="o_pnm_action_col"/>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="rows" t-as="row" t-key="row.sequence" class="o_pnm_recent_row">
+                            <td t-foreach="visibleColumns" t-as="column" t-key="column.key"
+                                t-att-class="{
+                                    o_pnm_recent_cell: column.selectable,
+                                    o_pnm_cell_selected: isCellSelected(row_index, column_index),
+                                }"
+                                t-on-mousedown="(ev) => this.onCellMouseDown(row_index, column_index, ev)"
+                                t-on-mouseenter="() => this.onCellMouseEnter(row_index, column_index)">
+                                <t t-esc="_cellText(row, column)"/>
+                            </td>
+                            <td class="o_pnm_action_col">
+                                <button type="button" class="btn btn-sm btn-link" title="View"
+                                        t-on-click="() => this.props.onOpenPart(row.id)">
+                                    <i class="fa fa-external-link"/> View
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </t>
+
+</templates>
