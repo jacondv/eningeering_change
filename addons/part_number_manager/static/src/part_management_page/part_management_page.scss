@@ -184,9 +184,17 @@
     }
 
     .o_pnm_recent_row {
-        td:not(.o_pnm_action_col) {
+        td:not(.o_pnm_action_col, .o_pnm_sequence_cell) {
             cursor: copy;
         }
+    }
+
+    .o_pnm_sort_label {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
     }
 
     .o_pnm_action_col {

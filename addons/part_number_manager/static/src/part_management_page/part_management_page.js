@@ -23,6 +23,7 @@ const COLUMN_VISIBILITY_STORAGE_KEY = "part_number_manager.part_management_page.
 const RECENT_PARTS_STORAGE_KEY = "part_number_manager.part_management_page.recent_parts";
 const RECENT_COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.recent_column_widths";
 const DEFAULT_RECENT_COLUMN_WIDTHS = {
+    sequence: 60,
     material_group: 130,
     part_number: 120,
     job_number: 120,
@@ -95,6 +96,8 @@ export class PartManagementPage extends Component {
             // row gets added on top.
             recentParts: this._loadRecentParts(),
             recentColumnWidths: this._loadRecentColumnWidths(),
+            // Display order only, see recentRows - the log itself stays newest first.
+            recentNewestFirst: false,
         });
 
         // Each *Options array is the source list for one PnmCombobox field:
@@ -303,6 +306,19 @@ export class PartManagementPage extends Component {
             // Private browsing / storage disabled / quota - just won't
             // survive a refresh this time, nothing else depends on it.
         }
+    }
+
+    // The log with each part's sequence number, 1 being the first one created,
+    // whichever way it's displayed. No. and Time are the same order, so one
+    // switch sorts both, without having to parse Time's locale-formatted string.
+    get recentRows() {
+        const parts = this.state.recentParts;
+        const rows = parts.map((part, index) => ({ ...part, sequence: parts.length - index }));
+        return this.state.recentNewestFirst ? rows : rows.reverse();
+    }
+
+    toggleRecentOrder() {
+        this.state.recentNewestFirst = !this.state.recentNewestFirst;
     }
 
     _loadRecentColumnWidths() {

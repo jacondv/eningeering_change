@@ -123,7 +123,7 @@
                             </td>
                             <td class="o_pnm_number_cell">
                                 <t t-if="row.status === 'success'">
-                                    <span class="badge text-bg-success"><t t-esc="row.resultPartNumber"/></span>
+                                    <span class="badge text-bg-success user-select-all"><t t-esc="row.resultPartNumber"/></span>
                                 </t>
                                 <t t-else="">
                                     <t t-if="state.activeTab === 'create'">
@@ -264,6 +264,7 @@
                 <div class="o_pnm_table_wrapper">
                 <table class="table table-sm table-bordered table-hover o_pnm_table">
                     <colgroup>
+                        <col t-attf-style="width: {{state.recentColumnWidths.sequence}}px"/>
                         <col t-attf-style="width: {{state.recentColumnWidths.material_group}}px"/>
                         <col t-attf-style="width: {{state.recentColumnWidths.part_number}}px"/>
                         <col t-attf-style="width: {{state.recentColumnWidths.job_number}}px"/>
@@ -278,6 +279,10 @@
                     </colgroup>
                     <thead>
                         <tr>
+                            <t t-call="part_number_manager.RecentSortableHeader">
+                                <t t-set="label">No.</t>
+                                <t t-set="columnKey" t-value="'sequence'"/>
+                            </t>
                             <th class="o_pnm_th">Material Group
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('material_group', ev)"/>
                             </th>
@@ -305,15 +310,17 @@
                             <th class="o_pnm_th">Make/Buy
                                 <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('make_buy', ev)"/>
                             </th>
-                            <th class="o_pnm_th">Time
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('time', ev)"/>
-                            </th>
+                            <t t-call="part_number_manager.RecentSortableHeader">
+                                <t t-set="label">Time</t>
+                                <t t-set="columnKey" t-value="'time'"/>
+                            </t>
                             <th class="o_pnm_action_col"/>
                         </tr>
                     </thead>
                     <tbody>
-                        <t t-foreach="state.recentParts" t-as="p" t-key="p.id">
+                        <t t-foreach="recentRows" t-as="p" t-key="p.sequence">
                             <tr class="o_pnm_recent_row">
+                                <td class="o_pnm_sequence_cell"><t t-esc="p.sequence"/></td>
                                 <td t-on-click="() => this.copyCell(p.material_group_label)"><t t-esc="p.material_group_label"/></td>
                                 <td t-on-click="() => this.copyCell(p.part_number)"><t t-esc="p.part_number"/></td>
                                 <td t-on-click="() => this.copyCell(p.job_number_label)"><t t-esc="p.job_number_label"/></td>
@@ -337,5 +344,18 @@
                 </div>
             </div>
         </div>
+    </t>
+
+    <!-- The click sits on the label rather than the whole <th>: a column resize
+         that ends inside the header fires a click on the <th>, which would
+         otherwise re-sort the table. -->
+    <t t-name="part_number_manager.RecentSortableHeader">
+        <th class="o_pnm_th" t-att-aria-sort="state.recentNewestFirst ? 'descending' : 'ascending'">
+            <button type="button" class="o_pnm_sort_label" t-on-click="() => this.toggleRecentOrder()">
+                <t t-esc="label"/>
+                <i t-attf-class="fa ms-1 {{state.recentNewestFirst ? 'fa-caret-down' : 'fa-caret-up'}}"/>
+            </button>
+            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart(columnKey, ev)"/>
+        </th>
     </t>
 </templates>
