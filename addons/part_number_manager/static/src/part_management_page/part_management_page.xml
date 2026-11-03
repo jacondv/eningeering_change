@@ -163,10 +163,10 @@
                                 </div>
                             </td>
                             <td t-if="state.columnVisibility.short_description">
-                                <input type="text" class="form-control form-control-sm"
-                                       t-model="row.short_description"
-                                       t-on-paste="(ev) => this.onCellPaste(row, 'short_description', ev)"
-                                       t-att-disabled="row.status === 'success'"/>
+                                <t t-call="part_number_manager.PnmClearableField">
+                                    <t t-set="record" t-value="row"/>
+                                    <t t-set="fieldName" t-value="'short_description'"/>
+                                </t>
                                 <div class="small"
                                      t-attf-class="{{ (row.short_description || '').length > SHORT_DESCRIPTION_MAX_LENGTH ? 'text-danger' : 'text-muted' }}">
                                     <t t-esc="(row.short_description || '').length"/>/<t t-esc="SHORT_DESCRIPTION_MAX_LENGTH"/>
@@ -176,10 +176,11 @@
                                 </div>
                             </td>
                             <td t-if="state.columnVisibility.long_description">
-                                <textarea class="form-control form-control-sm o_pnm_long_desc" rows="1"
-                                          t-model="row.long_description"
-                                          t-on-paste="(ev) => this.onCellPaste(row, 'long_description', ev)"
-                                          t-att-disabled="row.status === 'success'"/>
+                                <t t-call="part_number_manager.PnmClearableField">
+                                    <t t-set="record" t-value="row"/>
+                                    <t t-set="fieldName" t-value="'long_description'"/>
+                                    <t t-set="multiline" t-value="true"/>
+                                </t>
                             </td>
                             <td t-if="state.columnVisibility.part_type">
                                 <PnmCombobox options="partTypeOptions"
@@ -204,10 +205,11 @@
                                                     </option>
                                                 </t>
                                             </select>
-                                            <input t-else="" t-att-type="attr.value_type === 'float' ? 'number' : 'text'"
-                                                   class="form-control form-control-sm"
-                                                   t-model="attr.value"
-                                                   t-att-disabled="row.status === 'success'"/>
+                                            <t t-else="" t-call="part_number_manager.PnmClearableField">
+                                                <t t-set="record" t-value="attr"/>
+                                                <t t-set="fieldName" t-value="'value'"/>
+                                                <t t-set="inputType" t-value="attr.value_type === 'float' ? 'number' : 'text'"/>
+                                            </t>
                                         </div>
                                     </t>
                                 </div>
@@ -228,10 +230,10 @@
                                 </div>
                             </td>
                             <td t-if="state.columnVisibility.vendor_ref">
-                                <input type="text" class="form-control form-control-sm"
-                                       t-model="row.vendor_ref"
-                                       t-on-paste="(ev) => this.onCellPaste(row, 'vendor_ref', ev)"
-                                       t-att-disabled="row.status === 'success'"/>
+                                <t t-call="part_number_manager.PnmClearableField">
+                                    <t t-set="record" t-value="row"/>
+                                    <t t-set="fieldName" t-value="'vendor_ref'"/>
+                                </t>
                             </td>
                             <td t-if="state.columnVisibility.make_buy">
                                 <select class="form-select form-select-sm"
@@ -259,103 +261,30 @@
             </table>
             </div>
 
-            <div class="o_pnm_recent" t-if="state.recentParts.length">
-                <h3>Recently Created / Converted Parts</h3>
-                <div class="o_pnm_table_wrapper">
-                <table class="table table-sm table-bordered table-hover o_pnm_table">
-                    <colgroup>
-                        <col t-attf-style="width: {{state.recentColumnWidths.sequence}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.material_group}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.part_number}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.job_number}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.short_description}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.long_description}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.part_type}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.vendor}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.vendor_ref}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.make_buy}}px"/>
-                        <col t-attf-style="width: {{state.recentColumnWidths.time}}px"/>
-                        <col/>
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <t t-call="part_number_manager.RecentSortableHeader">
-                                <t t-set="label">No.</t>
-                                <t t-set="columnKey" t-value="'sequence'"/>
-                            </t>
-                            <th class="o_pnm_th">Material Group
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('material_group', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Part Number
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('part_number', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Job Number
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('job_number', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Short Description
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('short_description', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Long Description
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('long_description', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Part Type
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('part_type', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Vendor
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Vendor Part No.
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('vendor_ref', ev)"/>
-                            </th>
-                            <th class="o_pnm_th">Make/Buy
-                                <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart('make_buy', ev)"/>
-                            </th>
-                            <t t-call="part_number_manager.RecentSortableHeader">
-                                <t t-set="label">Time</t>
-                                <t t-set="columnKey" t-value="'time'"/>
-                            </t>
-                            <th class="o_pnm_action_col"/>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <t t-foreach="recentRows" t-as="p" t-key="p.sequence">
-                            <tr class="o_pnm_recent_row">
-                                <td class="o_pnm_sequence_cell"><t t-esc="p.sequence"/></td>
-                                <td t-on-click="() => this.copyCell(p.material_group_label)"><t t-esc="p.material_group_label"/></td>
-                                <td t-on-click="() => this.copyCell(p.part_number)"><t t-esc="p.part_number"/></td>
-                                <td t-on-click="() => this.copyCell(p.job_number_label)"><t t-esc="p.job_number_label"/></td>
-                                <td t-on-click="() => this.copyCell(p.short_description)"><t t-esc="p.short_description"/></td>
-                                <td t-on-click="() => this.copyCell(p.long_description)"><t t-esc="p.long_description"/></td>
-                                <td t-on-click="() => this.copyCell(p.part_type_label)"><t t-esc="p.part_type_label"/></td>
-                                <td t-on-click="() => this.copyCell(p.vendor_label)"><t t-esc="p.vendor_label"/></td>
-                                <td t-on-click="() => this.copyCell(p.vendor_ref)"><t t-esc="p.vendor_ref"/></td>
-                                <td t-on-click="() => this.copyCell(p.make_buy)"><t t-esc="p.make_buy"/></td>
-                                <td t-on-click="() => this.copyCell(p.time)"><t t-esc="p.time"/></td>
-                                <td class="o_pnm_action_col">
-                                    <button type="button" class="btn btn-sm btn-link" title="View"
-                                            t-on-click="() => this.openPart(p.id)">
-                                        <i class="fa fa-external-link"/> View
-                                    </button>
-                                </td>
-                            </tr>
-                        </t>
-                    </tbody>
-                </table>
-                </div>
-            </div>
+            <PnmRecentPartsTable t-if="state.recentParts.length"
+                                 parts="state.recentParts"
+                                 onOpenPart="(id) => this.openPart(id)"
+                                 onClear="() => this.clearRecentParts()"/>
         </div>
     </t>
 
-    <!-- The click sits on the label rather than the whole <th>: a column resize
-         that ends inside the header fires a click on the <th>, which would
-         otherwise re-sort the table. -->
-    <t t-name="part_number_manager.RecentSortableHeader">
-        <th class="o_pnm_th" t-att-aria-sort="state.recentNewestFirst ? 'descending' : 'ascending'">
-            <button type="button" class="o_pnm_sort_label" t-on-click="() => this.toggleRecentOrder()">
-                <t t-esc="label"/>
-                <i t-attf-class="fa ms-1 {{state.recentNewestFirst ? 'fa-caret-down' : 'fa-caret-up'}}"/>
+    <!-- A plain input/textarea with the same quick clear as PnmCombobox.
+         Expects: record, fieldName, row; optionally multiline, inputType. -->
+    <t t-name="part_number_manager.PnmClearableField">
+        <div class="o_pnm_clearable">
+            <textarea t-if="multiline" class="form-control form-control-sm o_pnm_long_desc" rows="1"
+                      t-model="record[fieldName]"
+                      t-on-paste="(ev) => this.onCellPaste(record, fieldName, ev)"
+                      t-att-disabled="row.status === 'success'"/>
+            <input t-else="" t-att-type="inputType || 'text'" class="form-control form-control-sm"
+                   t-model="record[fieldName]"
+                   t-on-paste="(ev) => this.onCellPaste(record, fieldName, ev)"
+                   t-att-disabled="row.status === 'success'"/>
+            <button type="button" class="o_pnm_clear_btn" tabindex="-1" title="Clear"
+                    t-if="record[fieldName] and row.status !== 'success'"
+                    t-on-mousedown.prevent="(ev) => this.clearField(record, fieldName, ev)">
+                <i class="fa fa-times"/>
             </button>
-            <span class="o_pnm_col_resize_handle" t-on-mousedown="(ev) => this.onRecentColumnResizeStart(columnKey, ev)"/>
-        </th>
+        </div>
     </t>
 </templates>
