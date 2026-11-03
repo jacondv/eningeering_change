@@ -4,7 +4,9 @@ import { Component, onWillStart, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { parseClipboardRows } from "./pnm_clipboard";
 import { PnmCombobox } from "./pnm_combobox";
+import { PnmRecentPartsTable } from "./pnm_recent_parts_table";
 
 const PART_NUMBER_MODEL = "part_number_manager.part_number";
 // Kept in sync with SHORT_DESCRIPTION_MAX_LENGTH in part_number.py - the
@@ -21,20 +23,6 @@ const COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.colu
 const ACTIVE_TAB_STORAGE_KEY = "part_number_manager.part_management_page.active_tab";
 const COLUMN_VISIBILITY_STORAGE_KEY = "part_number_manager.part_management_page.column_visibility";
 const RECENT_PARTS_STORAGE_KEY = "part_number_manager.part_management_page.recent_parts";
-const RECENT_COLUMN_WIDTHS_STORAGE_KEY = "part_number_manager.part_management_page.recent_column_widths";
-const DEFAULT_RECENT_COLUMN_WIDTHS = {
-    sequence: 60,
-    material_group: 130,
-    part_number: 120,
-    job_number: 120,
-    short_description: 180,
-    long_description: 220,
-    part_type: 130,
-    vendor: 150,
-    vendor_ref: 120,
-    make_buy: 90,
-    time: 100,
-};
 const DEFAULT_COLUMN_WIDTHS = {
     legacy: 180,
     material_group: 180,
@@ -67,7 +55,7 @@ const TOGGLEABLE_COLUMNS = [
 
 export class PartManagementPage extends Component {
     static template = "part_number_manager.PartManagementPage";
-    static components = { PnmCombobox };
+    static components = { PnmCombobox, PnmRecentPartsTable };
     static props = ["*"];
 
     setup() {
@@ -95,9 +83,6 @@ export class PartManagementPage extends Component {
             // even after the row itself scrolls out of view or a new blank
             // row gets added on top.
             recentParts: this._loadRecentParts(),
-            recentColumnWidths: this._loadRecentColumnWidths(),
-            // Display order only, see recentRows - the log itself stays newest first.
-            recentNewestFirst: false,
         });
 
         // Each *Options array is the source list for one PnmCombobox field:
@@ -308,53 +293,6 @@ export class PartManagementPage extends Component {
         }
     }
 
-    // The log with each part's sequence number, 1 being the first one created,
-    // whichever way it's displayed. No. and Time are the same order, so one
-    // switch sorts both, without having to parse Time's locale-formatted string.
-    get recentRows() {
-        const parts = this.state.recentParts;
-        const rows = parts.map((part, index) => ({ ...part, sequence: parts.length - index }));
-        return this.state.recentNewestFirst ? rows : rows.reverse();
-    }
-
-    toggleRecentOrder() {
-        this.state.recentNewestFirst = !this.state.recentNewestFirst;
-    }
-
-    _loadRecentColumnWidths() {
-        let saved = {};
-        try {
-            saved = JSON.parse(localStorage.getItem(RECENT_COLUMN_WIDTHS_STORAGE_KEY) || "{}");
-        } catch {
-            saved = {};
-        }
-        return { ...DEFAULT_RECENT_COLUMN_WIDTHS, ...saved };
-    }
-
-    _saveRecentColumnWidths() {
-        try {
-            localStorage.setItem(RECENT_COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(this.state.recentColumnWidths));
-        } catch {
-            // Not remembered this time - not fatal, columns just default back next visit.
-        }
-    }
-
-    onRecentColumnResizeStart(columnKey, ev) {
-        ev.preventDefault();
-        const startX = ev.clientX;
-        const startWidth = this.state.recentColumnWidths[columnKey];
-        const onMouseMove = (moveEv) => {
-            this.state.recentColumnWidths[columnKey] = Math.max(60, startWidth + (moveEv.clientX - startX));
-        };
-        const onMouseUp = () => {
-            window.removeEventListener("mousemove", onMouseMove);
-            window.removeEventListener("mouseup", onMouseUp);
-            this._saveRecentColumnWidths();
-        };
-        window.addEventListener("mousemove", onMouseMove);
-        window.addEventListener("mouseup", onMouseUp);
-    }
-
     _loadActiveTab() {
         try {
             const saved = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
@@ -431,16 +369,19 @@ export class PartManagementPage extends Component {
         window.addEventListener("mouseup", onMouseUp);
     }
 
-    async copyCell(text) {
-        if (!text) {
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(String(text));
-            this.notification.add("Copied to clipboard.", { type: "success" });
-        } catch {
-            this.notification.add("Could not copy to clipboard.", { type: "danger" });
-        }
+    clearRecentParts() {
+        this.dialog.add(ConfirmationDialog, {
+            title: "Clear Recent Parts",
+            body: "Clear this list? The part numbers themselves are not deleted.",
+            confirmLabel: "Clear",
+            cancelLabel: "Cancel",
+            confirm: () => {
+                // In place: PnmRecentPartsTable holds on to this same array.
+                this.state.recentParts.splice(0);
+                this._saveRecentParts();
+            },
+            cancel: () => {},
+        });
     }
 
     async openPart(id) {
@@ -506,6 +447,11 @@ export class PartManagementPage extends Component {
 
     addRow() {
         this.state.rows.push(this._makeRow());
+    }
+
+    clearField(record, fieldName, ev) {
+        record[fieldName] = "";
+        ev.currentTarget.previousElementSibling.focus();
     }
 
     removeRow(localId) {
@@ -763,25 +709,16 @@ export class PartManagementPage extends Component {
     // over rather than overwritten - they're locked/disabled in the UI for
     // the same reason. A plain single-cell paste (no tab, no newline) is
     // left alone so normal typing/paste into one field keeps working
-    // exactly as before.
+    // exactly as before. A blank pasted line takes up a row like any other,
+    // blanking the cell it lands on, so the rows stay lined up with the source.
     onCellPaste(row, columnKey, ev) {
         const text = (ev.clipboardData || window.clipboardData).getData("text");
-        if (!text || !/[\t\r\n]/.test(text)) {
+        const columnOrder = this.columnOrder;
+        const startIndex = columnOrder.indexOf(columnKey);
+        if (!text || !/[\t\r\n]/.test(text) || startIndex === -1) {
             return;
         }
         ev.preventDefault();
-
-        const lines = text.split(/\r\n|\r|\n/).filter((line) => line !== "");
-        if (!lines.length) {
-            return;
-        }
-        const parsedLines = lines.map((line) => line.split("\t"));
-
-        const columnOrder = this.columnOrder;
-        const startIndex = columnOrder.indexOf(columnKey);
-        if (startIndex === -1) {
-            return;
-        }
 
         const applyLine = (targetRow, cols) => {
             cols.forEach((cellText, i) => {
@@ -793,7 +730,7 @@ export class PartManagementPage extends Component {
         };
 
         let cursor = this.state.rows.indexOf(row);
-        for (const cols of parsedLines) {
+        for (const cols of parseClipboardRows(text)) {
             while (cursor < this.state.rows.length && this.state.rows[cursor].status === "success") {
                 cursor++;
             }
@@ -940,6 +877,7 @@ export class PartManagementPage extends Component {
                     this.state.recentParts.unshift({
                         id: res.part_id,
                         part_number: res.part_number,
+                        legacy_label: row.legacyText,
                         material_group_label: row.material_group_text,
                         job_number_label: row.job_number_text,
                         short_description: row.short_description,
