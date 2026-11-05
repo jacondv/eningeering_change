@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_core.RecordLinkDialog">
+        <Dialog size="'md'" title="title">
+            <div class="btn-group w-100 mb-3" role="group">
+                <button t-foreach="types" t-as="type" t-key="type.resModel" type="button"
+                        class="btn btn-outline-primary"
+                        t-att-class="{ active: type_index === state.typeIndex }"
+                        t-on-click="() => this.selectType(type_index)">
+                    <t t-esc="type.label"/>
+                </button>
+            </div>
+            <div t-if="currentType.filter" class="d-flex align-items-center gap-2 mb-3">
+                <label class="form-label mb-0" t-esc="currentType.filter.label"/>
+                <div class="flex-grow-1">
+                    <RecordSelector resId="state.filterId"
+                                    resModel="currentType.filter.resModel"
+                                    domain="currentType.filter.domain"
+                                    placeholder="currentType.filter.placeholder"
+                                    update.bind="selectFilter"/>
+                </div>
+            </div>
+            <!-- Keyed on the type: another type starts over from an empty search. -->
+            <AutoComplete t-key="currentType.resModel"
+                          sources="sources"
+                          input="searchInput"
+                          autofocus="true"
+                          autoSelect="true"
+                          menuCssClass="'w-100'"
+                          placeholder.translate="Search by number or title..."/>
+            <t t-set-slot="footer">
+                <button class="btn btn-secondary" t-on-click="() => props.close()">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>
