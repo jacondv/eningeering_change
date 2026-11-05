@@ -1,6 +1,6 @@
 {
     'name': 'Product Support',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Services',
     'summary': 'Log support, diagnosis and guidance given to customers for machine faults',
     'description': """
