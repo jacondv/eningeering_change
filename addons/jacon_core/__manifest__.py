@@ -1,6 +1,6 @@
 {
     'name': 'Jacon Core',
-    'version': '19.0.1.4.0',
+    'version': '19.0.1.5.0',
     'category': 'Hidden/Tools',
     'summary': 'Shared, cross-cutting extensions used by multiple Jacon addons',
     'description': """
@@ -36,10 +36,11 @@ Currently provides:
 - Task title tree widget: title autocomplete plus sub-task indentation and count, for lists of tasks shown as a tree (Engineering Change and Product Support Actions).
 - Field Change Log: a reusable mixin (jacon.field.change.log.mixin) any model can inherit to get a diff-based evidence trail (who changed what, with a "History" smart button) for its own HTML fields - currently used by Task's Description.
 - Html image guard: a reusable mixin (jacon.html.attachment.mixin) that keeps images in HTML fields from getting lost - claims pasted images that never got linked to their record, and gives a record its own copy of any image pasted from another record, so deleting that other record doesn't break it.
+- Record links: a `/` command in every HTML field, "Link to Record", that searches for a Task or Project (and any other type an addon registers in the jacon_core.record_link_types registry, such as Engineering Change and Product Support) and inserts a link to it.
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'project', 'hr_timesheet', 'hr_holidays', 'equipment_model', 'project_custom_views'],
+    'depends': ['base', 'html_editor', 'project', 'hr_timesheet', 'hr_holidays', 'equipment_model', 'project_custom_views'],
     'data': [
         'security/jacon_core_groups.xml',
         'security/ir.model.access.csv',
@@ -54,6 +55,10 @@ Currently provides:
     ],
     'assets': {
         'web.assets_backend': [
+            'jacon_core/static/src/html_record_link/record_link_dialog.js',
+            'jacon_core/static/src/html_record_link/record_link_dialog.xml',
+            'jacon_core/static/src/html_record_link/record_link_plugin.js',
+            'jacon_core/static/src/html_record_link/html_field_patch.js',
             'jacon_core/static/src/fields/clipboard_image_field.js',
             'jacon_core/static/src/fields/date_or_na_field.js',
             'jacon_core/static/src/fields/date_or_na_field.xml',
