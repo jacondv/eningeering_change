@@ -13,6 +13,17 @@ __pycache__/
 # Odoo runtime
 *.log
 
+# Python tooling output
+venv/
+.venv/
+build/
+dist/
+*.spec
+
+# tools/odoo_admin: machine settings and activity logs
+/tools/odoo_admin/config.json
+/tools/odoo_admin/logs/
+
 # OS / editor
 .DS_Store
 Thumbs.db

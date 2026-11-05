@@ -1,0 +1,9 @@
+{
+    "project_dir": "C:\\odoo-project",
+    "database": "jacon_plm",
+    "branch": "main",
+    "odoo_url": "http://localhost:8069",
+    "backup_script": "C:\\scripts\\backup_odoo.bat",
+    "backup_root": "C:\\Users\\JaconVNComet&JaconEq\\OneDrive - MAAS Group Holdings\\JACON ENGINEERING\\12. App\\Odoo\\data_backup",
+    "safety_backup_root": "C:\\odoo_backup\\before_restore"
+}
