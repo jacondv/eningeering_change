@@ -22,7 +22,7 @@ const SEARCH_LIMIT = 8;
 //         unassignedNumber: "New",     // optional, its value before a number is assigned
 //         domain: [],                  // optional, leaves records out of the search
 //         filter: {                    // optional, narrows the search down by a many2one,
-//             field: "partner_id",     // whose value also tells same-named results apart
+//             field: "partner_id",     // whose value also tells same-named links apart
 //             resModel: "res.partner",
 //             label: "Customer",
 //             placeholder: "All customers",
@@ -84,20 +84,18 @@ export class RecordLinkDialog extends Component {
         }
         return records.map((record) => {
             const text = this.linkText(type, record);
-            const filterValue = record[filterField];
-            return {
-                label: filterValue ? `${text} (${filterValue[1]})` : text,
-                onSelect: () => this.select(type, record, text),
-            };
+            return { label: text, onSelect: () => this.select(type, record, text) };
         });
     }
 
     linkText(type, record) {
         const number = record[type.numberField];
         const title = record[type.titleField];
-        return number && number !== type.unassignedNumber
+        const filterValue = record[type.filter?.field];
+        const text = number && number !== type.unassignedNumber
             ? `${type.prefix} ${number} - ${title}`
             : `${type.prefix} - ${title}`;
+        return filterValue ? `${text} (${filterValue[1]})` : text;
     }
 
     select(type, record, text) {
