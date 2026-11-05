@@ -1,6 +1,6 @@
 {
     'name': 'Engineering Change / DCR Management',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Manufacturing/Quality',
     'summary': 'Manage Engineering Change Requests (Minor Change & DCR)',
     'description': """
@@ -47,6 +47,7 @@ Features:
             'engineering_change/static/src/dashboard/engineering_change_dashboard.js',
             'engineering_change/static/src/dashboard/engineering_change_dashboard.xml',
             'engineering_change/static/src/list/collapsible_many2many_tags_field.js',
+            'engineering_change/static/src/record_link_type.js',
         ],
     },
     'installable': True,
