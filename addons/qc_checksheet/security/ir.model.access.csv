@@ -24,4 +24,5 @@ access_qc_checksheet_inventor_import_wizard_line_author,qc.checksheet.inventor.i
 access_qc_checksheet_new_revision_wizard_author,qc.checksheet.new.revision.wizard.author,model_qc_checksheet_new_revision_wizard,group_qc_author,1,1,1,1
 access_qc_checksheet_reject_wizard_approver,qc.checksheet.reject.wizard.approver,model_qc_checksheet_reject_wizard,group_qc_approver,1,1,1,1
 access_qc_checksheet_admin,qc.checksheet.admin,model_qc_checksheet,group_qc_admin,1,0,0,1
+access_qc_checksheet_settings_admin,qc.checksheet.settings.admin,model_qc_checksheet_settings,group_qc_admin,1,1,1,0
 access_qc_checksheet_type_admin,qc.checksheet.type.admin,model_qc_checksheet_type,group_qc_admin,1,1,1,1

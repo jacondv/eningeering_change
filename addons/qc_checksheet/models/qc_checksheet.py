@@ -29,12 +29,18 @@ class QcChecksheet(models.Model):
     # Only ever changed by the workflow methods, never through a direct write.
     WORKFLOW_FIELDS = frozenset({
         'state', 'revision', 'root_id', 'previous_revision_id', 'reference', 'copied_from_id',
-        'reject_reason', 'submitted_by_id', 'approved_by_id', 'approved_date', 'editor_version',
+        'reject_reason', 'submitted_by_id', 'submitted_date', 'approved_by_id', 'approved_date', 'editor_version',
     })
     # Editing any of these is a content change, so it needs a Draft Revision.
     CONTROLLED_FIELDS = frozenset({
         'name', 'company_id', 'remarks', 'group_ids', 'panel_line_ids',
         'image_group_ids', 'approval_ids', 'history_ids',
+    })
+
+    # What a copied Rev 0 must keep exactly as its source had it. Header and
+    # Revision History stay editable: they describe this machine and this Rev.
+    COPY_LOCKED_FIELDS = frozenset({
+        'remarks', 'group_ids', 'panel_line_ids', 'image_group_ids', 'approval_ids',
     })
 
     name = fields.Char(
@@ -66,6 +72,7 @@ class QcChecksheet(models.Model):
     change_reason = fields.Char(string='Reason for Change', compute='_compute_change_reason')
     reject_reason = fields.Char(string='Reject Reason', readonly=True, copy=False)
     submitted_by_id = fields.Many2one('res.users', string='Submitted By', readonly=True, copy=False)
+    submitted_date = fields.Datetime(string='Submitted On', readonly=True, copy=False)
     approved_by_id = fields.Many2one('res.users', string='Approved By', readonly=True, copy=False)
     approved_date = fields.Date(string='Approved On', readonly=True, copy=False)
 
@@ -77,6 +84,10 @@ class QcChecksheet(models.Model):
     check_date = fields.Date(string='Check Date')
 
     copied_from_id = fields.Many2one('qc.checksheet', string='Copied From', readonly=True, copy=False)
+    content_locked = fields.Boolean(
+        compute='_compute_content_locked',
+        help="Rev 0 copied from another Job keeps exactly the content it was copied from: "
+             "release it, then create a New Revision to change what is inspected.")
 
     group_ids = fields.One2many('qc.checksheet.group', 'checksheet_id', string='Inspection Groups')
     panel_line_ids = fields.One2many('qc.checksheet.panel.line', 'checksheet_id', string='Panel Lines')
@@ -99,6 +110,18 @@ class QcChecksheet(models.Model):
                 rec.item_count = len(rec.panel_line_ids)
             else:
                 rec.item_count = sum(len(g.item_ids) for g in rec.group_ids)
+
+    @api.depends('copied_from_id', 'revision')
+    def _compute_content_locked(self):
+        for rec in self:
+            rec.content_locked = bool(rec.copied_from_id) and rec.revision == 0
+
+    def _content_locked_message(self):
+        self.ensure_one()
+        return _(
+            "%(sheet)s is a copy of %(source)s and keeps exactly the same content at Rev 0. "
+            "Release it first, then create a New Revision to change what is inspected.",
+            sheet=self.display_name, source=self.copied_from_id.display_name)
 
     @api.depends('root_id.revision_ids')
     def _compute_revision_count(self):
@@ -182,6 +205,8 @@ class QcChecksheet(models.Model):
             if rec.state != 'draft' and self.CONTROLLED_FIELDS & vals.keys():
                 raise UserError(_(
                     "%s is locked. Create a New Revision to change it.", rec.display_name))
+            if rec.content_locked and self.COPY_LOCKED_FIELDS & vals.keys():
+                raise UserError(rec._content_locked_message())
             if rec.state == 'superseded' and 'check_date' in vals:
                 raise UserError(_("%s is superseded and can't be changed.", rec.display_name))
             for field_name in ('job_number', 'type_id'):
@@ -319,6 +344,7 @@ class QcChecksheet(models.Model):
             sudo_rec.write({
                 'state': 'review',
                 'submitted_by_id': self.env.uid,
+                'submitted_date': fields.Datetime.now(),
                 'reject_reason': False,
                 'reference': rec.reference or self._generate_reference(rec.type_id, rec.job_number),
             })
