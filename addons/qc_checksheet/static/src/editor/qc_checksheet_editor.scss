@@ -518,3 +518,21 @@ input.o_qce_diff_changed { background-color: $qce-changed; }
     .o_qce_main { flex: 1 1 100%; }
     .o_qce_splitter { display: none; }
 }
+
+// Engineering Changes of a Revision
+.o_qce_changes_bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.o_qce_changes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.o_qce_chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    font-weight: 600;
+}
+.o_qce_chip_x { border: 0; background: none; padding: 0 2px; line-height: 1; color: inherit; opacity: 0.6; }
+.o_qce_chip_x:hover { opacity: 1; }
+.o_qce_change_add { min-width: 240px; }
+.o_qce_change_add .o_qce_job_menu { min-width: 360px; }

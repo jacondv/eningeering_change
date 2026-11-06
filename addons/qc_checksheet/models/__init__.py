@@ -11,3 +11,4 @@ from . import qc_checksheet_panel_line
 from . import qc_checksheet_image
 from . import qc_checksheet_inventor_bom_line
 from . import qc_checksheet_print
+from . import qc_checksheet_change

@@ -69,6 +69,15 @@ export class QcJobPage extends Component {
         });
     }
 
+    openChange(change) {
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "engineering.change",
+            res_id: change.id,
+            views: [[false, "form"]],
+        });
+    }
+
     openJobForm() {
         return this.action.doAction({
             type: "ir.actions.act_window",

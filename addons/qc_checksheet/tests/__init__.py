@@ -6,3 +6,4 @@ from . import test_qc_checksheet_editor
 from . import test_qc_checksheet_job
 from . import test_qc_checksheet_dashboard
 from . import test_qc_checksheet_print
+from . import test_qc_checksheet_ec

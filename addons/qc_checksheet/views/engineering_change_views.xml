@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- The QC Check Sheets that name this Engineering Change. -->
+    <record id="view_engineering_change_form_qc_checksheet" model="ir.ui.view">
+        <field name="name">engineering.change.form.qc.checksheet</field>
+        <field name="model">engineering.change</field>
+        <field name="inherit_id" ref="engineering_change.view_engineering_change_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button class="oe_stat_button" type="object" name="action_view_qc_checksheets" icon="fa-check-square-o"
+                        groups="qc_checksheet.group_qc_user" invisible="not qc_checksheet_count">
+                    <field name="qc_checksheet_count" widget="statinfo" string="QC Sheets"/>
+                </button>
+            </div>
+        </field>
+    </record>
+
+</odoo>

@@ -8,6 +8,8 @@ import { useSetupAction } from "@web/search/action_hook";
 import { parseClipboardRows } from "./qc_clipboard";
 import { compareSheets, rowsWithRemoved } from "./qc_compare";
 import { QcNewSheet } from "./qc_new_sheet";
+import { QcChangePicker } from "./qc_change_picker";
+import { QcNewRevisionDialog } from "./qc_new_revision_dialog";
 import { QcPreviewDialog } from "./qc_preview_dialog";
 import { QcPromptDialog } from "./qc_prompt_dialog";
 import { QcRichCell } from "./qc_rich_cell";
@@ -73,7 +75,7 @@ function htmlToText(html) {
  */
 export class QcChecksheetEditor extends Component {
     static template = "qc_checksheet.Editor";
-    static components = { QcNewSheet, QcRichCell };
+    static components = { QcNewSheet, QcRichCell, QcChangePicker };
     static props = ["*"];
 
     setup() {
@@ -791,9 +793,39 @@ export class QcChecksheetEditor extends Component {
     }
 
     newRevision() {
-        this.askReason("New Revision", "What is changing and why", "Create Revision", async (reason) => {
-            const action = await this.orm.call(CHECKSHEET_MODEL, "action_create_revision", [[this.sheet.id], reason]);
-            await this.openSheet(action.res_id);
+        this.dialog.add(QcNewRevisionDialog, {
+            search: (term) => this.searchChanges(term),
+            onConfirm: async (reason, changes) => {
+                const action = await this.orm.call(CHECKSHEET_MODEL, "action_create_revision", [
+                    [this.sheet.id],
+                    reason,
+                    changes.map((change) => change.id),
+                ]);
+                await this.openSheet(action.res_id);
+            },
+        });
+    }
+
+    // Engineering Changes of this Revision
+
+    searchChanges(term) {
+        return this.orm.call(CHECKSHEET_MODEL, "editor_search_changes", [[this.sheet.id], term]);
+    }
+
+    /** Saved at once, apart from the sheet's own Save. */
+    async setChanges(changes) {
+        this.sheet.changes = await this.orm.call(CHECKSHEET_MODEL, "editor_set_changes", [
+            [this.sheet.id],
+            changes.map((change) => change.id),
+        ]);
+    }
+
+    openChange(change) {
+        return this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "engineering.change",
+            res_id: change.id,
+            views: [[false, "form"]],
         });
     }
 

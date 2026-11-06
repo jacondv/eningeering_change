@@ -9,7 +9,11 @@ class QcChecksheetNewRevisionWizard(models.TransientModel):
 
     checksheet_id = fields.Many2one('qc.checksheet', required=True)
     reason = fields.Char(string='Reason for Change', required=True)
+    change_ids = fields.Many2many(
+        'engineering.change', string='Engineering Changes',
+        domain=[('state', 'not in', ['draft', 'canceled'])],
+        help="The Engineering Changes behind this Revision, if any. Printed in the Revision History.")
 
     def action_create(self):
         self.ensure_one()
-        return self.checksheet_id.action_create_revision(self.reason)
+        return self.checksheet_id.action_create_revision(self.reason, self.change_ids.ids)

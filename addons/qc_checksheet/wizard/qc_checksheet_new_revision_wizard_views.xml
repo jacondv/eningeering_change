@@ -9,6 +9,8 @@
                 <field name="checksheet_id" invisible="1"/>
                 <group>
                     <field name="reason" placeholder="What is changing and why"/>
+                    <field name="change_ids" widget="many2many_tags" options="{'no_create': True}"
+                           placeholder="Optional: the Engineering Changes behind this Revision"/>
                 </group>
                 <footer>
                     <button string="Create Revision" name="action_create" type="object" class="btn-primary"/>

@@ -115,7 +115,11 @@
                                 <t t-set="history_printed" t-value="o.history_ids.filtered('show_in_report').sorted(lambda h: (h.rev, h.id))"/>
                                 <tr t-foreach="history_printed" t-as="history">
                                     <td style="text-align:center;"><span t-esc="history.rev"/></td>
-                                    <td><span t-field="history.description"/></td>
+                                    <td>
+                                        <span t-field="history.description"/>
+                                        <t t-set="history_changes" t-value="o._history_change_names(history.rev)"/>
+                                        <t t-if="history_changes"> (<span t-esc="history_changes"/>)</t>
+                                    </td>
                                     <td style="text-align:center;"><span t-field="history.date" t-options='{"format": "dd-MMM-y"}'/></td>
                                     <td style="text-align:center;"><span t-field="history.created_by"/></td>
                                     <td style="text-align:center;"><span t-field="history.approved_by"/></td>

@@ -34,7 +34,7 @@ class QcChecksheet(models.Model):
     # Editing any of these is a content change, so it needs a Draft Revision.
     CONTROLLED_FIELDS = frozenset({
         'name', 'company_id', 'remarks', 'group_ids', 'panel_line_ids',
-        'image_group_ids', 'approval_ids', 'history_ids',
+        'image_group_ids', 'approval_ids', 'history_ids', 'change_request_ids',
     })
 
     name = fields.Char(
@@ -372,7 +372,7 @@ class QcChecksheet(models.Model):
                     "Rev %(new)s is now current. Withdraw printed copies of Rev %(old)s from the workshop.",
                     new=rec.revision, old=previous[0].revision))
 
-    def action_create_revision(self, reason):
+    def action_create_revision(self, reason, change_ids=None):
         """Open the next Draft Revision. This one stays Released, and in use,
         until the new Revision is approved (see action_approve)."""
         self.ensure_one()
@@ -412,6 +412,7 @@ class QcChecksheet(models.Model):
             'previous_revision_id': self.id,
             'copied_from_id': self.copied_from_id.id,
             'history_ids': history,
+            'change_request_ids': [(6, 0, self.env['engineering.change'].browse(change_ids or []).exists().ids)],
         })
         new_revision._copy_lines_from(self.sudo())
         return {
