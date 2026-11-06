@@ -6,11 +6,30 @@
           groups="qc_checksheet.group_qc_user"
           sequence="30"/>
 
-    <!-- Single entry point: browse/manage check sheets, with the standard
-         Odoo "New" button on the list for creation - no separate wizard menu. -->
+    <!-- First, so the QC menu opens on it. -->
+    <menuitem id="menu_qc_checksheet_dashboard" name="Dashboard"
+          parent="menu_qc_checksheet_root"
+          action="action_qc_dashboard"
+          sequence="5"/>
+
     <menuitem id="menu_qc_checksheet_all" name="Check Sheets"
           parent="menu_qc_checksheet_root"
           action="action_qc_checksheet_all"
           sequence="10"/>
+
+    <menuitem id="menu_qc_checksheet_config" name="Configuration"
+          parent="menu_qc_checksheet_root"
+          groups="qc_checksheet.group_qc_admin"
+          sequence="90"/>
+
+    <menuitem id="menu_qc_checksheet_type" name="Check Sheet Types"
+          parent="menu_qc_checksheet_config"
+          action="action_qc_checksheet_type"
+          sequence="10"/>
+
+    <menuitem id="menu_qc_checksheet_settings" name="Settings"
+          parent="menu_qc_checksheet_config"
+          action="action_qc_checksheet_settings"
+          sequence="20"/>
 
 </odoo>

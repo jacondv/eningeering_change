@@ -20,7 +20,7 @@
                             </td>
                             <td style="width:50%; text-align:center; vertical-align:middle; color:white; padding-left:0pt;">
                                 <div style="font-weight:bold; font-size:15pt;" t-esc="(o.name or '').upper()"/>
-                                <div t-if="o.header_title" style="font-size:14pt;" t-esc="o.header_title.upper()"/>
+                                <div t-if="o.type_id" style="font-size:14pt;" t-esc="o.type_id.name.upper()"/>
                             </td>
                             <td style="width:30%; vertical-align:middle;  padding:3pt 7.5pt 3pt 3pt;">
                                 <table style="width:100%; height:60pt;  border:2.25pt solid #ff0000; border-collapse:separate; border-spacing:0; background-color:white;">
@@ -38,6 +38,12 @@
                                 </table>
                             </td>
                         </tr>
+                        <tr t-if="o.state in ('draft', 'review', 'superseded')">
+                            <td colspan="3" style="background-color:#c00000; color:white; text-align:center; font-weight:bold; font-size:12pt; padding:2pt;">
+                                <t t-if="o.state == 'superseded'">SUPERSEDED - REV <t t-esc="o.revision"/> - DO NOT USE</t>
+                                <t t-else="">DRAFT - REV <t t-esc="o.revision"/> - NOT FOR USE</t>
+                            </td>
+                        </tr>
                     </table>
                 </div>
 
@@ -50,7 +56,7 @@
                             .article table { font-size: 10pt; }
                         </style>
 
-                        <h5 style="text-align:left; font-weight:bold;" t-esc="(o.header_title or '').upper()"/>
+                        <h5 style="text-align:left; font-weight:bold;" t-esc="(o.type_id.name or '').upper()"/>
                         <h6 t-if="o.reference" style="text-align:left;font-weight:bold;" t-esc="o.reference"/>
 
                         <table class="table table-sm" style="border: 0.75pt solid #000000; border-collapse: separate; border-spacing: 0;">
@@ -64,7 +70,7 @@
                                 <td style="border: none !important; box-shadow: none !important;">Job Number:</td>
                                 <td style="border: none !important; box-shadow: none !important;"><span t-field="o.job_number.name"/></td>
                                 <td style="border: none !important; box-shadow: none !important;">Model:</td>
-                                <!-- <td style="border: none !important; box-shadow: none !important;"><span t-field="o.machine_model"/></td> -->
+                                <td style="border: none !important; box-shadow: none !important;"><span t-field="o.machine_model"/></td>
                             </tr>
                             <tr>
                                 <td style="border: none !important; box-shadow: none !important;">Engine Number:</td>
@@ -94,7 +100,7 @@
                             </tbody>
                         </table>
 
-                        <p style="font-weight:bold; margin-top:10.5pt;">QC Check Sheet Template History</p>
+                        <p style="font-weight:bold; margin-top:10.5pt;">QC Check Sheet Revision History</p>
                         <table class="table table-sm table-bordered">
                             <thead>
                                 <tr style="background-color:#008080; color:white;font-weight:bold;">
@@ -106,9 +112,9 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <t t-set="history_printed" t-value="o.history_ids.filtered('show_in_report').sorted(lambda h: (h.sequence, h.id))"/>
+                                <t t-set="history_printed" t-value="o.history_ids.filtered('show_in_report').sorted(lambda h: (h.rev, h.id))"/>
                                 <tr t-foreach="history_printed" t-as="history">
-                                    <td style="text-align:center;"><span t-field="history.rev"/></td>
+                                    <td style="text-align:center;"><span t-esc="history.rev"/></td>
                                     <td><span t-field="history.description"/></td>
                                     <td style="text-align:center;"><span t-field="history.date" t-options='{"format": "dd-MMM-y"}'/></td>
                                     <td style="text-align:center;"><span t-field="history.created_by"/></td>
@@ -149,7 +155,7 @@
                                             <td style="line-height:1.1;vertical-align:middle;"><div class="qc-rich-text" t-field="item.acceptance"/></td>
                                             <td style="text-align:center;vertical-align:middle;">&#160;</td>
                                             <td style="line-height:1.1;vertical-align:middle;" class="text-center">&#9744;</td>
-                                            <td><span t-field="item.note"/></td>
+                                            <td style="line-height:1.1;"><div class="qc-rich-text" t-field="item.note"/></td>
                                         </tr>
                                     </t>
                                 </tbody>
@@ -253,14 +259,8 @@
 
                 <div class="footer" style="border-top:0.75pt solid #999999; padding-top:3pt; font-size:10pt; font-family:'Liberation Sans', Arial, sans-serif;">
                     <div>
-                        <div>Document: <span t-field="o.reference"/></div>
-                        
-                        <t t-set="history_sorted" t-value="o.history_ids.filtered('show_in_report').sorted(lambda h: (h.sequence, h.id))"/>
-                        <t t-if="history_sorted">
-                            <div>
-                                Revision: <span t-esc="history_sorted[-1].rev"/>
-                            </div>
-                        </t>
+                        <div>Document: <span t-field="o.reference"/> · Job: <span t-field="o.job_number.name"/></div>
+                        <div>Revision: <span t-esc="o.revision"/></div>
                     </div>
                     <div style="text-align:right;">Page <span class="page"/> of <span class="topage"/></div>
                 </div>

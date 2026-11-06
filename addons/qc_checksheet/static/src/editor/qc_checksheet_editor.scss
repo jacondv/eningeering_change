@@ -1,0 +1,520 @@
+$qce-teal: #006f6f;
+$qce-line: #d5dade;
+$qce-band: #dbe5f1;
+
+// The web client keeps .o_action itself from scrolling, so the page scrolls in
+// this box inside it.
+.o_qce_action {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.o_qce {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: #eef0f2;
+    font-size: 14px;
+}
+
+.o_qce_topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    padding: 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid $qce-line;
+}
+
+.o_qce_title {
+    font-size: 16px;
+}
+
+.o_qce_unsaved {
+    color: #8a4b00 !important;
+    font-weight: 600;
+}
+
+.o_qce_danger {
+    color: #a4161a;
+}
+
+.o_qce_badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.o_qce_badge_draft { background: #dfe7f3; color: #1d3f72; }
+.o_qce_badge_review { background: #fbe8c6; color: #6b4300; }
+.o_qce_badge_released { background: #d5ecd9; color: #14532d; }
+.o_qce_badge_superseded { background: #e2e5e8; color: #3e4a55; }
+
+.o_qce_notice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 16px;
+}
+.o_qce_notice_warning { background: #fbe8c6; color: #5c3a00; }
+.o_qce_notice_danger { background: #f8dcdc; color: #7a1215; }
+.o_qce_notice_info { background: #dfe7f3; color: #1d3f72; }
+
+.o_qce_panel {
+    background: #fff;
+    border: 1px solid $qce-line;
+    border-radius: 6px;
+}
+
+.o_qce_icon {
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: #52606d;
+    &:hover { background: #e3e7ea; color: #1f2933; }
+}
+.o_qce_grip[draggable="true"] { cursor: grab; }
+.o_qce_grip[draggable="false"] { visibility: hidden; }
+
+// New Check Sheet page
+
+.o_qce_new {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.o_qce_new_form {
+    flex: 999 1 560px;
+    max-width: 820px;
+    min-width: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.o_qce_new_summary {
+    flex: 1 1 280px;
+    max-width: 360px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.o_qce_row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.o_qce_row > .o_qce_field {
+    flex: 1 1 240px;
+}
+
+.o_qce_field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    label { font-weight: 600; }
+}
+
+.o_qce_job_field { position: relative; }
+
+.o_qce_job_menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    max-height: 280px;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid $qce-line;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(20, 30, 40, 0.18);
+}
+
+.o_qce_source_job {
+    width: 260px;
+    max-width: 100%;
+}
+
+.o_qce_job_option {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    background: none;
+    text-align: left;
+    &:hover { background: #eef2f4; }
+}
+
+.o_qce_choice {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border: 1px solid #b8c0c8;
+    border-radius: 5px;
+    background: #fff;
+    text-align: left;
+    &:hover { border-color: $qce-teal; }
+}
+.o_qce_choice_on {
+    border-color: $qce-teal;
+    box-shadow: inset 0 0 0 1px $qce-teal;
+    background: #f2fbfb;
+}
+.o_qce_dot {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    border: 2px solid #7b8794;
+    border-radius: 50%;
+    .o_qce_choice_on & { border: 5px solid $qce-teal; }
+}
+
+.o_qce_sources {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 12px;
+    border-left: 3px solid $qce-line;
+}
+
+.o_qce_number {
+    font-size: 18px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.o_qce_facts {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 4px 8px;
+    margin: 0;
+    dt { font-weight: 400; color: #52606d; }
+    dd { margin: 0; }
+}
+
+// Editor page
+
+.o_qce_body {
+    display: flex;
+    padding: 12px 16px;
+    align-items: flex-start;
+}
+
+.o_qce_resizing {
+    user-select: none;
+    cursor: col-resize;
+}
+
+.o_qce_splitter {
+    flex: 0 0 12px;
+    align-self: stretch;
+    min-height: 200px;
+    margin: 0 1px;
+    border-radius: 3px;
+    cursor: col-resize;
+    touch-action: none;
+    &:hover, .o_qce_resizing & { background: #c6d6d6; }
+}
+
+.o_qce_outline {
+    position: sticky;
+    top: 70px;
+    flex: 0 0 var(--qce-outline, 220px);
+    min-width: 0;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.o_qce_outline_row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    text-align: left;
+    &:hover { background: #eef2f4; }
+}
+
+.o_qce_ellipsis {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.o_qce_main {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.o_qce_header_panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    align-items: center;
+    padding: 10px 14px;
+}
+
+.o_qce_header_input {
+    flex: 1 1 280px;
+    width: auto;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.o_qce_tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 8px;
+    border-bottom: 1px solid $qce-line;
+}
+
+.o_qce_tab {
+    padding: 9px 14px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: none;
+    font-weight: 600;
+    color: #52606d;
+}
+.o_qce_tab_on {
+    color: #005a5a;
+    border-bottom-color: $qce-teal;
+}
+
+.o_qce_hints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 6px 12px;
+    color: #52606d;
+    font-size: 12px;
+    border-bottom: 1px solid #e3e7ea;
+}
+
+.o_qce_scroll_x { overflow-x: auto; }
+
+.o_qce_grid {
+    display: grid;
+    grid-template-columns:
+        36px 48px
+        minmax(120px, var(--qce-col-description, 2.6fr))
+        minmax(120px, var(--qce-col-acceptance, 1.3fr))
+        minmax(120px, var(--qce-col-note, 1fr))
+        40px;
+    min-width: 760px;
+}
+
+.o_qce_grid_head {
+    background: $qce-teal;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    > div { padding: 8px 10px; }
+}
+
+.o_qce_col_head {
+    position: relative;
+    min-width: 0;
+}
+
+.o_qce_col_handle {
+    position: absolute;
+    top: 0;
+    right: -5px;
+    bottom: 0;
+    z-index: 1;
+    width: 10px;
+    cursor: col-resize;
+    touch-action: none;
+    &:hover { background: rgba(255, 255, 255, 0.45); }
+}
+
+.o_qce_cell {
+    min-width: 0;
+    border-right: 1px solid $qce-line;
+    border-bottom: 1px solid $qce-line;
+    &:last-child { border-right: 0; }
+}
+
+.o_qce_cell_center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.o_qce_band {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 760px;
+    padding-right: 4px;
+    background: $qce-band;
+    border-bottom: 1px solid #b9c9dc;
+    font-weight: 700;
+    color: #16324f;
+}
+.o_qce_band_name {
+    flex: 1;
+    min-width: 0;
+}
+
+.o_qce_drop { box-shadow: inset 0 3px 0 $qce-teal; }
+
+.o_qce_rich_cell { height: 100%; }
+
+.o_qce_rendered {
+    min-height: 40px;
+    height: 100%;
+    padding: 9px 10px;
+    cursor: text;
+    overflow-wrap: anywhere;
+    &:focus { outline: 0; }
+    img { max-width: 100%; height: auto; }
+    p { margin-bottom: 3pt; }
+    p:last-child { margin-bottom: 0; }
+}
+.o_qce_rendered_readonly { cursor: default; }
+.o_qce_placeholder { color: #52606d; font-weight: 400; }
+
+.o_qce_rich_cell_active {
+    box-shadow: inset 0 0 0 2px $qce-teal;
+    background: #f2fbfb;
+    .odoo-editor-editable {
+        min-height: 40px;
+        padding: 9px 10px;
+        outline: 0;
+        overflow-wrap: anywhere;
+        p { margin-bottom: 3pt; }
+        p:last-child { margin-bottom: 0; }
+        img { max-width: 100%; height: auto; }
+    }
+}
+
+.o_qce_positions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 540px;
+    padding: 14px;
+}
+
+.o_qce_table {
+    width: 100%;
+    min-width: 780px;
+    border-collapse: collapse;
+    th {
+        padding: 8px 10px;
+        background: $qce-teal;
+        color: #fff;
+        font-size: 13px;
+    }
+    td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #e3e7ea;
+        vertical-align: middle;
+    }
+    input[readonly] {
+        border-color: transparent;
+        background: transparent;
+    }
+}
+
+.o_qce_pdf_preview {
+    display: block;
+    width: 100%;
+    height: calc(100vh - 170px);
+    border: 0;
+}
+
+// Comparing Revisions. Each mark also has a text label, so colour is never the only cue.
+$qce-added: #dff2e3;
+$qce-changed: #fff1bf;
+$qce-removed: #f9dede;
+
+.o_qce_compare_bar {
+    background: #f4f6f8;
+    border-bottom: 1px solid $qce-line;
+}
+
+.o_qce_legend {
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.o_qce_diff_added,
+.o_qce_diff_added .o_qce_cell { background-color: $qce-added; }
+.o_qce_diff_changed,
+input.o_qce_diff_changed { background-color: $qce-changed; }
+.o_qce_diff_removed {
+    background-color: $qce-removed;
+    color: #6b2a2c;
+    .o_qce_rendered, &.o_qce_ghost_position { text-decoration: line-through; }
+}
+.o_qce_band.o_qce_diff_added { background-color: $qce-added; }
+.o_qce_band.o_qce_diff_changed { background-color: $qce-changed; }
+
+.o_qce_number_cell {
+    flex-direction: column;
+    gap: 2px;
+}
+
+.o_qce_diff_tag {
+    padding: 0 5px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: #3e4a55;
+    text-decoration: none;
+}
+
+.o_qce_ghost_position {
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+@media (max-width: 767.98px) {
+    .o_qce_body { flex-wrap: wrap; gap: 12px; }
+    .o_qce_outline { position: static; flex: 1 1 100%; }
+    .o_qce_main { flex: 1 1 100%; }
+    .o_qce_splitter { display: none; }
+}

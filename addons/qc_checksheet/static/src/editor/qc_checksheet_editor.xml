@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="qc_checksheet.PromptDialog">
+        <Dialog title="props.title" size="'md'" onClose="() => this.dismiss()">
+            <p t-if="props.body" t-esc="props.body"/>
+            <div t-if="props.inputLabel">
+                <label class="fw-bold mb-1" for="qce_prompt_input" t-esc="props.inputLabel"/>
+                <input id="qce_prompt_input" class="form-control" autofocus="autofocus" t-model="state.text"/>
+            </div>
+            <t t-set-slot="footer">
+                <t t-foreach="props.buttons" t-as="button" t-key="button_index">
+                    <button class="btn" t-att-class="button.primary ? 'btn-primary' : 'btn-secondary'"
+                            t-att-disabled="button.primary and isBlocked" t-on-click="() => this.choose(button)"
+                            t-esc="button.label"/>
+                </t>
+            </t>
+        </Dialog>
+    </t>
+
+    <t t-name="qc_checksheet.RichCell">
+        <div class="o_qce_rich_cell" t-ref="root" t-att-class="{'o_qce_rich_cell_active': editing}"
+             t-on-keydown.capture="onKeydown" t-on-paste.capture="onPaste">
+            <Wysiwyg t-if="editing" config="config" onLoad.bind="onEditorLoad" class="'o_qce_wysiwyg'"/>
+            <div t-else="" class="o_qce_rendered qc-rich-text" t-att-class="{'o_qce_rendered_readonly': props.readonly}"
+                 t-att-tabindex="props.readonly ? -1 : 0" role="textbox" t-att-aria-label="props.label"
+                 t-on-focus="() => this.props.onActivate()" t-on-click="() => this.props.onActivate()">
+                <t t-if="isEmpty"><span t-if="props.placeholder" class="o_qce_placeholder" t-esc="props.placeholder"/></t>
+                <t t-else="" t-out="renderedValue"/>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="qc_checksheet.NewSheet">
+        <div class="o_qce_topbar">
+            <button class="btn btn-secondary" t-on-click="() => this.props.onBack()">Back to list</button>
+            <strong class="o_qce_title">New Check Sheet</strong>
+        </div>
+        <div class="o_qce_new">
+            <div class="o_qce_panel o_qce_new_form">
+                <div class="o_qce_row">
+                    <div class="o_qce_field">
+                        <label for="qce_job">Job Number</label>
+                        <QcJobPicker inputId="'qce_job'" placeholder="'Search a Job'" value="state.job"
+                                     search="searchJobs" onPick.bind="pickJob" emptyText="'No Job with a Model matches.'"/>
+                    </div>
+                    <div class="o_qce_field">
+                        <label for="qce_type">Check Sheet Type</label>
+                        <select id="qce_type" class="form-select" t-on-change="onTypeChange">
+                            <t t-foreach="state.types" t-as="type" t-key="type.id">
+                                <option t-att-value="type.id" t-att-selected="type.id === state.typeId"><t t-esc="type.name"/> (<t t-esc="type.code"/>)</option>
+                            </t>
+                        </select>
+                    </div>
+                </div>
+                <div class="o_qce_field">
+                    <label for="qce_header">Header</label>
+                    <input id="qce_header" class="form-control" t-att-value="state.header" t-on-input="onHeaderInput"/>
+                    <small class="text-muted" t-esc="headerHint"/>
+                </div>
+                <div t-if="state.context.duplicate_id" class="alert alert-warning mb-0 d-flex flex-wrap align-items-center gap-2">
+                    <span>This Job already has a sheet of this Type, and a Job holds one per Type.</span>
+                    <button class="btn btn-link p-0" t-on-click="() => this.props.onOpen(state.context.duplicate_id)">Open it</button>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    <span class="fw-bold">Start from</span>
+                    <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.source === 'blank'}" t-on-click="() => { state.source = 'blank'; }">
+                        <span class="o_qce_dot"/><span><strong>Blank sheet</strong><br/><small class="text-muted">Start with one empty Group and Item</small></span>
+                    </button>
+                    <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.source === 'copy'}" t-on-click="() => { state.source = 'copy'; }">
+                        <span class="o_qce_dot"/><span><strong>Copy from another machine</strong><br/><small class="text-muted">Content and approval positions only, restarting at Rev 0</small></span>
+                    </button>
+                </div>
+                <div t-if="state.source === 'copy'" class="o_qce_sources">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label for="qce_source_job" class="mb-0">Filter by Job</label>
+                        <div class="o_qce_source_job">
+                            <QcJobPicker inputId="'qce_source_job'" placeholder="'All Jobs'" value="state.sourceJob" clearable="true"
+                                         search="searchSourceJobs" onPick.bind="pickSourceJob"
+                                         emptyText="'No Job with a Released sheet to copy matches.'"/>
+                        </div>
+                        <small class="text-muted">Released sheets of this layout, same Model first</small>
+                    </div>
+                    <t t-foreach="state.context.sources" t-as="source" t-key="source.id">
+                        <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.sourceId === source.id}" t-on-click="() => { state.sourceId = source.id; }">
+                            <span class="o_qce_dot"/>
+                            <span class="flex-grow-1"><strong t-esc="source.label"/><br/>
+                                <small class="text-muted"><t t-esc="source.header"/> · <t t-esc="source.groups"/> Groups, <t t-esc="source.items"/> Items</small></span>
+                            <span t-if="source.same_model" class="o_qce_badge o_qce_badge_released">Same Model</span>
+                        </button>
+                    </t>
+                    <div t-if="!state.context.sources.length" class="text-muted">
+                        <t t-if="state.sourceJob">No Released check sheet on <t t-esc="state.sourceJob.name"/>.</t>
+                        <t t-else="">No Released check sheet to copy from yet.</t>
+                    </div>
+                </div>
+            </div>
+            <div class="o_qce_panel o_qce_new_summary">
+                <span class="fw-bold">This sheet will be</span>
+                <div class="o_qce_number" t-esc="previewNumber"/>
+                <div><span class="o_qce_badge o_qce_badge_draft">Draft</span> <span class="text-muted">Rev 0</span></div>
+                <dl class="o_qce_facts">
+                    <dt>Model</dt><dd t-esc="state.context.model or '-'"/>
+                    <dt>Serial</dt><dd t-esc="state.context.serial or '-'"/>
+                    <dt>Engine</dt><dd t-esc="state.context.engine or '-'"/>
+                    <dt>Customer</dt><dd t-esc="state.context.customer or '-'"/>
+                </dl>
+                <small class="text-muted">These details come from the Job.</small>
+                <button class="btn btn-primary" t-att-disabled="cannotCreate" t-on-click="create">Create and start editing</button>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="qc_checksheet.Editor">
+        <div class="o_action o_qce_action">
+            <div class="o_qce">
+                <QcNewSheet t-if="!state.sheetId" onCreated.bind="onCreated" onOpen.bind="openSheet" onBack.bind="goToList"
+                            defaultJobId="props.action.context?.default_job_id or false"
+                            defaultTypeId="props.action.context?.default_type_id or false"/>
+                <t t-elif="sheet" t-call="qc_checksheet.EditorBody"/>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="qc_checksheet.EditorBody">
+        <div class="o_qce_topbar">
+            <button class="btn btn-secondary" t-on-click="goToList">Back to list</button>
+            <strong class="o_qce_title"><t t-esc="sheet.number"/> ·
+                <button class="btn btn-link p-0 align-baseline o_qce_title" title="Open this Job's check sheets" t-on-click="openJob" t-esc="sheet.job"/>
+                · Rev <t t-esc="sheet.revision"/></strong>
+            <span t-att-class="badgeClass" t-esc="sheet.state_label"/>
+            <small class="text-muted" t-att-class="saveLabelClass" t-esc="saveLabel"/>
+            <span class="flex-grow-1"/>
+            <button t-if="compareOptions.length" class="btn btn-secondary" t-att-class="{'active': state.compare}"
+                    t-on-click="toggleCompare" t-esc="state.compare ? 'Hide comparison' : 'Compare'"/>
+            <button class="btn btn-secondary" t-on-click="openPreview">Preview</button>
+            <button class="btn btn-secondary" t-on-click="printPdf">Print PDF</button>
+            <t t-if="editable">
+                <button class="btn btn-secondary o_qce_danger" t-on-click="discardDraft">Discard Draft</button>
+                <button class="btn btn-secondary" t-att-disabled="!state.dirty or state.saving" t-on-click="save">Save</button>
+                <button class="btn btn-primary" t-att-disabled="state.saving" t-on-click="submit">Submit</button>
+            </t>
+            <t t-if="sheet.state === 'review'">
+                <button t-if="sheet.can_author" class="btn btn-secondary" t-on-click="recall">Recall</button>
+                <t t-if="sheet.can_approve">
+                    <button class="btn btn-secondary o_qce_danger" t-on-click="reject">Reject</button>
+                    <button class="btn btn-primary" t-on-click="approve">Approve</button>
+                </t>
+            </t>
+            <button t-if="sheet.state === 'released' and sheet.can_author and isCurrentRevisionView" class="btn btn-primary" t-on-click="newRevision">New Revision</button>
+        </div>
+
+        <div t-if="oldRevisionNotice" class="o_qce_notice o_qce_notice_warning">
+            <span t-esc="oldRevisionNotice"/>
+            <button class="btn btn-link p-0" t-on-click="() => this.openSheet(sheet.latest_id)">Open the latest Revision</button>
+        </div>
+        <div t-if="sheet.state === 'draft' and sheet.reject_reason" class="o_qce_notice o_qce_notice_danger">
+            <strong>Rejected:</strong> <t t-esc="sheet.reject_reason"/>
+        </div>
+        <div t-if="sheet.state === 'review'" class="o_qce_notice o_qce_notice_info">
+            Waiting for approval. Recall it to keep editing.
+        </div>
+        <div t-if="state.compare" class="o_qce_notice o_qce_compare_bar">
+            <label for="qce_compare_base" class="fw-bold">Rev <t t-esc="sheet.revision"/> compared with</label>
+            <select id="qce_compare_base" class="form-select form-select-sm w-auto" t-on-change="onCompareBaseChange">
+                <t t-foreach="compareOptions" t-as="rev" t-key="rev.id">
+                    <option t-att-value="rev.id" t-att-selected="rev.id === state.compare.baseId" t-esc="rev.label"/>
+                </t>
+            </select>
+            <strong t-esc="compareSummary"/>
+            <span class="flex-grow-1"/>
+            <span class="o_qce_legend o_qce_diff_added">Added</span>
+            <span class="o_qce_legend o_qce_diff_changed">Changed (hover for the old text)</span>
+            <span class="o_qce_legend o_qce_diff_removed">Removed</span>
+        </div>
+
+        <t t-set="diff" t-value="currentDiff"/>
+        <div class="o_qce_body" t-att-class="{'o_qce_resizing': state.resizing}" t-att-style="layoutStyle">
+            <div class="o_qce_panel o_qce_outline">
+                <span class="fw-bold px-2">Groups</span>
+                <t t-foreach="numberedGroups" t-as="entry" t-key="entry.group.uid">
+                    <button class="o_qce_outline_row" t-on-click="() => this.jumpToGroup(entry)">
+                        <span class="text-muted" t-esc="entry.index"/>
+                        <span class="o_qce_ellipsis" t-esc="entry.title"/>
+                        <small class="text-muted" t-esc="entry.items.length"/>
+                    </button>
+                </t>
+                <button t-if="editable" class="btn btn-secondary mt-2" t-on-click="addGroup">Add Group</button>
+                <small class="text-muted px-2 pt-2"><t t-esc="totalItems"/> Items in <t t-esc="sheet.groups.length"/> Groups</small>
+            </div>
+
+            <div class="o_qce_splitter" title="Drag to resize. Double-click to reset."
+                 t-on-pointerdown="startOutlineDrag" t-on-dblclick="resetOutline"/>
+
+            <div class="o_qce_main">
+                <div class="o_qce_panel o_qce_header_panel">
+                    <label for="qce_sheet_name" class="fw-bold">Header</label>
+                    <input id="qce_sheet_name" class="form-control o_qce_header_input" t-att-value="sheet.name"
+                           t-att-class="{'o_qce_diff_changed': diff and diff.header !== null}"
+                           t-att-title="diff and diff.header !== null ? 'Before: ' + diff.header : ''"
+                           t-att-readonly="!editable" t-on-input="onNameInput"/>
+                    <small class="text-muted"><t t-esc="sheet.type_name"/> · <t t-esc="sheet.model"/> · Serial <t t-esc="sheet.serial or '-'"/></small>
+                </div>
+
+                <div class="o_qce_panel">
+                    <div class="o_qce_tabs">
+                        <button class="o_qce_tab" t-att-class="{'o_qce_tab_on': state.tab === 'content'}" t-on-click="() => { state.tab = 'content'; }">Inspection Content</button>
+                        <button class="o_qce_tab" t-att-class="{'o_qce_tab_on': state.tab === 'approval'}" t-on-click="() => { state.tab = 'approval'; }">Approval Positions</button>
+                        <button class="o_qce_tab" t-att-class="{'o_qce_tab_on': state.tab === 'history'}" t-on-click="() => { state.tab = 'history'; }">Revision History</button>
+                    </div>
+
+                    <t t-if="state.tab === 'content'" t-call="qc_checksheet.EditorContent"/>
+
+                    <div t-if="state.tab === 'approval'" class="o_qce_positions">
+                        <small class="text-muted">Printed in the approval table of the PDF. Name, signature and date stay blank for a wet signature.</small>
+                        <t t-foreach="sheet.positions" t-as="line" t-key="line.uid">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="text-muted" t-esc="line_index + 1"/>
+                                <input class="form-control" placeholder="e.g. QC Inspector" t-att-value="line.position"
+                                       t-att-class="{'o_qce_diff_added': diff and diff.positions.added.has(line_index)}"
+                                       t-att-readonly="!editable" t-on-input="(ev) => this.onPositionInput(line, ev)"/>
+                                <button t-if="editable" class="o_qce_icon" title="Delete" t-on-click="() => this.removePosition(line_index)"><i class="fa fa-trash-o"/></button>
+                            </div>
+                        </t>
+                        <t t-if="diff">
+                            <div t-foreach="diff.positions.removed" t-as="position" t-key="position_index"
+                                 class="o_qce_diff_removed o_qce_ghost_position" t-esc="position"/>
+                        </t>
+                        <div t-if="editable"><button class="btn btn-secondary" t-on-click="addPosition">Add Position</button></div>
+                    </div>
+
+                    <div t-if="state.tab === 'history'" class="o_qce_scroll_x">
+                        <table class="o_qce_table">
+                            <thead><tr><th>Rev</th><th>Description</th><th>Date</th><th>Created by</th><th>Approved by</th><th>In PDF</th><th/></tr></thead>
+                            <tbody>
+                                <t t-foreach="sheet.history" t-as="line" t-key="line.id">
+                                    <tr>
+                                        <td class="fw-bold" t-esc="line.rev"/>
+                                        <td><input class="form-control" t-att-value="line.description" t-att-readonly="!isHistoryRowEditable(line)" t-on-input="(ev) => this.onHistoryInput(line, 'description', ev)"/></td>
+                                        <td><input class="form-control" type="date" t-att-value="line.date" t-att-readonly="!isHistoryRowEditable(line)" t-on-input="(ev) => this.onHistoryInput(line, 'date', ev)"/></td>
+                                        <td t-esc="line.created_by"/>
+                                        <td t-esc="line.approved_by or '-'"/>
+                                        <td><input type="checkbox" t-att-checked="line.show_in_report" t-att-disabled="!editable" t-on-change="(ev) => this.onHistoryInput(line, 'show_in_report', ev)"/></td>
+                                        <td>
+                                            <span t-if="line.sheet_id === sheet.id" class="text-muted">Viewing</span>
+                                            <button t-elif="line.sheet_id" class="btn btn-link p-0" t-on-click="() => this.viewRevision(line)">View and print</button>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="qc_checksheet.EditorContent">
+        <div t-if="editable" class="o_qce_hints">
+            <span>Tab: next cell</span><span>Enter: new line</span><span>Ctrl+Enter: new Item below</span><span>Ctrl+S: Save</span><span>Paste a table from Word or Excel to fill rows</span>
+        </div>
+        <div class="o_qce_scroll_x">
+            <div class="o_qce_grid o_qce_grid_head">
+                <div/>
+                <div>Item</div>
+                <div class="o_qce_col_head">Description
+                    <span class="o_qce_col_handle" title="Drag to resize. Double-click to reset."
+                          t-on-pointerdown="(ev) => this.startColumnDrag('description', 'acceptance', ev)" t-on-dblclick="resetColumns"/>
+                </div>
+                <div class="o_qce_col_head">Acceptance
+                    <span class="o_qce_col_handle" title="Drag to resize. Double-click to reset."
+                          t-on-pointerdown="(ev) => this.startColumnDrag('acceptance', 'note', ev)" t-on-dblclick="resetColumns"/>
+                </div>
+                <div>Note</div>
+                <div/>
+            </div>
+            <t t-foreach="numberedGroups" t-as="entry" t-key="entry.group.uid">
+                <t t-set="group" t-value="entry.group"/>
+                <t t-set="groupDiff" t-value="diff and diff.groups.get(group.uid)"/>
+                <div class="o_qce_band" t-att-id="'qce_' + group.uid"
+                     t-att-class="{'o_qce_drop': state.dropTarget === group.uid, 'o_qce_diff_added': groupDiff and groupDiff.status === 'added', 'o_qce_diff_changed': groupDiff and groupDiff.status === 'changed'}"
+                     t-att-title="groupDiff and groupDiff.old ? 'Before: ' + groupDiff.old : ''"
+                     t-on-dragover="(ev) => this.onDragOver(group.uid, ev)" t-on-drop="(ev) => this.onDropOnGroup(group, ev)">
+                    <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to reorder this Group"
+                          t-on-dragstart="(ev) => this.onDragStart('group', group.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
+                    <div class="o_qce_band_name">
+                        <QcRichCell value="group.name" active="state.active === cellKey(group, 'name')" readonly="!editable"
+                                    label="'Group name'" placeholder="'Group name'" resModel="'qc.checksheet.group'" resId="group.id"
+                                    onActivate="() => this.activate(cellKey(group, 'name'))"
+                                    onChange="(html) => this.setCell(group, 'name', html)"
+                                    onKeydown="(ev) => this.onCellKeydown({ group }, ev)"
+                                    registerCommit.bind="registerCommit"/>
+                    </div>
+                    <span t-if="groupDiff" class="o_qce_diff_tag" t-esc="groupDiff.status === 'added' ? 'Added' : 'Changed'"/>
+                    <t t-if="editable">
+                        <button class="btn btn-link btn-sm" t-on-click="() => this.addItem(group)">Add Item</button>
+                        <button class="o_qce_icon" title="Delete this Group" t-on-click="() => this.removeGroup(group)"><i class="fa fa-trash-o"/></button>
+                    </t>
+                </div>
+                <t t-foreach="contentRows(entry, diff)" t-as="row" t-key="row.ghost ? row.key : row.item.uid">
+                    <div t-if="row.ghost" class="o_qce_grid o_qce_item o_qce_diff_removed">
+                        <div class="o_qce_cell"/>
+                        <div class="o_qce_cell o_qce_cell_center"><span class="o_qce_diff_tag">Removed</span></div>
+                        <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
+                            <div class="o_qce_cell"><div class="o_qce_rendered o_qce_rendered_readonly qc-rich-text" t-out="html(row.ghost[field])"/></div>
+                        </t>
+                        <div class="o_qce_cell"/>
+                    </div>
+                    <t t-else="">
+                    <t t-set="item" t-value="row.item"/>
+                    <t t-set="rowDiff" t-value="itemDiff(diff, item)"/>
+                    <div class="o_qce_grid o_qce_item" t-att-class="{'o_qce_drop': state.dropTarget === item.uid, 'o_qce_diff_added': rowDiff and rowDiff.status === 'added'}"
+                         t-on-dragover="(ev) => this.onDragOver(item.uid, ev)" t-on-drop="(ev) => this.onDropOnItem(group, item, ev)">
+                        <div class="o_qce_cell o_qce_cell_center">
+                            <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to another row or Group"
+                                  t-on-dragstart="(ev) => this.onDragStart('item', item.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
+                        </div>
+                        <div class="o_qce_cell o_qce_cell_center o_qce_number_cell">
+                            <span class="fw-bold" t-esc="row.number"/>
+                            <span t-if="rowDiff and rowDiff.status === 'added'" class="o_qce_diff_tag">Added</span>
+                            <span t-if="rowDiff and rowDiff.movedFrom" class="o_qce_diff_tag" t-att-title="'Moved from ' + rowDiff.movedFrom">Moved</span>
+                        </div>
+                        <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
+                            <div class="o_qce_cell" t-att-class="cellDiffClass(rowDiff, field)"
+                                 t-att-title="cellDiffClass(rowDiff, field) ? 'Before: ' + rowDiff.changed[field] : ''">
+                                <QcRichCell value="item[field]" active="state.active === cellKey(item, field)" readonly="!editable"
+                                            label="field + ', Item ' + row.number" resModel="'qc.checksheet.item'" resId="item.id"
+                                            onActivate="() => this.activate(cellKey(item, field))"
+                                            onChange="(html) => this.setCell(item, field, html)"
+                                            onKeydown="(ev) => this.onCellKeydown({ group, item, field }, ev)"
+                                            onPaste="(ev) => this.onCellPaste({ group, item, field }, ev)"
+                                            registerCommit.bind="registerCommit"/>
+                            </div>
+                        </t>
+                        <div class="o_qce_cell o_qce_cell_center">
+                            <button t-if="editable" class="o_qce_icon" title="Delete this Item" t-on-click="() => this.removeItem(group, item)"><i class="fa fa-trash-o"/></button>
+                        </div>
+                    </div>
+                    </t>
+                </t>
+            </t>
+            <t t-if="diff">
+                <t t-foreach="diff.removedGroups" t-as="removed" t-key="removed.group.line_key">
+                    <div class="o_qce_band o_qce_diff_removed">
+                        <span class="o_qce_icon"/>
+                        <div class="o_qce_band_name o_qce_rendered" t-esc="removed.title"/>
+                        <span class="o_qce_diff_tag">Removed</span>
+                    </div>
+                    <div t-foreach="removed.items" t-as="ghost" t-key="ghost.line_key" class="o_qce_grid o_qce_item o_qce_diff_removed">
+                        <div class="o_qce_cell"/>
+                        <div class="o_qce_cell"/>
+                        <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
+                            <div class="o_qce_cell"><div class="o_qce_rendered o_qce_rendered_readonly qc-rich-text" t-out="html(ghost[field])"/></div>
+                        </t>
+                        <div class="o_qce_cell"/>
+                    </div>
+                </t>
+            </t>
+        </div>
+        <div t-if="editable" class="d-flex flex-wrap gap-2 p-2">
+            <button class="btn btn-secondary" t-on-click="addItemAtEnd">Add Item</button>
+            <button class="btn btn-secondary" t-on-click="addGroup">Add Group</button>
+        </div>
+    </t>
+
+    <t t-name="qc_checksheet.PreviewDialog">
+        <Dialog title="props.title" size="'fs'">
+            <iframe class="o_qce_pdf_preview" t-att-src="props.url" title="PDF preview"/>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-on-click="print">Print PDF</button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Close</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

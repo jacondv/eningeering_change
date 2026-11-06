@@ -8,6 +8,7 @@ class QcChecksheetGroup(models.Model):
     per group (see QcChecksheetItem.item_number)."""
     _name = 'qc.checksheet.group'
     _description = 'QC Check Sheet Inspection Group'
+    _inherit = ['qc.checksheet.keyed.line.mixin', 'jacon.html.attachment.mixin']
     _order = 'sequence, id'
     # `name` is Html (needs rich formatting); display_name must stay plain
     # text, so it uses this stripped field instead of `name` directly.
@@ -19,6 +20,18 @@ class QcChecksheetGroup(models.Model):
     display_title = fields.Char(compute='_compute_display_title', store=True)
     item_ids = fields.One2many('qc.checksheet.item', 'group_id', string='Items')
     item_count = fields.Integer(compute='_compute_item_count')
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._adopt_embedded_image_attachments(('name',))
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if 'name' in vals:
+            self._adopt_embedded_image_attachments(('name',))
+        return result
 
     @api.depends('name')
     def _compute_display_title(self):
@@ -37,6 +50,9 @@ class QcChecksheetItem(models.Model):
     blank cells on the PDF (see techspec §2.2)."""
     _name = 'qc.checksheet.item'
     _description = 'QC Check Sheet Item'
+    _inherit = ['qc.checksheet.keyed.line.mixin', 'jacon.html.attachment.mixin']
+    _checksheet_path = 'group_id.checksheet_id'
+    HTML_FIELDS = ('description', 'acceptance', 'note')
     _order = 'sequence, id'
 
     group_id = fields.Many2one('qc.checksheet.group', required=True, ondelete='cascade')
@@ -44,7 +60,19 @@ class QcChecksheetItem(models.Model):
     item_number = fields.Integer(compute='_compute_item_number', store=True)
     description = fields.Html(sanitize_style=True)
     acceptance = fields.Html(sanitize_style=True)
-    note = fields.Char()
+    note = fields.Html(sanitize_style=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._adopt_embedded_image_attachments(self.HTML_FIELDS)
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if vals.keys() & set(self.HTML_FIELDS):
+            self._adopt_embedded_image_attachments(self.HTML_FIELDS)
+        return result
 
     @api.depends(
         'sequence',

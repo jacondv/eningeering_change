@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- A list-typed view only so the dashboard gets the standard control
+         panel and search bar; its js_class swaps in the dashboard controller,
+         which never loads the records themselves. -->
+    <record id="view_qc_checksheet_dashboard" model="ir.ui.view">
+        <field name="name">qc.checksheet.dashboard</field>
+        <field name="model">qc.checksheet</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <list js_class="qc_checksheet_dashboard">
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_qc_dashboard" model="ir.actions.act_window">
+        <field name="name">QC Dashboard</field>
+        <field name="res_model">qc.checksheet</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_qc_checksheet_dashboard"/>
+        <field name="search_view_id" ref="view_qc_checksheet_search"/>
+        <field name="context">{'search_default_open_jobs': 1}</field>
+    </record>
+
+</odoo>

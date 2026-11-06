@@ -7,6 +7,7 @@ class QcChecksheetImageGroup(models.Model):
     of the Panel & Sticker Check List table."""
     _name = 'qc.checksheet.image.group'
     _description = 'QC Check Sheet Image Group'
+    _inherit = ['qc.checksheet.keyed.line.mixin']
     _order = 'sequence, id'
 
     checksheet_id = fields.Many2one('qc.checksheet', required=True, ondelete='cascade')
@@ -18,6 +19,8 @@ class QcChecksheetImageGroup(models.Model):
 class QcChecksheetImageLine(models.Model):
     _name = 'qc.checksheet.image.line'
     _description = 'QC Check Sheet Image Line'
+    _inherit = ['qc.checksheet.keyed.line.mixin']
+    _checksheet_path = 'image_group_id.checksheet_id'
     _order = 'sequence, id'
 
     image_group_id = fields.Many2one('qc.checksheet.image.group', required=True, ondelete='cascade')

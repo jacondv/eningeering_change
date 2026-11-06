@@ -28,7 +28,8 @@
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">qc_checksheet.report_qc_checksheet_document</field>
         <field name="report_file">qc_checksheet.report_qc_checksheet_document</field>
-        <field name="print_report_name">object.reference</field>
+        <!-- <Machine Serial>-QC-<Type Name>, see qc.checksheet.pdf_file_name. -->
+        <field name="print_report_name">object.pdf_file_name</field>
         <field name="paperformat_id" ref="paperformat_qc_checksheet"/>
         <field name="binding_model_id" ref="model_qc_checksheet"/>
         <field name="binding_type">report</field>

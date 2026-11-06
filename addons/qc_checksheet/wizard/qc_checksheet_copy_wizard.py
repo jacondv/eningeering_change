@@ -2,16 +2,15 @@ from odoo import fields, models
 
 
 class QcChecksheetCopyWizard(models.TransientModel):
-    """"Copy Content From..." button on the check sheet form (techspec §3.0,
-    option b): pick a previous check sheet of the same Type and bring its
-    Groups/Items or Panel Lines over."""
+    """"Copy Content From..." button on a Draft Rev 0: pick another Job's
+    Released check sheet of the same layout and bring its content over."""
     _name = 'qc.checksheet.copy.wizard'
     _description = 'Copy QC Check Sheet Content'
 
     checksheet_id = fields.Many2one('qc.checksheet', required=True)
     source_checksheet_id = fields.Many2one(
         'qc.checksheet', string='Copy Content From', required=True,
-        domain="[('checksheet_type', '=', checksheet_type), ('id', '!=', checksheet_id)]")
+        domain="[('checksheet_type', '=', checksheet_type), ('id', '!=', checksheet_id), ('state', '=', 'released')]")
     checksheet_type = fields.Selection(related='checksheet_id.checksheet_type')
 
     def action_copy(self):

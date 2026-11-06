@@ -6,42 +6,78 @@
         <field name="name">qc.checksheet.form</field>
         <field name="model">qc.checksheet</field>
         <field name="arch" type="xml">
-            <form string="QC Check Sheet">
+            <form string="QC Check Sheet" duplicate="0" create="0">
                 <header>
+                    <button string="Open Editor" name="action_open_editor" type="object" class="oe_highlight"
+                            invisible="checksheet_type != 'standard'"/>
+                    <button string="Submit" name="action_submit" type="object" class="oe_highlight"
+                            groups="qc_checksheet.group_qc_author" invisible="checksheet_type == 'standard' or state != 'draft' or not id"/>
+                    <button string="Recall" name="action_recall" type="object"
+                            groups="qc_checksheet.group_qc_author" invisible="checksheet_type == 'standard' or state != 'review'"/>
+                    <button string="Approve" name="action_approve" type="object" class="oe_highlight"
+                            groups="qc_checksheet.group_qc_approver" invisible="checksheet_type == 'standard' or state != 'review'"/>
+                    <button string="Reject" name="%(action_qc_checksheet_reject_wizard)d"
+                            type="action" context="{'default_checksheet_id': id}"
+                            groups="qc_checksheet.group_qc_approver" invisible="checksheet_type == 'standard' or state != 'review'"/>
+                    <button string="New Revision" name="%(action_qc_checksheet_new_revision_wizard)d"
+                            type="action" context="{'default_checksheet_id': id}" class="oe_highlight"
+                            groups="qc_checksheet.group_qc_author" invisible="checksheet_type == 'standard' or state != 'released'"/>
                     <button string="Copy Content From..." name="%(action_qc_checksheet_copy_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
-                            invisible="group_ids or panel_line_ids"/>
+                            groups="qc_checksheet.group_qc_author"
+                            invisible="checksheet_type == 'standard' or state != 'draft' or revision != 0 or not id or panel_line_ids"/>
                     <button string="Import from Inventor BOM" name="%(action_qc_checksheet_inventor_import_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
-                            invisible="checksheet_type != 'panel_sticker'"/>
+                            groups="qc_checksheet.group_qc_author"
+                            invisible="state != 'draft' or not id or checksheet_type != 'panel_sticker'"/>
                     <button string="Print PDF" name="%(action_report_qc_checksheet)d"
-                            type="action" class="oe_highlight"/>
+                            type="action" invisible="not id"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,review,released"/>
                 </header>
+                <div class="alert alert-warning d-flex align-items-center mb-0" role="alert" invisible="state != 'superseded'">
+                    <span class="flex-grow-1">You are viewing an old, superseded Revision. It can be read and printed, but it must not be used.</span>
+                    <button string="Open Current Revision" name="action_open_current_revision" type="object" class="btn-link p-0"/>
+                </div>
+                <div class="alert alert-danger mb-0" role="alert" invisible="state != 'draft' or not reject_reason">
+                    Rejected: <field name="reject_reason" class="d-inline"/>
+                </div>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_revisions" type="object" class="oe_stat_button" icon="fa-history" invisible="not id">
+                            <field name="revision_count" widget="statinfo" string="Revisions"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Superseded" bg_color="text-bg-warning" invisible="state != 'superseded'"/>
                     <div class="oe_title">
-                        <h1><field name="name" placeholder="e.g. Start Up Check Sheet"/></h1>
+                        <label for="name" string="Header"/>
+                        <h1><field name="name" placeholder="e.g. Start Up Check Sheet" readonly="checksheet_type == 'standard' or state != 'draft'"/></h1>
                     </div>
                     <group>
                         <group>
-                            <field name="reference"/>
-                            <field name="header_title" placeholder="e.g. Panel &amp; Sticker Check Sheet"/>
-                            <field name="checksheet_type" widget="radio" options="{'horizontal': true}"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="reference" invisible="not id"/>
+                            <field name="revision"/>
+                            <field name="type_id" required="1" readonly="id and type_id" options="{'no_create': True}"/>
+                            <field name="job_number" required="1" readonly="id and job_number" options="{'no_create': True}"
+                                   domain="[('model_id', '!=', False)]"/>
+                            <field name="checksheet_type" invisible="1"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="machine_serial"/>
                             <field name="machine_model"/>
+                            <field name="machine_serial"/>
                             <field name="engine_number"/>
-                            <field name="check_date"/>
-                            <field name="job_number"/>
                             <field name="customer"/>
+                            <field name="change_reason" invisible="revision == 0 or not change_reason"/>
+                            <field name="copied_from_id" invisible="not copied_from_id"/>
+                            <field name="submitted_by_id" invisible="not submitted_by_id"/>
+                            <field name="approved_by_id" invisible="not approved_by_id"/>
+                            <field name="approved_date" invisible="not approved_date"/>
                         </group>
                     </group>
-                    <field name="copied_from_id" invisible="not copied_from_id" readonly="1"/>
 
                     <notebook>
                         <page string="Check Sheet Approval" name="approval">
-                            <field name="approval_ids">
+                            <field name="approval_ids" readonly="checksheet_type == 'standard' or state != 'draft'">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="position"/>
@@ -49,15 +85,15 @@
                             </field>
                         </page>
 
-                        <page string="Template History" name="history">
-                            <field name="history_ids">
-                                <list editable="bottom">
-                                    <field name="sequence" widget="handle"/>
+                        <page string="Revision History" name="history">
+                            <field name="history_ids" readonly="checksheet_type == 'standard' or state != 'draft'">
+                                <list editable="bottom" create="0" delete="0">
                                     <field name="rev" readonly="1"/>
-                                    <field name="description"/>
-                                    <field name="date"/>
-                                    <field name="created_by"/>
-                                    <field name="approved_by"/>
+                                    <field name="description" readonly="rev != parent.revision"
+                                           required="rev == parent.revision"/>
+                                    <field name="date" readonly="rev != parent.revision"/>
+                                    <field name="created_by" readonly="1"/>
+                                    <field name="approved_by" readonly="1"/>
                                     <field name="show_in_report" widget="boolean_toggle"/>
                                 </list>
                             </field>
@@ -65,7 +101,7 @@
 
                         <page string="Inspection Content" name="content"
                               invisible="checksheet_type != 'standard'">
-                            <field name="group_ids">
+                            <field name="group_ids" readonly="1">
                                 <list>
                                     <field name="sequence" widget="handle"/>
                                     <field name="name" widget="html" options="{'style-inline': true}"/>
@@ -81,7 +117,7 @@
                                             <field name="item_number" string="Item" readonly="1"/>
                                             <field name="description" widget="html" options="{'style-inline': true}"/>
                                             <field name="acceptance" widget="html" options="{'style-inline': true}"/>
-                                            <field name="note"/>
+                                            <field name="note" widget="html" options="{'style-inline': true}"/>
                                         </list>
                                     </field>
                                 </form>
@@ -90,7 +126,7 @@
 
                         <page string="Images" name="images"
                               invisible="checksheet_type != 'panel_sticker'">
-                            <field name="image_group_ids">
+                            <field name="image_group_ids" readonly="state != 'draft'">
                                 <list>
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
@@ -116,7 +152,7 @@
 
                         <page string="Panel &amp; Sticker" name="panel_lines"
                               invisible="checksheet_type != 'panel_sticker'">
-                            <field name="panel_line_ids">
+                            <field name="panel_line_ids" readonly="state != 'draft'">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="item_number"/>
@@ -130,10 +166,11 @@
                         </page>
 
                         <page string="Remarks" name="remarks">
-                            <field name="remarks"/>
+                            <field name="remarks" readonly="checksheet_type == 'standard' or state != 'draft'"/>
                         </page>
                     </notebook>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -143,13 +180,44 @@
         <field name="name">qc.checksheet.list</field>
         <field name="model">qc.checksheet</field>
         <field name="arch" type="xml">
-            <list string="QC Check Sheets">
+            <list string="QC Check Sheets" js_class="qc_checksheet_list" duplicate="0">
                 <field name="reference"/>
-                <field name="name"/>
-                <field name="checksheet_type"/>
-                <field name="machine_serial"/>
+                <field name="name" string="Header"/>
+                <field name="type_id"/>
                 <field name="job_number"/>
-                <field name="check_date"/>
+                <field name="machine_model"/>
+                <field name="revision"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'"
+                       decoration-warning="state == 'review'" decoration-success="state == 'released'"
+                       decoration-muted="state == 'superseded'"/>
+                <field name="machine_serial" optional="hide"/>
+                <field name="checksheet_type" column_invisible="1"/>
+                <button string="Open Editor" name="action_open_editor" type="object" icon="fa-pencil"
+                        invisible="checksheet_type != 'standard'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Opened by the Revisions button on the form, so any old Revision can be
+         picked here and printed. -->
+    <record id="view_qc_checksheet_revision_list" model="ir.ui.view">
+        <field name="name">qc.checksheet.revision.list</field>
+        <field name="model">qc.checksheet</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <list string="Revisions" default_order="revision desc" create="0">
+                <field name="revision"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'"
+                       decoration-warning="state == 'review'" decoration-success="state == 'released'"
+                       decoration-muted="state == 'superseded'"/>
+                <field name="change_reason"/>
+                <field name="submitted_by_id"/>
+                <field name="approved_by_id"/>
+                <field name="approved_date"/>
+                <button string="Print PDF" name="%(action_report_qc_checksheet)d" type="action" icon="fa-print"/>
+                <field name="checksheet_type" column_invisible="1"/>
+                <button string="Open Editor" name="action_open_editor" type="object" icon="fa-pencil"
+                        invisible="checksheet_type != 'standard'"/>
             </list>
         </field>
     </record>
@@ -164,11 +232,27 @@
                 <field name="reference"/>
                 <field name="machine_serial"/>
                 <field name="job_number"/>
+                <field name="type_id"/>
+                <field name="machine_model"/>
+                <filter string="Active Revisions" name="active_revisions" domain="[('state', '!=', 'superseded')]"
+                        help="Remove this filter to see all Revisions, including superseded ones."/>
+                <separator/>
+                <filter string="Draft" name="state_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="In Review" name="state_review" domain="[('state', '=', 'review')]"/>
+                <filter string="Released" name="state_released" domain="[('state', '=', 'released')]"/>
+                <separator/>
+                <filter string="Open Jobs" name="open_jobs" domain="[('job_status', 'in', ['in_progress', 'on_hold'])]"
+                        help="Jobs In Progress or On Hold. Remove it to include EOL and Cancelled Jobs."/>
+                <filter string="Closed Jobs" name="closed_jobs" domain="[('job_status', 'in', ['eol', 'cancelled'])]"/>
+                <separator/>
+                <filter string="My Sheets" name="my_sheets" domain="[('create_uid', '=', uid)]"/>
+                <separator/>
                 <filter string="Standard" name="type_standard" domain="[('checksheet_type', '=', 'standard')]"/>
                 <filter string="Panel &amp; Sticker" name="type_panel" domain="[('checksheet_type', '=', 'panel_sticker')]"/>
                 <group>
-                    <filter string="Type" name="group_type" context="{'group_by': 'checksheet_type'}"/>
+                    <filter string="Type" name="group_type" context="{'group_by': 'type_id'}"/>
                     <filter string="Job Number" name="group_job" context="{'group_by': 'job_number'}"/>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
                 </group>
             </search>
         </field>
@@ -180,6 +264,7 @@
         <field name="res_model">qc.checksheet</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_qc_checksheet_search"/>
+        <field name="context">{'search_default_active_revisions': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Create your first Check Sheet
