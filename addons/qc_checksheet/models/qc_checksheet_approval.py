@@ -26,8 +26,6 @@ class QcChecksheetHistory(models.Model):
     _name = 'qc.checksheet.history'
     _description = 'QC Check Sheet Revision History'
     _inherit = ['qc.checksheet.lock.mixin']
-    # Rev 0's own row (its Description and Date) stays editable on a copy.
-    _locked_by_copy = False
     _order = 'rev, id'
 
     checksheet_id = fields.Many2one('qc.checksheet', required=True, ondelete='cascade')

@@ -10,9 +10,11 @@ class ProjectProject(models.Model):
         help="Required Check Sheet Types with a Released sheet, out of all required Types.")
 
     def _compute_qc_checksheet_progress(self):
-        required = self.env['qc.checksheet.type'].search_count([('required', '=', True)])
+        # Active required Types only, on both sides, like the Job QC page.
+        required_types = self.env['qc.checksheet.type'].search([('required', '=', True)])
+        required = len(required_types)
         released = self.env['qc.checksheet']._read_group(
-            [('job_number', 'in', self.ids), ('state', '=', 'released'), ('type_id.required', '=', True)],
+            [('job_number', 'in', self.ids), ('state', '=', 'released'), ('type_id', 'in', required_types.ids)],
             ['job_number'], ['type_id:count_distinct'])
         released_by_job = {job.id: count for job, count in released}
         for project in self:

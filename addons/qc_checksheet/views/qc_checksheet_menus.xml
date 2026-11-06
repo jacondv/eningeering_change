@@ -9,7 +9,7 @@
     <!-- First, so the QC menu opens on it. -->
     <menuitem id="menu_qc_checksheet_dashboard" name="Dashboard"
           parent="menu_qc_checksheet_root"
-          action="action_qc_checksheet_dashboard"
+          action="action_qc_dashboard"
           sequence="5"/>
 
     <menuitem id="menu_qc_checksheet_all" name="Check Sheets"

@@ -1,174 +1,127 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onWillStart, onWillUpdateProps, useState } from "@odoo/owl";
+import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { useDebounced } from "@web/core/utils/timing";
-import { deserializeDateTime, formatDateTime } from "@web/core/l10n/dates";
+import { deserializeDate, formatDate } from "@web/core/l10n/dates";
+import { Layout } from "@web/search/layout";
+import { SearchBar } from "@web/search/search_bar/search_bar";
+import { useSearchBarToggler } from "@web/search/search_bar/search_bar_toggler";
 
-const CHECKSHEET_MODEL = "qc.checksheet";
-const SEARCH_DEBOUNCE_MS = 300;
-const JOB_STATUSES = [
-    { key: "in_progress", label: "In Progress" },
-    { key: "on_hold", label: "On Hold" },
-    { key: "eol", label: "EOL" },
-    { key: "cancelled", label: "Cancelled" },
-];
-const KPIS = [
-    { key: "missing", label: "Jobs missing sheets" },
-    { key: "waiting", label: "Waiting for approval" },
-    { key: "draft", label: "Being written" },
-    { key: "complete", label: "Jobs complete" },
-];
-const STATE_LABELS = { draft: "Draft", review: "In Review", released: "Released", superseded: "Superseded" };
+const MODEL = "qc.checksheet";
 
-/** Every Job against every Check Sheet Type. */
-export class QcDashboard extends Component {
+// Stands in for a list view's controller (see view_qc_checksheet_dashboard):
+// the search bar's domain arrives as props.domain and every figure is reloaded
+// from it. For Job Coverage and "Jobs missing sheets" only its conditions on the
+// Job count (see _dashboard_job_domain).
+export class QcDashboardController extends Component {
     static template = "qc_checksheet.Dashboard";
+    static components = { Layout, SearchBar };
     static props = ["*"];
 
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
-        this.jobStatuses = JOB_STATUSES;
-        this.kpiTiles = KPIS;
-        this.state = useState({
-            filters: { statuses: ["in_progress"], search: "", model_id: false, kpi: false, sort: "job", offset: 0 },
-            data: null,
-            loading: false,
+        this.searchBarToggler = useSearchBarToggler();
+        this.state = useState({ data: null, modelSearch: "" });
+        onWillStart(() => this.load(this.props.domain));
+        onWillUpdateProps((nextProps) => this.load(nextProps.domain));
+    }
+
+    async load(domain) {
+        // Only the latest search counts: an older reply arriving last is dropped.
+        const request = (this.lastRequest = (this.lastRequest || 0) + 1);
+        const data = await this.orm.call(MODEL, "get_dashboard_data", [domain]);
+        if (request === this.lastRequest) {
+            this.state.data = data;
+        }
+    }
+
+    get kpis() {
+        const { kpis, overdue_days, overdue_before } = this.state.data;
+        return [
+            { label: _t("Draft"), value: kpis.draft, css: "o_qcd_kpi_draft",
+              domain: [["state", "=", "draft"]] },
+            { label: _t("In Review"), value: kpis.review, css: "o_qcd_kpi_review",
+              domain: [["state", "=", "review"]] },
+            { label: _t("Waiting too long"), value: kpis.overdue, css: "o_qcd_kpi_overdue",
+              hint: _t("In Review for %s days or more", overdue_days),
+              domain: [["state", "=", "review"], ["submitted_date", "<=", overdue_before]] },
+            { label: _t("Released"), value: kpis.released, css: "o_qcd_kpi_released",
+              domain: [["state", "=", "released"]] },
+        ];
+    }
+
+    get stateTotal() {
+        return this.state.data.by_state.reduce((sum, item) => sum + item.count, 0);
+    }
+
+    /** The Models matching the box above the list. */
+    get models() {
+        const term = this.state.modelSearch.trim().toLowerCase();
+        const models = this.state.data.by_model;
+        return term ? models.filter((item) => item.label.toLowerCase().includes(term)) : models;
+    }
+
+    /** Model bars are scaled to the biggest Model, so the long tail stays readable. */
+    get modelMax() {
+        return Math.max(0, ...this.state.data.by_model.map((item) => item.count));
+    }
+
+    get jobCoverage() {
+        const { total, complete } = this.state.data.jobs;
+        return total ? Math.round((complete / total) * 100) : 0;
+    }
+
+    percentOf(count, total) {
+        return total ? Math.round((count / total) * 100) : 0;
+    }
+
+    formatDate(value) {
+        return value ? formatDate(deserializeDate(value)) : "";
+    }
+
+    isOverdue(row) {
+        return row.waiting_days >= this.state.data.overdue_days;
+    }
+
+    openSheets(domain, name) {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name,
+            res_model: MODEL,
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this.props.domain, ["state", "!=", "superseded"], ...domain],
         });
-        this.reloadSoon = useDebounced(() => this.load(), SEARCH_DEBOUNCE_MS);
-        onWillStart(() => this.load());
     }
 
-    async load() {
-        this.state.loading = true;
-        try {
-            this.state.data = await this.orm.call(CHECKSHEET_MODEL, "dashboard_data", [this.state.filters]);
-        } finally {
-            this.state.loading = false;
-        }
+    async openMissingJobs() {
+        this.action.doAction(await this.orm.call(MODEL, "action_open_missing_jobs", [this.props.domain]));
     }
 
-    get data() {
-        return this.state.data;
-    }
-
-    setFilter(patch) {
-        Object.assign(this.state.filters, patch, { offset: 0 });
-        return this.load();
-    }
-
-    toggleStatus(key) {
-        const statuses = new Set(this.state.filters.statuses);
-        statuses.has(key) ? statuses.delete(key) : statuses.add(key);
-        // At least one status, or there's nothing to show.
-        return this.setFilter({ statuses: statuses.size ? [...statuses] : ["in_progress"] });
-    }
-
-    toggleKpi(key) {
-        return this.setFilter({ kpi: this.state.filters.kpi === key ? false : key });
-    }
-
-    onSearchInput(ev) {
-        this.state.filters.search = ev.target.value;
-        this.state.filters.offset = 0;
-        this.reloadSoon();
-    }
-
-    onModelChange(ev) {
-        return this.setFilter({ model_id: parseInt(ev.target.value) || false });
-    }
-
-    sortBy(sort) {
-        return this.setFilter({ sort });
-    }
-
-    page(step) {
-        const { offset, page_size, total } = this.data;
-        const next = offset + step * page_size;
-        if (next >= 0 && next < total) {
-            this.state.filters.offset = next;
-            return this.load();
-        }
-    }
-
-    get pagerLabel() {
-        const { offset, page_size, total } = this.data;
-        return total ? `${offset + 1}-${Math.min(offset + page_size, total)} of ${total}` : "0 Jobs";
-    }
-
-    // Cells
-
-    stateLabel(state) {
-        return STATE_LABELS[state] || state;
-    }
-
-    cellClass(cell) {
-        return `o_qcd_cell o_qcd_cell_${cell.state}`;
-    }
-
-    isOverdue(cell) {
-        return cell.waiting_days >= this.data.overdue_days;
-    }
-
-    cellTitle(cell) {
-        if (!cell.id) {
-            return cell.state === "missing" ? "Required for every Job, not created yet" : "";
-        }
-        const when = cell.updated_on ? formatDateTime(deserializeDateTime(cell.updated_on)) : "";
-        const lines = [`Last change by ${cell.updated_by} on ${when}`];
-        if (cell.reason) {
-            lines.push(`Reason: ${cell.reason}`);
-        }
-        return lines.join("\n");
-    }
-
-    openSheet(id, layout) {
-        if (layout === "standard") {
+    openSheet(row) {
+        // Standard sheets are written on the editor page, Panel & Sticker ones on the form.
+        if (row.layout === "standard") {
             return this.action.doAction({
                 type: "ir.actions.client",
                 tag: "qc_checksheet.editor",
-                name: "Check Sheet",
-                context: { active_id: id },
+                name: row.reference || row.name,
+                context: { active_id: row.id },
             });
         }
         return this.action.doAction({
             type: "ir.actions.act_window",
-            res_model: CHECKSHEET_MODEL,
-            res_id: id,
+            res_model: MODEL,
+            res_id: row.id,
             views: [[false, "form"]],
         });
     }
-
-    onCellClick(row, column) {
-        const cell = row.cells[column.id];
-        if (cell.id) {
-            const target = cell.next || cell;
-            return this.openSheet(target.id, cell.layout);
-        }
-        if (cell.state === "missing" && this.data.can_author) {
-            return this.action.doAction({
-                type: "ir.actions.client",
-                tag: "qc_checksheet.editor",
-                name: "New Check Sheet",
-                context: { default_job_id: row.id, default_type_id: column.id },
-            });
-        }
-    }
-
-    openJob(row) {
-        return this.action.doAction({
-            type: "ir.actions.client",
-            tag: "qc_checksheet.job",
-            name: `QC: ${row.name}`,
-            context: { active_id: row.id },
-        });
-    }
-
-    newSheet() {
-        return this.action.doAction("qc_checksheet.action_qc_checksheet_editor");
-    }
 }
 
-registry.category("actions").add("qc_checksheet.dashboard", QcDashboard);
+registry.category("views").add("qc_checksheet_dashboard", {
+    type: "list",
+    Controller: QcDashboardController,
+    // The dashboard has nothing to group.
+    searchMenuTypes: ["filter", "favorite"],
+});

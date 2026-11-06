@@ -1,6 +1,8 @@
-from odoo import api, models
+from odoo import _, api, models
+from odoo.exceptions import UserError
 
 from .qc_checksheet import GROUP_AUTHOR
+from .qc_checksheet_editor import COPY_SOURCE_LIMIT
 
 
 class QcChecksheet(models.Model):
@@ -31,8 +33,11 @@ class QcChecksheet(models.Model):
     def job_overview(self, job_id):
         # Job details through sudo: seeing a Job's sheets shouldn't need Project access.
         job = self.env['project.project'].sudo().browse(job_id).exists()
+        if not job:
+            raise UserError(_("This Job no longer exists."))
         sheets_by_type = self._job_sheets_by_type(job)
-        types = self.env['qc.checksheet.type'].search([])
+        # Archived Types still show the sheets the Job already has.
+        types = self.env['qc.checksheet.type'].search([]) | self.env['qc.checksheet.type'].union(*sheets_by_type)
         types = types.filtered(lambda t: t.required or t in sheets_by_type).sorted(
             lambda t: (not t.required, t.sequence, t.name))
         rows = []
@@ -61,7 +66,8 @@ class QcChecksheet(models.Model):
             'released': sum(1 for row in rows if row['required'] and row['current'] and row['current']['state'] == 'released'),
             'required': sum(1 for row in rows if row['required']),
             'rows': rows,
-            'can_author': self.env.user.has_group(GROUP_AUTHOR),
+            # A sheet needs the Job's Model, so without one there is nothing to create.
+            'can_author': self.env.user.has_group(GROUP_AUTHOR) and bool(job.model_id),
         }
 
     @api.model
@@ -73,10 +79,15 @@ class QcChecksheet(models.Model):
         job = self.env['project.project'].sudo().browse(job_id).exists()
         header = self._family_header(job.model_id.family_id)
         result = []
+        released_by_layout = {}
         for checksheet_type in self.env['qc.checksheet.type'].browse(type_ids):
-            released = self.search(
-                [('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)],
-                order='approved_date desc, id desc')
+            # One search per layout, not per Type: Types sharing a layout share their candidates.
+            layout = checksheet_type.layout
+            if layout not in released_by_layout:
+                released_by_layout[layout] = self.search(
+                    [('state', '=', 'released'), ('checksheet_type', '=', layout)],
+                    order='approved_date desc, id desc', limit=COPY_SOURCE_LIMIT)
+            released = released_by_layout[layout]
             same_type = released.filtered(lambda s: s.type_id == checksheet_type).sorted(
                 lambda s: s.machine_model != job.model_id.name)
             other_types = released - same_type

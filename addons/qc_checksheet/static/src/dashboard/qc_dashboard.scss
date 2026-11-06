@@ -1,139 +1,107 @@
-// Shares the editor's look (qc_checksheet_editor.scss): page frame, panels, badges.
+$qcd-teal: #008080;
 
-.o_qcd {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 14px 16px;
-}
+.o_qcd_dashboard {
+    padding: 16px;
+    overflow: auto;
 
-.o_qcd_tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
-}
+    .o_qcd_kpi_row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
 
-.o_qcd_tile {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 12px 16px;
-    border: 1px solid #d5dade;
-    border-radius: 6px;
-    background: #fff;
-    text-align: left;
-    &:hover { border-color: #006f6f; }
-}
-.o_qcd_tile_on {
-    border-color: #006f6f;
-    box-shadow: inset 0 0 0 1px #006f6f;
-    background: #f2fbfb;
-}
-.o_qcd_tile_value {
-    font-size: 26px;
-    font-weight: 700;
-    line-height: 1.1;
-}
-.o_qcd_tile_label { color: #3e4a55; }
+    .o_qcd_kpi_card {
+        flex: 1 1 150px;
+        padding: 14px 16px;
+        border-radius: 8px;
+        border-left: 5px solid $qcd-teal;
+        background-color: var(--o-view-background-color, $white);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        cursor: pointer;
 
-.o_qcd_filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
+        &:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+        &.o_qcd_kpi_draft { border-left-color: $secondary; }
+        &.o_qcd_kpi_review { border-left-color: $info; }
+        &.o_qcd_kpi_overdue { border-left-color: $danger; }
+        &.o_qcd_kpi_released { border-left-color: $success; }
+        &.o_qcd_kpi_missing { border-left-color: $warning; }
+    }
 
-.o_qcd_chip {
-    padding: 4px 12px;
-    border: 1px solid #b8c0c8;
-    border-radius: 14px;
-    background: #fff;
-    color: #3e4a55;
-    font-weight: 600;
-}
-.o_qcd_chip_on {
-    border-color: #006f6f;
-    background: #006f6f;
-    color: #fff;
-}
+    .o_qcd_kpi_value { font-size: 1.8rem; font-weight: bold; }
+    .o_qcd_kpi_label { color: $text-muted; }
 
-.o_qcd_search { width: 260px; }
-.o_qcd_model { width: 180px; }
+    .o_qcd_panel {
+        height: 100%;
+        padding: 14px 16px;
+        border-radius: 8px;
+        background-color: var(--o-view-background-color, $white);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 
-.o_qcd_table_box { overflow-x: auto; }
+        h4 { font-size: 1rem; font-weight: bold; margin-bottom: 10px; }
+    }
 
-.o_qcd_table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    th {
-        padding: 8px 10px;
-        background: #006f6f;
-        color: #fff;
-        font-size: 13px;
+    .o_qcd_bar_row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 3px 0;
+        cursor: pointer;
+
+        &:hover .o_qcd_bar_label { text-decoration: underline; }
+    }
+
+    .o_qcd_bar_label {
+        flex: 0 0 35%;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
-    td {
-        padding: 6px 10px;
-        border-bottom: 1px solid #e3e7ea;
-        vertical-align: middle;
-        background: #fff;
+
+    .o_qcd_bar_track {
+        flex: 1;
+        height: 10px;
+        border-radius: 5px;
+        background-color: rgba(0, 0, 0, 0.08);
     }
-}
 
-// The Job column stays put while the Types scroll sideways.
-.o_qcd_job_col {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    min-width: 150px;
-    box-shadow: 1px 0 0 #d5dade;
-}
-th.o_qcd_job_col { z-index: 2; }
+    .o_qcd_bar_fill {
+        height: 100%;
+        border-radius: 5px;
+        background-color: $qcd-teal;
 
-.o_qcd_sort {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: inherit;
-    font-weight: 700;
-}
+        &.o_qcd_fill_draft { background-color: $secondary; }
+        &.o_qcd_fill_review { background-color: $info; }
+        &.o_qcd_fill_released { background-color: $success; }
+    }
 
-.o_qcd_type_col { text-align: center; }
-.o_qcd_cell_td {
-    min-width: 120px;
-    text-align: center;
-}
+    .o_qcd_bar_count { flex: 0 0 32px; text-align: right; font-weight: bold; }
 
-.o_qcd_done_full { color: #14532d; font-weight: 700; }
+    .o_qcd_coverage {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 6px;
+    }
 
-.o_qcd_cell {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 110px;
-    padding: 4px 8px;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    font-size: 12px;
-    line-height: 1.35;
-}
-button.o_qcd_cell:hover { border-color: #3e4a55; }
-.o_qcd_cell_main { font-weight: 700; }
-.o_qcd_cell_draft { background: #dfe7f3; color: #1d3f72; }
-.o_qcd_cell_review { background: #fbe8c6; color: #6b4300; }
-.o_qcd_cell_released { background: #d5ecd9; color: #14532d; }
-.o_qcd_cell_missing { background: #f8dcdc; color: #7a1215; }
+    .o_qcd_coverage_track { height: 14px; border-radius: 7px; }
+    .o_qcd_coverage_value { font-size: 1.5rem; font-weight: bold; }
+    .o_qcd_clickable { cursor: pointer; }
+    .o_qcd_panel_auto { height: auto; }
 
-.o_qcd_overdue {
-    font-weight: 700;
-    color: #8a1c1c;
-}
+    // Many Models: the panel fills the rest of the right column and its list scrolls on its own.
+    .o_qcd_models {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        min-height: 0;
+    }
 
-.o_qcd_pager {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
+    .o_qcd_models_list {
+        max-height: 560px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .o_qcd_model_search { max-width: 180px; }
 }

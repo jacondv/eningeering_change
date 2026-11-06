@@ -135,9 +135,10 @@ export class QcChecksheetEditor extends Component {
         this.state.dirty = false;
         this.state.active = null;
         this.commitActive = null;
-        // What an Approver needs to see first is what changed.
-        if (sheet.state === "review" && this.previousRevisionId) {
-            await this.compareWith(this.previousRevisionId);
+        // What an Approver needs to see first is what changed: against the
+        // previous Revision, or for a copied Rev 0 against what it was copied from.
+        if (sheet.state === "review" && this.defaultBaseId) {
+            await this.compareWith(this.defaultBaseId);
         } else if (this.state.compare) {
             await this.compareWith(this.state.compare.baseId);
         }
@@ -146,7 +147,17 @@ export class QcChecksheetEditor extends Component {
     // Comparing Revisions
 
     get compareOptions() {
-        return this.sheet.revisions.filter((rev) => rev.id !== this.sheet.id);
+        const options = this.sheet.revisions
+            .filter((rev) => rev.id !== this.sheet.id)
+            .map((rev) => ({ id: rev.id, label: `Rev ${rev.revision} (${rev.state_label})` }));
+        if (this.sheet.source) {
+            options.push({ id: this.sheet.source.id, label: this.sheet.source.label });
+        }
+        return options;
+    }
+
+    get defaultBaseId() {
+        return this.previousRevisionId || (this.sheet.revision === 0 && this.sheet.source?.id) || false;
     }
 
     get previousRevisionId() {
@@ -163,7 +174,7 @@ export class QcChecksheetEditor extends Component {
         if (this.state.compare) {
             this.state.compare = null;
         } else {
-            this.compareWith(this.previousRevisionId || this.compareOptions[0].id);
+            this.compareWith(this.defaultBaseId || this.compareOptions[0].id);
         }
     }
 
@@ -262,11 +273,6 @@ export class QcChecksheetEditor extends Component {
 
     get editable() {
         return !!this.sheet && this.sheet.state === "draft" && this.sheet.can_author;
-    }
-
-    /** Inspection content, as opposed to the Header and Revision History. */
-    get contentEditable() {
-        return this.editable && !this.sheet.content_locked;
     }
 
     get isCurrentRevisionView() {
@@ -741,6 +747,9 @@ export class QcChecksheetEditor extends Component {
     /** Workflow steps always act on what's on screen, so unsaved work is saved first. */
     async saveThen(step) {
         if (this.state.dirty && !(await this.save())) {
+            if (this.state.saving) {
+                this.notification.add("Still saving, try again in a moment.", { type: "warning" });
+            }
             return;
         }
         await step();

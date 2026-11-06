@@ -17,106 +17,111 @@ class TestQcChecksheetDashboard(QcChecksheetCase):
         cls.type_panel.required = False
         cls.Sheet = cls.env['qc.checksheet'].with_user(cls.viewer)
 
-    def _data(self, **filters):
-        return self.Sheet.dashboard_data(filters)
+    def _data(self, domain=None):
+        return self.Sheet.get_dashboard_data(domain or [])
 
-    def _row(self, data, job):
-        return next(row for row in data['rows'] if row['id'] == job.id)
+    def _job(self, name, **vals):
+        return self._create_job(name, model=self.env['equipment.model'].create({'name': f'M-{name}'}), **vals)
 
-    def _job(self, name):
-        return self._create_job(name, model=self.env['equipment.model'].create({'name': f'M-{name}'}))
+    def _scoped(self, job):
+        return self._data([('job_number', '=', job.id)])
 
-    def test_cells_show_what_exists(self):
+    def test_counts_by_status_ignore_superseded(self):
         job = self._job('J-DASH-1')
-        released = self._release(self._create_checksheet(job=job))
-        data = self._data(search='J-DASH-1')
-        row = self._row(data, job)
-        cell = row['cells'][self.type_general.id]
-        self.assertEqual((cell['id'], cell['state'], cell['revision']), (released.id, 'released', 0))
-        self.assertIs(cell['next'], False)
-        self.assertEqual(row['released'], 1)
-        self.assertEqual(data['required'], 1)
-        self.assertFalse(data['can_author'])
-
-    def test_missing_and_optional_cells(self):
-        job = self._job('J-DASH-2')
-        self._create_checksheet(self.type_panel, job=job)
-        data = self._data(search='J-DASH-2')
-        row = self._row(data, job)
-        self.assertEqual(row['cells'][self.type_general.id], {'state': 'missing'})
-        self.assertEqual(row['cells'][self.type_panel.id]['state'], 'draft')
-        self.assertEqual([c['id'] for c in data['columns']], [self.type_general.id, self.type_panel.id])
-
-    def test_optional_type_column_only_once_used(self):
-        self._job('J-DASH-3')
-        data = self._data(search='J-DASH-3')
-        self.assertEqual([c['id'] for c in data['columns']], [self.type_general.id])
-
-    def test_revision_in_progress_is_shown_with_the_one_in_use(self):
-        job = self._job('J-DASH-4')
         rev0 = self._create_checksheet(job=job)
         self._create_content(rev0)
         rev0.action_submit()
         rev0.action_approve()
         rev1 = rev0.browse(rev0.action_create_revision('Change')['res_id'])
-        cell = self._row(self._data(search='J-DASH-4'), job)['cells'][self.type_general.id]
-        self.assertEqual(cell['id'], rev0.id)
-        self.assertEqual(cell['next'], {'id': rev1.id, 'revision': 1, 'state': 'draft'})
-        self.assertEqual(cell['reason'], 'Change')
+        rev1.action_submit()
+        rev1.action_approve()
+        rev1.browse(rev1.action_create_revision('Again')['res_id'])
+        data = self._scoped(job)
+        # Rev 0 is superseded; Rev 1 Released and Rev 2 Draft both count, as in the lists they open.
+        self.assertEqual(data['total'], 2)
+        self.assertEqual(data['kpis'], {'draft': 1, 'review': 0, 'overdue': 0, 'released': 1})
+        self.assertEqual([(i['key'], i['count']) for i in data['by_state']], [('draft', 1), ('released', 1)])
+        self.assertEqual([(i['key'], i['count']) for i in data['by_type']], [(self.type_general.id, 2)])
+        self.assertEqual(data['by_model'], [{'key': 'M-J-DASH-1', 'label': 'M-J-DASH-1', 'count': 2}])
+        self.assertEqual([r['id'] for r in data['released']], [rev1.id])
 
-    def test_waiting_days_and_overdue_setting(self):
-        job = self._job('J-DASH-5')
+    def test_waiting_too_long_follows_the_setting(self):
+        job = self._job('J-DASH-2')
         sheet = self._create_checksheet(job=job)
         self._create_content(sheet)
         sheet.action_submit()
         self.assertTrue(sheet.submitted_date)
         sheet.submitted_date = fields.Datetime.now() - timedelta(days=4)
-        data = self._data(search='J-DASH-5')
-        self.assertEqual(self._row(data, job)['cells'][self.type_general.id]['waiting_days'], 4)
-        self.assertEqual(data['overdue_days'], 3)
+        data = self._scoped(job)
+        self.assertEqual((data['kpis']['review'], data['kpis']['overdue'], data['overdue_days']), (1, 1, 3))
+        self.assertEqual(data['waiting'][0]['waiting_days'], 4)
         self.env['ir.config_parameter'].sudo().set_param('qc_checksheet.review_overdue_days', '7')
-        self.assertEqual(self._data(search='J-DASH-5')['overdue_days'], 7)
+        data = self._scoped(job)
+        self.assertEqual((data['kpis']['overdue'], data['overdue_days']), (0, 7))
 
-    def test_kpis_and_kpi_filters(self):
-        complete = self._job('J-KPI-1')
-        self._release(self._create_checksheet(job=complete))
-        missing = self._job('J-KPI-2')
-        waiting = self._job('J-KPI-3')
-        sheet = self._create_checksheet(job=waiting)
-        self._create_content(sheet)
-        sheet.action_submit()
-        data = self._data(search='J-KPI')
-        self.assertEqual(data['kpis'], {'missing': 1, 'waiting': 1, 'draft': 0, 'complete': 1})
-        self.assertEqual([r['id'] for r in self._data(search='J-KPI', kpi='missing')['rows']], [missing.id])
-        self.assertEqual([r['id'] for r in self._data(search='J-KPI', kpi='waiting')['rows']], [waiting.id])
-        self.assertEqual([r['id'] for r in self._data(search='J-KPI', kpi='complete')['rows']], [complete.id])
-
-    def test_only_in_progress_jobs_by_default_and_eol_on_demand(self):
-        running = self._job('J-STATUS-1')
-        ended = self._job('J-STATUS-2')
+    def test_job_status_is_searchable_for_archived_jobs(self):
+        running = self._job('J-DASH-3')
+        ended = self._job('J-DASH-4')
+        self._create_checksheet(job=running)
+        sheet = self._create_checksheet(job=ended)
         ended.last_update_status = 'eol'
         self.assertFalse(ended.active)
-        ids = [r['id'] for r in self._data(search='J-STATUS')['rows']]
-        self.assertEqual(ids, [running.id])
-        ids = [r['id'] for r in self._data(search='J-STATUS', statuses=['eol'])['rows']]
-        self.assertEqual(ids, [ended.id])
+        self.assertEqual(sheet.job_status, 'eol')
+        open_jobs = [('job_status', 'in', ['in_progress', 'on_hold'])]
+        domain = open_jobs + [('job_number', 'in', [running.id, ended.id])]
+        self.assertEqual(self._data(domain)['total'], 1)
+        domain = [('job_status', '=', 'eol'), ('job_number', 'in', [running.id, ended.id])]
+        self.assertEqual(self._data(domain)['total'], 1)
 
-    def test_search_model_filter_sort_and_pages(self):
-        first = self._job('J-PAGE-01')
-        second = self._job('J-PAGE-02')
-        self._release(self._create_checksheet(job=first))
-        data = self._data(search='J-PAGE')
-        self.assertEqual([r['id'] for r in data['rows']], [second.id, first.id])
-        self.assertEqual({m['id'] for m in data['models']}, {first.model_id.id, second.model_id.id})
-        self.assertEqual([r['id'] for r in self._data(search='M-J-PAGE-01')['rows']], [first.id])
-        self.assertEqual([r['id'] for r in self._data(search='J-PAGE', model_id=first.model_id.id)['rows']], [first.id])
-        self.assertEqual([r['id'] for r in self._data(search='J-PAGE', sort='done')['rows']], [second.id, first.id])
-        paged = self._data(search='J-PAGE', offset=1)
-        self.assertEqual(([r['id'] for r in paged['rows']], paged['total']), ([first.id], 2))
+    def test_a_job_the_user_cannot_read_still_shows_by_name(self):
+        job = self._job('J-DASH-PRIVATE', privacy_visibility='followers')
+        sheet = self._create_checksheet(job=job)
+        self._create_content(sheet)
+        sheet.action_submit()
+        data = self._data([('job_number', '=', job.id)])
+        self.assertEqual([row['job'] for row in data['waiting']], ['J-DASH-PRIVATE'])
 
-    def test_jobs_without_a_model_are_left_out(self):
-        self.env['project.project'].create({'name': 'J-NOMODEL-1'})
-        self.assertEqual(self._data(search='J-NOMODEL')['rows'], [])
+    OPEN_JOBS = [('job_status', 'in', ['in_progress', 'on_hold'])]
+
+    def _coverage_jobs(self):
+        complete = self._job('J-COV-1')
+        self._release(self._create_checksheet(job=complete))
+        missing = self._job('J-COV-2')
+        paused = self._job('J-COV-3')
+        paused.last_update_status = 'on_hold'
+        closed = self._job('J-COV-4')
+        closed.last_update_status = 'cancelled'
+        self.env['project.project'].create({'name': 'J-COV-NOMODEL'})
+        return complete, missing, paused, closed
+
+    def _missing_ids(self, domain):
+        action = self.Sheet.action_open_missing_jobs(domain)
+        return set(self.env['project.project'].with_context(active_test=False).search(action['domain']).ids)
+
+    def test_jobs_missing_sheets_follow_the_open_jobs_filter(self):
+        before = self._data(self.OPEN_JOBS)['jobs']
+        complete, missing, paused, closed = self._coverage_jobs()
+        jobs = self._data(self.OPEN_JOBS)['jobs']
+        self.assertEqual(jobs['total'] - before['total'], 3)
+        self.assertEqual(jobs['missing'] - before['missing'], 2)
+        self.assertEqual(jobs['complete'] - before['complete'], 1)
+        ids = self._missing_ids(self.OPEN_JOBS)
+        self.assertTrue({missing.id, paused.id} <= ids)
+        self.assertFalse({closed.id, complete.id} & ids)
+        # Without the filter, closed Jobs count too.
+        self.assertIn(closed.id, self._missing_ids([]))
+
+    def test_jobs_follow_the_job_conditions_of_the_search(self):
+        complete, missing, _paused, _closed = self._coverage_jobs()
+        by_model = [('machine_model', 'ilike', 'M-J-COV-2')]
+        self.assertEqual(self._data(by_model)['jobs'], {'total': 1, 'missing': 1, 'complete': 0})
+        self.assertEqual(self._missing_ids(by_model), {missing.id})
+        by_job = [('job_number', 'ilike', 'J-COV-1')]
+        self.assertEqual(self._data(by_job)['jobs'], {'total': 1, 'missing': 0, 'complete': 1})
+        self.assertEqual(self._data([('job_number', '=', complete.id)])['jobs']['total'], 1)
+        # Conditions on the sheet itself say nothing about Jobs with no sheet.
+        domain = by_model + [('state', '=', 'released')]
+        self.assertEqual(self._data(domain)['jobs'], {'total': 1, 'missing': 1, 'complete': 0})
 
     def test_job_info_for_the_new_page(self):
         job = self._job('J-INFO-1')
@@ -136,7 +141,7 @@ class TestQcChecksheetDashboard(QcChecksheetCase):
         self.assertEqual(settings.review_overdue_days, 3)
         settings.review_overdue_days = 5
         settings.action_save()
-        self.assertEqual(self.Sheet.dashboard_data({})['overdue_days'], 5)
+        self.assertEqual(self.Sheet.get_dashboard_data([])['overdue_days'], 5)
 
     def test_settings_refuse_zero_days(self):
         admin = new_test_user(

@@ -1,6 +1,6 @@
 {
     'name': 'QC Check Sheet',
-    'version': '19.0.1.4.0',
+    'version': '19.0.1.6.0',
     'category': 'Manufacturing/Quality',
     'summary': 'Author QC check sheets on Odoo and print them to the standard paper form',
     'description': """
@@ -35,6 +35,7 @@ Features:
         'report/qc_checksheet_report_templates.xml',
         'views/qc_checksheet_editor_actions.xml',
         'views/qc_checksheet_views.xml',
+        'views/qc_checksheet_dashboard_views.xml',
         'views/qc_checksheet_type_views.xml',
         'views/project_project_views.xml',
         'views/qc_checksheet_menus.xml',

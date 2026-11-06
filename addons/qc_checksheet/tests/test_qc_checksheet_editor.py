@@ -51,28 +51,21 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertEqual(data['groups'][0]['items'][0]['line_key'], old['groups'][0]['items'][0]['line_key'])
         self.assertTrue(data['groups'][0]['items'][0]['line_key'])
 
-    def test_save_on_a_copied_rev0_changes_only_header_and_history(self):
+    def test_save_on_a_copied_rev0_keeps_line_keys_of_its_source(self):
         source = self._create_checksheet()
-        # Sequences the editor would renumber: that must not count as a change.
-        self.env['qc.checksheet.group'].create({
-            'checksheet_id': source.id, 'sequence': 7, 'name': '<p>G</p>',
-            'item_ids': [(0, 0, {'sequence': 3, 'description': '<p>Step</p>'})],
-        })
+        self._create_content(source, '<p>Step</p>')
         self._release(source)
         copy = self._create_checksheet().with_user(self.author)
         copy._copy_content_from(source)
         payload = self._payload(copy, name='This Machine')
-        payload['history'][0]['description'] = 'For this machine'
+        payload['groups'][0]['items'][0]['description'] = '<p>Changed</p>'
 
         copy.editor_save(payload)
 
         self.assertEqual(copy.name, 'This Machine')
-        self.assertEqual(copy.history_ids.description, 'For this machine')
-        self.assertEqual(copy.group_ids.sequence, 7)
-        payload = self._payload(copy)
-        payload['groups'][0]['items'][0]['description'] = '<p>Changed</p>'
-        copy.editor_save(payload)
-        self.assertIn('Step', copy.group_ids.item_ids.description)
+        self.assertIn('Changed', copy.group_ids.item_ids.description)
+        # Still matched line by line with the source, so the editor can compare them.
+        self.assertEqual(copy.group_ids.item_ids.line_key, source.group_ids.item_ids.line_key)
 
     def test_viewer_can_load_but_not_save(self):
         checksheet = self._sheet().with_user(self.viewer)
@@ -340,6 +333,11 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertEqual(checksheet.revision, 0)
         self.assertEqual(len(checksheet.group_ids), 1)
         self.assertIn('Copied question', checksheet.group_ids.item_ids.description)
+        # The editor offers the source as a base to compare with.
+        source_job = source.job_number.display_name
+        self.assertEqual(checksheet.with_user(self.author).editor_load()['source'], {
+            'id': source.id, 'label': f'Copied from {source_job} Rev 0'})
+        self.assertIs(source.editor_load()['source'], False)
 
     def test_panel_sheet_is_created_empty_for_the_form(self):
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({

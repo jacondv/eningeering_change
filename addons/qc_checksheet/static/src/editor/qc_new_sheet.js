@@ -1,15 +1,15 @@
 /** @odoo-module **/
 
 import { Component, onWillStart, useState } from "@odoo/owl";
-import { useDebounced } from "@web/core/utils/timing";
 import { useService } from "@web/core/utils/hooks";
+import { QcJobPicker } from "./qc_job_picker";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
-const SEARCH_DEBOUNCE_MS = 250;
 
 /** The New Check Sheet page: pick the Job and Type, and what to start from. */
 export class QcNewSheet extends Component {
     static template = "qc_checksheet.NewSheet";
+    static components = { QcJobPicker };
     static props = {
         onCreated: Function,
         onOpen: Function,
@@ -24,23 +24,18 @@ export class QcNewSheet extends Component {
         this.state = useState({
             types: [],
             typeId: false,
-            jobTerm: "",
             job: null,
-            jobResults: [],
-            jobMenuOpen: false,
             header: "",
             headerIsAuto: false,
             source: "blank",
             sourceId: false,
             sourceJob: null,
-            sourceJobTerm: "",
-            sourceJobResults: [],
-            sourceJobMenuOpen: false,
             context: this.emptyContext(),
             creating: false,
         });
-        this.searchJobs = useDebounced(this.searchJobs.bind(this), SEARCH_DEBOUNCE_MS);
-        this.searchSourceJobs = useDebounced(this.searchSourceJobs.bind(this), SEARCH_DEBOUNCE_MS);
+        this.searchJobs = (term) => this.orm.call(CHECKSHEET_MODEL, "editor_search_jobs", [term]);
+        this.searchSourceJobs = (term) =>
+            this.orm.call(CHECKSHEET_MODEL, "editor_search_source_jobs", [this.state.typeId, term]);
 
         onWillStart(async () => {
             this.state.types = await this.orm.call(CHECKSHEET_MODEL, "editor_types", []);
@@ -105,35 +100,8 @@ export class QcNewSheet extends Component {
         }
     }
 
-    async searchJobs() {
-        this.state.jobResults = await this.orm.call(CHECKSHEET_MODEL, "editor_search_jobs", [
-            this.state.jobTerm,
-        ]);
-    }
-
-    onJobInput(ev) {
-        this.state.jobTerm = ev.target.value;
-        this.state.jobMenuOpen = true;
-        this.searchJobs();
-    }
-
-    onJobFocus() {
-        this.state.jobMenuOpen = true;
-        this.searchJobs();
-    }
-
-    onJobBlur() {
-        // A click on a result blurs the input first, so let that click land.
-        setTimeout(() => {
-            this.state.jobMenuOpen = false;
-            this.state.jobTerm = this.state.job?.name || "";
-        }, 150);
-    }
-
     async pickJob(job) {
         this.state.job = job;
-        this.state.jobTerm = job.name;
-        this.state.jobMenuOpen = false;
         await this.refreshContext();
         // Keep following the Job until the user types a Header of their own.
         if (!this.state.header || this.state.headerIsAuto) {
@@ -146,39 +114,11 @@ export class QcNewSheet extends Component {
         this.state.typeId = parseInt(ev.target.value);
         // That Job may have nothing to copy for the new Type.
         this.state.sourceJob = null;
-        this.state.sourceJobTerm = "";
         await this.refreshContext();
-    }
-
-    async searchSourceJobs() {
-        this.state.sourceJobResults = await this.orm.call(CHECKSHEET_MODEL, "editor_search_source_jobs", [
-            this.state.typeId,
-            this.state.sourceJobTerm,
-        ]);
-    }
-
-    onSourceJobInput(ev) {
-        this.state.sourceJobTerm = ev.target.value;
-        this.state.sourceJobMenuOpen = true;
-        this.searchSourceJobs();
-    }
-
-    onSourceJobFocus() {
-        this.state.sourceJobMenuOpen = true;
-        this.searchSourceJobs();
-    }
-
-    onSourceJobBlur() {
-        setTimeout(() => {
-            this.state.sourceJobMenuOpen = false;
-            this.state.sourceJobTerm = this.state.sourceJob?.name || "";
-        }, 150);
     }
 
     async pickSourceJob(job) {
         this.state.sourceJob = job;
-        this.state.sourceJobTerm = job ? job.name : "";
-        this.state.sourceJobMenuOpen = false;
         await this.refreshContext();
     }
 

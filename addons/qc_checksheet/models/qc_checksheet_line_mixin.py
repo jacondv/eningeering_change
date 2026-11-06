@@ -6,18 +6,13 @@ from odoo.exceptions import UserError
 
 class QcChecksheetLockMixin(models.AbstractModel):
     """Child lines of a check sheet can only change while that sheet is a
-    Draft, and not even then on a Rev 0 copied from another Job (see
-    qc.checksheet.content_locked). One2many edits on the sheet's form, the
-    editor page and the wizards all end up here, so this is the single place
-    that enforces it."""
+    Draft. One2many edits on the sheet's form, the editor page and the wizards
+    all end up here, so this is the single place that enforces it."""
     _name = 'qc.checksheet.lock.mixin'
     _description = 'QC Check Sheet Child Line Lock'
 
     # Path from this model to its qc.checksheet.
     _checksheet_path = 'checksheet_id'
-    # Part of the inspection content, so frozen on a copied Rev 0.
-    _locked_by_copy = True
-
     def _check_checksheet_is_draft(self):
         if self.env.su:
             return
@@ -25,8 +20,6 @@ class QcChecksheetLockMixin(models.AbstractModel):
             if checksheet.state != 'draft':
                 raise UserError(_(
                     "%s is locked. Create a New Revision to change it.", checksheet.display_name))
-            if self._locked_by_copy and checksheet.content_locked:
-                raise UserError(checksheet._content_locked_message())
 
     @api.model_create_multi
     def create(self, vals_list):

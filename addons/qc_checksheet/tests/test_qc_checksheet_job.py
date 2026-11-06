@@ -1,6 +1,6 @@
 from psycopg2 import IntegrityError
 
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import new_test_user, tagged
 from odoo.tools import mute_logger
 
@@ -147,6 +147,31 @@ class TestQcChecksheetJob(QcChecksheetCase):
         self.assertFalse(Sheet.job_overview(job.id)['can_author'])
         with self.assertRaises(AccessError):
             Sheet.job_create_sheets(job.id, [{'type_id': self.type_general.id, 'header': 'X'}])
+
+    def test_overview_of_a_missing_job_says_so(self):
+        missing_id = self._create_job().id + 1000
+        with self.assertRaisesRegex(UserError, 'no longer exists'):
+            self.Sheet.job_overview(missing_id)
+
+    def test_nothing_to_create_on_a_job_without_a_model(self):
+        job = self.env['project.project'].create({'name': 'J-NO-MODEL-QC'})
+        self.assertFalse(self.Sheet.job_overview(job.id)['can_author'])
+
+    def test_an_archived_type_keeps_showing_the_sheets_of_a_job(self):
+        job = self._create_job()
+        sheet = self._released(self.type_hydraulic, job)
+        self.type_hydraulic.active = False
+        row = self._row(self.Sheet.job_overview(job.id), self.type_hydraulic)
+        self.assertEqual(row['current']['id'], sheet.id)
+
+    def test_progress_ignores_an_archived_required_type(self):
+        self.type_panel.required = False
+        job = self._create_job()
+        self._released(self.type_general, job)
+        self._released(self.type_hydraulic, job)
+        self.type_hydraulic.active = False
+        job.invalidate_recordset(['qc_checksheet_progress'])
+        self.assertEqual(job.qc_checksheet_progress, '1/1')
 
     def test_project_button_opens_the_job_page(self):
         job = self._create_job()
