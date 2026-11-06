@@ -1,15 +1,11 @@
 from odoo.exceptions import UserError
-from odoo.tests.common import TransactionCase, tagged
+from odoo.tests.common import tagged
+
+from .common import QcChecksheetCase
 
 
 @tagged('post_install', '-at_install')
-class TestQcChecksheet(TransactionCase):
-
-    def _create_checksheet(self):
-        return self.env['qc.checksheet'].create({
-            'name': 'Start Up Check Sheet',
-            'checksheet_type': 'standard',
-        })
+class TestQcChecksheet(QcChecksheetCase):
 
     def test_item_number_is_continuous_across_groups(self):
         checksheet = self._create_checksheet()
@@ -39,33 +35,16 @@ class TestQcChecksheet(TransactionCase):
         self.env['qc.checksheet.item'].create({'group_id': group_a.id, 'sequence': 20})
         self.assertEqual(group_b.item_ids.item_number, 3)
 
-    def test_rev_auto_increments_and_renumbers(self):
-        checksheet = self._create_checksheet()
-        line_a = self.env['qc.checksheet.history'].create({
-            'checksheet_id': checksheet.id, 'sequence': 10, 'description': 'Initial'})
-        line_b = self.env['qc.checksheet.history'].create({
-            'checksheet_id': checksheet.id, 'sequence': 20, 'description': 'Second'})
-        self.assertEqual(line_a.rev, 1)
-        self.assertEqual(line_b.rev, 2)
-
-        line_new = self.env['qc.checksheet.history'].create({
-            'checksheet_id': checksheet.id, 'sequence': 15, 'description': 'Inserted'})
-        self.assertEqual(line_a.rev, 1)
-        self.assertEqual(line_new.rev, 2)
-        self.assertEqual(line_b.rev, 3)
-
     def test_show_in_report_defaults_true(self):
         checksheet = self._create_checksheet()
-        line = self.env['qc.checksheet.history'].create({
-            'checksheet_id': checksheet.id, 'description': 'Initial'})
-        self.assertTrue(line.show_in_report)
+        self.assertTrue(checksheet.history_ids.show_in_report)
 
     def test_report_omits_history_lines_hidden_from_report(self):
         checksheet = self._create_checksheet()
         self.env['qc.checksheet.history'].create({
-            'checksheet_id': checksheet.id, 'sequence': 10, 'description': 'Shown', 'show_in_report': True})
+            'checksheet_id': checksheet.id, 'rev': 1, 'description': 'Shown', 'show_in_report': True})
         self.env['qc.checksheet.history'].create({
-            'checksheet_id': checksheet.id, 'sequence': 20, 'description': 'Hidden', 'show_in_report': False})
+            'checksheet_id': checksheet.id, 'rev': 2, 'description': 'Hidden', 'show_in_report': False})
 
         report = self.env.ref('qc_checksheet.action_report_qc_checksheet')
         html = report.sudo()._render_qweb_html(report.report_name, checksheet.ids)[0].decode()
@@ -73,46 +52,56 @@ class TestQcChecksheet(TransactionCase):
         self.assertNotIn('Hidden', html)
 
     def test_copy_content_from_standard(self):
-        source = self._create_checksheet()
-        source.write({
-            'machine_serial': 'SN-123', 'customer': 'ACME Co',
-            'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Technician'})],
-            'history_ids': [(0, 0, {'sequence': 10, 'description': 'Initial', 'show_in_report': False})],
-        })
-        self.env['qc.checksheet.group'].create({
-            'checksheet_id': source.id, 'name': 'Hydraulic System',
-            'item_ids': [(0, 0, {'description': 'Check oil level', 'acceptance': 'No leak'})],
-        })
+        source_job = self._create_job('J-SOURCE', machine_serial='SN-OLD')
+        source = self._create_checksheet(job=source_job, check_date='2026-01-15')
+        source.write({'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Technician'})]})
+        self._create_content(source)
+        self._release(source)
 
-        copy = self._create_checksheet()
+        target_job = self._create_job('J-TARGET', machine_serial='SN-NEW')
+        copy = self._create_checksheet(job=target_job)
         copy._copy_content_from(source)
 
         self.assertEqual(copy.copied_from_id, source)
         self.assertIn('Hydraulic System', copy.group_ids.name)
         self.assertIn('Check oil level', copy.group_ids.item_ids.description)
-        self.assertEqual(copy.machine_serial, 'SN-123')
-        self.assertEqual(copy.customer, 'ACME Co')
         self.assertEqual(copy.approval_ids.mapped('position'), ['Technician'])
-        self.assertEqual(copy.history_ids.mapped('rev'), [1])
-        self.assertEqual(copy.history_ids.show_in_report, False)
         # Independent copy: editing the copy must not affect the source.
         copy.group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)
 
-    def test_copy_content_type_mismatch_raises(self):
+        # Starts over at Rev 0, keeping nothing specific to the old machine.
+        self.assertEqual(copy.revision, 0)
+        self.assertEqual(copy.state, 'draft')
+        self.assertEqual(copy.machine_serial, 'SN-NEW')
+        self.assertFalse(copy.check_date)
+        self.assertEqual(copy.history_ids.mapped('rev'), [0])
+        self.assertIn('J-SOURCE', copy.history_ids.description)
+
+    def test_copy_content_requires_released_source(self):
         source = self._create_checksheet()
-        panel_copy = self.env['qc.checksheet'].create({
-            'name': 'Panel Copy', 'checksheet_type': 'panel_sticker',
-        })
+        self._create_content(source)
+        with self.assertRaises(UserError):
+            self._create_checksheet()._copy_content_from(source)
+
+    def test_copy_content_refuses_target_with_content(self):
+        source = self._release(self._create_checksheet())
+        self._create_content(source)
+        target = self._create_checksheet()
+        self._create_content(target)
+        with self.assertRaises(UserError):
+            target._copy_content_from(source)
+
+    def test_copy_content_type_mismatch_raises(self):
+        source = self._release(self._create_checksheet())
+        panel_copy = self._create_checksheet(self.type_panel)
         with self.assertRaises(UserError):
             panel_copy._copy_content_from(source)
 
     def test_copy_wizard_copies_content_into_existing_checksheet(self):
         source = self._create_checksheet()
-        self.env['qc.checksheet.group'].create({
-            'checksheet_id': source.id, 'name': 'Group A',
-            'item_ids': [(0, 0, {'description': 'Question 1'})],
-        })
+        self._create_content(source, 'Question 1')
+        self._release(source)
 
         new_checksheet = self._create_checksheet()
         wizard = self.env['qc.checksheet.copy.wizard'].create({
@@ -126,10 +115,8 @@ class TestQcChecksheet(TransactionCase):
 
     def test_copy_wizard_rejects_type_mismatch(self):
         checksheet = self._create_checksheet()
-        other_standard = self._create_checksheet()
-        panel_source = self.env['qc.checksheet'].create({
-            'name': 'Panel Source', 'checksheet_type': 'panel_sticker',
-        })
+        other_standard = self._release(self._create_checksheet())
+        panel_source = self._release(self._create_checksheet(self.type_panel))
         wizard = self.env['qc.checksheet.copy.wizard'].create({
             'checksheet_id': checksheet.id,
             'source_checksheet_id': other_standard.id,

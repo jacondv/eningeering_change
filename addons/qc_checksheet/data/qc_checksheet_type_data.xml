@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="checksheet_type_general" model="qc.checksheet.type">
+            <field name="name">General Check Sheet</field>
+            <field name="code">GE</field>
+            <field name="layout">standard</field>
+            <field name="sequence">10</field>
+        </record>
+
+        <record id="checksheet_type_panel_sticker" model="qc.checksheet.type">
+            <field name="name">Panel &amp; Sticker Check Sheet</field>
+            <field name="code">PS</field>
+            <field name="layout">panel_sticker</field>
+            <field name="sequence">20</field>
+        </record>
+
+    </data>
+</odoo>
