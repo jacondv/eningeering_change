@@ -54,8 +54,12 @@ class QcChecksheet(models.Model):
             'serial': self.machine_serial or '',
             'engine': self.engine_number or '',
             'customer': self.customer or '',
-            'copied_from': self.copied_from_id.display_name or '',
-            'content_locked': self.content_locked,
+            # Offered as a base to compare with: the copied lines kept its line keys.
+            # Plain False when there is none: an empty recordset reaches the page as [], which is truthy.
+            'source': {
+                'id': self.copied_from_id.id,
+                'label': self.copied_from_id.sudo()._editor_source_label(),
+            } if self.copied_from_id else False,
             'latest_id': revisions[-1].id,
             'revisions': [{
                 'id': rev.id,
@@ -89,6 +93,10 @@ class QcChecksheet(models.Model):
             'can_approve': user.has_group(GROUP_APPROVER),
         }
 
+    def _editor_source_label(self):
+        self.ensure_one()
+        return _('Copied from %(job)s Rev %(rev)s', job=self.job_number.display_name or self.reference, rev=self.revision)
+
     # Saving
 
     def editor_save(self, payload):
@@ -102,13 +110,8 @@ class QcChecksheet(models.Model):
         if not (payload.get('name') or '').strip():
             raise UserError(_("Enter the Header."))
 
-        if self.content_locked:
-            # Nothing to save there, and even a renumbered sequence would be a change.
-            group_ids = [{'id': group.id, 'item_ids': group.item_ids.ids} for group in self.group_ids]
-            position_ids = self.approval_ids.ids
-        else:
-            group_ids = self._editor_save_groups(payload.get('groups', []))
-            position_ids = self._editor_save_positions(payload.get('positions', []))
+        group_ids = self._editor_save_groups(payload.get('groups', []))
+        position_ids = self._editor_save_positions(payload.get('positions', []))
         self._editor_save_history(payload.get('history', []))
         self.write({'name': payload['name']})
         self.sudo().editor_version += 1
@@ -261,12 +264,12 @@ class QcChecksheet(models.Model):
     def editor_search_source_jobs(self, type_id, term=''):
         """Jobs with a Released sheet that a sheet of this Type could be copied from."""
         checksheet_type = self.env['qc.checksheet.type'].browse(type_id).exists()
-        sheets = self.search([
-            ('state', '=', 'released'),
-            ('checksheet_type', '=', checksheet_type.layout),
-            ('job_number.name', 'ilike', term or ''),
-        ])
-        jobs = sheets.job_number.sudo().sorted('name', reverse=True)[:JOB_SEARCH_LIMIT]
+        released = self._search([('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)])
+        # Job details through sudo, like everywhere else here: copying shouldn't need Project access.
+        jobs = self.env['project.project'].sudo().with_context(active_test=False).search([
+            ('id', 'in', released.subselect('job_number')),
+            ('name', 'ilike', term or ''),
+        ], limit=JOB_SEARCH_LIMIT, order='name desc')
         return [{'id': job.id, 'name': job.display_name, 'model': job.model_id.name or ''} for job in jobs]
 
     @api.model

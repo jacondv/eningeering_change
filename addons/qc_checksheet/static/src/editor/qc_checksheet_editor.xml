@@ -39,18 +39,10 @@
         <div class="o_qce_new">
             <div class="o_qce_panel o_qce_new_form">
                 <div class="o_qce_row">
-                    <div class="o_qce_field o_qce_job_field">
+                    <div class="o_qce_field">
                         <label for="qce_job">Job Number</label>
-                        <input id="qce_job" class="form-control" autocomplete="off" placeholder="Search a Job"
-                               t-att-value="state.jobTerm" t-on-input="onJobInput" t-on-focus="onJobFocus" t-on-blur="onJobBlur"/>
-                        <div t-if="state.jobMenuOpen" class="o_qce_job_menu">
-                            <t t-foreach="state.jobResults" t-as="job" t-key="job.id">
-                                <button class="o_qce_job_option" t-on-mousedown.prevent="() => this.pickJob(job)">
-                                    <strong t-esc="job.name"/> <span class="text-muted" t-esc="job.model"/>
-                                </button>
-                            </t>
-                            <div t-if="!state.jobResults.length" class="text-muted p-2">No Job with a Model matches.</div>
-                        </div>
+                        <QcJobPicker inputId="'qce_job'" placeholder="'Search a Job'" value="state.job"
+                                     search="searchJobs" onPick.bind="pickJob" emptyText="'No Job with a Model matches.'"/>
                     </div>
                     <div class="o_qce_field">
                         <label for="qce_type">Check Sheet Type</label>
@@ -82,22 +74,10 @@
                 <div t-if="state.source === 'copy'" class="o_qce_sources">
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <label for="qce_source_job" class="mb-0">Filter by Job</label>
-                        <div class="o_qce_job_field o_qce_source_job">
-                            <div class="input-group input-group-sm">
-                                <input id="qce_source_job" class="form-control" placeholder="All Jobs" autocomplete="off"
-                                       t-att-value="state.sourceJobTerm" t-on-input="onSourceJobInput"
-                                       t-on-focus="onSourceJobFocus" t-on-blur="onSourceJobBlur"/>
-                                <button t-if="state.sourceJob" class="btn btn-secondary" title="Show all Jobs" aria-label="Clear the Job filter"
-                                        t-on-click="() => this.pickSourceJob(null)"><i class="fa fa-times"/></button>
-                            </div>
-                            <div t-if="state.sourceJobMenuOpen" class="o_qce_job_menu">
-                                <t t-foreach="state.sourceJobResults" t-as="job" t-key="job.id">
-                                    <button class="o_qce_job_option" t-on-mousedown.prevent="() => this.pickSourceJob(job)">
-                                        <strong t-esc="job.name"/> <span class="text-muted" t-esc="job.model"/>
-                                    </button>
-                                </t>
-                                <div t-if="!state.sourceJobResults.length" class="text-muted p-2">No Job with a Released sheet to copy matches.</div>
-                            </div>
+                        <div class="o_qce_source_job">
+                            <QcJobPicker inputId="'qce_source_job'" placeholder="'All Jobs'" value="state.sourceJob" clearable="true"
+                                         search="searchSourceJobs" onPick.bind="pickSourceJob"
+                                         emptyText="'No Job with a Released sheet to copy matches.'"/>
                         </div>
                         <small class="text-muted">Released sheets of this layout, same Model first</small>
                     </div>
@@ -174,10 +154,6 @@
             <span t-esc="oldRevisionNotice"/>
             <button class="btn btn-link p-0" t-on-click="() => this.openSheet(sheet.latest_id)">Open the latest Revision</button>
         </div>
-        <div t-if="sheet.content_locked" class="o_qce_notice o_qce_notice_info">
-            <span>Copied from <strong t-esc="sheet.copied_from"/>: Rev 0 keeps exactly the same inspection content.
-                To change it, release Rev 0 first, then create a New Revision. The Header and the Revision History stay editable.</span>
-        </div>
         <div t-if="sheet.state === 'draft' and sheet.reject_reason" class="o_qce_notice o_qce_notice_danger">
             <strong>Rejected:</strong> <t t-esc="sheet.reject_reason"/>
         </div>
@@ -188,7 +164,7 @@
             <label for="qce_compare_base" class="fw-bold">Rev <t t-esc="sheet.revision"/> compared with</label>
             <select id="qce_compare_base" class="form-select form-select-sm w-auto" t-on-change="onCompareBaseChange">
                 <t t-foreach="compareOptions" t-as="rev" t-key="rev.id">
-                    <option t-att-value="rev.id" t-att-selected="rev.id === state.compare.baseId">Rev <t t-esc="rev.revision"/> (<t t-esc="rev.state_label"/>)</option>
+                    <option t-att-value="rev.id" t-att-selected="rev.id === state.compare.baseId" t-esc="rev.label"/>
                 </t>
             </select>
             <strong t-esc="compareSummary"/>
@@ -209,7 +185,7 @@
                         <small class="text-muted" t-esc="entry.items.length"/>
                     </button>
                 </t>
-                <button t-if="contentEditable" class="btn btn-secondary mt-2" t-on-click="addGroup">Add Group</button>
+                <button t-if="editable" class="btn btn-secondary mt-2" t-on-click="addGroup">Add Group</button>
                 <small class="text-muted px-2 pt-2"><t t-esc="totalItems"/> Items in <t t-esc="sheet.groups.length"/> Groups</small>
             </div>
 
@@ -242,15 +218,15 @@
                                 <span class="text-muted" t-esc="line_index + 1"/>
                                 <input class="form-control" placeholder="e.g. QC Inspector" t-att-value="line.position"
                                        t-att-class="{'o_qce_diff_added': diff and diff.positions.added.has(line_index)}"
-                                       t-att-readonly="!contentEditable" t-on-input="(ev) => this.onPositionInput(line, ev)"/>
-                                <button t-if="contentEditable" class="o_qce_icon" title="Delete" t-on-click="() => this.removePosition(line_index)"><i class="fa fa-trash-o"/></button>
+                                       t-att-readonly="!editable" t-on-input="(ev) => this.onPositionInput(line, ev)"/>
+                                <button t-if="editable" class="o_qce_icon" title="Delete" t-on-click="() => this.removePosition(line_index)"><i class="fa fa-trash-o"/></button>
                             </div>
                         </t>
                         <t t-if="diff">
                             <div t-foreach="diff.positions.removed" t-as="position" t-key="position_index"
                                  class="o_qce_diff_removed o_qce_ghost_position" t-esc="position"/>
                         </t>
-                        <div t-if="contentEditable"><button class="btn btn-secondary" t-on-click="addPosition">Add Position</button></div>
+                        <div t-if="editable"><button class="btn btn-secondary" t-on-click="addPosition">Add Position</button></div>
                     </div>
 
                     <div t-if="state.tab === 'history'" class="o_qce_scroll_x">
@@ -280,7 +256,7 @@
     </t>
 
     <t t-name="qc_checksheet.EditorContent">
-        <div t-if="contentEditable" class="o_qce_hints">
+        <div t-if="editable" class="o_qce_hints">
             <span>Tab: next cell</span><span>Enter: new line</span><span>Ctrl+Enter: new Item below</span><span>Ctrl+S: Save</span><span>Paste a table from Word or Excel to fill rows</span>
         </div>
         <div class="o_qce_scroll_x">
@@ -305,10 +281,10 @@
                      t-att-class="{'o_qce_drop': state.dropTarget === group.uid, 'o_qce_diff_added': groupDiff and groupDiff.status === 'added', 'o_qce_diff_changed': groupDiff and groupDiff.status === 'changed'}"
                      t-att-title="groupDiff and groupDiff.old ? 'Before: ' + groupDiff.old : ''"
                      t-on-dragover="(ev) => this.onDragOver(group.uid, ev)" t-on-drop="(ev) => this.onDropOnGroup(group, ev)">
-                    <span class="o_qce_icon o_qce_grip" t-att-draggable="contentEditable ? 'true' : 'false'" title="Drag to reorder this Group"
+                    <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to reorder this Group"
                           t-on-dragstart="(ev) => this.onDragStart('group', group.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
                     <div class="o_qce_band_name">
-                        <QcRichCell value="group.name" active="state.active === cellKey(group, 'name')" readonly="!contentEditable"
+                        <QcRichCell value="group.name" active="state.active === cellKey(group, 'name')" readonly="!editable"
                                     label="'Group name'" placeholder="'Group name'" resModel="'qc.checksheet.group'" resId="group.id"
                                     onActivate="() => this.activate(cellKey(group, 'name'))"
                                     onChange="(html) => this.setCell(group, 'name', html)"
@@ -316,7 +292,7 @@
                                     registerCommit.bind="registerCommit"/>
                     </div>
                     <span t-if="groupDiff" class="o_qce_diff_tag" t-esc="groupDiff.status === 'added' ? 'Added' : 'Changed'"/>
-                    <t t-if="contentEditable">
+                    <t t-if="editable">
                         <button class="btn btn-link btn-sm" t-on-click="() => this.addItem(group)">Add Item</button>
                         <button class="o_qce_icon" title="Delete this Group" t-on-click="() => this.removeGroup(group)"><i class="fa fa-trash-o"/></button>
                     </t>
@@ -336,7 +312,7 @@
                     <div class="o_qce_grid o_qce_item" t-att-class="{'o_qce_drop': state.dropTarget === item.uid, 'o_qce_diff_added': rowDiff and rowDiff.status === 'added'}"
                          t-on-dragover="(ev) => this.onDragOver(item.uid, ev)" t-on-drop="(ev) => this.onDropOnItem(group, item, ev)">
                         <div class="o_qce_cell o_qce_cell_center">
-                            <span class="o_qce_icon o_qce_grip" t-att-draggable="contentEditable ? 'true' : 'false'" title="Drag to another row or Group"
+                            <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to another row or Group"
                                   t-on-dragstart="(ev) => this.onDragStart('item', item.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
                         </div>
                         <div class="o_qce_cell o_qce_cell_center o_qce_number_cell">
@@ -347,7 +323,7 @@
                         <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
                             <div class="o_qce_cell" t-att-class="cellDiffClass(rowDiff, field)"
                                  t-att-title="cellDiffClass(rowDiff, field) ? 'Before: ' + rowDiff.changed[field] : ''">
-                                <QcRichCell value="item[field]" active="state.active === cellKey(item, field)" readonly="!contentEditable"
+                                <QcRichCell value="item[field]" active="state.active === cellKey(item, field)" readonly="!editable"
                                             label="field + ', Item ' + row.number" resModel="'qc.checksheet.item'" resId="item.id"
                                             onActivate="() => this.activate(cellKey(item, field))"
                                             onChange="(html) => this.setCell(item, field, html)"
@@ -357,7 +333,7 @@
                             </div>
                         </t>
                         <div class="o_qce_cell o_qce_cell_center">
-                            <button t-if="contentEditable" class="o_qce_icon" title="Delete this Item" t-on-click="() => this.removeItem(group, item)"><i class="fa fa-trash-o"/></button>
+                            <button t-if="editable" class="o_qce_icon" title="Delete this Item" t-on-click="() => this.removeItem(group, item)"><i class="fa fa-trash-o"/></button>
                         </div>
                     </div>
                     </t>
@@ -381,7 +357,7 @@
                 </t>
             </t>
         </div>
-        <div t-if="contentEditable" class="d-flex flex-wrap gap-2 p-2">
+        <div t-if="editable" class="d-flex flex-wrap gap-2 p-2">
             <button class="btn btn-secondary" t-on-click="addItemAtEnd">Add Item</button>
             <button class="btn btn-secondary" t-on-click="addGroup">Add Group</button>
         </div>

@@ -348,43 +348,30 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         copy._copy_content_from(source)
         return source, copy
 
-    def test_copied_rev0_has_exactly_the_source_content(self):
+    def test_copied_rev0_starts_with_the_source_content(self):
         source, copy = self._copied_rev0()
-        self.assertTrue(copy.content_locked)
         self.assertEqual(copy.group_ids.mapped('name'), source.group_ids.mapped('name'))
         self.assertEqual(copy.group_ids.item_ids.mapped('description'), source.group_ids.item_ids.mapped('description'))
+        # Same line keys, so the copy can be compared with its source.
+        self.assertEqual(copy.group_ids.mapped('line_key'), source.group_ids.mapped('line_key'))
+        self.assertEqual(copy.group_ids.item_ids.mapped('line_key'), source.group_ids.item_ids.mapped('line_key'))
 
-    def test_copied_rev0_content_cannot_change(self):
-        _source, copy = self._copied_rev0()
-        with self.assertRaisesRegex(UserError, 'New Revision'):
-            copy.group_ids.item_ids.write({'acceptance': '<p>Changed</p>'})
-        with self.assertRaises(UserError):
-            copy.group_ids.item_ids.unlink()
-        with self.assertRaises(UserError):
-            self.env['qc.checksheet.group'].with_user(self.author).create({'checksheet_id': copy.id, 'name': 'New'})
-        with self.assertRaises(UserError):
-            self.env['qc.checksheet.approval'].with_user(self.author).create({'checksheet_id': copy.id, 'position': 'X'})
-        with self.assertRaises(UserError):
-            copy.write({'remarks': 'Changed'})
+    def test_copied_rev0_can_be_edited_like_any_draft(self):
+        source, copy = self._copied_rev0()
+        copy.group_ids.item_ids.write({'acceptance': '<p>Changed for this machine</p>'})
+        self.env['qc.checksheet.group'].with_user(self.author).create({'checksheet_id': copy.id, 'name': 'New'})
+        copy.write({'name': 'This Machine', 'remarks': 'Changed'})
+        self.assertIn('Changed for this machine', copy.group_ids.item_ids.acceptance)
+        self.assertEqual(len(copy.group_ids), 2)
+        # The source is left as it was.
+        self.assertNotIn('Changed for this machine', source.group_ids.item_ids.acceptance)
+        self.assertEqual(copy.copied_from_id, source)
 
-    def test_copied_rev0_keeps_header_and_history_editable(self):
-        _source, copy = self._copied_rev0()
-        copy.write({'name': 'This Machine'})
-        copy.history_ids.write({'description': 'Initial issue for this machine'})
-        self.assertEqual(copy.name, 'This Machine')
-        self.assertEqual(copy.history_ids.description, 'Initial issue for this machine')
-
-    def test_copied_rev0_is_changed_through_a_new_revision(self):
+    def test_copied_rev0_still_locks_once_submitted(self):
         _source, copy = self._copied_rev0()
         copy.action_submit()
-        copy.with_user(self.approver).action_approve()
-        rev1 = self._new_revision(copy)
-        self.assertFalse(rev1.content_locked)
-        rev1.group_ids.item_ids.write({'acceptance': '<p>Changed in Rev 1</p>'})
-        self.assertIn('Changed in Rev 1', rev1.group_ids.item_ids.acceptance)
-
-    def test_a_blank_rev0_is_not_locked(self):
-        self.assertFalse(self._draft_as_author().content_locked)
+        with self.assertRaisesRegex(UserError, 'locked'):
+            copy.group_ids.item_ids.write({'acceptance': '<p>Changed</p>'})
 
     # PDF
 
