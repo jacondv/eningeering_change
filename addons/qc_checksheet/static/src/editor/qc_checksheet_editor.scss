@@ -469,6 +469,56 @@ $qce-band: #dbe5f1;
 }
 .o_qce_paper_group { background: $qce-band; }
 
+// Comparing Revisions. Each mark also has a text label, so colour is never the only cue.
+$qce-added: #dff2e3;
+$qce-changed: #fff1bf;
+$qce-removed: #f9dede;
+
+.o_qce_compare_bar {
+    background: #f4f6f8;
+    border-bottom: 1px solid $qce-line;
+}
+
+.o_qce_legend {
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.o_qce_diff_added,
+.o_qce_diff_added .o_qce_cell { background-color: $qce-added; }
+.o_qce_diff_changed,
+input.o_qce_diff_changed { background-color: $qce-changed; }
+.o_qce_diff_removed {
+    background-color: $qce-removed;
+    color: #6b2a2c;
+    .o_qce_rendered, &.o_qce_ghost_position { text-decoration: line-through; }
+}
+.o_qce_band.o_qce_diff_added { background-color: $qce-added; }
+.o_qce_band.o_qce_diff_changed { background-color: $qce-changed; }
+
+.o_qce_number_cell {
+    flex-direction: column;
+    gap: 2px;
+}
+
+.o_qce_diff_tag {
+    padding: 0 5px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: #3e4a55;
+    text-decoration: none;
+}
+
+.o_qce_ghost_position {
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
 @media (max-width: 767.98px) {
     .o_qce_body { flex-wrap: wrap; gap: 12px; }
     .o_qce_outline { position: static; flex: 1 1 100%; }
