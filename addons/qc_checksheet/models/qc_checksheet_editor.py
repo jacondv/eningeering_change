@@ -55,6 +55,7 @@ class QcChecksheet(models.Model):
             'engine': self.engine_number or '',
             'customer': self.customer or '',
             'copied_from': self.copied_from_id.display_name or '',
+            'content_locked': self.content_locked,
             'latest_id': revisions[-1].id,
             'revisions': [{
                 'id': rev.id,
@@ -101,8 +102,13 @@ class QcChecksheet(models.Model):
         if not (payload.get('name') or '').strip():
             raise UserError(_("Enter the Header."))
 
-        group_ids = self._editor_save_groups(payload.get('groups', []))
-        position_ids = self._editor_save_positions(payload.get('positions', []))
+        if self.content_locked:
+            # Nothing to save there, and even a renumbered sequence would be a change.
+            group_ids = [{'id': group.id, 'item_ids': group.item_ids.ids} for group in self.group_ids]
+            position_ids = self.approval_ids.ids
+        else:
+            group_ids = self._editor_save_groups(payload.get('groups', []))
+            position_ids = self._editor_save_positions(payload.get('positions', []))
         self._editor_save_history(payload.get('history', []))
         self.write({'name': payload['name']})
         self.sudo().editor_version += 1

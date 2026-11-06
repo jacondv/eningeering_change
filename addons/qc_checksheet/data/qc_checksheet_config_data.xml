@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- After this many days In Review, the Dashboard marks a sheet as waiting too long.
+             Changed in QC Check Sheet > Configuration > Settings. -->
+        <record id="config_review_overdue_days" model="ir.config_parameter">
+            <field name="key">qc_checksheet.review_overdue_days</field>
+            <field name="value">3</field>
+        </record>
+
+    </data>
+</odoo>

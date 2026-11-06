@@ -14,6 +14,8 @@ export class QcNewSheet extends Component {
         onCreated: Function,
         onOpen: Function,
         onBack: Function,
+        defaultJobId: { type: [Number, Boolean], optional: true },
+        defaultTypeId: { type: [Number, Boolean], optional: true },
     };
 
     setup() {
@@ -42,8 +44,17 @@ export class QcNewSheet extends Component {
 
         onWillStart(async () => {
             this.state.types = await this.orm.call(CHECKSHEET_MODEL, "editor_types", []);
-            this.state.typeId = this.state.types[0]?.id || false;
+            const { defaultJobId, defaultTypeId } = this.props;
+            this.state.typeId = this.state.types.some((type) => type.id === defaultTypeId)
+                ? defaultTypeId
+                : this.state.types[0]?.id || false;
             await this.refreshContext();
+            if (defaultJobId) {
+                const job = await this.orm.call(CHECKSHEET_MODEL, "editor_job_info", [defaultJobId]);
+                if (job) {
+                    await this.pickJob(job);
+                }
+            }
         });
     }
 

@@ -51,6 +51,29 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertEqual(data['groups'][0]['items'][0]['line_key'], old['groups'][0]['items'][0]['line_key'])
         self.assertTrue(data['groups'][0]['items'][0]['line_key'])
 
+    def test_save_on_a_copied_rev0_changes_only_header_and_history(self):
+        source = self._create_checksheet()
+        # Sequences the editor would renumber: that must not count as a change.
+        self.env['qc.checksheet.group'].create({
+            'checksheet_id': source.id, 'sequence': 7, 'name': '<p>G</p>',
+            'item_ids': [(0, 0, {'sequence': 3, 'description': '<p>Step</p>'})],
+        })
+        self._release(source)
+        copy = self._create_checksheet().with_user(self.author)
+        copy._copy_content_from(source)
+        payload = self._payload(copy, name='This Machine')
+        payload['history'][0]['description'] = 'For this machine'
+
+        copy.editor_save(payload)
+
+        self.assertEqual(copy.name, 'This Machine')
+        self.assertEqual(copy.history_ids.description, 'For this machine')
+        self.assertEqual(copy.group_ids.sequence, 7)
+        payload = self._payload(copy)
+        payload['groups'][0]['items'][0]['description'] = '<p>Changed</p>'
+        copy.editor_save(payload)
+        self.assertIn('Step', copy.group_ids.item_ids.description)
+
     def test_viewer_can_load_but_not_save(self):
         checksheet = self._sheet().with_user(self.viewer)
         data = checksheet.editor_load()

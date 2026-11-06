@@ -66,8 +66,8 @@ class TestQcChecksheet(QcChecksheetCase):
         self.assertIn('Hydraulic System', copy.group_ids.name)
         self.assertIn('Check oil level', copy.group_ids.item_ids.description)
         self.assertEqual(copy.approval_ids.mapped('position'), ['Technician'])
-        # Independent copy: editing the copy must not affect the source.
-        copy.group_ids.name = 'Renamed'
+        # Independent copy: editing it later must not affect the source.
+        copy.sudo().group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)
 
         # Starts over at Rev 0, keeping nothing specific to the old machine.

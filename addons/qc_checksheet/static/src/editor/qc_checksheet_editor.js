@@ -264,6 +264,11 @@ export class QcChecksheetEditor extends Component {
         return !!this.sheet && this.sheet.state === "draft" && this.sheet.can_author;
     }
 
+    /** Inspection content, as opposed to the Header and Revision History. */
+    get contentEditable() {
+        return this.editable && !this.sheet.content_locked;
+    }
+
     get isCurrentRevisionView() {
         return this.sheet.id === this.sheet.latest_id;
     }

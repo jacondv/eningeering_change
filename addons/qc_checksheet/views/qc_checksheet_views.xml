@@ -29,11 +29,16 @@
                     <button string="Import from Inventor BOM" name="%(action_qc_checksheet_inventor_import_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
                             groups="qc_checksheet.group_qc_author"
-                            invisible="state != 'draft' or not id or checksheet_type != 'panel_sticker'"/>
+                            invisible="state != 'draft' or not id or checksheet_type != 'panel_sticker' or content_locked"/>
                     <button string="Print PDF" name="%(action_report_qc_checksheet)d"
                             type="action" invisible="not id"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,review,released"/>
                 </header>
+                <field name="content_locked" invisible="1"/>
+                <div class="alert alert-info mb-0" role="alert" invisible="not content_locked">
+                    Copied from <field name="copied_from_id" class="d-inline" readonly="1"/>: Rev 0 keeps exactly the same
+                    inspection content. Release it first, then create a New Revision to change it.
+                </div>
                 <div class="alert alert-warning d-flex align-items-center mb-0" role="alert" invisible="state != 'superseded'">
                     <span class="flex-grow-1">You are viewing an old, superseded Revision. It can be read and printed, but it must not be used.</span>
                     <button string="Open Current Revision" name="action_open_current_revision" type="object" class="btn-link p-0"/>
@@ -77,7 +82,7 @@
 
                     <notebook>
                         <page string="Check Sheet Approval" name="approval">
-                            <field name="approval_ids" readonly="checksheet_type == 'standard' or state != 'draft'">
+                            <field name="approval_ids" readonly="checksheet_type == 'standard' or state != 'draft' or content_locked">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="position"/>
@@ -126,7 +131,7 @@
 
                         <page string="Images" name="images"
                               invisible="checksheet_type != 'panel_sticker'">
-                            <field name="image_group_ids" readonly="state != 'draft'">
+                            <field name="image_group_ids" readonly="state != 'draft' or content_locked">
                                 <list>
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
@@ -152,7 +157,7 @@
 
                         <page string="Panel &amp; Sticker" name="panel_lines"
                               invisible="checksheet_type != 'panel_sticker'">
-                            <field name="panel_line_ids" readonly="state != 'draft'">
+                            <field name="panel_line_ids" readonly="state != 'draft' or content_locked">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
                                     <field name="item_number"/>
@@ -166,7 +171,7 @@
                         </page>
 
                         <page string="Remarks" name="remarks">
-                            <field name="remarks" readonly="checksheet_type == 'standard' or state != 'draft'"/>
+                            <field name="remarks" readonly="checksheet_type == 'standard' or state != 'draft' or content_locked"/>
                         </page>
                     </notebook>
                 </sheet>

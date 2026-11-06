@@ -3,6 +3,7 @@ from . import qc_checksheet_type
 from . import qc_checksheet
 from . import qc_checksheet_editor
 from . import qc_checksheet_job
+from . import qc_checksheet_dashboard
 from . import project_project
 from . import qc_checksheet_group
 from . import qc_checksheet_approval
