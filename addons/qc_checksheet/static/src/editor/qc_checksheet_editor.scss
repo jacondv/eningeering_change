@@ -2,8 +2,17 @@ $qce-teal: #006f6f;
 $qce-line: #d5dade;
 $qce-band: #dbe5f1;
 
-.o_qce {
+// The web client keeps .o_action itself from scrolling, so the page scrolls in
+// this box inside it.
+.o_qce_action {
+    display: flex;
+    flex-direction: column;
     height: 100%;
+}
+
+.o_qce {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
     background: #eef0f2;
     font-size: 14px;
@@ -141,6 +150,11 @@ $qce-band: #dbe5f1;
     border: 1px solid $qce-line;
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(20, 30, 40, 0.18);
+}
+
+.o_qce_source_job {
+    width: 260px;
+    max-width: 100%;
 }
 
 .o_qce_job_option {
@@ -441,33 +455,12 @@ $qce-band: #dbe5f1;
     }
 }
 
-.o_qce_paper {
-    background: #fff;
-    border: 1px solid #c6ccd2;
-    box-shadow: 0 1px 4px rgba(20, 30, 40, 0.18);
-    font-size: 14px;
-    line-height: 1.35;
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th { background: $qce-teal; color: #fff; padding: 5px; border: 1px solid #7b8794; text-align: center; }
-    td { padding: 5px; border: 1px solid #9aa5b1; vertical-align: top; overflow-wrap: anywhere; }
-    p { margin: 0; }
-    img { max-width: 100%; height: auto; }
+.o_qce_pdf_preview {
+    display: block;
+    width: 100%;
+    height: calc(100vh - 170px);
+    border: 0;
 }
-.o_qce_paper_head {
-    display: flex;
-    padding: 12px;
-    background: $qce-teal;
-    color: #fff;
-    font-size: 17px;
-}
-.o_qce_paper_stamp {
-    padding: 2px;
-    background: #b00000;
-    color: #fff;
-    font-weight: 700;
-    text-align: center;
-}
-.o_qce_paper_group { background: $qce-band; }
 
 // Comparing Revisions. Each mark also has a text label, so colour is never the only cue.
 $qce-added: #dff2e3;

@@ -17,6 +17,10 @@ class QcChecksheetType(models.Model):
     name = fields.Char(required=True)
     code = fields.Char(required=True, help="Used in the Number: QC-<Code>-<Model Name>, e.g. GE.")
     layout = fields.Selection(LAYOUTS, required=True, default='standard')
+    required = fields.Boolean(
+        string='Required for every Job', default=True,
+        help="Every Job is expected to have a check sheet of this Type. The Job QC page "
+             "and the Dashboard report a Job without one as missing it.")
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
 

@@ -2,6 +2,8 @@ from . import qc_checksheet_line_mixin
 from . import qc_checksheet_type
 from . import qc_checksheet
 from . import qc_checksheet_editor
+from . import qc_checksheet_job
+from . import project_project
 from . import qc_checksheet_group
 from . import qc_checksheet_approval
 from . import qc_checksheet_panel_line

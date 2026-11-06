@@ -14,6 +14,7 @@ import { QcRichCell } from "./qc_rich_cell";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
 const ITEM_COLUMNS = ["description", "acceptance", "note"];
+const REPORT_NAME = "qc_checksheet.report_qc_checksheet_document";
 const OUTLINE_MIN_WIDTH = 140;
 const OUTLINE_MAX_WIDTH = 520;
 const COLUMN_MIN_WIDTH = 120;
@@ -240,6 +241,15 @@ export class QcChecksheetEditor extends Component {
         });
     }
 
+    openJob() {
+        return this.action.doAction({
+            type: "ir.actions.client",
+            tag: "qc_checksheet.job",
+            name: `QC: ${this.sheet.job}`,
+            context: { active_id: this.sheet.job_id },
+        });
+    }
+
     onCreated({ id, layout }) {
         return layout === "standard" ? this.openSheet(id) : this.openForm(id);
     }
@@ -298,14 +308,6 @@ export class QcChecksheetEditor extends Component {
 
     get totalItems() {
         return this.sheet.groups.reduce((total, group) => total + group.items.length, 0);
-    }
-
-    get stamp() {
-        const { state, revision } = this.sheet;
-        if (state === "superseded") {
-            return `SUPERSEDED - REV ${revision} - DO NOT USE`;
-        }
-        return state === "released" ? "" : `DRAFT - REV ${revision} - NOT FOR USE`;
     }
 
     get layoutStyle() {
@@ -796,13 +798,15 @@ export class QcChecksheetEditor extends Component {
         );
     }
 
+    /** The real PDF, so it shows everything the report prints; unsaved work is saved first. */
     openPreview() {
-        this.dialog.add(QcPreviewDialog, {
-            sheet: this.sheet,
-            groups: this.numberedGroups,
-            stamp: this.stamp,
-            onPrint: () => this.printPdf(),
-        });
+        return this.saveThen(() =>
+            this.dialog.add(QcPreviewDialog, {
+                title: `Preview: ${this.sheet.number} · Rev ${this.sheet.revision}`,
+                url: `/report/pdf/${REPORT_NAME}/${this.sheet.id}`,
+                onPrint: () => this.printPdf(),
+            })
+        );
     }
 
     printPdf() {

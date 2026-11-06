@@ -276,6 +276,23 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertEqual(
             set(self.env['qc.checksheet'].browse(ids).mapped('checksheet_type')), {'standard'})
 
+    def test_new_context_sources_can_be_filtered_by_job(self):
+        wanted_job = self._create_job('J-FILTER-1')
+        wanted = self._release(self._create_checksheet(job=wanted_job))
+        self._release(self._create_checksheet(job=self._create_job('J-OTHER-1')))
+        sources = self.env['qc.checksheet'].with_user(self.author).editor_new_context(
+            self._create_job().id, self.type_general.id, wanted_job.id)['sources']
+        self.assertEqual([source['id'] for source in sources], [wanted.id])
+
+    def test_source_jobs_are_those_with_something_to_copy(self):
+        with_released = self._create_job('J-SRC-1')
+        self._release(self._create_checksheet(job=with_released))
+        self._create_checksheet(job=self._create_job('J-SRC-2'))
+        self._release(self._create_checksheet(self.type_panel, job=self._create_job('J-SRC-3')))
+        jobs = self.env['qc.checksheet'].with_user(self.author).editor_search_source_jobs(
+            self.type_general.id, 'J-SRC')
+        self.assertEqual([job['id'] for job in jobs], [with_released.id])
+
     def test_create_blank_starts_with_one_empty_row(self):
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({
             'job_id': self._create_job().id, 'type_id': self.type_general.id, 'header': 'My Header',
