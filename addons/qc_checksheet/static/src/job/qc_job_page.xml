@@ -9,6 +9,7 @@
                 <span class="text-muted"><t t-esc="job.model"/> · <t t-esc="job.customer or 'No customer'"/> · Serial <t t-esc="job.serial or '-'"/></span>
                 <span class="flex-grow-1"/>
                 <strong><t t-esc="job.released"/>/<t t-esc="job.required"/> required Released</strong>
+                <button t-if="printableRows.length" class="btn btn-secondary" t-on-click="printAll">Print All</button>
                 <button t-if="job.can_author and missingRows.length" class="btn btn-primary" t-on-click="() => this.create(missingRows)">
                     Create missing sheets (<t t-esc="missingRows.length"/>)
                 </button>
@@ -53,6 +54,41 @@
             </div>
         </div>
         </div>
+    </t>
+
+    <t t-name="qc_checksheet.PrintAllDialog">
+        <Dialog title="'Print All: ' + props.jobName" size="'lg'">
+            <div class="o_qce_scroll_x">
+                <table class="o_qce_table">
+                    <thead><tr><th/><th>Type</th><th>Number</th><th>Rev</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <tr t-foreach="state.rows" t-as="row" t-key="row.type_id">
+                            <td><input type="checkbox" t-att-aria-label="'Print ' + row.type_name" t-model="row.selected"/></td>
+                            <td class="fw-bold text-nowrap" t-esc="row.type_name"/>
+                            <td t-esc="row.number"/>
+                            <td t-esc="row.current.revision"/>
+                            <td><span t-attf-class="o_qce_badge o_qce_badge_{{row.current.state}}" t-esc="row.current.state_label"/></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex flex-column gap-1 mt-3">
+                <label class="d-flex align-items-center gap-2">
+                    <input type="radio" name="qc_print_all_mode" t-att-checked="!state.combined" t-on-change="() => { state.combined = false; }"/>
+                    <span>One PDF per sheet <small class="text-muted">(downloaded together in a ZIP)</small></span>
+                </label>
+                <label class="d-flex align-items-center gap-2">
+                    <input type="radio" name="qc_print_all_mode" t-att-checked="state.combined" t-on-change="() => { state.combined = true; }"/>
+                    <span>One combined PDF</span>
+                </label>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-att-disabled="!selectedRows.length or state.printing" t-on-click="print">
+                    Print <t t-esc="selectedRows.length"/> sheet(s)
+                </button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+            </t>
+        </Dialog>
     </t>
 
     <t t-name="qc_checksheet.CreateSheetsDialog">

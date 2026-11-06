@@ -76,15 +76,6 @@ $qcd-teal: #008080;
 
     .o_qcd_bar_count { flex: 0 0 32px; text-align: right; font-weight: bold; }
 
-    .o_qcd_coverage {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 6px;
-    }
-
-    .o_qcd_coverage_track { height: 14px; border-radius: 7px; }
-    .o_qcd_coverage_value { font-size: 1.5rem; font-weight: bold; }
     .o_qcd_clickable { cursor: pointer; }
     .o_qcd_panel_auto { height: auto; }
 
@@ -97,11 +88,13 @@ $qcd-teal: #008080;
         min-height: 0;
     }
 
-    .o_qcd_models_list {
-        max-height: 560px;
+    // Long lists scroll inside their panel.
+    .o_qcd_list {
         overflow-y: auto;
         padding-right: 4px;
     }
 
-    .o_qcd_model_search { max-width: 180px; }
+    .o_qcd_models_list { max-height: 560px; }
+    .o_qcd_jobs_list { max-height: 220px; }
+    .o_qcd_list_search { max-width: 180px; }
 }

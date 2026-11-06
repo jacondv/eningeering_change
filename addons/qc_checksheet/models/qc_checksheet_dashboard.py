@@ -49,7 +49,8 @@ class QcChecksheet(models.Model):
             items = []
             for value, total in self._read_group(domain, [groupby], ['__count']):
                 if isinstance(value, models.BaseModel):
-                    key, label = value.id, value.display_name
+                    # Through sudo: the Job may be one the user can't read; its name is all we show.
+                    key, label = value.id, value.sudo().display_name
                 else:
                     key, label = value, value
                 items.append({'key': key or False, 'label': label or _('Undefined'), 'count': total})
@@ -81,6 +82,8 @@ class QcChecksheet(models.Model):
             'by_state': by_state,
             'by_type': breakdown('type_id'),
             'by_model': breakdown('machine_model'),
+            # Newest Jobs first, as Job numbers grow.
+            'by_job': sorted(breakdown('job_number'), key=lambda item: item['label'], reverse=True),
             'jobs': self._dashboard_jobs(search_domain),
             'waiting': [self._dashboard_row(sheet, now) for sheet in waiting],
             'released': [self._dashboard_row(sheet, now) for sheet in released],

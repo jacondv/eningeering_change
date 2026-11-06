@@ -4,6 +4,7 @@ import { Component, onWillStart, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { QcCreateSheetsDialog } from "./qc_create_sheets_dialog";
+import { QcPrintAllDialog } from "./qc_print_all_dialog";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
 
@@ -27,6 +28,14 @@ export class QcJobPage extends Component {
 
     get job() {
         return this.state.job;
+    }
+
+    get printableRows() {
+        return this.job.rows.filter((row) => row.current);
+    }
+
+    printAll() {
+        this.dialog.add(QcPrintAllDialog, { jobName: this.job.name, rows: this.printableRows });
     }
 
     get missingRows() {
