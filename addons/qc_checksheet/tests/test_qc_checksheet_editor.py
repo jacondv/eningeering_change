@@ -38,6 +38,19 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertTrue(data['can_author'])
         self.assertFalse(data['can_approve'])
 
+    def test_load_gives_what_comparing_revisions_needs(self):
+        rev0 = self._sheet()
+        rev0.action_submit()
+        rev0.with_user(self.approver).action_approve()
+        rev1 = rev0.browse(rev0.action_create_revision('Change')['res_id'])
+        data = rev1.editor_load()
+        self.assertEqual(
+            [(r['id'], r['revision']) for r in data['revisions']], [(rev0.id, 0), (rev1.id, 1)])
+        old = rev0.editor_load()
+        self.assertEqual(data['groups'][0]['line_key'], old['groups'][0]['line_key'])
+        self.assertEqual(data['groups'][0]['items'][0]['line_key'], old['groups'][0]['items'][0]['line_key'])
+        self.assertTrue(data['groups'][0]['items'][0]['line_key'])
+
     def test_viewer_can_load_but_not_save(self):
         checksheet = self._sheet().with_user(self.viewer)
         data = checksheet.editor_load()

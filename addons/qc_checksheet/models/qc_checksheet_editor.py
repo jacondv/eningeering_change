@@ -55,11 +55,18 @@ class QcChecksheet(models.Model):
             'customer': self.customer or '',
             'copied_from': self.copied_from_id.display_name or '',
             'latest_id': revisions[-1].id,
+            'revisions': [{
+                'id': rev.id,
+                'revision': rev.revision,
+                'state_label': state_labels[rev.state],
+            } for rev in revisions],
             'groups': [{
                 'id': group.id,
+                'line_key': group.line_key,
                 'name': group.name or '',
                 'items': [{
                     'id': item.id,
+                    'line_key': item.line_key,
                     'description': item.description or '',
                     'acceptance': item.acceptance or '',
                     'note': item.note or '',

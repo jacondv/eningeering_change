@@ -122,6 +122,8 @@
             <span t-att-class="badgeClass" t-esc="sheet.state_label"/>
             <small class="text-muted" t-att-class="saveLabelClass" t-esc="saveLabel"/>
             <span class="flex-grow-1"/>
+            <button t-if="compareOptions.length" class="btn btn-secondary" t-att-class="{'active': state.compare}"
+                    t-on-click="toggleCompare" t-esc="state.compare ? 'Hide comparison' : 'Compare'"/>
             <button class="btn btn-secondary" t-on-click="openPreview">Preview</button>
             <button class="btn btn-secondary" t-on-click="printPdf">Print PDF</button>
             <t t-if="editable">
@@ -149,7 +151,21 @@
         <div t-if="sheet.state === 'review'" class="o_qce_notice o_qce_notice_info">
             Waiting for approval. Recall it to keep editing.
         </div>
+        <div t-if="state.compare" class="o_qce_notice o_qce_compare_bar">
+            <label for="qce_compare_base" class="fw-bold">Rev <t t-esc="sheet.revision"/> compared with</label>
+            <select id="qce_compare_base" class="form-select form-select-sm w-auto" t-on-change="onCompareBaseChange">
+                <t t-foreach="compareOptions" t-as="rev" t-key="rev.id">
+                    <option t-att-value="rev.id" t-att-selected="rev.id === state.compare.baseId">Rev <t t-esc="rev.revision"/> (<t t-esc="rev.state_label"/>)</option>
+                </t>
+            </select>
+            <strong t-esc="compareSummary"/>
+            <span class="flex-grow-1"/>
+            <span class="o_qce_legend o_qce_diff_added">Added</span>
+            <span class="o_qce_legend o_qce_diff_changed">Changed (hover for the old text)</span>
+            <span class="o_qce_legend o_qce_diff_removed">Removed</span>
+        </div>
 
+        <t t-set="diff" t-value="currentDiff"/>
         <div class="o_qce_body" t-att-class="{'o_qce_resizing': state.resizing}" t-att-style="layoutStyle">
             <div class="o_qce_panel o_qce_outline">
                 <span class="fw-bold px-2">Groups</span>
@@ -171,6 +187,8 @@
                 <div class="o_qce_panel o_qce_header_panel">
                     <label for="qce_sheet_name" class="fw-bold">Header</label>
                     <input id="qce_sheet_name" class="form-control o_qce_header_input" t-att-value="sheet.name"
+                           t-att-class="{'o_qce_diff_changed': diff and diff.header !== null}"
+                           t-att-title="diff and diff.header !== null ? 'Before: ' + diff.header : ''"
                            t-att-readonly="!editable" t-on-input="onNameInput"/>
                     <small class="text-muted"><t t-esc="sheet.type_name"/> · <t t-esc="sheet.model"/> · Serial <t t-esc="sheet.serial or '-'"/></small>
                 </div>
@@ -190,9 +208,14 @@
                             <div class="d-flex gap-2 align-items-center">
                                 <span class="text-muted" t-esc="line_index + 1"/>
                                 <input class="form-control" placeholder="e.g. QC Inspector" t-att-value="line.position"
+                                       t-att-class="{'o_qce_diff_added': diff and diff.positions.added.has(line_index)}"
                                        t-att-readonly="!editable" t-on-input="(ev) => this.onPositionInput(line, ev)"/>
                                 <button t-if="editable" class="o_qce_icon" title="Delete" t-on-click="() => this.removePosition(line_index)"><i class="fa fa-trash-o"/></button>
                             </div>
+                        </t>
+                        <t t-if="diff">
+                            <div t-foreach="diff.positions.removed" t-as="position" t-key="position_index"
+                                 class="o_qce_diff_removed o_qce_ghost_position" t-esc="position"/>
                         </t>
                         <div t-if="editable"><button class="btn btn-secondary" t-on-click="addPosition">Add Position</button></div>
                     </div>
@@ -244,7 +267,10 @@
             </div>
             <t t-foreach="numberedGroups" t-as="entry" t-key="entry.group.uid">
                 <t t-set="group" t-value="entry.group"/>
-                <div class="o_qce_band" t-att-id="'qce_' + group.uid" t-att-class="{'o_qce_drop': state.dropTarget === group.uid}"
+                <t t-set="groupDiff" t-value="diff and diff.groups.get(group.uid)"/>
+                <div class="o_qce_band" t-att-id="'qce_' + group.uid"
+                     t-att-class="{'o_qce_drop': state.dropTarget === group.uid, 'o_qce_diff_added': groupDiff and groupDiff.status === 'added', 'o_qce_diff_changed': groupDiff and groupDiff.status === 'changed'}"
+                     t-att-title="groupDiff and groupDiff.old ? 'Before: ' + groupDiff.old : ''"
                      t-on-dragover="(ev) => this.onDragOver(group.uid, ev)" t-on-drop="(ev) => this.onDropOnGroup(group, ev)">
                     <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to reorder this Group"
                           t-on-dragstart="(ev) => this.onDragStart('group', group.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
@@ -256,22 +282,38 @@
                                     onKeydown="(ev) => this.onCellKeydown({ group }, ev)"
                                     registerCommit.bind="registerCommit"/>
                     </div>
+                    <span t-if="groupDiff" class="o_qce_diff_tag" t-esc="groupDiff.status === 'added' ? 'Added' : 'Changed'"/>
                     <t t-if="editable">
                         <button class="btn btn-link btn-sm" t-on-click="() => this.addItem(group)">Add Item</button>
                         <button class="o_qce_icon" title="Delete this Group" t-on-click="() => this.removeGroup(group)"><i class="fa fa-trash-o"/></button>
                     </t>
                 </div>
-                <t t-foreach="entry.items" t-as="row" t-key="row.item.uid">
+                <t t-foreach="contentRows(entry, diff)" t-as="row" t-key="row.ghost ? row.key : row.item.uid">
+                    <div t-if="row.ghost" class="o_qce_grid o_qce_item o_qce_diff_removed">
+                        <div class="o_qce_cell"/>
+                        <div class="o_qce_cell o_qce_cell_center"><span class="o_qce_diff_tag">Removed</span></div>
+                        <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
+                            <div class="o_qce_cell"><div class="o_qce_rendered o_qce_rendered_readonly qc-rich-text" t-out="html(row.ghost[field])"/></div>
+                        </t>
+                        <div class="o_qce_cell"/>
+                    </div>
+                    <t t-else="">
                     <t t-set="item" t-value="row.item"/>
-                    <div class="o_qce_grid o_qce_item" t-att-class="{'o_qce_drop': state.dropTarget === item.uid}"
+                    <t t-set="rowDiff" t-value="itemDiff(diff, item)"/>
+                    <div class="o_qce_grid o_qce_item" t-att-class="{'o_qce_drop': state.dropTarget === item.uid, 'o_qce_diff_added': rowDiff and rowDiff.status === 'added'}"
                          t-on-dragover="(ev) => this.onDragOver(item.uid, ev)" t-on-drop="(ev) => this.onDropOnItem(group, item, ev)">
                         <div class="o_qce_cell o_qce_cell_center">
                             <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to another row or Group"
                                   t-on-dragstart="(ev) => this.onDragStart('item', item.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
                         </div>
-                        <div class="o_qce_cell o_qce_cell_center fw-bold" t-esc="row.number"/>
+                        <div class="o_qce_cell o_qce_cell_center o_qce_number_cell">
+                            <span class="fw-bold" t-esc="row.number"/>
+                            <span t-if="rowDiff and rowDiff.status === 'added'" class="o_qce_diff_tag">Added</span>
+                            <span t-if="rowDiff and rowDiff.movedFrom" class="o_qce_diff_tag" t-att-title="'Moved from ' + rowDiff.movedFrom">Moved</span>
+                        </div>
                         <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
-                            <div class="o_qce_cell">
+                            <div class="o_qce_cell" t-att-class="cellDiffClass(rowDiff, field)"
+                                 t-att-title="cellDiffClass(rowDiff, field) ? 'Before: ' + rowDiff.changed[field] : ''">
                                 <QcRichCell value="item[field]" active="state.active === cellKey(item, field)" readonly="!editable"
                                             label="field + ', Item ' + row.number" resModel="'qc.checksheet.item'" resId="item.id"
                                             onActivate="() => this.activate(cellKey(item, field))"
@@ -284,6 +326,24 @@
                         <div class="o_qce_cell o_qce_cell_center">
                             <button t-if="editable" class="o_qce_icon" title="Delete this Item" t-on-click="() => this.removeItem(group, item)"><i class="fa fa-trash-o"/></button>
                         </div>
+                    </div>
+                    </t>
+                </t>
+            </t>
+            <t t-if="diff">
+                <t t-foreach="diff.removedGroups" t-as="removed" t-key="removed.group.line_key">
+                    <div class="o_qce_band o_qce_diff_removed">
+                        <span class="o_qce_icon"/>
+                        <div class="o_qce_band_name o_qce_rendered" t-esc="removed.title"/>
+                        <span class="o_qce_diff_tag">Removed</span>
+                    </div>
+                    <div t-foreach="removed.items" t-as="ghost" t-key="ghost.line_key" class="o_qce_grid o_qce_item o_qce_diff_removed">
+                        <div class="o_qce_cell"/>
+                        <div class="o_qce_cell"/>
+                        <t t-foreach="['description', 'acceptance', 'note']" t-as="field" t-key="field">
+                            <div class="o_qce_cell"><div class="o_qce_rendered o_qce_rendered_readonly qc-rich-text" t-out="html(ghost[field])"/></div>
+                        </t>
+                        <div class="o_qce_cell"/>
                     </div>
                 </t>
             </t>

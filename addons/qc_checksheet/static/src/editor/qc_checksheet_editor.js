@@ -1,11 +1,12 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useExternalListener, useState } from "@odoo/owl";
+import { Component, markup, onWillStart, useExternalListener, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { user } from "@web/core/user";
 import { useService } from "@web/core/utils/hooks";
 import { useSetupAction } from "@web/search/action_hook";
 import { parseClipboardRows } from "./qc_clipboard";
+import { compareSheets, rowsWithRemoved } from "./qc_compare";
 import { QcNewSheet } from "./qc_new_sheet";
 import { QcPreviewDialog } from "./qc_preview_dialog";
 import { QcPromptDialog } from "./qc_prompt_dialog";
@@ -92,6 +93,8 @@ export class QcChecksheetEditor extends Component {
             dirty: false,
             saving: false,
             dropTarget: null,
+            // { baseId, base } while comparing with another Revision.
+            compare: null,
         });
 
         useSetupAction({
@@ -131,6 +134,80 @@ export class QcChecksheetEditor extends Component {
         this.state.dirty = false;
         this.state.active = null;
         this.commitActive = null;
+        // What an Approver needs to see first is what changed.
+        if (sheet.state === "review" && this.previousRevisionId) {
+            await this.compareWith(this.previousRevisionId);
+        } else if (this.state.compare) {
+            await this.compareWith(this.state.compare.baseId);
+        }
+    }
+
+    // Comparing Revisions
+
+    get compareOptions() {
+        return this.sheet.revisions.filter((rev) => rev.id !== this.sheet.id);
+    }
+
+    get previousRevisionId() {
+        const older = this.sheet.revisions.filter((rev) => rev.revision < this.sheet.revision);
+        return older.at(-1)?.id || false;
+    }
+
+    async compareWith(baseId) {
+        const base = await this.orm.call(CHECKSHEET_MODEL, "editor_load", [[baseId]]);
+        this.state.compare = { baseId, base };
+    }
+
+    toggleCompare() {
+        if (this.state.compare) {
+            this.state.compare = null;
+        } else {
+            this.compareWith(this.previousRevisionId || this.compareOptions[0].id);
+        }
+    }
+
+    onCompareBaseChange(ev) {
+        this.compareWith(parseInt(ev.target.value));
+    }
+
+    get currentDiff() {
+        return this.state.compare && compareSheets(this.state.compare.base, this.sheet);
+    }
+
+    get compareSummary() {
+        const { counts, header } = this.currentDiff;
+        const parts = [];
+        for (const [count, label] of [
+            [counts.added, "added"],
+            [counts.changed, "changed"],
+            [counts.removed, "removed"],
+            [counts.moved, "moved"],
+        ]) {
+            if (count) {
+                parts.push(`${count} ${label}`);
+            }
+        }
+        if (header !== null) {
+            parts.push("Header changed");
+        }
+        return parts.length ? parts.join(" · ") : "No differences";
+    }
+
+    /** The content rows, with removed ones put back in while comparing. */
+    contentRows(entry, diff) {
+        return diff ? rowsWithRemoved(entry.items, diff.removedItems.get(entry.group.uid)) : entry.items;
+    }
+
+    itemDiff(diff, item) {
+        return diff?.items.get(item.uid);
+    }
+
+    cellDiffClass(itemDiff, field) {
+        return itemDiff?.changed[field] !== undefined ? "o_qce_diff_changed" : "";
+    }
+
+    html(value) {
+        return markup(value || "");
     }
 
     openSheet(id) {
