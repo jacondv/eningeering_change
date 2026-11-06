@@ -1,23 +1,18 @@
 /** @odoo-module **/
 
-import { Component, markup } from "@odoo/owl";
+import { Component } from "@odoo/owl";
 import { Dialog } from "@web/core/dialog/dialog";
 
-/** Quick look at what's on screen, including changes that aren't saved yet. */
+/** The check sheet's real PDF, shown in the browser's own PDF viewer. */
 export class QcPreviewDialog extends Component {
     static template = "qc_checksheet.PreviewDialog";
     static components = { Dialog };
     static props = {
         close: Function,
-        sheet: Object,
-        groups: Array,
-        stamp: String,
+        title: String,
+        url: String,
         onPrint: Function,
     };
-
-    html(value) {
-        return markup(value || "");
-    }
 
     print() {
         this.props.close();

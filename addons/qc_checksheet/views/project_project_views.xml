@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="edit_project_inherit_qc_checksheet" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.qc.checksheet</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button class="oe_stat_button" type="object" name="action_open_qc_job" icon="fa-check-square-o"
+                        groups="qc_checksheet.group_qc_user" invisible="not model_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value"><field name="qc_checksheet_progress"/></span>
+                        <span class="o_stat_text">QC Sheets</span>
+                    </div>
+                </button>
+            </div>
+        </field>
+    </record>
+
+</odoo>

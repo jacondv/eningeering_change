@@ -42,6 +42,7 @@ class QcChecksheet(models.Model):
             'number': self.reference or '',
             'name': self.name or '',
             'job': self.job_number.sudo().display_name or '',
+            'job_id': self.job_number.id,
             'type_name': self.type_id.name or '',
             'layout': self.checksheet_type,
             'revision': self.revision,
@@ -213,8 +214,9 @@ class QcChecksheet(models.Model):
         return [{'id': job.id, 'name': job.display_name, 'model': job.model_id.name} for job in jobs]
 
     @api.model
-    def editor_new_context(self, job_id, type_id):
-        """What the New page shows once a Job and a Type are picked."""
+    def editor_new_context(self, job_id, type_id, source_job_id=False):
+        """What the New page shows once a Job and a Type are picked.
+        source_job_id narrows the sheets offered to copy from to that one Job."""
         job = self.env['project.project'].sudo().browse(job_id or 0).exists()
         checksheet_type = self.env['qc.checksheet.type'].browse(type_id or 0).exists()
         result = {
@@ -234,9 +236,10 @@ class QcChecksheet(models.Model):
             duplicate = self.search([('job_number', '=', job.id), ('type_id', '=', checksheet_type.id)], limit=1)
             result['duplicate_id'] = duplicate.id
         if checksheet_type:
-            sources = self.search(
-                [('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)],
-                limit=COPY_SOURCE_LIMIT, order='create_date desc')
+            domain = [('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)]
+            if source_job_id:
+                domain.append(('job_number', '=', source_job_id))
+            sources = self.search(domain, limit=COPY_SOURCE_LIMIT, order='create_date desc')
             sources = sources.sorted(lambda sheet: sheet.machine_model != job.model_id.name)
             result['sources'] = [{
                 'id': sheet.id,
@@ -247,6 +250,18 @@ class QcChecksheet(models.Model):
                 'items': sheet.item_count,
             } for sheet in sources]
         return result
+
+    @api.model
+    def editor_search_source_jobs(self, type_id, term=''):
+        """Jobs with a Released sheet that a sheet of this Type could be copied from."""
+        checksheet_type = self.env['qc.checksheet.type'].browse(type_id).exists()
+        sheets = self.search([
+            ('state', '=', 'released'),
+            ('checksheet_type', '=', checksheet_type.layout),
+            ('job_number.name', 'ilike', term or ''),
+        ])
+        jobs = sheets.job_number.sudo().sorted('name', reverse=True)[:JOB_SEARCH_LIMIT]
+        return [{'id': job.id, 'name': job.display_name, 'model': job.model_id.name or ''} for job in jobs]
 
     @api.model
     def editor_create(self, vals):

@@ -9,4 +9,12 @@
         <field name="target">current</field>
     </record>
 
+    <!-- Opened with the Job (project.project) as active_id, see
+         ProjectProject.action_open_qc_job. -->
+    <record id="action_qc_checksheet_job" model="ir.actions.client">
+        <field name="name">Job QC Check Sheets</field>
+        <field name="tag">qc_checksheet.job</field>
+        <field name="target">current</field>
+    </record>
+
 </odoo>

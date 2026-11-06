@@ -80,7 +80,27 @@
                     </button>
                 </div>
                 <div t-if="state.source === 'copy'" class="o_qce_sources">
-                    <small class="text-muted">Released sheets of this layout, same Model first</small>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label for="qce_source_job" class="mb-0">Filter by Job</label>
+                        <div class="o_qce_job_field o_qce_source_job">
+                            <div class="input-group input-group-sm">
+                                <input id="qce_source_job" class="form-control" placeholder="All Jobs" autocomplete="off"
+                                       t-att-value="state.sourceJobTerm" t-on-input="onSourceJobInput"
+                                       t-on-focus="onSourceJobFocus" t-on-blur="onSourceJobBlur"/>
+                                <button t-if="state.sourceJob" class="btn btn-secondary" title="Show all Jobs" aria-label="Clear the Job filter"
+                                        t-on-click="() => this.pickSourceJob(null)"><i class="fa fa-times"/></button>
+                            </div>
+                            <div t-if="state.sourceJobMenuOpen" class="o_qce_job_menu">
+                                <t t-foreach="state.sourceJobResults" t-as="job" t-key="job.id">
+                                    <button class="o_qce_job_option" t-on-mousedown.prevent="() => this.pickSourceJob(job)">
+                                        <strong t-esc="job.name"/> <span class="text-muted" t-esc="job.model"/>
+                                    </button>
+                                </t>
+                                <div t-if="!state.sourceJobResults.length" class="text-muted p-2">No Job with a Released sheet to copy matches.</div>
+                            </div>
+                        </div>
+                        <small class="text-muted">Released sheets of this layout, same Model first</small>
+                    </div>
                     <t t-foreach="state.context.sources" t-as="source" t-key="source.id">
                         <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.sourceId === source.id}" t-on-click="() => { state.sourceId = source.id; }">
                             <span class="o_qce_dot"/>
@@ -89,7 +109,10 @@
                             <span t-if="source.same_model" class="o_qce_badge o_qce_badge_released">Same Model</span>
                         </button>
                     </t>
-                    <div t-if="!state.context.sources.length" class="text-muted">No Released check sheet to copy from yet.</div>
+                    <div t-if="!state.context.sources.length" class="text-muted">
+                        <t t-if="state.sourceJob">No Released check sheet on <t t-esc="state.sourceJob.name"/>.</t>
+                        <t t-else="">No Released check sheet to copy from yet.</t>
+                    </div>
                 </div>
             </div>
             <div class="o_qce_panel o_qce_new_summary">
@@ -109,16 +132,20 @@
     </t>
 
     <t t-name="qc_checksheet.Editor">
-        <div class="o_action o_qce">
-            <QcNewSheet t-if="!state.sheetId" onCreated.bind="onCreated" onOpen.bind="openSheet" onBack.bind="goToList"/>
-            <t t-elif="sheet" t-call="qc_checksheet.EditorBody"/>
+        <div class="o_action o_qce_action">
+            <div class="o_qce">
+                <QcNewSheet t-if="!state.sheetId" onCreated.bind="onCreated" onOpen.bind="openSheet" onBack.bind="goToList"/>
+                <t t-elif="sheet" t-call="qc_checksheet.EditorBody"/>
+            </div>
         </div>
     </t>
 
     <t t-name="qc_checksheet.EditorBody">
         <div class="o_qce_topbar">
             <button class="btn btn-secondary" t-on-click="goToList">Back to list</button>
-            <strong class="o_qce_title"><t t-esc="sheet.number"/> · <t t-esc="sheet.job"/> · Rev <t t-esc="sheet.revision"/></strong>
+            <strong class="o_qce_title"><t t-esc="sheet.number"/> ·
+                <button class="btn btn-link p-0 align-baseline o_qce_title" title="Open this Job's check sheets" t-on-click="openJob" t-esc="sheet.job"/>
+                · Rev <t t-esc="sheet.revision"/></strong>
             <span t-att-class="badgeClass" t-esc="sheet.state_label"/>
             <small class="text-muted" t-att-class="saveLabelClass" t-esc="saveLabel"/>
             <span class="flex-grow-1"/>
@@ -355,39 +382,8 @@
     </t>
 
     <t t-name="qc_checksheet.PreviewDialog">
-        <Dialog title="'Preview: ' + props.sheet.number + ' · Rev ' + props.sheet.revision" size="'xl'">
-            <p class="text-muted">A quick look at what's on screen, including unsaved changes. Print PDF gives the real form.</p>
-            <div class="o_qce_paper">
-                <div class="o_qce_paper_head">
-                    <div class="flex-grow-1 text-center">
-                        <div class="fw-bold" t-esc="props.sheet.name.toUpperCase()"/>
-                        <div t-esc="props.sheet.type_name.toUpperCase()"/>
-                    </div>
-                </div>
-                <div t-if="props.stamp" class="o_qce_paper_stamp" t-esc="props.stamp"/>
-                <div class="p-3">
-                    <div class="mb-2">Job: <t t-esc="props.sheet.job"/> · Model: <t t-esc="props.sheet.model"/> · Serial: <t t-esc="props.sheet.serial or '-'"/> · Engine: <t t-esc="props.sheet.engine or '-'"/> · Customer: <t t-esc="props.sheet.customer or '-'"/></div>
-                    <table>
-                        <thead><tr><th style="width:5%">Item</th><th style="width:40%">Descriptions</th><th style="width:20%">Acceptance</th><th style="width:12%">Tested</th><th style="width:8%">OK</th><th style="width:15%">Note</th></tr></thead>
-                        <tbody>
-                            <t t-foreach="props.groups" t-as="entry" t-key="entry.group.uid">
-                                <tr><td colspan="6" class="o_qce_paper_group fw-bold" t-esc="entry.title"/></tr>
-                                <t t-foreach="entry.items" t-as="row" t-key="row.item.uid">
-                                    <tr>
-                                        <td class="text-center" t-esc="row.number"/>
-                                        <td t-out="html(row.item.description)"/>
-                                        <td t-out="html(row.item.acceptance)"/>
-                                        <td/>
-                                        <td class="text-center">☐</td>
-                                        <td t-out="html(row.item.note)"/>
-                                    </tr>
-                                </t>
-                            </t>
-                        </tbody>
-                    </table>
-                    <div class="text-muted mt-2">Document: <t t-esc="props.sheet.number"/> · Job: <t t-esc="props.sheet.job"/> · Revision: <t t-esc="props.sheet.revision"/></div>
-                </div>
-            </div>
+        <Dialog title="props.title" size="'fs'">
+            <iframe class="o_qce_pdf_preview" t-att-src="props.url" title="PDF preview"/>
             <t t-set-slot="footer">
                 <button class="btn btn-primary" t-on-click="print">Print PDF</button>
                 <button class="btn btn-secondary" t-on-click="() => this.props.close()">Close</button>

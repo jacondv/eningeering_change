@@ -1,0 +1,25 @@
+// Shares the editor's look (qc_checksheet_editor.scss): .o_qce, panels, badges, tables.
+
+.o_qce_job {
+    padding: 16px;
+    max-width: 1280px;
+}
+
+.o_qce_job_missing td { background: #fdf0f0; }
+
+.o_qce_required {
+    color: #8a5a00;
+    margin-right: 4px;
+}
+
+.o_qce_badge_missing {
+    background: #f8dcdc;
+    color: #7a1215;
+}
+
+.o_qce_create_table {
+    min-width: 900px;
+    td { vertical-align: middle; }
+    td:nth-child(3) { width: 48%; }
+    td:nth-child(4) { width: 34%; }
+}

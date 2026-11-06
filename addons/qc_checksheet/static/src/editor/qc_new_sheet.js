@@ -30,10 +30,15 @@ export class QcNewSheet extends Component {
             headerIsAuto: false,
             source: "blank",
             sourceId: false,
+            sourceJob: null,
+            sourceJobTerm: "",
+            sourceJobResults: [],
+            sourceJobMenuOpen: false,
             context: this.emptyContext(),
             creating: false,
         });
         this.searchJobs = useDebounced(this.searchJobs.bind(this), SEARCH_DEBOUNCE_MS);
+        this.searchSourceJobs = useDebounced(this.searchSourceJobs.bind(this), SEARCH_DEBOUNCE_MS);
 
         onWillStart(async () => {
             this.state.types = await this.orm.call(CHECKSHEET_MODEL, "editor_types", []);
@@ -77,10 +82,11 @@ export class QcNewSheet extends Component {
     }
 
     async refreshContext() {
-        const { job, typeId } = this.state;
+        const { job, typeId, sourceJob } = this.state;
         this.state.context = await this.orm.call(CHECKSHEET_MODEL, "editor_new_context", [
             job?.id || false,
             typeId,
+            sourceJob?.id || false,
         ]);
         const { context } = this.state;
         if (!context.sources.some((source) => source.id === this.state.sourceId)) {
@@ -127,6 +133,41 @@ export class QcNewSheet extends Component {
 
     async onTypeChange(ev) {
         this.state.typeId = parseInt(ev.target.value);
+        // That Job may have nothing to copy for the new Type.
+        this.state.sourceJob = null;
+        this.state.sourceJobTerm = "";
+        await this.refreshContext();
+    }
+
+    async searchSourceJobs() {
+        this.state.sourceJobResults = await this.orm.call(CHECKSHEET_MODEL, "editor_search_source_jobs", [
+            this.state.typeId,
+            this.state.sourceJobTerm,
+        ]);
+    }
+
+    onSourceJobInput(ev) {
+        this.state.sourceJobTerm = ev.target.value;
+        this.state.sourceJobMenuOpen = true;
+        this.searchSourceJobs();
+    }
+
+    onSourceJobFocus() {
+        this.state.sourceJobMenuOpen = true;
+        this.searchSourceJobs();
+    }
+
+    onSourceJobBlur() {
+        setTimeout(() => {
+            this.state.sourceJobMenuOpen = false;
+            this.state.sourceJobTerm = this.state.sourceJob?.name || "";
+        }, 150);
+    }
+
+    async pickSourceJob(job) {
+        this.state.sourceJob = job;
+        this.state.sourceJobTerm = job ? job.name : "";
+        this.state.sourceJobMenuOpen = false;
         await this.refreshContext();
     }
 
