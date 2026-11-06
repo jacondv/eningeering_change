@@ -1,0 +1,276 @@
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
+from odoo.tools import html2plaintext
+
+from .qc_checksheet import GROUP_APPROVER, GROUP_AUTHOR
+
+EMPTY_HTML = '<p><br></p>'
+JOB_SEARCH_LIMIT = 20
+COPY_SOURCE_LIMIT = 50
+
+
+class QcChecksheet(models.Model):
+    """Server side of the Check Sheet Editor page (static/src/editor). The page
+    edits a whole sheet in the browser and sends it back at once on Save, so
+    editor_save() works out what changed. Everything goes through the normal
+    ORM as the current user, so access rights and the Draft lock still apply.
+    """
+    _inherit = 'qc.checksheet'
+
+    # Bumped on every Save, so a page left open can't overwrite a newer Save.
+    editor_version = fields.Integer(default=1, readonly=True, copy=False)
+
+    def action_open_editor(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'qc_checksheet.editor',
+            'name': self.display_name,
+            'context': {'active_id': self.id},
+        }
+
+    # Loading
+
+    def editor_load(self):
+        self.ensure_one()
+        user = self.env.user
+        revisions = self.root_id.revision_ids.sorted('revision')
+        rev_sheets = {rev.revision: rev.id for rev in revisions}
+        state_labels = dict(self._fields['state'].selection)
+        return {
+            'id': self.id,
+            'number': self.reference or '',
+            'name': self.name or '',
+            'job': self.job_number.sudo().display_name or '',
+            'type_name': self.type_id.name or '',
+            'layout': self.checksheet_type,
+            'revision': self.revision,
+            'state': self.state,
+            'state_label': state_labels[self.state],
+            'reject_reason': self.reject_reason or '',
+            'version': self.editor_version,
+            'model': self.machine_model or '',
+            'serial': self.machine_serial or '',
+            'engine': self.engine_number or '',
+            'customer': self.customer or '',
+            'copied_from': self.copied_from_id.display_name or '',
+            'latest_id': revisions[-1].id,
+            'groups': [{
+                'id': group.id,
+                'name': group.name or '',
+                'items': [{
+                    'id': item.id,
+                    'description': item.description or '',
+                    'acceptance': item.acceptance or '',
+                    'note': item.note or '',
+                } for item in group.item_ids],
+            } for group in self.group_ids],
+            'positions': [{'id': line.id, 'position': line.position} for line in self.approval_ids],
+            'history': [{
+                'id': line.id,
+                'rev': line.rev,
+                'description': line.description or '',
+                'date': fields.Date.to_string(line.date) or '',
+                'created_by': line.created_by or '',
+                'approved_by': line.approved_by or '',
+                'show_in_report': line.show_in_report,
+                'sheet_id': rev_sheets.get(line.rev, False),
+            } for line in self.history_ids],
+            'can_author': user.has_group(GROUP_AUTHOR),
+            'can_approve': user.has_group(GROUP_APPROVER),
+        }
+
+    # Saving
+
+    def editor_save(self, payload):
+        self.ensure_one()
+        self._check_group(GROUP_AUTHOR)
+        self._check_state('draft')
+        if payload.get('version') != self.editor_version:
+            raise UserError(_(
+                "Someone else saved this check sheet after you opened it. "
+                "Reload the page to see their changes."))
+        if not (payload.get('name') or '').strip():
+            raise UserError(_("Enter the Header."))
+
+        group_ids = self._editor_save_groups(payload.get('groups', []))
+        position_ids = self._editor_save_positions(payload.get('positions', []))
+        self._editor_save_history(payload.get('history', []))
+        self.write({'name': payload['name']})
+        self.sudo().editor_version += 1
+        return {'version': self.editor_version, 'groups': group_ids, 'positions': position_ids}
+
+    @api.model
+    def _editor_write_changed(self, record, vals):
+        changed = {}
+        for key, value in vals.items():
+            current = record[key]
+            if isinstance(current, models.BaseModel):
+                current = current.id
+            elif isinstance(record._fields[key], fields.Date):
+                current = fields.Date.to_string(current)
+            if (current or False) != (value or False):
+                changed[key] = value
+        if changed:
+            record.write(changed)
+
+    def _editor_save_groups(self, groups_data):
+        """Returns the ids in the order they were sent, so the page can give
+        rows it just added their real id."""
+        Group = self.env['qc.checksheet.group']
+        Item = self.env['qc.checksheet.item']
+        own_groups = self.group_ids
+        own_items = own_groups.item_ids
+        sent_groups = {data['id'] for data in groups_data if data.get('id')}
+        sent_items = {item['id'] for data in groups_data for item in data['items'] if item.get('id')}
+        if sent_groups - set(own_groups.ids) or sent_items - set(own_items.ids):
+            raise UserError(_("This content does not belong to this check sheet. Reload the page."))
+        own_items.filtered(lambda item: item.id not in sent_items).unlink()
+
+        saved = []
+        for group_index, data in enumerate(groups_data):
+            group_vals = {'name': data.get('name') or EMPTY_HTML, 'sequence': (group_index + 1) * 10}
+            if data.get('id'):
+                group = Group.browse(data['id'])
+                self._editor_write_changed(group, group_vals)
+            else:
+                group = Group.create({**group_vals, 'checksheet_id': self.id})
+            item_ids = []
+            for item_index, item_data in enumerate(data['items']):
+                item_vals = {
+                    'group_id': group.id,
+                    'sequence': (item_index + 1) * 10,
+                    'description': item_data.get('description') or False,
+                    'acceptance': item_data.get('acceptance') or False,
+                    'note': item_data.get('note') or False,
+                }
+                if item_data.get('id'):
+                    item = Item.browse(item_data['id'])
+                    self._editor_write_changed(item, item_vals)
+                else:
+                    item = Item.create(item_vals)
+                item_ids.append(item.id)
+            saved.append({'id': group.id, 'item_ids': item_ids})
+        # Last: a kept Item may have just been dragged out of a Group being deleted.
+        own_groups.filtered(lambda group: group.id not in sent_groups).unlink()
+        return saved
+
+    def _editor_save_positions(self, positions_data):
+        Approval = self.env['qc.checksheet.approval']
+        own = self.approval_ids
+        sent = {data['id'] for data in positions_data if data.get('id')}
+        if sent - set(own.ids):
+            raise UserError(_("This content does not belong to this check sheet. Reload the page."))
+        own.filtered(lambda line: line.id not in sent).unlink()
+        saved = []
+        for index, data in enumerate(positions_data):
+            position = (data.get('position') or '').strip()
+            if not position:
+                raise UserError(_("Enter a name for each Approval Position, or delete the empty one."))
+            vals = {'position': position, 'sequence': (index + 1) * 10}
+            if data.get('id'):
+                line = Approval.browse(data['id'])
+                self._editor_write_changed(line, vals)
+            else:
+                line = Approval.create({**vals, 'checksheet_id': self.id})
+            saved.append(line.id)
+        return saved
+
+    def _editor_save_history(self, history_data):
+        lines = {line.id: line for line in self.history_ids}
+        for data in history_data:
+            line = lines.get(data.get('id'))
+            if not line:
+                raise UserError(_("This content does not belong to this check sheet. Reload the page."))
+            vals = {'show_in_report': bool(data.get('show_in_report'))}
+            # The write guard only lets the current Revision's own row change these.
+            if line.rev == self.revision:
+                vals['description'] = data.get('description') or False
+                vals['date'] = data.get('date') or False
+            self._editor_write_changed(line, vals)
+
+    # Creating
+
+    @api.model
+    def editor_types(self):
+        types = self.env['qc.checksheet.type'].search([])
+        return [{'id': t.id, 'name': t.name, 'code': t.code, 'layout': t.layout} for t in types]
+
+    @api.model
+    def editor_search_jobs(self, term=''):
+        """Only Jobs with a Model can hold a check sheet. Read through sudo: this
+        only offers the name, and creating sheets shouldn't need Project access."""
+        jobs = self.env['project.project'].sudo().search(
+            [('model_id', '!=', False), ('name', 'ilike', term or '')],
+            limit=JOB_SEARCH_LIMIT, order='name desc')
+        return [{'id': job.id, 'name': job.display_name, 'model': job.model_id.name} for job in jobs]
+
+    @api.model
+    def editor_new_context(self, job_id, type_id):
+        """What the New page shows once a Job and a Type are picked."""
+        job = self.env['project.project'].sudo().browse(job_id or 0).exists()
+        checksheet_type = self.env['qc.checksheet.type'].browse(type_id or 0).exists()
+        result = {
+            'number': '',
+            'header': '',
+            'model': job.model_id.name or '',
+            'serial': job.machine_serial or '',
+            'engine': job.engine_serial or '',
+            'customer': job.partner_id.name or '',
+            'duplicate_id': False,
+            'sources': [],
+        }
+        if job:
+            result['header'] = self._family_header(job.model_id.family_id)
+        if job and checksheet_type:
+            result['number'] = self._generate_reference(checksheet_type, job)
+            duplicate = self.search([('job_number', '=', job.id), ('type_id', '=', checksheet_type.id)], limit=1)
+            result['duplicate_id'] = duplicate.id
+        if checksheet_type:
+            sources = self.search(
+                [('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)],
+                limit=COPY_SOURCE_LIMIT, order='create_date desc')
+            sources = sources.sorted(lambda sheet: sheet.machine_model != job.model_id.name)
+            result['sources'] = [{
+                'id': sheet.id,
+                'label': sheet.display_name,
+                'header': sheet.name,
+                'same_model': bool(job) and sheet.machine_model == job.model_id.name,
+                'groups': len(sheet.group_ids),
+                'items': sheet.item_count,
+            } for sheet in sources]
+        return result
+
+    @api.model
+    def editor_create(self, vals):
+        self._check_group(GROUP_AUTHOR)
+        checksheet = self.create({
+            'name': vals.get('header'),
+            'type_id': vals.get('type_id'),
+            'job_number': vals.get('job_id'),
+        })
+        if vals.get('source_id'):
+            checksheet._copy_content_from(self.browse(vals['source_id']))
+        elif checksheet.checksheet_type == 'standard':
+            self.env['qc.checksheet.group'].create({
+                'checksheet_id': checksheet.id,
+                'name': EMPTY_HTML,
+                'item_ids': [(0, 0, {})],
+            })
+        return {'id': checksheet.id, 'layout': checksheet.checksheet_type}
+
+    def _check_content_complete(self):
+        """Blank rows would print as blank rows, so they stop a Submit."""
+        self.ensure_one()
+        if self.checksheet_type != 'standard':
+            return
+        for group in self.group_ids:
+            if not _html_has_content(group.name):
+                raise UserError(_("Every Group needs a name."))
+            for item in group.item_ids:
+                if not _html_has_content(item.description):
+                    raise UserError(_("Item %s has no Description.", item.item_number))
+
+
+def _html_has_content(html):
+    return bool(html2plaintext(html or '').strip()) or '<img' in (html or '')

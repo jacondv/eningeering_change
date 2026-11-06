@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_qc_checksheet_type_list" model="ir.ui.view">
+        <field name="name">qc.checksheet.type.list</field>
+        <field name="model">qc.checksheet.type</field>
+        <field name="arch" type="xml">
+            <list string="Check Sheet Types" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="layout"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_qc_checksheet_type" model="ir.actions.act_window">
+        <field name="name">Check Sheet Types</field>
+        <field name="res_model">qc.checksheet.type</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
+</odoo>

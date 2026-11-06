@@ -1,6 +1,8 @@
 import base64
 
-from odoo.tests.common import TransactionCase, tagged
+from odoo.tests.common import tagged
+
+from .common import QcChecksheetCase
 
 SVG_WITH_LEGACY_FONT = b'''<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100">
 <defs><style>
@@ -16,12 +18,10 @@ PNG_1X1 = base64.b64decode(
 
 
 @tagged('post_install', '-at_install')
-class TestQcChecksheetPanelLine(TransactionCase):
+class TestQcChecksheetPanelLine(QcChecksheetCase):
 
     def _create_checksheet(self):
-        return self.env['qc.checksheet'].create({
-            'name': 'Panel Check Sheet', 'checksheet_type': 'panel_sticker',
-        })
+        return super()._create_checksheet(self.type_panel, name='Panel Check Sheet')
 
     def test_create_panel_line_manually(self):
         checksheet = self._create_checksheet()
@@ -42,6 +42,7 @@ class TestQcChecksheetPanelLine(TransactionCase):
             'checksheet_id': source.id,
             'part_number': 'PN-001', 'description': 'Bracket', 'qty': 2,
         })
+        self._release(source)
 
         copy = self._create_checksheet()
         copy._copy_content_from(source)
@@ -76,6 +77,7 @@ class TestQcChecksheetPanelLine(TransactionCase):
                 'page_break_after': True, 'keep_original_size': True,
             })],
         })
+        self._release(source)
 
         copy = self._create_checksheet()
         copy._copy_content_from(source)

@@ -21,6 +21,7 @@ class QcChecksheetPanelLine(models.Model):
     via the Import wizard."""
     _name = 'qc.checksheet.panel.line'
     _description = 'QC Check Sheet Panel Line'
+    _inherit = ['qc.checksheet.keyed.line.mixin']
     _order = 'sequence, id'
 
     checksheet_id = fields.Many2one('qc.checksheet', required=True, ondelete='cascade')
