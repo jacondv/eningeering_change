@@ -24,7 +24,7 @@ export class QcDashboardController extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.searchBarToggler = useSearchBarToggler();
-        this.state = useState({ data: null, modelSearch: "" });
+        this.state = useState({ data: null, modelSearch: "", jobSearch: "" });
         onWillStart(() => this.load(this.props.domain));
         onWillUpdateProps((nextProps) => this.load(nextProps.domain));
     }
@@ -58,20 +58,32 @@ export class QcDashboardController extends Component {
     }
 
     /** The Models matching the box above the list. */
+    /** The items whose label holds what was typed in the panel's own search box. */
+    matching(items, term) {
+        term = term.trim().toLowerCase();
+        return term ? items.filter((item) => item.label.toLowerCase().includes(term)) : items;
+    }
+
+    /** Bars scaled to the biggest item, so the long tail stays readable. */
+    maxOf(items) {
+        return Math.max(0, ...items.map((item) => item.count));
+    }
+
     get models() {
-        const term = this.state.modelSearch.trim().toLowerCase();
-        const models = this.state.data.by_model;
-        return term ? models.filter((item) => item.label.toLowerCase().includes(term)) : models;
+        return this.matching(this.state.data.by_model, this.state.modelSearch);
     }
 
-    /** Model bars are scaled to the biggest Model, so the long tail stays readable. */
-    get modelMax() {
-        return Math.max(0, ...this.state.data.by_model.map((item) => item.count));
+    get jobs() {
+        return this.matching(this.state.data.by_job, this.state.jobSearch);
     }
 
-    get jobCoverage() {
-        const { total, complete } = this.state.data.jobs;
-        return total ? Math.round((complete / total) * 100) : 0;
+    openJob(item) {
+        return this.action.doAction({
+            type: "ir.actions.client",
+            tag: "qc_checksheet.job",
+            name: `QC: ${item.label}`,
+            context: { active_id: item.key },
+        });
     }
 
     percentOf(count, total) {

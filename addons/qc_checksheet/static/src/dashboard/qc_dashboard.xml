@@ -41,19 +41,18 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="o_qcd_panel">
-                                            <h4>Job Coverage</h4>
-                                            <div class="o_qcd_coverage">
-                                                <div class="o_qcd_bar_track o_qcd_coverage_track">
-                                                    <div class="o_qcd_bar_fill o_qcd_fill_released" t-attf-style="width: {{jobCoverage}}%"/>
-                                                </div>
-                                                <span class="o_qcd_coverage_value"><t t-esc="jobCoverage"/>%</span>
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <h4 class="mb-0 flex-grow-1">By Job Number <span class="text-muted fw-normal">(<t t-esc="data.by_job.length"/>)</span></h4>
+                                                <input t-if="data.by_job.length > 5" type="search" class="form-control form-control-sm o_qcd_list_search"
+                                                       placeholder="Find a Job..." t-model="state.jobSearch"/>
                                             </div>
-                                            <div class="text-muted">
-                                                <t t-esc="data.jobs.complete"/> of <t t-esc="data.jobs.total"/> Jobs have every required sheet Released
+                                            <div class="o_qcd_list o_qcd_jobs_list">
+                                                <t t-call="qc_checksheet.DashboardBars">
+                                                    <t t-set="items" t-value="jobs"/>
+                                                    <t t-set="total" t-value="maxOf(data.by_job)"/>
+                                                    <t t-set="onPick" t-value="(item) => this.openJob(item)"/>
+                                                </t>
                                             </div>
-                                            <a t-if="data.jobs.missing" href="#" class="d-inline-block mt-2" t-on-click.prevent="openMissingJobs">
-                                                Jobs still missing sheets: <t t-esc="data.jobs.missing"/>
-                                            </a>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -141,14 +140,14 @@
                                 <div class="o_qcd_panel o_qcd_models">
                                     <div class="d-flex align-items-center gap-2 mb-2">
                                         <h4 class="mb-0 flex-grow-1">By Model <span class="text-muted fw-normal">(<t t-esc="data.by_model.length"/>)</span></h4>
-                                        <input t-if="data.by_model.length > 8" type="search" class="form-control form-control-sm o_qcd_model_search"
+                                        <input t-if="data.by_model.length > 8" type="search" class="form-control form-control-sm o_qcd_list_search"
                                                placeholder="Find a Model..." t-model="state.modelSearch"/>
                                     </div>
-                                    <div class="o_qcd_models_list">
+                                    <div class="o_qcd_list o_qcd_models_list">
                                         <t t-call="qc_checksheet.DashboardBars">
                                             <t t-set="items" t-value="models"/>
                                             <t t-set="field" t-value="'machine_model'"/>
-                                            <t t-set="total" t-value="modelMax"/>
+                                            <t t-set="total" t-value="maxOf(data.by_model)"/>
                                         </t>
                                     </div>
                                 </div>
@@ -160,11 +159,12 @@
         </div>
     </t>
 
-    <!-- Bars of one breakdown; a click opens the sheets behind the bar. -->
+    <!-- Bars of one breakdown; a click opens the sheets behind the bar, or calls onPick when given. -->
     <t t-name="qc_checksheet.DashboardBars">
         <div t-if="!items.length" class="text-muted">No data</div>
         <t t-foreach="items" t-as="item" t-key="item_index">
-            <div class="o_qcd_bar_row" t-att-title="item.label" t-on-click="() => this.openSheets([[field, '=', item.key]], item.label)">
+            <div class="o_qcd_bar_row" t-att-title="item.label"
+                 t-on-click="() => onPick ? onPick(item) : this.openSheets([[field, '=', item.key]], item.label)">
                 <span class="o_qcd_bar_label" t-esc="item.label"/>
                 <div class="o_qcd_bar_track">
                     <div t-attf-class="o_qcd_bar_fill o_qcd_fill_{{field === 'state' ? item.key : 'type'}}"

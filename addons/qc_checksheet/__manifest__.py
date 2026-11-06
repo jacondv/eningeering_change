@@ -1,6 +1,6 @@
 {
     'name': 'QC Check Sheet',
-    'version': '19.0.1.6.0',
+    'version': '19.0.1.7.0',
     'category': 'Manufacturing/Quality',
     'summary': 'Author QC check sheets on Odoo and print them to the standard paper form',
     'description': """

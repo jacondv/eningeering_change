@@ -43,6 +43,7 @@ class TestQcChecksheetDashboard(QcChecksheetCase):
         self.assertEqual([(i['key'], i['count']) for i in data['by_state']], [('draft', 1), ('released', 1)])
         self.assertEqual([(i['key'], i['count']) for i in data['by_type']], [(self.type_general.id, 2)])
         self.assertEqual(data['by_model'], [{'key': 'M-J-DASH-1', 'label': 'M-J-DASH-1', 'count': 2}])
+        self.assertEqual(data['by_job'], [{'key': job.id, 'label': 'J-DASH-1', 'count': 2}])
         self.assertEqual([r['id'] for r in data['released']], [rev1.id])
 
     def test_waiting_too_long_follows_the_setting(self):
@@ -80,6 +81,7 @@ class TestQcChecksheetDashboard(QcChecksheetCase):
         sheet.action_submit()
         data = self._data([('job_number', '=', job.id)])
         self.assertEqual([row['job'] for row in data['waiting']], ['J-DASH-PRIVATE'])
+        self.assertEqual([item['label'] for item in data['by_job']], ['J-DASH-PRIVATE'])
 
     OPEN_JOBS = [('job_status', 'in', ['in_progress', 'on_hold'])]
 
