@@ -69,6 +69,8 @@
                             <field name="customer"/>
                             <field name="change_reason" invisible="revision == 0 or not change_reason"/>
                             <field name="copied_from_id" invisible="not copied_from_id"/>
+                            <field name="change_request_ids" widget="many2many_tags" options="{'no_create': True}"
+                                   readonly="state != 'draft'" invisible="state != 'draft' and not change_request_ids"/>
                             <field name="submitted_by_id" invisible="not submitted_by_id"/>
                             <field name="approved_by_id" invisible="not approved_by_id"/>
                             <field name="approved_date" invisible="not approved_date"/>

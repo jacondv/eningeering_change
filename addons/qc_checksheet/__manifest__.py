@@ -1,6 +1,6 @@
 {
     'name': 'QC Check Sheet',
-    'version': '19.0.1.7.0',
+    'version': '19.0.1.8.0',
     'category': 'Manufacturing/Quality',
     'summary': 'Author QC check sheets on Odoo and print them to the standard paper form',
     'description': """
@@ -15,11 +15,12 @@ Features:
 - Released content is locked; any change needs a New Revision, and old Revisions stay viewable and printable
 - Standard type: Inspection Groups containing Items, written on a dedicated full-page editor; Tested/OK-NOK always printed blank
 - Panel & Sticker type: Panel Lines entered entirely by hand (Part Number, Description, Image, Qty, Note)
+- A Revision records the Engineering Changes it comes from, printed in its Revision History
 - PDF report matching the original paper layout
 """,
     'author': 'Jacon',
     'license': 'LGPL-3',
-    'depends': ['base', 'mail', 'web', 'html_editor', 'project', 'equipment_model', 'jacon_core', 'inventor_connector', 'jacon_documents'],
+    'depends': ['base', 'mail', 'web', 'html_editor', 'project', 'equipment_model', 'jacon_core', 'inventor_connector', 'jacon_documents', 'engineering_change'],
     'data': [
         'security/qc_checksheet_groups.xml',
         'security/ir.model.access.csv',
@@ -35,6 +36,7 @@ Features:
         'report/qc_checksheet_report_templates.xml',
         'views/qc_checksheet_editor_actions.xml',
         'views/qc_checksheet_views.xml',
+        'views/engineering_change_views.xml',
         'views/qc_checksheet_dashboard_views.xml',
         'views/qc_checksheet_type_views.xml',
         'views/project_project_views.xml',

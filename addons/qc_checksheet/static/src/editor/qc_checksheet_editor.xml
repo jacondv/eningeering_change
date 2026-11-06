@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
+    <t t-name="qc_checksheet.NewRevisionDialog">
+        <Dialog title="'New Revision'" size="'md'">
+            <label class="fw-bold mb-1" for="qce_revision_reason">What is changing and why</label>
+            <input id="qce_revision_reason" class="form-control" autofocus="autofocus" t-model="state.reason"/>
+            <div class="fw-bold mt-3 mb-1">Engineering Changes <small class="fw-normal text-muted">(optional)</small></div>
+            <QcChangePicker value="state.changes" search="props.search" onChange.bind="setChanges"/>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-att-disabled="isBlocked" t-on-click="create">Create Revision</button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
     <t t-name="qc_checksheet.PromptDialog">
         <Dialog title="props.title" size="'md'" onClose="() => this.dismiss()">
             <p t-if="props.body" t-esc="props.body"/>
@@ -153,6 +166,11 @@
         <div t-if="oldRevisionNotice" class="o_qce_notice o_qce_notice_warning">
             <span t-esc="oldRevisionNotice"/>
             <button class="btn btn-link p-0" t-on-click="() => this.openSheet(sheet.latest_id)">Open the latest Revision</button>
+        </div>
+        <div t-if="sheet.changes.length or editable" class="o_qce_notice o_qce_changes_bar">
+            <strong>Engineering Changes</strong>
+            <QcChangePicker value="sheet.changes" search.bind="searchChanges" onChange.bind="setChanges"
+                            onOpen.bind="openChange" readonly="!editable"/>
         </div>
         <div t-if="sheet.state === 'draft' and sheet.reject_reason" class="o_qce_notice o_qce_notice_danger">
             <strong>Rejected:</strong> <t t-esc="sheet.reject_reason"/>

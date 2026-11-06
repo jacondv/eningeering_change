@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="qc_checksheet.ChangePicker">
+        <div class="o_qce_changes">
+            <span t-foreach="props.value" t-as="change" t-key="change.id" class="o_qce_chip" t-att-title="change.title">
+                <a t-if="props.onOpen" href="#" t-on-click.prevent="() => props.onOpen(change)" t-esc="change.name"/>
+                <span t-else="" t-esc="change.name"/>
+                <button t-if="!props.readonly" type="button" class="o_qce_chip_x" t-att-aria-label="'Remove ' + change.name"
+                        t-on-click="() => this.remove(change)">×</button>
+            </span>
+            <span t-if="props.readonly and !props.value.length" class="text-muted">None</span>
+            <div t-if="!props.readonly" class="o_qce_job_field o_qce_change_add">
+                <input class="form-control form-control-sm" autocomplete="off" placeholder="Add an Engineering Change"
+                       aria-label="Add an Engineering Change"
+                       t-att-value="state.term" t-on-input="onInput" t-on-focus="onFocus" t-on-blur="onBlur"/>
+                <div t-if="state.open" class="o_qce_job_menu">
+                    <t t-foreach="options" t-as="change" t-key="change.id">
+                        <button type="button" class="o_qce_job_option" t-on-mousedown.prevent="() => this.add(change)">
+                            <strong t-esc="change.name"/> <span t-esc="change.title"/>
+                            <span class="text-muted">(<t t-esc="change.state_label"/>)</span>
+                            <span t-if="change.affects" class="o_qce_badge o_qce_badge_released ms-1">This Job or Model</span>
+                        </button>
+                    </t>
+                    <div t-if="!options.length" class="text-muted p-2">No Engineering Change matches.</div>
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>

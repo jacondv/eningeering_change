@@ -14,6 +14,13 @@
                     Create missing sheets (<t t-esc="missingRows.length"/>)
                 </button>
             </div>
+            <div t-if="job.changes.length" class="o_qce_notice o_qce_notice_warning">
+                <strong>Engineering Changes in progress for this Job:</strong>
+                <t t-foreach="job.changes" t-as="change" t-key="change.id">
+                    <a href="#" class="ms-2" t-on-click.prevent="() => this.openChange(change)" t-esc="change.name"/>
+                    <span class="text-muted"><t t-esc="change.title"/> (<t t-esc="change.state_label"/>)</span>
+                </t>
+            </div>
             <div class="o_qce_job">
                 <div class="o_qce_panel o_qce_scroll_x">
                     <table class="o_qce_table">
