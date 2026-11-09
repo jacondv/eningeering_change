@@ -7,6 +7,7 @@ from .qc_checksheet import GROUP_APPROVER, GROUP_AUTHOR
 EMPTY_HTML = '<p><br></p>'
 MODEL_SEARCH_LIMIT = 20
 COPY_SOURCE_LIMIT = 50
+USER_NAME_LIMIT = 500
 
 
 class QcChecksheet(models.Model):
@@ -87,9 +88,17 @@ class QcChecksheet(models.Model):
                 'show_in_report': line.show_in_report,
                 'sheet_id': rev_sheets.get(line.rev, False),
             } for line in self.history_ids],
+            # Suggestions for Created By in the Revision History.
+            'user_names': self._editor_user_names(),
             'can_author': user.has_group(GROUP_AUTHOR),
             'can_approve': user.has_group(GROUP_APPROVER),
         }
+
+    @api.model
+    def _editor_user_names(self):
+        """Names of the people who can be a Revision's creator: the company's own users, not portal or public ones."""
+        users = self.env['res.users'].sudo().search([('share', '=', False)], order='name', limit=USER_NAME_LIMIT)
+        return users.mapped('name')
 
     def _editor_source_label(self):
         self.ensure_one()
@@ -202,6 +211,8 @@ class QcChecksheet(models.Model):
             if line.rev == self.revision:
                 vals['description'] = data.get('description') or False
                 vals['date'] = data.get('date') or False
+                # Left empty it goes back to the user saving, like a Revision's first value.
+                vals['created_by'] = (data.get('created_by') or '').strip() or self.env.user.name
             self._editor_write_changed(line, vals)
 
     # Creating

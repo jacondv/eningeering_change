@@ -92,7 +92,7 @@
                                     <field name="description" readonly="rev != parent.revision"
                                            required="rev == parent.revision"/>
                                     <field name="date" readonly="rev != parent.revision"/>
-                                    <field name="created_by" readonly="1"/>
+                                    <field name="created_by" readonly="rev != parent.revision"/>
                                     <field name="approved_by" readonly="1"/>
                                     <field name="show_in_report" widget="boolean_toggle"/>
                                 </list>

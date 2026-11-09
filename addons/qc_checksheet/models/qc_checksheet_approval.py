@@ -19,7 +19,8 @@ class QcChecksheetApproval(models.Model):
 class QcChecksheetHistory(models.Model):
     """One Revision History row per Revision, written by the workflow on
     qc.checksheet. While that Revision is a Draft, only its own row's
-    Description and Date can be changed by hand. A Revision carries its own
+    Description, Date and Created By can be changed by hand (Created By
+    starts as the user who made the Revision). A Revision carries its own
     copy of all earlier rows, so reprinting an old Revision doesn't show the
     rows that came after it. Rev is a fixed number, so reordering or removing
     rows can't change it."""
@@ -32,7 +33,7 @@ class QcChecksheetHistory(models.Model):
     rev = fields.Integer(string='Rev', default=0)
     description = fields.Char()
     date = fields.Date(default=fields.Date.context_today)
-    created_by = fields.Char(string='Created By')
+    created_by = fields.Char(string='Created By', help="Starts as the user who created the Revision; can be changed while it is a Draft.")
     approved_by = fields.Char(string='Approved By')
     show_in_report = fields.Boolean(
         string='Show in Report', default=True,
@@ -46,9 +47,9 @@ class QcChecksheetHistory(models.Model):
 
     def write(self, vals):
         if not self.env.su:
-            if vals.keys() - {'show_in_report', 'description', 'date'}:
+            if vals.keys() - {'show_in_report', 'description', 'date', 'created_by'}:
                 raise UserError(_("Revision History is written by the system."))
-            if vals.keys() & {'description', 'date'}:
+            if vals.keys() & {'description', 'date', 'created_by'}:
                 for line in self:
                     if line.rev != line.checksheet_id.revision:
                         raise UserError(_(

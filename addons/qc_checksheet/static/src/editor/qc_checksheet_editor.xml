@@ -250,6 +250,10 @@
                     </div>
 
                     <div t-if="state.tab === 'history'" class="o_qce_scroll_x">
+                        <!-- Suggestions for Created by: type a few letters of a user's name. -->
+                        <datalist id="qce_user_names">
+                            <option t-foreach="sheet.user_names" t-as="name" t-key="name_index" t-att-value="name"/>
+                        </datalist>
                         <table class="o_qce_table">
                             <thead><tr><th>Rev</th><th>Description</th><th>Date</th><th>Created by</th><th>Approved by</th><th>In PDF</th><th/></tr></thead>
                             <tbody>
@@ -257,8 +261,13 @@
                                     <tr>
                                         <td class="fw-bold" t-esc="line.rev"/>
                                         <td><input class="form-control" t-att-value="line.description" t-att-readonly="!isHistoryRowEditable(line)" t-on-input="(ev) => this.onHistoryInput(line, 'description', ev)"/></td>
-                                        <td><input class="form-control" type="date" t-att-value="line.date" t-att-readonly="!isHistoryRowEditable(line)" t-on-input="(ev) => this.onHistoryInput(line, 'date', ev)"/></td>
-                                        <td t-esc="line.created_by"/>
+                                        <td>
+                                            <DateTimeInput t-if="isHistoryRowEditable(line)" type="'date'" format="HISTORY_DATE_FORMAT"
+                                                           value="historyDate(line)" class="'form-control'" placeholder="'12-Aug-2025'"
+                                                           onChange="(value) => this.onHistoryDate(line, value)"/>
+                                            <input t-else="" class="form-control" readonly="readonly" t-att-value="formatHistoryDate(line)"/>
+                                        </td>
+                                        <td><input class="form-control" list="qce_user_names" autocomplete="off" t-att-value="line.created_by" t-att-readonly="!isHistoryRowEditable(line)" t-on-input="(ev) => this.onHistoryInput(line, 'created_by', ev)"/></td>
                                         <td t-esc="line.approved_by or '-'"/>
                                         <td><input type="checkbox" t-att-checked="line.show_in_report" t-att-disabled="!editable" t-on-change="(ev) => this.onHistoryInput(line, 'show_in_report', ev)"/></td>
                                         <td>

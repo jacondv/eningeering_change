@@ -180,10 +180,55 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         rev1.editor_save(payload)
 
         old_line, current_line = rev1.history_ids
-        self.assertEqual(old_line.description, 'Initial issue')
+        self.assertEqual(old_line.description, 'Initial release')
         self.assertEqual(current_line.description, 'Reworded')
         self.assertEqual(str(current_line.date), '2026-01-15')
         self.assertFalse(current_line.show_in_report)
+
+    def test_load_suggests_the_names_of_internal_users_for_created_by(self):
+        portal = new_test_user(self.env, login='qc_editor_portal', groups='base.group_portal')
+        names = self._sheet().editor_load()['user_names']
+        self.assertIn(self.author.name, names)
+        self.assertIn(self.approver.name, names)
+        self.assertNotIn(portal.name, names)
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_created_by_starts_as_the_user_and_can_be_changed_on_the_current_row(self):
+        rev0 = self._sheet()
+        rev0.action_submit()
+        rev0.with_user(self.approver).action_approve()
+        rev1 = rev0.browse(rev0.action_create_revision('First reason')['res_id'])
+        old_line, current_line = rev1.history_ids
+        self.assertEqual(current_line.created_by, rev1.env.user.name)
+        before = old_line.created_by
+
+        payload = self._payload(rev1)
+        payload['history'][0]['created_by'] = 'Tampered'
+        payload['history'][1]['created_by'] = ' Nguyen Van A '
+        rev1.editor_save(payload)
+        self.assertEqual(old_line.created_by, before)
+        self.assertEqual(current_line.created_by, 'Nguyen Van A')
+        self.assertIn('Nguyen Van A', self.env['ir.actions.report']._render_qweb_html(
+            'qc_checksheet.report_qc_checksheet_document', rev1.ids)[0].decode())
+
+        # Cleared, it goes back to the user saving.
+        payload = self._payload(rev1)
+        payload['history'][1]['created_by'] = ''
+        rev1.editor_save(payload)
+        self.assertEqual(current_line.created_by, rev1.env.user.name)
+
+    def test_created_by_is_not_written_by_hand_on_an_old_row_or_once_locked(self):
+        rev0 = self._sheet()
+        line = rev0.history_ids
+        rev0.action_submit()
+        with self.assertRaises(UserError):
+            line.with_user(self.author).write({'created_by': 'Someone'})
+        rev0.with_user(self.approver).action_approve()
+        rev1 = rev0.browse(rev0.action_create_revision('Next')['res_id'])
+        with self.assertRaises(UserError):
+            rev1.history_ids[0].with_user(self.author).write({'created_by': 'Someone'})
+        rev1.history_ids[1].with_user(self.author).write({'created_by': 'Someone'})
+        self.assertEqual(rev1.history_ids[1].created_by, 'Someone')
 
     def test_submit_refuses_blank_rows(self):
         checksheet = self._sheet()
