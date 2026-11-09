@@ -2,7 +2,7 @@ from . import qc_checksheet_line_mixin
 from . import qc_checksheet_type
 from . import qc_checksheet
 from . import qc_checksheet_editor
-from . import qc_checksheet_job
+from . import qc_checksheet_model_page
 from . import qc_checksheet_dashboard
 from . import project_project
 from . import qc_checksheet_group
@@ -12,3 +12,6 @@ from . import qc_checksheet_image
 from . import qc_checksheet_inventor_bom_line
 from . import qc_checksheet_print
 from . import qc_checksheet_change
+from . import qc_job_checksheet
+from . import equipment_model
+from . import qc_job_checksheet_change

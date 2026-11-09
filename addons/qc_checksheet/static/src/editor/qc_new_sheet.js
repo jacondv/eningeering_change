@@ -6,7 +6,7 @@ import { QcJobPicker } from "./qc_job_picker";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
 
-/** The New Check Sheet page: pick the Job and Type, and what to start from. */
+/** The New Check Sheet page: pick the Model and Type, and what to start from. */
 export class QcNewSheet extends Component {
     static template = "qc_checksheet.NewSheet";
     static components = { QcJobPicker };
@@ -14,7 +14,7 @@ export class QcNewSheet extends Component {
         onCreated: Function,
         onOpen: Function,
         onBack: Function,
-        defaultJobId: { type: [Number, Boolean], optional: true },
+        defaultModelId: { type: [Number, Boolean], optional: true },
         defaultTypeId: { type: [Number, Boolean], optional: true },
     };
 
@@ -24,37 +24,37 @@ export class QcNewSheet extends Component {
         this.state = useState({
             types: [],
             typeId: false,
-            job: null,
+            model: null,
             header: "",
             headerIsAuto: false,
             source: "blank",
             sourceId: false,
-            sourceJob: null,
+            sourceModel: null,
             context: this.emptyContext(),
             creating: false,
         });
-        this.searchJobs = (term) => this.orm.call(CHECKSHEET_MODEL, "editor_search_jobs", [term]);
-        this.searchSourceJobs = (term) =>
-            this.orm.call(CHECKSHEET_MODEL, "editor_search_source_jobs", [this.state.typeId, term]);
+        this.searchModels = (term) => this.orm.call(CHECKSHEET_MODEL, "editor_search_models", [term]);
+        this.searchSourceModels = (term) =>
+            this.orm.call(CHECKSHEET_MODEL, "editor_search_source_models", [this.state.typeId, term]);
 
         onWillStart(async () => {
             this.state.types = await this.orm.call(CHECKSHEET_MODEL, "editor_types", []);
-            const { defaultJobId, defaultTypeId } = this.props;
+            const { defaultModelId, defaultTypeId } = this.props;
             this.state.typeId = this.state.types.some((type) => type.id === defaultTypeId)
                 ? defaultTypeId
                 : this.state.types[0]?.id || false;
             await this.refreshContext();
-            if (defaultJobId) {
-                const job = await this.orm.call(CHECKSHEET_MODEL, "editor_job_info", [defaultJobId]);
-                if (job) {
-                    await this.pickJob(job);
+            if (defaultModelId) {
+                const model = await this.orm.call(CHECKSHEET_MODEL, "editor_model_info", [defaultModelId]);
+                if (model) {
+                    await this.pickModel(model);
                 }
             }
         });
     }
 
     emptyContext() {
-        return { number: "", header: "", model: "", serial: "", engine: "", customer: "", duplicate_id: false, sources: [] };
+        return { number: "", header: "", model: "", family: "", job_count: 0, duplicate_id: false, sources: [] };
     }
 
     get selectedType() {
@@ -69,17 +69,17 @@ export class QcNewSheet extends Component {
         if (this.state.headerIsAuto) {
             return "Filled in from the Product Family Description. You can change it.";
         }
-        if (this.state.job && !this.state.context.header) {
+        if (this.state.model && !this.state.context.header) {
             return "This Product Family has no Description, so type the Header.";
         }
         return "Printed as the top line of the PDF.";
     }
 
     get cannotCreate() {
-        const { job, header, typeId, source, sourceId, context, creating } = this.state;
+        const { model, header, typeId, source, sourceId, context, creating } = this.state;
         return (
             creating ||
-            !job ||
+            !model ||
             !typeId ||
             !header.trim() ||
             !!context.duplicate_id ||
@@ -88,11 +88,11 @@ export class QcNewSheet extends Component {
     }
 
     async refreshContext() {
-        const { job, typeId, sourceJob } = this.state;
+        const { model, typeId, sourceModel } = this.state;
         this.state.context = await this.orm.call(CHECKSHEET_MODEL, "editor_new_context", [
-            job?.id || false,
+            model?.id || false,
             typeId,
-            sourceJob?.id || false,
+            sourceModel?.id || false,
         ]);
         const { context } = this.state;
         if (!context.sources.some((source) => source.id === this.state.sourceId)) {
@@ -100,10 +100,10 @@ export class QcNewSheet extends Component {
         }
     }
 
-    async pickJob(job) {
-        this.state.job = job;
+    async pickModel(model) {
+        this.state.model = model;
         await this.refreshContext();
-        // Keep following the Job until the user types a Header of their own.
+        // Keep following the Model until the user types a Header of their own.
         if (!this.state.header || this.state.headerIsAuto) {
             this.state.header = this.state.context.header;
             this.state.headerIsAuto = !!this.state.context.header;
@@ -112,13 +112,13 @@ export class QcNewSheet extends Component {
 
     async onTypeChange(ev) {
         this.state.typeId = parseInt(ev.target.value);
-        // That Job may have nothing to copy for the new Type.
-        this.state.sourceJob = null;
+        // That Model may have nothing to copy for the new Type.
+        this.state.sourceModel = null;
         await this.refreshContext();
     }
 
-    async pickSourceJob(job) {
-        this.state.sourceJob = job;
+    async pickSourceModel(model) {
+        this.state.sourceModel = model;
         await this.refreshContext();
     }
 
@@ -131,12 +131,12 @@ export class QcNewSheet extends Component {
         if (this.cannotCreate) {
             return;
         }
-        const { job, typeId, header, source, sourceId } = this.state;
+        const { model, typeId, header, source, sourceId } = this.state;
         this.state.creating = true;
         try {
             const created = await this.orm.call(CHECKSHEET_MODEL, "editor_create", [
                 {
-                    job_id: job.id,
+                    model_id: model.id,
                     type_id: typeId,
                     header: header.trim(),
                     source_id: source === "copy" ? sourceId : false,

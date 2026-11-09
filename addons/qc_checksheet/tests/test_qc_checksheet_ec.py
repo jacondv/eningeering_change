@@ -13,7 +13,7 @@ class TestQcChecksheetEngineeringChange(QcChecksheetCase):
         cls.author = new_test_user(
             cls.env, login='qc_ec_author', groups='base.group_user,qc_checksheet.group_qc_author')
 
-    def _change(self, name, state='implement', job=None):
+    def _change(self, name, state='implement', job=None, model=None):
         change = self.env['engineering.change'].create({
             'title': f'Title of {name}',
             'description': '<p>Description</p>',
@@ -28,13 +28,16 @@ class TestQcChecksheetEngineeringChange(QcChecksheetCase):
         })
         change.with_context(ec_workflow_write=True).write({'state': state})
         change.name = name
-        if job:
+        if job or model:
             self.env['project.task'].create({
-                'change_id': change.id, 'name': 'Do it', 'affected_project_ids': [(6, 0, [job.id])]})
+                'change_id': change.id, 'name': 'Do it',
+                'affected_project_ids': [(6, 0, job.ids if job else [])],
+                'affected_model_ids': [(6, 0, model.ids if model else [])],
+            })
         return change
 
-    def _released(self, job=None):
-        sheet = self._create_checksheet(job=job)
+    def _released(self, model=None):
+        sheet = self._create_checksheet(model=model)
         self._create_content(sheet)
         sheet.action_submit()
         sheet.action_approve()
@@ -82,18 +85,18 @@ class TestQcChecksheetEngineeringChange(QcChecksheetCase):
         self.assertEqual(sheet.editor_load()['changes'], [
             {'id': change.id, 'name': 'EC-T5', 'title': 'Title of EC-T5', 'state_label': 'Design'}])
 
-    def test_search_lists_changes_on_the_job_first_and_skips_unusable_ones(self):
-        job = self._create_job()
-        sheet = self._create_checksheet(job=job)
+    def test_search_lists_changes_on_the_model_first_and_skips_unusable_ones(self):
+        model = self._create_model()
+        sheet = self._create_checksheet(model=model)
         elsewhere = self._change('EC-T6')
-        on_job = self._change('EC-T7', job=job)
+        on_model = self._change('EC-T7', model=model)
         self._change('EC-T8', state='draft')
         self._change('EC-T9', state='canceled')
         found = sheet.editor_search_changes('EC-T')
         self.assertEqual([c['name'] for c in found], ['EC-T7', 'EC-T6'])
         self.assertEqual([c['affects'] for c in found], [True, False])
         self.assertEqual([c['id'] for c in sheet.editor_search_changes('Title of EC-T6')], [elsewhere.id])
-        self.assertEqual(found[0]['id'], on_job.id)
+        self.assertEqual(found[0]['id'], on_model.id)
 
     def test_pdf_prints_the_changes_with_their_revision(self):
         rev0 = self._released()
@@ -122,5 +125,13 @@ class TestQcChecksheetEngineeringChange(QcChecksheetCase):
         self._change('EC-T13', state='done', job=job)
         self._change('EC-T14', state='draft', job=job)
         self._change('EC-T15')
-        overview = self.env['qc.checksheet'].job_overview(job.id)
+        overview = self.env['qc.job.checksheet'].job_overview(job.id)
+        self.assertEqual([c['id'] for c in overview['changes']], [running.id])
+
+    def test_model_page_flags_the_changes_in_progress(self):
+        model = self._create_model()
+        running = self._change('EC-T16', model=model)
+        self._change('EC-T17', state='done', model=model)
+        self._change('EC-T18')
+        overview = self.env['qc.checksheet'].model_overview(model.id)
         self.assertEqual([c['id'] for c in overview['changes']], [running.id])

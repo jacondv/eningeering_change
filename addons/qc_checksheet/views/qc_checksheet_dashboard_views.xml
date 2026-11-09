@@ -21,7 +21,6 @@
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_qc_checksheet_dashboard"/>
         <field name="search_view_id" ref="view_qc_checksheet_search"/>
-        <field name="context">{'search_default_open_jobs': 1}</field>
     </record>
 
 </odoo>

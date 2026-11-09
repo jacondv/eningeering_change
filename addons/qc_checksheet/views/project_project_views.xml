@@ -18,7 +18,7 @@
         </field>
     </record>
 
-    <!-- Opened from the Dashboard's "Jobs missing sheets"; a row opens the Job's QC page. -->
+    <!-- Opened from the Dashboard's "Jobs waiting for sheets"; a row opens the Job's QC page. -->
     <record id="view_project_qc_missing_list" model="ir.ui.view">
         <field name="name">project.project.list.qc.missing</field>
         <field name="model">project.project</field>
@@ -29,7 +29,7 @@
                 <field name="model_id"/>
                 <field name="partner_id"/>
                 <field name="last_update_status" string="Status"/>
-                <field name="qc_checksheet_progress" string="Released"/>
+                <field name="qc_checksheet_progress" string="Ready"/>
             </list>
         </field>
     </record>

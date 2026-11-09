@@ -6,8 +6,8 @@
             <div t-att-class="{'input-group input-group-sm': props.clearable}">
                 <input t-att-id="props.inputId" class="form-control" autocomplete="off" t-att-placeholder="props.placeholder"
                        t-att-value="state.term" t-on-input="onInput" t-on-focus="onFocus" t-on-blur="onBlur"/>
-                <button t-if="props.clearable and props.value" class="btn btn-secondary" title="Show all Jobs"
-                        aria-label="Clear the Job" t-on-click="() => this.pick(null)"><i class="fa fa-times"/></button>
+                <button t-if="props.clearable and props.value" class="btn btn-secondary" title="Show all"
+                        aria-label="Clear" t-on-click="() => this.pick(null)"><i class="fa fa-times"/></button>
             </div>
             <div t-if="state.open" class="o_qce_job_menu">
                 <t t-foreach="state.results" t-as="job" t-key="job.id">

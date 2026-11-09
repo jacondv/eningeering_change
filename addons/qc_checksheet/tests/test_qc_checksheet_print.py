@@ -15,14 +15,18 @@ class TestQcChecksheetPrint(QcChecksheetCase):
         super().setUpClass()
         cls.viewer = new_test_user(cls.env, login='qc_print_viewer', groups='base.group_user')
         cls.type_hydraulic = cls.env['qc.checksheet.type'].create({'name': 'Hydraulic: Main/Aux', 'code': 'HY'})
+        for checksheet_type in (cls.type_general, cls.type_hydraulic):
+            sheet = cls.env['qc.checksheet'].create({
+                'name': 'Sheet', 'type_id': checksheet_type.id, 'model_id': cls.model_za90.id})
+            cls.env['qc.checksheet.group'].create({
+                'checksheet_id': sheet.id, 'name': 'Group', 'item_ids': [(0, 0, {'description': 'Check'})]})
+            sheet.write({'state': 'released'})
 
     def _sheets(self, **job_vals):
+        """The Job's General and Hydraulic sheets, printed (so pinned) by the viewer."""
         job = self._create_job(**job_vals)
-        general = self._create_checksheet(job=job)
-        self._create_content(general)
-        hydraulic = self._create_checksheet(self.type_hydraulic, job=job)
-        self._create_content(hydraulic)
-        return (general | hydraulic).with_user(self.viewer)
+        JobSheet = self.env['qc.job.checksheet'].with_user(self.viewer)
+        return JobSheet.browse(JobSheet.job_print(job.id, [self.type_general.id, self.type_hydraulic.id]))
 
     def test_file_name_uses_the_machine_serial(self):
         general, _hydraulic = self._sheets(machine_serial='SN-123')
@@ -32,9 +36,13 @@ class TestQcChecksheetPrint(QcChecksheetCase):
         sheets = self._sheets(name='J-PRINT-1')
         self.assertEqual(sheets[1].pdf_file_name, 'J-PRINT-1-QC-HYDRAULIC MAINAUX')
 
-    def test_the_pdf_report_uses_that_name(self):
-        report = self.env.ref('qc_checksheet.action_report_qc_checksheet')
-        self.assertEqual(report.print_report_name, 'object.pdf_file_name')
+    def test_a_models_blank_sheet_is_named_after_its_number_and_revision(self):
+        sheet = self.env['qc.checksheet'].search([('model_id', '=', self.model_za90.id), ('type_id', '=', self.type_general.id)])
+        self.assertEqual(sheet.pdf_file_name, 'QC-GE-ZA90-REV0')
+
+    def test_the_pdf_reports_use_those_names(self):
+        for xmlid in ('qc_checksheet.action_report_qc_checksheet', 'qc_checksheet.action_report_qc_job_checksheet'):
+            self.assertEqual(self.env.ref(xmlid).print_report_name, 'object.pdf_file_name')
 
     def test_one_sheet_prints_as_its_own_pdf(self):
         sheets = self._sheets(machine_serial='SN-1')
@@ -56,9 +64,25 @@ class TestQcChecksheetPrint(QcChecksheetCase):
         self.assertEqual((name, mimetype), ('J-PRINT-3-QC-ALL.pdf', 'application/pdf'))
         self.assertTrue(content)
 
+    def test_two_types_with_one_name_stay_two_files_in_a_zip(self):
+        twin = self.env['qc.checksheet.type'].create({'name': 'General Check Sheet', 'code': 'G2'})
+        sheet = self.env['qc.checksheet'].create({'name': 'Twin', 'type_id': twin.id, 'model_id': self.model_za90.id})
+        self.env['qc.checksheet.group'].create({
+            'checksheet_id': sheet.id, 'name': 'Group', 'item_ids': [(0, 0, {'description': 'Check'})]})
+        sheet.write({'state': 'released'})
+        job = self._create_job(machine_serial='SN-TWIN')
+        JobSheet = self.env['qc.job.checksheet'].with_user(self.viewer)
+        sheets = JobSheet.browse(JobSheet.job_print(job.id, [self.type_general.id, twin.id]))
+        self.assertEqual(len(set(sheets.mapped('pdf_file_name'))), 1)
+        _name, content, _mimetype = sheets._print_files()
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            self.assertEqual(
+                sorted(archive.namelist()),
+                ['SN-TWIN-QC-GENERAL CHECK SHEET (2).pdf', 'SN-TWIN-QC-GENERAL CHECK SHEET.pdf'])
+
     def test_nothing_selected(self):
         with self.assertRaises(UserError):
-            self.env['qc.checksheet'].with_user(self.viewer)._print_files()
+            self.env['qc.job.checksheet'].with_user(self.viewer)._print_files()
 
     def test_needs_read_access(self):
         sheets = self._sheets()

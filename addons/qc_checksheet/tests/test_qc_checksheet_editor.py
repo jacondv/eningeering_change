@@ -250,68 +250,80 @@ class TestQcChecksheetEditor(QcChecksheetCase):
 
     # New Check Sheet page
 
-    def test_jobs_offered_are_those_with_a_model(self):
-        job = self._create_job('J-EDITOR-1')
-        self.env['project.project'].create({'name': 'J-EDITOR-NO-MODEL'})
-        results = self.env['qc.checksheet'].with_user(self.author).editor_search_jobs('J-EDITOR')
-        self.assertEqual([result['id'] for result in results], [job.id])
-        self.assertEqual(results[0]['model'], 'ZA90')
+    def test_models_offered_match_the_term(self):
+        model = self._create_model('M-EDITOR-1')
+        self._create_model('OTHER-1')
+        results = self.env['qc.checksheet'].with_user(self.author).editor_search_models('M-EDITOR')
+        self.assertEqual([result['id'] for result in results], [model.id])
 
     def test_new_context_previews_the_sheet(self):
         category = self.env['equipment.model.category'].create({'name': 'Category'})
         self.model_za90.family_id = self.env['equipment.model.family'].create({
             'name': 'Family', 'description': 'Zero\nLoader', 'category_id': category.id,
         })
-        job = self._create_job(machine_serial='SN-9')
+        self._create_job()
         Sheet = self.env['qc.checksheet'].with_user(self.author)
-        context = Sheet.editor_new_context(job.id, self.type_general.id)
+        context = Sheet.editor_new_context(self.model_za90.id, self.type_general.id)
         self.assertEqual(context['number'], 'QC-GE-ZA90')
         self.assertEqual(context['header'], 'Zero Loader')
-        self.assertEqual(context['serial'], 'SN-9')
+        self.assertEqual(context['family'], 'Family')
+        self.assertEqual(context['job_count'], 1)
         self.assertFalse(context['duplicate_id'])
 
-        existing = self._create_checksheet(job=job)
-        context = Sheet.editor_new_context(job.id, self.type_general.id)
+        existing = self._create_checksheet(model=self.model_za90)
+        context = Sheet.editor_new_context(self.model_za90.id, self.type_general.id)
         self.assertEqual(context['duplicate_id'], existing.id)
 
-    def test_new_context_lists_released_sources_same_model_first(self):
-        other_model = self.env['equipment.model'].create({'name': 'ZB10'})
-        other = self._release(self._create_checksheet(job=self._create_job(model=other_model)))
+    def test_new_context_lists_released_sources_same_type_first(self):
+        type_other = self.env['qc.checksheet.type'].create({'name': 'Other', 'code': 'OT', 'layout': 'standard'})
+        other_type = self._release(self._create_checksheet(type_other))
         same = self._release(self._create_checksheet())
         self._create_checksheet()
         self._release(self._create_checksheet(self.type_panel))
-        job = self._create_job()
         sources = self.env['qc.checksheet'].with_user(self.author).editor_new_context(
-            job.id, self.type_general.id)['sources']
+            self._create_model().id, self.type_general.id)['sources']
         ids = [source['id'] for source in sources]
         self.assertIn(same.id, ids)
-        self.assertIn(other.id, ids)
-        self.assertLess(ids.index(same.id), ids.index(other.id))
+        self.assertIn(other_type.id, ids)
+        self.assertLess(ids.index(same.id), ids.index(other_type.id))
         self.assertEqual(
             self.env['qc.checksheet'].browse(ids).mapped('state'), ['released'] * len(ids))
         self.assertEqual(
             set(self.env['qc.checksheet'].browse(ids).mapped('checksheet_type')), {'standard'})
 
-    def test_new_context_sources_can_be_filtered_by_job(self):
-        wanted_job = self._create_job('J-FILTER-1')
-        wanted = self._release(self._create_checksheet(job=wanted_job))
-        self._release(self._create_checksheet(job=self._create_job('J-OTHER-1')))
+    def test_new_context_lists_the_same_product_family_before_other_models(self):
+        category = self.env['equipment.model.category'].create({'name': 'Category'})
+        Family = self.env['equipment.model.family']
+        wanted = Family.create({'name': 'Wanted', 'category_id': category.id})
+        elsewhere = Family.create({'name': 'Elsewhere', 'category_id': category.id})
+        target = self._create_model(family_id=wanted.id)
+        # Created first, so it would sit last by date alone.
+        related = self._release(self._create_checksheet(model=self._create_model(family_id=wanted.id)))
+        stranger = self._release(self._create_checksheet(model=self._create_model(family_id=elsewhere.id)))
+        ids = [source['id'] for source in self.env['qc.checksheet'].with_user(self.author).editor_new_context(
+            target.id, self.type_general.id)['sources']]
+        self.assertLess(ids.index(related.id), ids.index(stranger.id))
+
+    def test_new_context_sources_can_be_filtered_by_model(self):
+        wanted_model = self._create_model('M-FILTER-1')
+        wanted = self._release(self._create_checksheet(model=wanted_model))
+        self._release(self._create_checksheet())
         sources = self.env['qc.checksheet'].with_user(self.author).editor_new_context(
-            self._create_job().id, self.type_general.id, wanted_job.id)['sources']
+            self._create_model().id, self.type_general.id, wanted_model.id)['sources']
         self.assertEqual([source['id'] for source in sources], [wanted.id])
 
-    def test_source_jobs_are_those_with_something_to_copy(self):
-        with_released = self._create_job('J-SRC-1')
-        self._release(self._create_checksheet(job=with_released))
-        self._create_checksheet(job=self._create_job('J-SRC-2'))
-        self._release(self._create_checksheet(self.type_panel, job=self._create_job('J-SRC-3')))
-        jobs = self.env['qc.checksheet'].with_user(self.author).editor_search_source_jobs(
-            self.type_general.id, 'J-SRC')
-        self.assertEqual([job['id'] for job in jobs], [with_released.id])
+    def test_source_models_are_those_with_something_to_copy(self):
+        with_released = self._create_model('M-SRC-1')
+        self._release(self._create_checksheet(model=with_released))
+        self._create_checksheet(model=self._create_model('M-SRC-2'))
+        self._release(self._create_checksheet(self.type_panel, model=self._create_model('M-SRC-3')))
+        found = self.env['qc.checksheet'].with_user(self.author).editor_search_source_models(
+            self.type_general.id, 'M-SRC')
+        self.assertEqual([model['id'] for model in found], [with_released.id])
 
     def test_create_blank_starts_with_one_empty_row(self):
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({
-            'job_id': self._create_job().id, 'type_id': self.type_general.id, 'header': 'My Header',
+            'model_id': self._create_model().id, 'type_id': self.type_general.id, 'header': 'My Header',
         })
         checksheet = self.env['qc.checksheet'].browse(created['id'])
         self.assertEqual(created['layout'], 'standard')
@@ -325,7 +337,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self._create_content(source, 'Copied question')
         self._release(source)
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({
-            'job_id': self._create_job().id, 'type_id': self.type_general.id,
+            'model_id': self._create_model().id, 'type_id': self.type_general.id,
             'header': 'My Header', 'source_id': source.id,
         })
         checksheet = self.env['qc.checksheet'].browse(created['id'])
@@ -334,14 +346,13 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertEqual(len(checksheet.group_ids), 1)
         self.assertIn('Copied question', checksheet.group_ids.item_ids.description)
         # The editor offers the source as a base to compare with.
-        source_job = source.job_number.display_name
         self.assertEqual(checksheet.with_user(self.author).editor_load()['source'], {
-            'id': source.id, 'label': f'Copied from {source_job} Rev 0'})
+            'id': source.id, 'label': f'Copied from {source.reference} Rev 0'})
         self.assertIs(source.editor_load()['source'], False)
 
     def test_panel_sheet_is_created_empty_for_the_form(self):
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({
-            'job_id': self._create_job().id, 'type_id': self.type_panel.id, 'header': 'Panel',
+            'model_id': self._create_model().id, 'type_id': self.type_panel.id, 'header': 'Panel',
         })
         self.assertEqual(created['layout'], 'panel_sticker')
         self.assertFalse(self.env['qc.checksheet'].browse(created['id']).group_ids)
@@ -349,7 +360,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
     def test_viewer_cannot_create(self):
         with self.assertRaises(AccessError):
             self.env['qc.checksheet'].with_user(self.viewer).editor_create({
-                'job_id': self._create_job().id, 'type_id': self.type_general.id, 'header': 'X',
+                'model_id': self._create_model().id, 'type_id': self.type_general.id, 'header': 'X',
             })
 
     def test_action_open_editor_carries_the_sheet(self):

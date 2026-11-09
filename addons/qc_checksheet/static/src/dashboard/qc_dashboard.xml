@@ -28,11 +28,17 @@
                                     <div class="o_qcd_kpi_label" t-esc="kpi.label"/>
                                 </div>
                             </t>
+                            <div class="o_qcd_kpi_card o_qcd_kpi_changes"
+                                 title="Revision changes of Jobs waiting for an Approver. A click opens the requests"
+                                 t-on-click="openChangeRequests">
+                                <div class="o_qcd_kpi_value" t-esc="data.rev_changes.total"/>
+                                <div class="o_qcd_kpi_label">Rev changes waiting</div>
+                            </div>
                             <div class="o_qcd_kpi_card o_qcd_kpi_missing"
-                                 title="Jobs without a sheet of every required Type"
-                                 t-on-click="openMissingJobs">
-                                <div class="o_qcd_kpi_value" t-esc="data.jobs.missing"/>
-                                <div class="o_qcd_kpi_label">Jobs missing sheets</div>
+                                 title="Open Jobs whose Model has no Released sheet yet of every required Type"
+                                 t-on-click="openWaitingJobs">
+                                <div class="o_qcd_kpi_value" t-esc="data.waiting_jobs"/>
+                                <div class="o_qcd_kpi_label">Jobs waiting for sheets</div>
                             </div>
                         </div>
 
@@ -41,27 +47,36 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <div class="o_qcd_panel">
-                                            <div class="d-flex align-items-center gap-2 mb-2">
-                                                <h4 class="mb-0 flex-grow-1">By Job Number <span class="text-muted fw-normal">(<t t-esc="data.by_job.length"/>)</span></h4>
-                                                <input t-if="data.by_job.length > 5" type="search" class="form-control form-control-sm o_qcd_list_search"
-                                                       placeholder="Find a Job..." t-model="state.jobSearch"/>
-                                            </div>
-                                            <div class="o_qcd_list o_qcd_jobs_list">
-                                                <t t-call="qc_checksheet.DashboardBars">
-                                                    <t t-set="items" t-value="jobs"/>
-                                                    <t t-set="total" t-value="maxOf(data.by_job)"/>
-                                                    <t t-set="onPick" t-value="(item) => this.openJob(item)"/>
-                                                </t>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="o_qcd_panel">
                                             <h4>By Check Sheet Type</h4>
                                             <t t-call="qc_checksheet.DashboardBars">
                                                 <t t-set="items" t-value="data.by_type"/>
                                                 <t t-set="field" t-value="'type_id'"/>
                                                 <t t-set="total" t-value="data.total"/>
+                                            </t>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="o_qcd_panel">
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <h4 class="mb-0 flex-grow-1" title="Jobs with the number of check sheets they printed. A click opens the Job's QC page">By Job Number <t t-if="state.jobs"><span class="text-muted fw-normal">(<t t-esc="state.jobs.total"/>)</span></t></h4>
+                                                <input type="search" class="form-control form-control-sm o_qcd_list_search"
+                                                       placeholder="Find a Job..." t-on-input="(ev) => this.searchJobs(ev.target.value)"/>
+                                            </div>
+                                            <t t-if="state.jobs">
+                                                <div class="o_qcd_jobs_list">
+                                                    <t t-call="qc_checksheet.DashboardBars">
+                                                        <t t-set="items" t-value="state.jobs.items"/>
+                                                        <t t-set="total" t-value="state.jobs.max_count"/>
+                                                        <t t-set="onPick" t-value="(item) => this.openJob(item)"/>
+                                                    </t>
+                                                </div>
+                                                <div t-if="jobPages > 1" class="d-flex align-items-center justify-content-between mt-2">
+                                                    <button class="btn btn-sm btn-secondary" aria-label="Previous Jobs"
+                                                            t-att-disabled="state.jobPage === 0" t-on-click="() => this.goToJobPage(-1)"><i class="fa fa-chevron-left"/></button>
+                                                    <small class="text-muted" t-esc="jobRange"/>
+                                                    <button class="btn btn-sm btn-secondary" aria-label="Next Jobs"
+                                                            t-att-disabled="state.jobPage >= jobPages - 1" t-on-click="() => this.goToJobPage(1)"><i class="fa fa-chevron-right"/></button>
+                                                </div>
                                             </t>
                                         </div>
                                     </div>
@@ -75,7 +90,7 @@
                                             <tr>
                                                 <th>Number</th>
                                                 <th>Title</th>
-                                                <th>Job</th>
+                                                <th>Model</th>
                                                 <th>Rev</th>
                                                 <th>Submitted By</th>
                                                 <th class="text-end">Waiting</th>
@@ -86,7 +101,7 @@
                                                 class="o_qcd_clickable" t-on-click="() => this.openSheet(row)">
                                                 <td class="text-muted" t-esc="row.reference"/>
                                                 <td t-esc="row.name"/>
-                                                <td t-esc="row.job"/>
+                                                <td t-esc="row.model"/>
                                                 <td t-esc="row.revision"/>
                                                 <td t-esc="row.submitted_by"/>
                                                 <td class="text-end">
@@ -100,6 +115,41 @@
                                 </div>
 
                                 <div class="o_qcd_panel">
+                                    <h4>Revision Changes Waiting for Approval
+                                        <span t-if="data.rev_changes.total" class="text-muted fw-normal">(<t t-esc="data.rev_changes.total"/>)</span></h4>
+                                    <div t-if="!data.rev_changes.items.length" class="text-muted">No Revision change is waiting for approval.</div>
+                                    <table t-else="" class="table table-sm table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Type</th>
+                                                <th>Change</th>
+                                                <th>Requested By</th>
+                                                <th class="text-end">Waiting</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr t-foreach="data.rev_changes.items" t-as="row" t-key="row.id"
+                                                class="o_qcd_clickable" title="Opens the Job's QC page, where it is approved"
+                                                t-on-click="() => this.openJob({ key: row.job_id, label: row.job })">
+                                                <td t-esc="row.job"/>
+                                                <td t-esc="row.type"/>
+                                                <td>Rev <t t-esc="row.from_revision"/> &#8594; Rev <t t-esc="row.to_revision"/></td>
+                                                <td t-esc="row.requested_by"/>
+                                                <td class="text-end">
+                                                    <span t-att-class="isOverdue(row) ? 'badge text-bg-danger' : ''">
+                                                        <t t-esc="row.waiting_days"/> <t t-esc="row.waiting_days === 1 ? 'day' : 'days'"/>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <small t-if="data.rev_changes.total > data.rev_changes.items.length" class="text-muted">
+                                        The oldest <t t-esc="data.rev_changes.items.length"/> of <t t-esc="data.rev_changes.total"/>
+                                    </small>
+                                </div>
+
+                                <div class="o_qcd_panel">
                                     <h4>Recently Released</h4>
                                     <div t-if="!data.released.length" class="text-muted">No sheet Released yet.</div>
                                     <table t-else="" class="table table-sm table-hover mb-0">
@@ -107,7 +157,7 @@
                                             <tr>
                                                 <th>Number</th>
                                                 <th>Title</th>
-                                                <th>Job</th>
+                                                <th>Model</th>
                                                 <th>Rev</th>
                                                 <th>Approved By</th>
                                                 <th class="text-end">Approved On</th>
@@ -118,7 +168,7 @@
                                                 class="o_qcd_clickable" t-on-click="() => this.openSheet(row)">
                                                 <td class="text-muted" t-esc="row.reference"/>
                                                 <td t-esc="row.name"/>
-                                                <td t-esc="row.job"/>
+                                                <td t-esc="row.model"/>
                                                 <td t-esc="row.revision"/>
                                                 <td t-esc="row.approved_by"/>
                                                 <td class="text-end" t-esc="formatDate(row.approved_date)"/>
@@ -139,15 +189,15 @@
                                 </div>
                                 <div class="o_qcd_panel o_qcd_models">
                                     <div class="d-flex align-items-center gap-2 mb-2">
-                                        <h4 class="mb-0 flex-grow-1">By Model <span class="text-muted fw-normal">(<t t-esc="data.by_model.length"/>)</span></h4>
+                                        <h4 class="mb-0 flex-grow-1" title="A click opens the Model's QC page">By Model <span class="text-muted fw-normal">(<t t-esc="data.by_model.length"/>)</span></h4>
                                         <input t-if="data.by_model.length > 8" type="search" class="form-control form-control-sm o_qcd_list_search"
                                                placeholder="Find a Model..." t-model="state.modelSearch"/>
                                     </div>
                                     <div class="o_qcd_list o_qcd_models_list">
                                         <t t-call="qc_checksheet.DashboardBars">
                                             <t t-set="items" t-value="models"/>
-                                            <t t-set="field" t-value="'machine_model'"/>
                                             <t t-set="total" t-value="maxOf(data.by_model)"/>
+                                            <t t-set="onPick" t-value="(item) => this.openModel(item)"/>
                                         </t>
                                     </div>
                                 </div>

@@ -17,4 +17,12 @@
         <field name="target">current</field>
     </record>
 
+    <!-- Opened with the Model (equipment.model) as active_id, see
+         EquipmentModel.action_open_qc_model. -->
+    <record id="action_qc_checksheet_model" model="ir.actions.client">
+        <field name="name">Model QC Check Sheets</field>
+        <field name="tag">qc_checksheet.model</field>
+        <field name="target">current</field>
+    </record>
+
 </odoo>

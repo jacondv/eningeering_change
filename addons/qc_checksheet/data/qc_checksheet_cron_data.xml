@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Reminds the Approvers of Revision change requests waiting longer than the
+             "waiting too long" days (QC Check Sheet > Configuration > Settings). -->
+        <record id="cron_remind_pending_revision_changes" model="ir.cron">
+            <field name="name">QC Check Sheet: remind Approvers of Revision changes waiting</field>
+            <field name="model_id" ref="model_qc_job_checksheet_change"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_remind_approvers()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

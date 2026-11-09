@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- A Model owns its check sheets: they are written and revised from its QC page. -->
+    <record id="view_equipment_model_form_qc_checksheet" model="ir.ui.view">
+        <field name="name">equipment.model.form.qc.checksheet</field>
+        <field name="model">equipment.model</field>
+        <field name="inherit_id" ref="equipment_model.view_equipment_model_form"/>
+        <field name="arch" type="xml">
+            <div class="oe_title" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <button class="oe_stat_button" type="object" name="action_open_qc_model" icon="fa-check-square-o"
+                            groups="qc_checksheet.group_qc_user" invisible="not id">
+                        <div class="o_stat_info">
+                            <span class="o_stat_value"><field name="qc_checksheet_progress"/></span>
+                            <span class="o_stat_text">QC Sheets</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </field>
+    </record>
+
+</odoo>

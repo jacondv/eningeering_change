@@ -7,11 +7,11 @@ const SEARCH_DEBOUNCE_MS = 250;
 // A click on a result blurs the input first, so let that click land before closing.
 const BLUR_CLOSE_MS = 150;
 
-/** A Job search box with a dropdown of matches, as used on the New page. */
+/** A search box for a Job or a Model, with a dropdown of matches ({id, name, model}). */
 export class QcJobPicker extends Component {
     static template = "qc_checksheet.JobPicker";
     static props = {
-        // The Job picked ({id, name, model}), or null.
+        // The record picked ({id, name, model}), or null.
         value: { optional: true },
         search: Function,
         onPick: Function,

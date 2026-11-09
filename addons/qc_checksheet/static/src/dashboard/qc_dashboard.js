@@ -4,6 +4,7 @@ import { Component, onWillStart, onWillUpdateProps, useState } from "@odoo/owl";
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { useDebounced } from "@web/core/utils/timing";
 import { deserializeDate, formatDate } from "@web/core/l10n/dates";
 import { Layout } from "@web/search/layout";
 import { SearchBar } from "@web/search/search_bar/search_bar";
@@ -13,8 +14,8 @@ const MODEL = "qc.checksheet";
 
 // Stands in for a list view's controller (see view_qc_checksheet_dashboard):
 // the search bar's domain arrives as props.domain and every figure is reloaded
-// from it. For Job Coverage and "Jobs missing sheets" only its conditions on the
-// Job count (see _dashboard_job_domain).
+// from it. For "Jobs waiting for sheets" only its conditions on the Model
+// count (see _dashboard_job_domain).
 export class QcDashboardController extends Component {
     static template = "qc_checksheet.Dashboard";
     static components = { Layout, SearchBar };
@@ -24,9 +25,51 @@ export class QcDashboardController extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.searchBarToggler = useSearchBarToggler();
-        this.state = useState({ data: null, modelSearch: "", jobSearch: "" });
-        onWillStart(() => this.load(this.props.domain));
-        onWillUpdateProps((nextProps) => this.load(nextProps.domain));
+        this.state = useState({ data: null, modelSearch: "", jobs: null, jobPage: 0, jobTerm: "" });
+        this.searchJobs = useDebounced((term) => {
+            this.state.jobTerm = term;
+            return this.loadJobs(this.props.domain, 0);
+        }, 300);
+        onWillStart(() => Promise.all([this.load(this.props.domain), this.loadJobs(this.props.domain, 0)]));
+        onWillUpdateProps((nextProps) =>
+            Promise.all([this.load(nextProps.domain), this.loadJobs(nextProps.domain, 0)])
+        );
+    }
+
+    /** One page of the By Job Number panel, for the search bar's domain and the panel's own box. */
+    async loadJobs(domain, page) {
+        const request = (this.lastJobRequest = (this.lastJobRequest || 0) + 1);
+        const jobs = await this.orm.call(MODEL, "dashboard_jobs", [domain, page, this.state.jobTerm]);
+        if (request === this.lastJobRequest) {
+            this.state.jobs = jobs;
+            this.state.jobPage = jobs.page;
+        }
+    }
+
+    get jobPages() {
+        const { total, page_size } = this.state.jobs;
+        return Math.max(Math.ceil(total / page_size), 1);
+    }
+
+    get jobRange() {
+        const { total, page, page_size, items } = this.state.jobs;
+        return total ? `${page * page_size + 1}-${page * page_size + items.length} / ${total}` : "0";
+    }
+
+    goToJobPage(step) {
+        const page = this.state.jobPage + step;
+        if (page >= 0 && page < this.jobPages) {
+            return this.loadJobs(this.props.domain, page);
+        }
+    }
+
+    openJob(item) {
+        return this.action.doAction({
+            type: "ir.actions.client",
+            tag: "qc_checksheet.job",
+            name: `QC: ${item.label}`,
+            context: { active_id: item.key },
+        });
     }
 
     async load(domain) {
@@ -57,7 +100,6 @@ export class QcDashboardController extends Component {
         return this.state.data.by_state.reduce((sum, item) => sum + item.count, 0);
     }
 
-    /** The Models matching the box above the list. */
     /** The items whose label holds what was typed in the panel's own search box. */
     matching(items, term) {
         term = term.trim().toLowerCase();
@@ -73,14 +115,13 @@ export class QcDashboardController extends Component {
         return this.matching(this.state.data.by_model, this.state.modelSearch);
     }
 
-    get jobs() {
-        return this.matching(this.state.data.by_job, this.state.jobSearch);
-    }
-
-    openJob(item) {
+    openModel(item) {
+        if (!item.key) {
+            return;
+        }
         return this.action.doAction({
             type: "ir.actions.client",
-            tag: "qc_checksheet.job",
+            tag: "qc_checksheet.model",
             name: `QC: ${item.label}`,
             context: { active_id: item.key },
         });
@@ -108,8 +149,13 @@ export class QcDashboardController extends Component {
         });
     }
 
-    async openMissingJobs() {
-        this.action.doAction(await this.orm.call(MODEL, "action_open_missing_jobs", [this.props.domain]));
+    /** The requests waiting for an Approver; the standard list, which opens on the Pending filter. */
+    openChangeRequests() {
+        return this.action.doAction("qc_checksheet.action_qc_job_checksheet_change");
+    }
+
+    async openWaitingJobs() {
+        this.action.doAction(await this.orm.call(MODEL, "action_open_waiting_jobs", [this.props.domain]));
     }
 
     openSheet(row) {

@@ -254,12 +254,17 @@ export class QcChecksheetEditor extends Component {
         });
     }
 
-    openJob() {
+    /** The Jobs using any Revision of this sheet, by the Revision they are pinned to. */
+    async openJobs() {
+        await this.action.doAction(await this.orm.call(CHECKSHEET_MODEL, "action_view_jobs", [[this.sheet.id]]));
+    }
+
+    openModel() {
         return this.action.doAction({
             type: "ir.actions.client",
-            tag: "qc_checksheet.job",
-            name: `QC: ${this.sheet.job}`,
-            context: { active_id: this.sheet.job_id },
+            tag: "qc_checksheet.model",
+            name: `QC: ${this.sheet.model}`,
+            context: { active_id: this.sheet.model_id },
         });
     }
 

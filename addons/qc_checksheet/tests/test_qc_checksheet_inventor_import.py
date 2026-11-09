@@ -12,7 +12,7 @@ class TestQcChecksheetInventorImport(QcChecksheetCase):
     def _create_checksheet(self, machine_model='TEST_MODEL'):
         model = self.env['equipment.model'].create({'name': machine_model})
         return super()._create_checksheet(
-            self.type_panel, job=self._create_job(model=model), name='Panel Check Sheet')
+            self.type_panel, model=model, name='Panel Check Sheet')
 
     def _create_bom(self, model='TEST_MODEL'):
         bom = self.env['inventor.bom'].create({'model': model, 'bom_type': 'panel_sticker'})
