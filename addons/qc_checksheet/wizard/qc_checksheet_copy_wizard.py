@@ -2,7 +2,7 @@ from odoo import fields, models
 
 
 class QcChecksheetCopyWizard(models.TransientModel):
-    """"Copy Content From..." button on a Draft Rev 0: pick another Job's
+    """"Copy Content From..." button on a Draft Rev 0: pick another Model's
     Released check sheet of the same layout and bring its content over."""
     _name = 'qc.checksheet.copy.wizard'
     _description = 'Copy QC Check Sheet Content'

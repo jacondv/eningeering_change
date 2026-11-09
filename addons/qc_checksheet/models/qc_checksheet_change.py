@@ -3,10 +3,10 @@ from odoo import _, api, fields, models
 from .qc_checksheet import GROUP_AUTHOR
 
 CHANGE_SEARCH_LIMIT = 20
+# Not being carried out any more (or not yet): what the Job and Model QC pages leave out when they flag running changes.
+RUNNING_CHANGE_EXCLUDED_STATES = ('draft', 'done', 'canceled')
 # A Draft request has no number yet and a Rejected one goes nowhere.
 NOT_LINKABLE_STATES = ('draft', 'canceled')
-# Still being carried out: what the Job QC page flags.
-FINISHED_STATES = ('draft', 'done', 'canceled')
 
 
 class QcChecksheet(models.Model):
@@ -37,7 +37,7 @@ class QcChecksheet(models.Model):
         return ', '.join(rev.change_request_ids.mapped('name'))
 
     def editor_search_changes(self, term=''):
-        """Engineering Changes to link to this sheet, those affecting its Job or Model first."""
+        """Engineering Changes to link to this sheet, those affecting its Model first."""
         self.ensure_one()
         Change = self.env['engineering.change']
         # Stored roll-ups of the Actions: land any pending recompute before searching on them.
@@ -46,16 +46,10 @@ class QcChecksheet(models.Model):
         term = (term or '').strip()
         if term:
             domain += ['|', ('name', 'ilike', term), ('title', 'ilike', term)]
-        affecting_domain = []
-        if self.job_number:
-            affecting_domain.append(('affected_project_ids', 'in', self.job_number.id))
-        model = self.job_number.sudo().model_id
-        if model:
-            affecting_domain.append(('affected_model_ids', 'in', model.id))
         affecting = Change.browse()
-        if affecting_domain:
+        if self.model_id:
             affecting = Change.search(
-                domain + ['|'] * (len(affecting_domain) - 1) + affecting_domain,
+                domain + [('affected_model_ids', 'in', self.model_id.id)],
                 limit=CHANGE_SEARCH_LIMIT, order='id desc')
         others = Change.browse()
         if len(affecting) < CHANGE_SEARCH_LIMIT:
@@ -76,16 +70,6 @@ class QcChecksheet(models.Model):
     def editor_load(self):
         data = super().editor_load()
         data['changes'] = [self._change_summary(change) for change in self.change_request_ids]
-        return data
-
-    @api.model
-    def job_overview(self, job_id):
-        data = super().job_overview(job_id)
-        self.env['engineering.change'].flush_model(['affected_project_ids'])
-        running = self.env['engineering.change'].search([
-            ('affected_project_ids', 'in', job_id), ('state', 'not in', list(FINISHED_STATES)),
-        ], order='id desc')
-        data['changes'] = [self._change_summary(change) for change in running]
         return data
 
 

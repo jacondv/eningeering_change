@@ -5,7 +5,7 @@ from odoo.tools import html2plaintext
 from .qc_checksheet import GROUP_APPROVER, GROUP_AUTHOR
 
 EMPTY_HTML = '<p><br></p>'
-JOB_SEARCH_LIMIT = 20
+MODEL_SEARCH_LIMIT = 20
 COPY_SOURCE_LIMIT = 50
 
 
@@ -41,8 +41,9 @@ class QcChecksheet(models.Model):
             'id': self.id,
             'number': self.reference or '',
             'name': self.name or '',
-            'job': self.job_number.sudo().display_name or '',
-            'job_id': self.job_number.id,
+            'model_id': self.model_id.id,
+            'family': self.model_id.sudo().family_id.name or '',
+            'job_count': self.sheet_job_count,
             'type_name': self.type_id.name or '',
             'layout': self.checksheet_type,
             'revision': self.revision,
@@ -51,9 +52,6 @@ class QcChecksheet(models.Model):
             'reject_reason': self.reject_reason or '',
             'version': self.editor_version,
             'model': self.machine_model or '',
-            'serial': self.machine_serial or '',
-            'engine': self.engine_number or '',
-            'customer': self.customer or '',
             # Offered as a base to compare with: the copied lines kept its line keys.
             # Plain False when there is none: an empty recordset reaches the page as [], which is truthy.
             'source': {
@@ -95,7 +93,7 @@ class QcChecksheet(models.Model):
 
     def _editor_source_label(self):
         self.ensure_one()
-        return _('Copied from %(job)s Rev %(rev)s', job=self.job_number.display_name or self.reference, rev=self.revision)
+        return _('Copied from %(number)s Rev %(rev)s', number=self.reference or self.name, rev=self.revision)
 
     # Saving
 
@@ -214,63 +212,69 @@ class QcChecksheet(models.Model):
         return [{'id': t.id, 'name': t.name, 'code': t.code, 'layout': t.layout} for t in types]
 
     @api.model
-    def editor_search_jobs(self, term=''):
-        """Only Jobs with a Model can hold a check sheet. Read through sudo: this
-        only offers the name, and creating sheets shouldn't need Project access."""
-        jobs = self.env['project.project'].sudo().search(
-            [('model_id', '!=', False), ('name', 'ilike', term or '')],
-            limit=JOB_SEARCH_LIMIT, order='name desc')
-        return [{'id': job.id, 'name': job.display_name, 'model': job.model_id.name} for job in jobs]
+    def _model_option(self, model):
+        return {'id': model.id, 'name': model.display_name, 'model': model.family_id.name or ''}
 
     @api.model
-    def editor_new_context(self, job_id, type_id, source_job_id=False):
-        """What the New page shows once a Job and a Type are picked.
-        source_job_id narrows the sheets offered to copy from to that one Job."""
-        job = self.env['project.project'].sudo().browse(job_id or 0).exists()
+    def editor_search_models(self, term=''):
+        """Read through sudo: this only offers the name, and writing sheets
+        shouldn't need access to the Model list."""
+        models_ = self.env['equipment.model'].sudo().search(
+            [('name', 'ilike', term or '')], limit=MODEL_SEARCH_LIMIT, order='name')
+        return [self._model_option(model) for model in models_]
+
+    @api.model
+    def editor_new_context(self, model_id, type_id, source_model_id=False):
+        """What the New page shows once a Model and a Type are picked.
+        source_model_id narrows the sheets offered to copy from to that one Model."""
+        model = self.env['equipment.model'].sudo().browse(model_id or 0).exists()
         checksheet_type = self.env['qc.checksheet.type'].browse(type_id or 0).exists()
         result = {
             'number': '',
             'header': '',
-            'model': job.model_id.name or '',
-            'serial': job.machine_serial or '',
-            'engine': job.engine_serial or '',
-            'customer': job.partner_id.name or '',
+            'model': model.name or '',
+            'family': model.family_id.name or '',
+            # On Hold, EOL and Cancelled Jobs are archived, and still count, like on the Model page.
+            'job_count': self.env['project.project'].sudo().with_context(active_test=False).search_count(
+                [('model_id', '=', model.id)]) if model else 0,
             'duplicate_id': False,
             'sources': [],
         }
-        if job:
-            result['header'] = self._family_header(job.model_id.family_id)
-        if job and checksheet_type:
-            result['number'] = self._generate_reference(checksheet_type, job)
-            duplicate = self.search([('job_number', '=', job.id), ('type_id', '=', checksheet_type.id)], limit=1)
+        if model:
+            result['header'] = self._family_header(model.family_id)
+        if model and checksheet_type:
+            result['number'] = self._generate_reference(checksheet_type, model)
+            duplicate = self.search([('model_id', '=', model.id), ('type_id', '=', checksheet_type.id)], limit=1)
             result['duplicate_id'] = duplicate.id
         if checksheet_type:
             domain = [('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)]
-            if source_job_id:
-                domain.append(('job_number', '=', source_job_id))
+            if source_model_id:
+                domain.append(('model_id', '=', source_model_id))
             sources = self.search(domain, limit=COPY_SOURCE_LIMIT, order='create_date desc')
-            sources = sources.sorted(lambda sheet: sheet.machine_model != job.model_id.name)
+            # The closest content to start from first: the same Type, then a Model of the same Product Family.
+            sources = sources.sorted(lambda sheet: (
+                sheet.type_id != checksheet_type,
+                not (model.family_id and sheet.sudo().model_id.family_id == model.family_id)))
             result['sources'] = [{
                 'id': sheet.id,
                 'label': sheet.display_name,
                 'header': sheet.name,
-                'same_model': bool(job) and sheet.machine_model == job.model_id.name,
+                'same_type': sheet.type_id == checksheet_type,
                 'groups': len(sheet.group_ids),
                 'items': sheet.item_count,
             } for sheet in sources]
         return result
 
     @api.model
-    def editor_search_source_jobs(self, type_id, term=''):
-        """Jobs with a Released sheet that a sheet of this Type could be copied from."""
+    def editor_search_source_models(self, type_id, term=''):
+        """Models with a Released sheet that a sheet of this Type could be copied from."""
         checksheet_type = self.env['qc.checksheet.type'].browse(type_id).exists()
         released = self._search([('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)])
-        # Job details through sudo, like everywhere else here: copying shouldn't need Project access.
-        jobs = self.env['project.project'].sudo().with_context(active_test=False).search([
-            ('id', 'in', released.subselect('job_number')),
+        models_ = self.env['equipment.model'].sudo().with_context(active_test=False).search([
+            ('id', 'in', released.subselect('model_id')),
             ('name', 'ilike', term or ''),
-        ], limit=JOB_SEARCH_LIMIT, order='name desc')
-        return [{'id': job.id, 'name': job.display_name, 'model': job.model_id.name or ''} for job in jobs]
+        ], limit=MODEL_SEARCH_LIMIT, order='name')
+        return [self._model_option(model) for model in models_]
 
     @api.model
     def editor_create(self, vals):
@@ -278,7 +282,7 @@ class QcChecksheet(models.Model):
         checksheet = self.create({
             'name': vals.get('header'),
             'type_id': vals.get('type_id'),
-            'job_number': vals.get('job_id'),
+            'model_id': vals.get('model_id'),
         })
         if vals.get('source_id'):
             checksheet._copy_content_from(self.browse(vals['source_id']))

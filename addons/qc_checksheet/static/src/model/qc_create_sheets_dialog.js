@@ -12,8 +12,8 @@ export class QcCreateSheetsDialog extends Component {
     static components = { Dialog };
     static props = {
         close: Function,
-        jobId: Number,
-        jobName: String,
+        modelId: Number,
+        modelName: String,
         typeIds: Array,
         onCreated: Function,
     };
@@ -23,8 +23,8 @@ export class QcCreateSheetsDialog extends Component {
         this.notification = useService("notification");
         this.state = useState({ rows: [], creating: false });
         onWillStart(async () => {
-            const rows = await this.orm.call(CHECKSHEET_MODEL, "job_sheet_sources", [
-                this.props.jobId,
+            const rows = await this.orm.call(CHECKSHEET_MODEL, "model_sheet_sources", [
+                this.props.modelId,
                 this.props.typeIds,
             ]);
             this.state.rows = rows.map((row) => ({ ...row, selected: true }));
@@ -58,8 +58,8 @@ export class QcCreateSheetsDialog extends Component {
         }
         this.state.creating = true;
         try {
-            const created = await this.orm.call(CHECKSHEET_MODEL, "job_create_sheets", [
-                this.props.jobId,
+            const created = await this.orm.call(CHECKSHEET_MODEL, "model_create_sheets", [
+                this.props.modelId,
                 this.selectedRows.map((row) => ({
                     type_id: row.type_id,
                     header: row.header.trim(),

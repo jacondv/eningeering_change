@@ -12,10 +12,15 @@
           action="action_qc_dashboard"
           sequence="5"/>
 
-    <menuitem id="menu_qc_checksheet_all" name="Check Sheets"
+    <menuitem id="menu_qc_checksheet_all" name="Model Check Sheets"
           parent="menu_qc_checksheet_root"
           action="action_qc_checksheet_all"
           sequence="10"/>
+
+    <menuitem id="menu_qc_job_checksheet" name="Job Check Sheets"
+          parent="menu_qc_checksheet_root"
+          action="action_qc_job_checksheet"
+          sequence="20"/>
 
     <menuitem id="menu_qc_checksheet_config" name="Configuration"
           parent="menu_qc_checksheet_root"

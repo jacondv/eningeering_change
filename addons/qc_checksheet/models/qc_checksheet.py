@@ -8,11 +8,12 @@ ACTIVITY_TODO = 'mail.mail_activity_data_todo'
 
 
 class QcChecksheet(models.Model):
-    """One Revision of a check sheet. All Revisions of the same sheet share
-    `root_id`, and each keeps its own full copy of the content, so any old
-    Revision can still be opened and printed exactly as it was issued. A
-    sheet is identified by Number + Job + Rev: Number comes from the Type and
-    the Model, so other Jobs of the same Model carry the same Number.
+    """One Revision of a Model's check sheet. A Model holds one sheet per
+    Type; all Revisions of it share `root_id`, and each keeps its own full
+    copy of the content, so any old Revision can still be opened and printed
+    exactly as it was issued. Jobs don't own sheets: each Job pins the
+    Revision it is checked against (qc.job.checksheet), so a later Revision
+    of the Model never changes what an earlier Job uses.
 
     Edit guards live in create()/write()/unlink() and are skipped under
     sudo: the workflow methods below check the user's group themselves, then
@@ -22,7 +23,7 @@ class QcChecksheet(models.Model):
     _description = 'QC Check Sheet'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'create_date desc'
-    _rec_names_search = ['name', 'reference', 'job_number.name']
+    _rec_names_search = ['name', 'reference', 'model_id.name']
     # Approvers and read-only users can comment without having write access.
     _mail_post_access = 'read'
 
@@ -40,7 +41,7 @@ class QcChecksheet(models.Model):
     name = fields.Char(
         required=True, tracking=True,
         help="Printed as the Header of the report, with the Type's name below it. "
-             "Filled in from the Product Family's Description when the Job has one.")
+             "Filled in from the Product Family's Description when the Model has one.")
     reference = fields.Char(
         string='Number', readonly=True, copy=False, tracking=True,
         help="QC-<Type Code>-<Model Name>. Generated once, then kept even if the Model is renamed.")
@@ -70,12 +71,9 @@ class QcChecksheet(models.Model):
     approved_by_id = fields.Many2one('res.users', string='Approved By', readonly=True, copy=False)
     approved_date = fields.Date(string='Approved On', readonly=True, copy=False)
 
-    job_number = fields.Many2one('project.project', string='Job Number', index=True, tracking=True)
-    machine_serial = fields.Char(related='job_number.machine_serial', store=True, string='Machine Serial')
-    machine_model = fields.Char(related='job_number.model_id.name', store=True, string='Model')
-    engine_number = fields.Char(related='job_number.engine_serial', store=True, string='Engine Number')
-    customer = fields.Char(related='job_number.partner_id.name', store=True, string='Customer')
-    check_date = fields.Date(string='Check Date')
+    model_id = fields.Many2one(
+        'equipment.model', string='Model', index=True, tracking=True, ondelete='restrict')
+    machine_model = fields.Char(related='model_id.name', store=True, string='Model Name')
 
     # The copied lines keep their source's line_key, so the editor can compare
     # this sheet with the one it was copied from.
@@ -86,13 +84,21 @@ class QcChecksheet(models.Model):
     image_group_ids = fields.One2many('qc.checksheet.image.group', 'checksheet_id', string='Image Groups')
     approval_ids = fields.One2many('qc.checksheet.approval', 'checksheet_id', string='Approval')
     history_ids = fields.One2many('qc.checksheet.history', 'checksheet_id', string='Revision History')
+    job_sheet_ids = fields.One2many('qc.job.checksheet', 'checksheet_id', string='Jobs Using It')
+    job_count = fields.Integer(string='Jobs', compute='_compute_job_count', help="Jobs pinned to this Revision.")
+    # Every Revision of this sheet: the Jobs are told apart by the Revision they are pinned to.
+    root_job_sheet_ids = fields.Many2many(
+        'qc.job.checksheet', string='Jobs Using This Sheet', compute='_compute_root_job_sheets')
+    sheet_job_count = fields.Integer(
+        string='Jobs Using This Sheet', compute='_compute_root_job_sheets',
+        help="Jobs pinned to any Revision of this sheet.")
     remarks = fields.Text()
 
     item_count = fields.Integer(compute='_compute_item_count')
 
-    _job_type_revision_unique = models.Constraint(
-        'UNIQUE(job_number, type_id, revision)',
-        'This Job already has a check sheet of this Type.',
+    _model_type_revision_unique = models.Constraint(
+        'UNIQUE(model_id, type_id, revision)',
+        'This Model already has a check sheet of this Type.',
     )
 
     @api.depends('group_ids.item_ids', 'panel_line_ids')
@@ -102,6 +108,35 @@ class QcChecksheet(models.Model):
                 rec.item_count = len(rec.panel_line_ids)
             else:
                 rec.item_count = sum(len(g.item_ids) for g in rec.group_ids)
+
+    @api.depends('job_sheet_ids')
+    def _compute_job_count(self):
+        for rec in self:
+            rec.job_count = len(rec.sudo().job_sheet_ids)
+
+    @api.depends('root_id', 'root_id.revision_ids.job_sheet_ids')
+    def _compute_root_job_sheets(self):
+        JobSheet = self.env['qc.job.checksheet']
+        by_root = {}
+        for job_sheet in JobSheet.search([('root_id', 'in', self.root_id.ids)]):
+            by_root[job_sheet.root_id] = by_root.get(job_sheet.root_id, JobSheet) | job_sheet
+        for rec in self:
+            job_sheets = by_root.get(rec.root_id, JobSheet)
+            rec.root_job_sheet_ids = job_sheets
+            rec.sheet_job_count = len(job_sheets)
+
+    def action_view_jobs(self):
+        """The Jobs using any Revision of this sheet, grouped by the Revision they print."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Jobs using %s", self.reference or self.name),
+            'res_model': 'qc.job.checksheet',
+            'view_mode': 'list,form',
+            'views': [(False, 'list'), (False, 'form')],
+            'domain': [('root_id', '=', self.root_id.id)],
+            'context': {'create': False, 'search_default_group_revision': 1},
+        }
 
     @api.depends('root_id.revision_ids')
     def _compute_revision_count(self):
@@ -117,10 +152,11 @@ class QcChecksheet(models.Model):
         self.ensure_one()
         return self.history_ids.filtered(lambda h: h.rev == self.revision)[:1]
 
-    @api.depends('name', 'reference', 'job_number', 'revision')
+    @api.depends('name', 'reference', 'model_id', 'revision')
     def _compute_display_name(self):
         for rec in self:
-            parts = [rec.reference or rec.name, rec.job_number.display_name, f'Rev {rec.revision}']
+            # The Number already names the Model.
+            parts = [rec.reference or rec.name, not rec.reference and rec.model_id.display_name, f'Rev {rec.revision}']
             rec.display_name = ' · '.join(part for part in parts if part)
 
     @staticmethod
@@ -128,13 +164,13 @@ class QcChecksheet(models.Model):
         # Family Description is multi-line text, Header is a single line.
         return ' '.join((family.description or '').split())
 
-    @api.onchange('job_number')
-    def _onchange_job_number(self):
-        family = self.job_number.sudo().model_id.family_id
+    @api.onchange('model_id')
+    def _onchange_model_id(self):
+        family = self.model_id.sudo().family_id
         header = self._family_header(family)
         if not header:
             return
-        # Keep following the Job until the user types a Header of their own.
+        # Keep following the Model until the user types a Header of their own.
         family_headers = self.env['equipment.model.family'].sudo().search([
             ('description', '!=', False),
         ]).mapped(self._family_header)
@@ -142,14 +178,12 @@ class QcChecksheet(models.Model):
             self.name = header
 
     @api.model
-    def _generate_reference(self, checksheet_type, job):
+    def _generate_reference(self, checksheet_type, model):
         if not checksheet_type:
             raise UserError(_("A check sheet needs a Type."))
-        if not job:
-            raise UserError(_("A check sheet needs a Job Number."))
-        if not job.model_id:
-            raise UserError(_("Job %s has no Model. Set its Model first.", job.display_name))
-        return f'QC-{checksheet_type.code}-{job.model_id.name}'
+        if not model:
+            raise UserError(_("A check sheet needs a Model."))
+        return f'QC-{checksheet_type.code}-{model.name}'
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -158,7 +192,7 @@ class QcChecksheet(models.Model):
                 raise UserError(_("Status, Revision and Number are set by the system."))
             vals['reference'] = vals.get('reference') or self._generate_reference(
                 self.env['qc.checksheet.type'].browse(vals.get('type_id')),
-                self.env['project.project'].browse(vals.get('job_number')),
+                self.env['equipment.model'].browse(vals.get('model_id')),
             )
         records = super().create(vals_list)
         for record in records:
@@ -185,12 +219,10 @@ class QcChecksheet(models.Model):
             if rec.state != 'draft' and self.CONTROLLED_FIELDS & vals.keys():
                 raise UserError(_(
                     "%s is locked. Create a New Revision to change it.", rec.display_name))
-            if rec.state == 'superseded' and 'check_date' in vals:
-                raise UserError(_("%s is superseded and can't be changed.", rec.display_name))
-            for field_name in ('job_number', 'type_id'):
+            for field_name in ('model_id', 'type_id'):
                 if rec[field_name] and field_name in vals and rec[field_name].id != vals[field_name]:
                     raise UserError(_(
-                        "Job Number and Type can't be changed once set. "
+                        "Model and Type can't be changed once set. "
                         "Delete the Draft and create it again."))
 
     def unlink(self):
@@ -266,9 +298,8 @@ class QcChecksheet(models.Model):
                 })
 
     def _copy_content_from(self, source):
-        """Start this new machine's Rev 0 from another Job's current Released
-        Revision. The content comes over; everything specific to the old
-        machine (identity, check date, history) deliberately does not.
+        """Start this Rev 0 from another Released sheet, usually another
+        Model's. The content comes over; its identity and history don't.
         """
         self.ensure_one()
         if source.checksheet_type != self.checksheet_type:
@@ -288,8 +319,8 @@ class QcChecksheet(models.Model):
         sudo_self.copied_from_id = source
         sudo_self.history_ids.write({
             'description': _(
-                "Initial issue - copied from %(job)s / %(name)s Rev %(rev)s",
-                job=source.job_number.display_name, name=source.name, rev=source.revision),
+                "Adapted from %(number)s Rev %(rev)s",
+                number=source.reference or source.name, rev=source.revision),
         })
 
     def _check_group(self, group):
@@ -324,7 +355,7 @@ class QcChecksheet(models.Model):
                 'submitted_by_id': self.env.uid,
                 'submitted_date': fields.Datetime.now(),
                 'reject_reason': False,
-                'reference': rec.reference or self._generate_reference(rec.type_id, rec.job_number),
+                'reference': rec.reference or self._generate_reference(rec.type_id, rec.model_id),
             })
             rec._clear_workflow_activities()
             for approver in approvers:
@@ -369,7 +400,8 @@ class QcChecksheet(models.Model):
             rec._clear_workflow_activities()
             if previous:
                 sudo_rec.message_post(body=_(
-                    "Rev %(new)s is now current. Withdraw printed copies of Rev %(old)s from the workshop.",
+                    "Rev %(new)s is now current: Jobs printing this sheet from now on get it. "
+                    "Jobs that already printed Rev %(old)s keep it until they are updated.",
                     new=rec.revision, old=previous[0].revision))
 
     def action_create_revision(self, reason, change_ids=None):
@@ -405,7 +437,7 @@ class QcChecksheet(models.Model):
             'reference': self.reference,
             'type_id': self.type_id.id,
             'company_id': self.company_id.id,
-            'job_number': self.job_number.id,
+            'model_id': self.model_id.id,
             'remarks': self.remarks,
             'revision': next_revision,
             'root_id': self.root_id.id,

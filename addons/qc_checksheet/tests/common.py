@@ -4,6 +4,7 @@ from odoo.tests.common import TransactionCase
 class QcChecksheetCase(TransactionCase):
 
     _job_counter = 0
+    _model_counter = 0
 
     @classmethod
     def setUpClass(cls):
@@ -21,12 +22,23 @@ class QcChecksheetCase(TransactionCase):
             **vals,
         })
 
-    def _create_checksheet(self, checksheet_type=None, job=None, **vals):
-        # A Job holds one sheet per Type, so each call gets its own Job by default.
+    def _create_model(self, name=None, **vals):
+        QcChecksheetCase._model_counter += 1
+        return self.env['equipment.model'].create({
+            'name': name or f'M-TEST-{QcChecksheetCase._model_counter}', **vals})
+
+    def _create_checksheet(self, checksheet_type=None, model=None, **vals):
+        checksheet_type = checksheet_type or self.type_general
+        if model is None:
+            # ZA90 first; a Model holds one sheet per Type, so later ones get a Model of their own.
+            model = self.model_za90
+            if self.env['qc.checksheet'].search_count(
+                    [('model_id', '=', model.id), ('type_id', '=', checksheet_type.id)]):
+                model = self._create_model()
         return self.env['qc.checksheet'].create({
             'name': 'Start Up Check Sheet',
-            'type_id': (checksheet_type or self.type_general).id,
-            'job_number': (job or self._create_job()).id,
+            'type_id': checksheet_type.id,
+            'model_id': model.id,
             **vals,
         })
 

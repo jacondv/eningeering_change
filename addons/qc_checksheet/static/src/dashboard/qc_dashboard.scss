@@ -25,6 +25,7 @@ $qcd-teal: #008080;
         &.o_qcd_kpi_overdue { border-left-color: $danger; }
         &.o_qcd_kpi_released { border-left-color: $success; }
         &.o_qcd_kpi_missing { border-left-color: $warning; }
+        &.o_qcd_kpi_changes { border-left-color: $primary; }
     }
 
     .o_qcd_kpi_value { font-size: 1.8rem; font-weight: bold; }
@@ -95,6 +96,5 @@ $qcd-teal: #008080;
     }
 
     .o_qcd_models_list { max-height: 560px; }
-    .o_qcd_jobs_list { max-height: 220px; }
     .o_qcd_list_search { max-width: 180px; }
 }

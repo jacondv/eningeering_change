@@ -4,21 +4,25 @@ import { Component, useState } from "@odoo/owl";
 import { Dialog } from "@web/core/dialog/dialog";
 import { download } from "@web/core/network/download";
 
-/** Pick a Job's sheets to print: one PDF each (in a ZIP), or one combined PDF. */
+/**
+ * Pick a Job's sheets to print: one PDF each (in a ZIP), or one combined PDF.
+ * Printing pins the Revision of any sheet the Job prints for the first time.
+ */
 export class QcPrintAllDialog extends Component {
     static template = "qc_checksheet.PrintAllDialog";
     static components = { Dialog };
     static props = {
         close: Function,
         jobName: String,
-        // The Job QC page's rows that have a sheet.
+        // The Job QC page's rows that have something to print, with `sheet` the Revision printed.
         rows: Array,
+        // Pins the rows' Revisions and returns the Job's own sheet ids.
+        pin: Function,
     };
 
     setup() {
         this.state = useState({
-            // Released sheets are ticked; one never Released yet can still be printed as it stands.
-            rows: this.props.rows.map((row) => ({ ...row, selected: row.current.state === "released" })),
+            rows: this.props.rows.map((row) => ({ ...row, selected: true })),
             combined: false,
             printing: false,
         });
@@ -35,10 +39,11 @@ export class QcPrintAllDialog extends Component {
         }
         this.state.printing = true;
         try {
+            const ids = await this.props.pin(rows);
             await download({
                 url: "/qc_checksheet/print_all",
                 data: {
-                    ids: rows.map((row) => row.current.id).join(","),
+                    ids: ids.join(","),
                     combined: this.state.combined ? "1" : "0",
                 },
             });

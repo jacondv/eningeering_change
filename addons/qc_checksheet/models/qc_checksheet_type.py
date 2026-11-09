@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 LAYOUTS = [
@@ -25,6 +25,11 @@ class QcChecksheetType(models.Model):
     active = fields.Boolean(default=True)
 
     _code_unique = models.Constraint('UNIQUE(code)', 'This Code is already used by another Type.')
+
+    @api.model
+    def _required_types(self):
+        """The active Types every Job is expected to have a sheet of, for the Model and Job progress counts."""
+        return self.search([('required', '=', True)])
 
     def write(self, vals):
         if 'layout' in vals and self.env['qc.checksheet'].search_count([('type_id', 'in', self.ids)], limit=1):

@@ -52,14 +52,12 @@ class TestQcChecksheet(QcChecksheetCase):
         self.assertNotIn('Hidden', html)
 
     def test_copy_content_from_standard(self):
-        source_job = self._create_job('J-SOURCE', machine_serial='SN-OLD')
-        source = self._create_checksheet(job=source_job, check_date='2026-01-15')
+        source = self._create_checksheet(model=self._create_model('M-SOURCE'))
         source.write({'approval_ids': [(0, 0, {'sequence': 10, 'position': 'Technician'})]})
         self._create_content(source)
         self._release(source)
 
-        target_job = self._create_job('J-TARGET', machine_serial='SN-NEW')
-        copy = self._create_checksheet(job=target_job)
+        copy = self._create_checksheet(model=self._create_model('M-TARGET'))
         copy._copy_content_from(source)
 
         self.assertEqual(copy.copied_from_id, source)
@@ -70,13 +68,12 @@ class TestQcChecksheet(QcChecksheetCase):
         copy.sudo().group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)
 
-        # Starts over at Rev 0, keeping nothing specific to the old machine.
+        # Starts over at Rev 0 on its own Model and Number.
         self.assertEqual(copy.revision, 0)
         self.assertEqual(copy.state, 'draft')
-        self.assertEqual(copy.machine_serial, 'SN-NEW')
-        self.assertFalse(copy.check_date)
+        self.assertEqual(copy.reference, 'QC-GE-M-TARGET')
         self.assertEqual(copy.history_ids.mapped('rev'), [0])
-        self.assertIn('J-SOURCE', copy.history_ids.description)
+        self.assertEqual(copy.history_ids.description, 'Adapted from QC-GE-M-SOURCE Rev 0')
 
     def test_copy_content_requires_released_source(self):
         source = self._create_checksheet()

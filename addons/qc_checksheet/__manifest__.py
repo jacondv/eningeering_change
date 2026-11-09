@@ -1,6 +1,6 @@
 {
     'name': 'QC Check Sheet',
-    'version': '19.0.1.8.0',
+    'version': '19.0.2.0.0',
     'category': 'Manufacturing/Quality',
     'summary': 'Author QC check sheets on Odoo and print them to the standard paper form',
     'description': """
@@ -10,7 +10,8 @@ Replaces the Word-based QC check sheet with: author content on Odoo -> export a
 PDF that matches the original paper form -> print -> technician checks by hand.
 
 Features:
-- Check sheet content is authored from scratch or copied from another Job's Released check sheet
+- Each Model owns its check sheets, one per Type, authored from scratch or copied from another Model's Released sheet
+- A Job prints its Model's sheets: the first print (or a Revision chosen then) pins a Revision, which a later Revision of the Model never changes; moving the Job to another needs an Approver's approval
 - Draft > In Review > Released workflow with one approval level, Recall and Reject
 - Released content is locked; any change needs a New Revision, and old Revisions stay viewable and printable
 - Standard type: Inspection Groups containing Items, written on a dedicated full-page editor; Tested/OK-NOK always printed blank
@@ -27,15 +28,20 @@ Features:
         'data/inventor_bom_type_data.xml',
         'data/qc_checksheet_type_data.xml',
         'data/qc_checksheet_config_data.xml',
+        'data/qc_checksheet_cron_data.xml',
         'wizard/qc_checksheet_copy_wizard_views.xml',
         'wizard/qc_checksheet_inventor_import_wizard_views.xml',
         'wizard/qc_checksheet_new_revision_wizard_views.xml',
         'wizard/qc_checksheet_reject_wizard_views.xml',
+        'wizard/qc_job_change_reject_wizard_views.xml',
         'wizard/qc_checksheet_settings_views.xml',
         'report/qc_checksheet_report.xml',
         'report/qc_checksheet_report_templates.xml',
         'views/qc_checksheet_editor_actions.xml',
         'views/qc_checksheet_views.xml',
+        'views/qc_job_checksheet_views.xml',
+        'views/qc_job_checksheet_change_views.xml',
+        'views/equipment_model_views.xml',
         'views/engineering_change_views.xml',
         'views/qc_checksheet_dashboard_views.xml',
         'views/qc_checksheet_type_views.xml',
@@ -52,6 +58,8 @@ Features:
             'qc_checksheet/static/src/job/*.js',
             'qc_checksheet/static/src/job/*.xml',
             'qc_checksheet/static/src/job/*.scss',
+            'qc_checksheet/static/src/model/*.js',
+            'qc_checksheet/static/src/model/*.xml',
             'qc_checksheet/static/src/dashboard/*.js',
             'qc_checksheet/static/src/dashboard/*.xml',
             'qc_checksheet/static/src/dashboard/*.scss',

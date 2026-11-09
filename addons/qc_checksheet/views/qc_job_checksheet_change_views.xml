@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_qc_job_checksheet_change_list" model="ir.ui.view">
+        <field name="name">qc.job.checksheet.change.list</field>
+        <field name="model">qc.job.checksheet.change</field>
+        <field name="arch" type="xml">
+            <list string="Revision Change Requests" create="0" delete="0" default_order="id desc"
+                  decoration-muted="state in ('cancelled', 'rejected')">
+                <field name="job_id"/>
+                <field name="type_id"/>
+                <field name="from_revision"/>
+                <field name="to_revision"/>
+                <field name="reason"/>
+                <field name="requested_by_id"/>
+                <field name="requested_date"/>
+                <field name="state" widget="badge" decoration-warning="state == 'pending'"
+                       decoration-success="state == 'approved'" decoration-danger="state == 'rejected'"
+                       decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_qc_job_checksheet_change_form" model="ir.ui.view">
+        <field name="name">qc.job.checksheet.change.form</field>
+        <field name="model">qc.job.checksheet.change</field>
+        <field name="arch" type="xml">
+            <form string="Revision Change Request" create="0" duplicate="0" delete="0">
+                <header>
+                    <button string="Approve" name="action_approve" type="object" class="oe_highlight"
+                            groups="qc_checksheet.group_qc_approver" invisible="state != 'pending'"/>
+                    <button string="Reject" name="%(action_qc_job_change_reject_wizard)d" type="action"
+                            context="{'default_change_id': id}"
+                            groups="qc_checksheet.group_qc_approver" invisible="state != 'pending'"/>
+                    <button string="Cancel Request" name="action_cancel" type="object" invisible="state != 'pending'"/>
+                    <button string="Open Job QC" name="action_open_job_sheet" type="object"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,approved"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="display_name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="job_id"/>
+                            <field name="type_id"/>
+                            <field name="from_checksheet_id"/>
+                            <field name="to_checksheet_id"/>
+                            <field name="reason"/>
+                        </group>
+                        <group>
+                            <field name="requested_by_id"/>
+                            <field name="requested_date"/>
+                            <field name="decided_by_id" invisible="not decided_by_id"/>
+                            <field name="decided_date" invisible="not decided_date"/>
+                            <field name="reject_reason" invisible="not reject_reason"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_qc_job_checksheet_change_search" model="ir.ui.view">
+        <field name="name">qc.job.checksheet.change.search</field>
+        <field name="model">qc.job.checksheet.change</field>
+        <field name="arch" type="xml">
+            <search string="Search Revision Change Requests">
+                <field name="job_id"/>
+                <field name="type_id"/>
+                <field name="requested_by_id"/>
+                <filter string="Pending Approval" name="pending" domain="[('state', '=', 'pending')]"/>
+                <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                <filter string="Rejected" name="rejected" domain="[('state', '=', 'rejected')]"/>
+                <separator/>
+                <filter string="My Requests" name="mine" domain="[('requested_by_id', '=', uid)]"/>
+                <group>
+                    <filter string="Job" name="group_job" context="{'group_by': 'job_id'}"/>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- No menu: requests are reached from the Dashboard (card and panel), the Job's QC page and the
+         Approver's To-Do, so the menu stays short. -->
+    <record id="action_qc_job_checksheet_change" model="ir.actions.act_window">
+        <field name="name">Revision Change Requests</field>
+        <field name="res_model">qc.job.checksheet.change</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_qc_job_checksheet_change_search"/>
+        <field name="context">{'search_default_pending': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No Revision change is waiting</p>
+            <p>Moving a Job to another Revision of its sheet needs an Approver's approval. Requests are made from the Job's QC page.</p>
+        </field>
+    </record>
+
+</odoo>

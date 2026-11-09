@@ -53,9 +53,9 @@
             <div class="o_qce_panel o_qce_new_form">
                 <div class="o_qce_row">
                     <div class="o_qce_field">
-                        <label for="qce_job">Job Number</label>
-                        <QcJobPicker inputId="'qce_job'" placeholder="'Search a Job'" value="state.job"
-                                     search="searchJobs" onPick.bind="pickJob" emptyText="'No Job with a Model matches.'"/>
+                        <label for="qce_model">Model</label>
+                        <QcJobPicker inputId="'qce_model'" placeholder="'Search a Model'" value="state.model"
+                                     search="searchModels" onPick.bind="pickModel" emptyText="'No Model matches.'"/>
                     </div>
                     <div class="o_qce_field">
                         <label for="qce_type">Check Sheet Type</label>
@@ -72,7 +72,7 @@
                     <small class="text-muted" t-esc="headerHint"/>
                 </div>
                 <div t-if="state.context.duplicate_id" class="alert alert-warning mb-0 d-flex flex-wrap align-items-center gap-2">
-                    <span>This Job already has a sheet of this Type, and a Job holds one per Type.</span>
+                    <span>This Model already has a sheet of this Type, and a Model holds one per Type.</span>
                     <button class="btn btn-link p-0" t-on-click="() => this.props.onOpen(state.context.duplicate_id)">Open it</button>
                 </div>
                 <div class="d-flex flex-column gap-2">
@@ -81,29 +81,29 @@
                         <span class="o_qce_dot"/><span><strong>Blank sheet</strong><br/><small class="text-muted">Start with one empty Group and Item</small></span>
                     </button>
                     <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.source === 'copy'}" t-on-click="() => { state.source = 'copy'; }">
-                        <span class="o_qce_dot"/><span><strong>Copy from another machine</strong><br/><small class="text-muted">Content and approval positions only, restarting at Rev 0</small></span>
+                        <span class="o_qce_dot"/><span><strong>Copy from another Model</strong><br/><small class="text-muted">Content and approval positions only, restarting at Rev 0</small></span>
                     </button>
                 </div>
                 <div t-if="state.source === 'copy'" class="o_qce_sources">
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <label for="qce_source_job" class="mb-0">Filter by Job</label>
+                        <label for="qce_source_model" class="mb-0">Filter by Model</label>
                         <div class="o_qce_source_job">
-                            <QcJobPicker inputId="'qce_source_job'" placeholder="'All Jobs'" value="state.sourceJob" clearable="true"
-                                         search="searchSourceJobs" onPick.bind="pickSourceJob"
-                                         emptyText="'No Job with a Released sheet to copy matches.'"/>
+                            <QcJobPicker inputId="'qce_source_model'" placeholder="'All Models'" value="state.sourceModel" clearable="true"
+                                         search="searchSourceModels" onPick.bind="pickSourceModel"
+                                         emptyText="'No Model with a Released sheet to copy matches.'"/>
                         </div>
-                        <small class="text-muted">Released sheets of this layout, same Model first</small>
+                        <small class="text-muted">Released sheets of this layout, same Type first</small>
                     </div>
                     <t t-foreach="state.context.sources" t-as="source" t-key="source.id">
                         <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.sourceId === source.id}" t-on-click="() => { state.sourceId = source.id; }">
                             <span class="o_qce_dot"/>
                             <span class="flex-grow-1"><strong t-esc="source.label"/><br/>
                                 <small class="text-muted"><t t-esc="source.header"/> · <t t-esc="source.groups"/> Groups, <t t-esc="source.items"/> Items</small></span>
-                            <span t-if="source.same_model" class="o_qce_badge o_qce_badge_released">Same Model</span>
+                            <span t-if="source.same_type" class="o_qce_badge o_qce_badge_released">Same Type</span>
                         </button>
                     </t>
                     <div t-if="!state.context.sources.length" class="text-muted">
-                        <t t-if="state.sourceJob">No Released check sheet on <t t-esc="state.sourceJob.name"/>.</t>
+                        <t t-if="state.sourceModel">No Released check sheet on <t t-esc="state.sourceModel.name"/>.</t>
                         <t t-else="">No Released check sheet to copy from yet.</t>
                     </div>
                 </div>
@@ -114,11 +114,10 @@
                 <div><span class="o_qce_badge o_qce_badge_draft">Draft</span> <span class="text-muted">Rev 0</span></div>
                 <dl class="o_qce_facts">
                     <dt>Model</dt><dd t-esc="state.context.model or '-'"/>
-                    <dt>Serial</dt><dd t-esc="state.context.serial or '-'"/>
-                    <dt>Engine</dt><dd t-esc="state.context.engine or '-'"/>
-                    <dt>Customer</dt><dd t-esc="state.context.customer or '-'"/>
+                    <dt>Product Family</dt><dd t-esc="state.context.family or '-'"/>
+                    <dt>Jobs</dt><dd t-esc="state.context.job_count"/>
                 </dl>
-                <small class="text-muted">These details come from the Job.</small>
+                <small class="text-muted">Every Job of this Model prints this sheet once it is Released.</small>
                 <button class="btn btn-primary" t-att-disabled="cannotCreate" t-on-click="create">Create and start editing</button>
             </div>
         </div>
@@ -128,7 +127,7 @@
         <div class="o_action o_qce_action">
             <div class="o_qce">
                 <QcNewSheet t-if="!state.sheetId" onCreated.bind="onCreated" onOpen.bind="openSheet" onBack.bind="goToList"
-                            defaultJobId="props.action.context?.default_job_id or false"
+                            defaultModelId="props.action.context?.default_model_id or false"
                             defaultTypeId="props.action.context?.default_type_id or false"/>
                 <t t-elif="sheet" t-call="qc_checksheet.EditorBody"/>
             </div>
@@ -139,7 +138,7 @@
         <div class="o_qce_topbar">
             <button class="btn btn-secondary" t-on-click="goToList">Back to list</button>
             <strong class="o_qce_title"><t t-esc="sheet.number"/> ·
-                <button class="btn btn-link p-0 align-baseline o_qce_title" title="Open this Job's check sheets" t-on-click="openJob" t-esc="sheet.job"/>
+                <button class="btn btn-link p-0 align-baseline o_qce_title" title="Open this Model's check sheets" t-on-click="openModel" t-esc="sheet.model"/>
                 · Rev <t t-esc="sheet.revision"/></strong>
             <span t-att-class="badgeClass" t-esc="sheet.state_label"/>
             <small class="text-muted" t-att-class="saveLabelClass" t-esc="saveLabel"/>
@@ -217,7 +216,10 @@
                            t-att-class="{'o_qce_diff_changed': diff and diff.header !== null}"
                            t-att-title="diff and diff.header !== null ? 'Before: ' + diff.header : ''"
                            t-att-readonly="!editable" t-on-input="onNameInput"/>
-                    <small class="text-muted"><t t-esc="sheet.type_name"/> · <t t-esc="sheet.model"/> · Serial <t t-esc="sheet.serial or '-'"/></small>
+                    <small class="text-muted"><t t-esc="sheet.type_name"/> · <t t-esc="sheet.model"/>
+                        · <button t-if="sheet.job_count" class="btn btn-link p-0 align-baseline small" title="Jobs using this sheet, by Revision"
+                                  t-on-click="openJobs">Used by <t t-esc="sheet.job_count"/> Job(s)</button>
+                        <t t-else="">Not used by any Job yet</t></small>
                 </div>
 
                 <div class="o_qce_panel">

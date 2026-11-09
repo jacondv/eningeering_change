@@ -59,34 +59,22 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         self.assertEqual(checksheet.reference, 'QC-GE-ZA90')
         self.assertEqual(checksheet.machine_model, 'ZA95')
 
-    def test_number_needs_a_job_with_a_model(self):
+    def test_number_needs_a_model(self):
         with self.assertRaises(UserError):
             self.env['qc.checksheet'].create({'name': 'X', 'type_id': self.type_general.id})
-        job = self.env['project.project'].create({'name': 'J-NO-MODEL'})
-        with self.assertRaises(UserError):
-            self._create_checksheet(job=job)
 
-    def test_one_sheet_per_type_per_job(self):
-        job = self._create_job()
-        self._create_checksheet(job=job)
-        self._create_checksheet(self.type_panel, job=job)
+    def test_one_sheet_per_type_per_model(self):
+        model = self._create_model()
+        self._create_checksheet(model=model)
+        self._create_checksheet(self.type_panel, model=model)
         with mute_logger('odoo.sql_db'), self.assertRaises(IntegrityError):
-            self._create_checksheet(job=job)
+            self._create_checksheet(model=model)
             self.env.flush_all()
 
-    def test_machine_identity_comes_from_the_job(self):
-        partner = self.env['res.partner'].create({'name': 'ACME Co'})
-        job = self._create_job(machine_serial='SN-1', engine_serial='EN-1', partner_id=partner.id)
-        checksheet = self._create_checksheet(job=job)
-        self.assertEqual(checksheet.machine_serial, 'SN-1')
-        self.assertEqual(checksheet.engine_number, 'EN-1')
-        self.assertEqual(checksheet.customer, 'ACME Co')
-        self.assertEqual(checksheet.machine_model, 'ZA90')
-
-    def test_job_and_type_cannot_change_once_set(self):
+    def test_model_and_type_cannot_change_once_set(self):
         checksheet = self._create_checksheet().with_user(self.author)
         with self.assertRaises(UserError):
-            checksheet.write({'job_number': self._create_job('J-OTHER').id})
+            checksheet.write({'model_id': self._create_model().id})
         with self.assertRaises(UserError):
             checksheet.write({'type_id': self.type_panel.id})
 
@@ -163,7 +151,7 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         with self.assertRaises(UserError):
             self.env['qc.checksheet'].with_user(self.author).create({
                 'name': 'X', 'type_id': self.type_general.id,
-                'job_number': self._create_job().id, 'state': 'released',
+                'model_id': self._create_model().id, 'state': 'released',
             })
 
     # Locking
@@ -208,11 +196,6 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         checksheet.action_submit()
         with self.assertRaises(UserError):
             checksheet.group_ids.write({'name': 'Changed'})
-
-    def test_check_date_stays_editable_on_a_released_sheet(self):
-        checksheet = self._released_as_author()
-        checksheet.write({'check_date': '2026-11-05'})
-        self.assertEqual(str(checksheet.check_date), '2026-11-05')
 
     def test_show_in_report_is_editable_only_in_draft(self):
         checksheet = self._draft_as_author()
@@ -413,17 +396,18 @@ class TestQcChecksheetRevision(QcChecksheetCase):
     def test_name_is_required(self):
         with self.assertRaises(Exception):
             self.env['qc.checksheet'].create({
-                'type_id': self.type_general.id, 'job_number': self._create_job().id,
+                'type_id': self.type_general.id, 'model_id': self._create_model().id,
             })
             self.env.flush_all()
 
-    def test_report_shows_rev_zero_job_and_model(self):
+    def test_report_shows_rev_zero_and_model(self):
         checksheet = self._released_as_author()
         html = self._render(checksheet)
         self.assertRegex(html, r'Revision:\s*<span>0</span>')
         self.assertIn('QC-GE-ZA90', html)
-        self.assertIn('J-TEST', html)
         self.assertIn('ZA90</span>', html)
+        # Printed from the Model: blank, without any Job.
+        self.assertNotIn('J-TEST', html)
 
     def test_report_prints_approver_and_revision_history_title(self):
         checksheet = self._released_as_author()
@@ -442,30 +426,30 @@ class TestQcChecksheetRevision(QcChecksheetCase):
 
     def test_header_comes_from_family_description(self):
         self.model_za90.family_id = self._family_with_description('Zero Emission\nLoader')
-        sheet = self.env['qc.checksheet'].new({'job_number': self._create_job().id})
-        sheet._onchange_job_number()
+        sheet = self.env['qc.checksheet'].new({'model_id': self.model_za90.id})
+        sheet._onchange_model_id()
         self.assertEqual(sheet.name, 'Zero Emission Loader')
 
     def test_header_stays_empty_without_family_description(self):
-        sheet = self.env['qc.checksheet'].new({'job_number': self._create_job().id})
-        sheet._onchange_job_number()
+        sheet = self.env['qc.checksheet'].new({'model_id': self.model_za90.id})
+        sheet._onchange_model_id()
         self.assertFalse(sheet.name)
 
     def test_header_typed_by_the_user_is_kept(self):
         self.model_za90.family_id = self._family_with_description('Loader')
-        sheet = self.env['qc.checksheet'].new({'job_number': self._create_job().id, 'name': 'My Header'})
-        sheet._onchange_job_number()
+        sheet = self.env['qc.checksheet'].new({'model_id': self.model_za90.id, 'name': 'My Header'})
+        sheet._onchange_model_id()
         self.assertEqual(sheet.name, 'My Header')
 
-    def test_header_follows_a_corrected_job(self):
+    def test_header_follows_a_corrected_model(self):
         self.model_za90.family_id = self._family_with_description('Loader')
         other_model = self.env['equipment.model'].create({
             'name': 'ZB10', 'family_id': self._family_with_description('Excavator').id,
         })
-        sheet = self.env['qc.checksheet'].new({'job_number': self._create_job().id})
-        sheet._onchange_job_number()
-        sheet.job_number = self._create_job(model=other_model)
-        sheet._onchange_job_number()
+        sheet = self.env['qc.checksheet'].new({'model_id': self.model_za90.id})
+        sheet._onchange_model_id()
+        sheet.model_id = other_model
+        sheet._onchange_model_id()
         self.assertEqual(sheet.name, 'Excavator')
 
     def test_header_stays_editable_and_is_not_overwritten_by_the_family(self):
@@ -476,19 +460,18 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         family.description = 'Changed Later'
         self.assertEqual(checksheet.name, 'Edited')
 
-    def test_user_without_project_access_can_create_and_print(self):
+    def test_user_without_model_access_can_create_and_print(self):
         self.model_za90.family_id = self._family_with_description('Loader')
-        job = self._create_job()
         Sheet = self.env['qc.checksheet'].with_user(self.author)
-        new_sheet = Sheet.new({'job_number': job.id})
-        new_sheet._onchange_job_number()
+        new_sheet = Sheet.new({'model_id': self.model_za90.id})
+        new_sheet._onchange_model_id()
         checksheet = Sheet.create({
-            'name': new_sheet.name, 'type_id': self.type_general.id, 'job_number': job.id,
+            'name': new_sheet.name, 'type_id': self.type_general.id, 'model_id': self.model_za90.id,
         })
         self.assertEqual(checksheet.reference, 'QC-GE-ZA90')
         report = self.env.ref('qc_checksheet.action_report_qc_checksheet')
         html = report.with_user(self.viewer)._render_qweb_html(report.report_name, checksheet.ids)[0].decode()
-        self.assertIn(job.name, html)
+        self.assertIn('QC-GE-ZA90', html)
 
     # Revision History
 
@@ -568,7 +551,7 @@ class TestQcChecksheetRevision(QcChecksheetCase):
             as_viewer.action_submit()
         with self.assertRaises(AccessError):
             self.env['qc.checksheet'].with_user(self.viewer).create({
-                'name': 'X', 'type_id': self.type_general.id, 'job_number': self._create_job().id,
+                'name': 'X', 'type_id': self.type_general.id, 'model_id': self._create_model().id,
             })
 
     def test_author_can_delete_a_draft_but_not_an_issued_sheet(self):
