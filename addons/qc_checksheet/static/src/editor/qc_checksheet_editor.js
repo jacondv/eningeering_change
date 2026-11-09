@@ -1,6 +1,7 @@
 /** @odoo-module **/
 
 import { Component, markup, onWillStart, useExternalListener, useState } from "@odoo/owl";
+import { AutoComplete } from "@web/core/autocomplete/autocomplete";
 import { DateTimeInput } from "@web/core/datetime/datetime_input";
 import { deserializeDate, serializeDate } from "@web/core/l10n/dates";
 import { registry } from "@web/core/registry";
@@ -8,7 +9,7 @@ import { user } from "@web/core/user";
 import { useService } from "@web/core/utils/hooks";
 import { useSetupAction } from "@web/search/action_hook";
 import { parseClipboardRows } from "./qc_clipboard";
-import { compareSheets, rowsWithRemoved } from "./qc_compare";
+import { compareSheets, htmlToLine, htmlToLines, rowsWithRemoved } from "./qc_compare";
 import { QcNewSheet } from "./qc_new_sheet";
 import { QcChangePicker } from "./qc_change_picker";
 import { QcNewRevisionDialog } from "./qc_new_revision_dialog";
@@ -19,6 +20,12 @@ import { QcRichCell } from "./qc_rich_cell";
 const CHECKSHEET_MODEL = "qc.checksheet";
 const ITEM_COLUMNS = ["description", "acceptance", "note"];
 const REPORT_NAME = "qc_checksheet.report_qc_checksheet_document";
+// What counts as inside the cell being edited when the mouse goes down: the cells, the editor's toolbar, its
+// pop-ups, and the picture Transform tool (its handles sit outside the cell; closing the cell on them
+// removes the picture before the tool has finished).
+const INSIDE_ACTIVE_CELL = ".o_qce_cell, .o_qce_rich_cell, .o-we-toolbar, .o-overlay-container, .modal, .transfo-container";
+// How many names the Created by box suggests at once.
+const USER_SUGGESTIONS = 8;
 // Dates of the Revision History read like the PDF prints them: 12-Aug-2025.
 const HISTORY_DATE_FORMAT = "dd-MMM-yyyy";
 const OUTLINE_MIN_WIDTH = 140;
@@ -67,10 +74,6 @@ function htmlIsEmpty(html) {
     return !new DOMParser().parseFromString(html, "text/html").body.textContent.trim();
 }
 
-function htmlToText(html) {
-    return new DOMParser().parseFromString(html || "", "text/html").body.textContent.trim();
-}
-
 /**
  * Client action of the Check Sheet Editor: the New Check Sheet page when its
  * context has no active_id, otherwise that sheet (active_id goes in the URL, so
@@ -79,7 +82,7 @@ function htmlToText(html) {
  */
 export class QcChecksheetEditor extends Component {
     static template = "qc_checksheet.Editor";
-    static components = { QcNewSheet, QcRichCell, QcChangePicker, DateTimeInput };
+    static components = { QcNewSheet, QcRichCell, QcChangePicker, DateTimeInput, AutoComplete };
     static props = ["*"];
 
     setup() {
@@ -100,6 +103,8 @@ export class QcChecksheetEditor extends Component {
             dirty: false,
             saving: false,
             dropTarget: null,
+            // The uids of the Items ticked to be deleted together.
+            selected: [],
             // { baseId, base } while comparing with another Revision.
             compare: null,
         });
@@ -323,7 +328,9 @@ export class QcChecksheetEditor extends Component {
         return this.sheet.groups.map((group, index) => ({
             group,
             index: index + 1,
-            title: htmlToText(group.name) || "Untitled Group",
+            title: htmlToLine(group.name) || "Untitled Group",
+            // One entry per line of the name, for the Groups list on the left.
+            lines: htmlToLines(group.name).length ? htmlToLines(group.name) : ["Untitled Group"],
             items: group.items.map((item) => ({ item, number: ++number })),
         }));
     }
@@ -356,6 +363,30 @@ export class QcChecksheetEditor extends Component {
     /** A date as 12-Aug-2025, the way the PDF prints it. */
     formatHistoryDate(line) {
         return line.date ? deserializeDate(line.date).toFormat(HISTORY_DATE_FORMAT) : "";
+    }
+
+    setHistory(line, field, value) {
+        if (line[field] !== value) {
+            line[field] = value;
+            this.markDirty();
+        }
+    }
+
+    /** The names to suggest for Created by, from the users of the company: the ones holding what was typed, best match first. */
+    userSources(line) {
+        return [
+            {
+                options: (term) => {
+                    const needle = (term || "").trim().toLowerCase();
+                    const names = this.sheet.user_names.filter((name) => name.toLowerCase().includes(needle));
+                    names.sort((a, b) => Number(!a.toLowerCase().startsWith(needle)) - Number(!b.toLowerCase().startsWith(needle)));
+                    return names.slice(0, USER_SUGGESTIONS).map((name) => ({
+                        label: name,
+                        onSelect: () => this.setHistory(line, "created_by", name),
+                    }));
+                },
+            },
+        ];
     }
 
     onHistoryDate(line, value) {
@@ -526,6 +557,72 @@ export class QcChecksheetEditor extends Component {
             remove();
         } else {
             this.confirm("Delete this Item?", "Its content will be removed when you Save.", "Delete", remove);
+        }
+    }
+
+    // Several Items at once
+
+    /** The ticked Items that still exist: one may have been deleted, or its Group, since. */
+    get selectedUids() {
+        const ticked = new Set(this.state.selected);
+        return this.sheet ? this.sheet.groups.flatMap((group) => group.items).map((item) => item.uid).filter((uid) => ticked.has(uid)) : [];
+    }
+
+    get selectedCount() {
+        return this.selectedUids.length;
+    }
+
+    isSelected(item) {
+        return this.state.selected.includes(item.uid);
+    }
+
+    /** Ticks or unticks an Item; with Shift, every Item between this one and the last one ticked follows it. */
+    onSelectClick(item, ev) {
+        const checked = ev.target.checked;
+        const uids = this.sheet.groups.flatMap((group) => group.items).map((i) => i.uid);
+        let range = [item.uid];
+        if (ev.shiftKey && this.lastSelectedUid && uids.includes(this.lastSelectedUid)) {
+            const [from, to] = [uids.indexOf(this.lastSelectedUid), uids.indexOf(item.uid)].sort((a, b) => a - b);
+            range = uids.slice(from, to + 1);
+        }
+        const rest = this.state.selected.filter((uid) => !range.includes(uid));
+        this.state.selected = checked ? [...rest, ...range] : rest;
+        this.lastSelectedUid = item.uid;
+    }
+
+    selectAllItems() {
+        this.state.selected = this.sheet.groups.flatMap((group) => group.items).map((item) => item.uid);
+    }
+
+    clearSelection() {
+        this.state.selected = [];
+        this.lastSelectedUid = null;
+    }
+
+    deleteSelected() {
+        const picked = new Set(this.selectedUids);
+        if (!picked.size) {
+            return;
+        }
+        const remove = () => {
+            for (const group of this.sheet.groups) {
+                for (let i = group.items.length - 1; i >= 0; i--) {
+                    if (picked.has(group.items[i].uid)) {
+                        group.items.splice(i, 1);
+                    }
+                }
+            }
+            this.clearSelection();
+            this.state.active = null;
+            this.markDirty();
+        };
+        const hasContent = this.sheet.groups
+            .flatMap((group) => group.items)
+            .some((item) => picked.has(item.uid) && !ITEM_COLUMNS.every((field) => htmlIsEmpty(item[field])));
+        if (hasContent) {
+            this.confirm(`Delete ${picked.size} Item(s)?`, "Their content will be removed when you Save.", "Delete", remove);
+        } else {
+            remove();
         }
     }
 
@@ -720,7 +817,7 @@ export class QcChecksheetEditor extends Component {
         if (!this.state.active || !(ev.target instanceof Element)) {
             return;
         }
-        if (!ev.target.closest(".o_qce_cell, .o_qce_rich_cell, .o-we-toolbar, .o-overlay-container, .modal")) {
+        if (!ev.target.closest(INSIDE_ACTIVE_CELL)) {
             this.activate(null);
         }
     }

@@ -35,9 +35,10 @@
         <div class="o_qce_rich_cell" t-ref="root" t-att-class="{'o_qce_rich_cell_active': editing}"
              t-on-keydown.capture="onKeydown" t-on-paste.capture="onPaste">
             <Wysiwyg t-if="editing" config="config" onLoad.bind="onEditorLoad" class="'o_qce_wysiwyg'"/>
+            <!-- The editor and the rendered Html are one t-if / t-else pair: nothing goes between them. -->
             <div t-else="" class="o_qce_rendered qc-rich-text" t-att-class="{'o_qce_rendered_readonly': props.readonly}"
                  t-att-tabindex="props.readonly ? -1 : 0" role="textbox" t-att-aria-label="props.label"
-                 t-on-focus="() => this.props.onActivate()" t-on-click="() => this.props.onActivate()">
+                 t-on-mousedown="onRenderedMouseDown" t-on-focus="() => this.props.onActivate()" t-on-click="onRenderedClick">
                 <t t-if="isEmpty"><span t-if="props.placeholder" class="o_qce_placeholder" t-esc="props.placeholder"/></t>
                 <t t-else="" t-out="renderedValue"/>
             </div>
@@ -198,7 +199,9 @@
                 <t t-foreach="numberedGroups" t-as="entry" t-key="entry.group.uid">
                     <button class="o_qce_outline_row" t-on-click="() => this.jumpToGroup(entry)">
                         <span class="text-muted" t-esc="entry.index"/>
-                        <span class="o_qce_ellipsis" t-esc="entry.title"/>
+                        <span class="o_qce_outline_lines" t-att-title="entry.title">
+                            <span t-foreach="entry.lines" t-as="line" t-key="line_index" class="o_qce_ellipsis" t-esc="line"/>
+                        </span>
                         <small class="text-muted" t-esc="entry.items.length"/>
                     </button>
                 </t>
@@ -250,10 +253,6 @@
                     </div>
 
                     <div t-if="state.tab === 'history'" class="o_qce_scroll_x">
-                        <!-- Suggestions for Created by: type a few letters of a user's name. -->
-                        <datalist id="qce_user_names">
-                            <option t-foreach="sheet.user_names" t-as="name" t-key="name_index" t-att-value="name"/>
-                        </datalist>
                         <table class="o_qce_table">
                             <thead><tr><th>Rev</th><th>Description</th><th>Date</th><th>Created by</th><th>Approved by</th><th>In PDF</th><th/></tr></thead>
                             <tbody>
@@ -267,7 +266,13 @@
                                                            onChange="(value) => this.onHistoryDate(line, value)"/>
                                             <input t-else="" class="form-control" readonly="readonly" t-att-value="formatHistoryDate(line)"/>
                                         </td>
-                                        <td><input class="form-control" list="qce_user_names" autocomplete="off" t-att-value="line.created_by" t-att-readonly="!isHistoryRowEditable(line)" t-on-input="(ev) => this.onHistoryInput(line, 'created_by', ev)"/></td>
+                                        <td>
+                                            <AutoComplete t-if="isHistoryRowEditable(line)" class="'o_qce_created_by'" value="line.created_by"
+                                                          sources="userSources(line)" placeholder="'Name'"
+                                                          onInput="({ inputValue }) => this.setHistory(line, 'created_by', inputValue)"
+                                                          onChange="({ inputValue }) => this.setHistory(line, 'created_by', inputValue)"/>
+                                            <input t-else="" class="form-control" readonly="readonly" t-att-value="line.created_by"/>
+                                        </td>
                                         <td t-esc="line.approved_by or '-'"/>
                                         <td><input type="checkbox" t-att-checked="line.show_in_report" t-att-disabled="!editable" t-on-change="(ev) => this.onHistoryInput(line, 'show_in_report', ev)"/></td>
                                         <td>
@@ -286,7 +291,13 @@
 
     <t t-name="qc_checksheet.EditorContent">
         <div t-if="editable" class="o_qce_hints">
-            <span>Tab: next cell</span><span>Enter: new line</span><span>Ctrl+Enter: new Item below</span><span>Ctrl+S: Save</span><span>Paste a table from Word or Excel to fill rows</span>
+            <span>Tab: next cell</span><span>Enter: new line</span><span>Ctrl+Enter: new Item below</span><span>Ctrl+S: Save</span><span>Paste a table from Word or Excel to fill rows</span><span>Tick the boxes by the numbers to select several Items (Shift+click for a range)</span>
+        </div>
+        <div t-if="editable and selectedCount" class="o_qce_selection_bar">
+            <strong><t t-esc="selectedCount"/> Item(s) selected</strong>
+            <button class="btn btn-danger btn-sm" t-on-click="deleteSelected">Delete selected</button>
+            <button class="btn btn-secondary btn-sm" t-on-click="selectAllItems">Select all</button>
+            <button class="btn btn-link btn-sm" t-on-click="clearSelection">Clear</button>
         </div>
         <div class="o_qce_scroll_x">
             <div class="o_qce_grid o_qce_grid_head">
@@ -338,13 +349,15 @@
                     <t t-else="">
                     <t t-set="item" t-value="row.item"/>
                     <t t-set="rowDiff" t-value="itemDiff(diff, item)"/>
-                    <div class="o_qce_grid o_qce_item" t-att-class="{'o_qce_drop': state.dropTarget === item.uid, 'o_qce_diff_added': rowDiff and rowDiff.status === 'added'}"
+                    <div class="o_qce_grid o_qce_item" t-att-class="{'o_qce_drop': state.dropTarget === item.uid, 'o_qce_diff_added': rowDiff and rowDiff.status === 'added', 'o_qce_selected': isSelected(item)}"
                          t-on-dragover="(ev) => this.onDragOver(item.uid, ev)" t-on-drop="(ev) => this.onDropOnItem(group, item, ev)">
                         <div class="o_qce_cell o_qce_cell_center">
                             <span class="o_qce_icon o_qce_grip" t-att-draggable="editable ? 'true' : 'false'" title="Drag to another row or Group"
                                   t-on-dragstart="(ev) => this.onDragStart('item', item.uid, ev)" t-on-dragend="() => this.onDragEnd()"><i class="fa fa-ellipsis-v"/></span>
                         </div>
                         <div class="o_qce_cell o_qce_cell_center o_qce_number_cell">
+                            <input t-if="editable" type="checkbox" class="o_qce_select" t-att-checked="isSelected(item)"
+                                   t-att-aria-label="'Select Item ' + row.number" t-on-click="(ev) => this.onSelectClick(item, ev)"/>
                             <span class="fw-bold" t-esc="row.number"/>
                             <span t-if="rowDiff and rowDiff.status === 'added'" class="o_qce_diff_tag">Added</span>
                             <span t-if="rowDiff and rowDiff.movedFrom" class="o_qce_diff_tag" t-att-title="'Moved from ' + rowDiff.movedFrom">Moved</span>
