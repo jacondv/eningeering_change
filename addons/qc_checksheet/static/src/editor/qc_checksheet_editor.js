@@ -1,6 +1,8 @@
 /** @odoo-module **/
 
 import { Component, markup, onWillStart, useExternalListener, useState } from "@odoo/owl";
+import { DateTimeInput } from "@web/core/datetime/datetime_input";
+import { deserializeDate, serializeDate } from "@web/core/l10n/dates";
 import { registry } from "@web/core/registry";
 import { user } from "@web/core/user";
 import { useService } from "@web/core/utils/hooks";
@@ -17,6 +19,8 @@ import { QcRichCell } from "./qc_rich_cell";
 const CHECKSHEET_MODEL = "qc.checksheet";
 const ITEM_COLUMNS = ["description", "acceptance", "note"];
 const REPORT_NAME = "qc_checksheet.report_qc_checksheet_document";
+// Dates of the Revision History read like the PDF prints them: 12-Aug-2025.
+const HISTORY_DATE_FORMAT = "dd-MMM-yyyy";
 const OUTLINE_MIN_WIDTH = 140;
 const OUTLINE_MAX_WIDTH = 520;
 const COLUMN_MIN_WIDTH = 120;
@@ -75,7 +79,7 @@ function htmlToText(html) {
  */
 export class QcChecksheetEditor extends Component {
     static template = "qc_checksheet.Editor";
-    static components = { QcNewSheet, QcRichCell, QcChangePicker };
+    static components = { QcNewSheet, QcRichCell, QcChangePicker, DateTimeInput };
     static props = ["*"];
 
     setup() {
@@ -338,6 +342,25 @@ export class QcChecksheetEditor extends Component {
 
     isHistoryRowEditable(line) {
         return this.editable && line.rev === this.sheet.revision;
+    }
+
+    get HISTORY_DATE_FORMAT() {
+        return HISTORY_DATE_FORMAT;
+    }
+
+    /** The Revision's date as the date picker takes it; false when there is none. */
+    historyDate(line) {
+        return line.date ? deserializeDate(line.date) : false;
+    }
+
+    /** A date as 12-Aug-2025, the way the PDF prints it. */
+    formatHistoryDate(line) {
+        return line.date ? deserializeDate(line.date).toFormat(HISTORY_DATE_FORMAT) : "";
+    }
+
+    onHistoryDate(line, value) {
+        line.date = value ? serializeDate(value) : "";
+        this.markDirty();
     }
 
     // Resizing
@@ -732,6 +755,7 @@ export class QcChecksheetEditor extends Component {
                         id: line.id,
                         description: line.description,
                         date: line.date,
+                        created_by: line.created_by,
                         show_in_report: line.show_in_report,
                     })),
                 },

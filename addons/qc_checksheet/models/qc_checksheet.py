@@ -202,7 +202,7 @@ class QcChecksheet(models.Model):
                 self.env['qc.checksheet.history'].sudo().create({
                     'checksheet_id': record.id,
                     'rev': record.revision,
-                    'description': _("Initial issue"),
+                    'description': _("Initial release"),
                     'created_by': self.env.user.name,
                 })
         return records
