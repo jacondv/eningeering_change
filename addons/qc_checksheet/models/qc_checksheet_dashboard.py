@@ -72,9 +72,22 @@ class QcChecksheet(models.Model):
             'by_type': breakdown('type_id'),
             'by_model': breakdown('model_id'),
             'rev_changes': self._dashboard_changes(search_domain, now),
+            'inspections': self._dashboard_inspections(search_domain),
             'waiting_jobs': len(self._dashboard_waiting_jobs(search_domain)),
             'waiting': [self._dashboard_row(sheet, now) for sheet in waiting],
             'released': [self._dashboard_row(sheet, now) for sheet in released],
+        }
+
+    @api.model
+    def _dashboard_inspections(self, domain):
+        """How many printed sheets of open Jobs still wait for their signed scan, and how many Jobs
+        must be inspected again after a change of Revision. Counted on the Revision the Job prints now,
+        which the search bar selects like it does for the By Job Number panel."""
+        JobSheet = self.env['qc.job.checksheet']
+        base = [('checksheet_id', 'any', list(domain or [])), ('job_status', 'in', OPEN_JOB_STATUSES)]
+        return {
+            'awaiting': JobSheet.search_count(base + [('inspection_state', '=', 'awaiting')]),
+            'reinspection': JobSheet.search_count(base + [('inspection_state', '=', 'reinspection')]),
         }
 
     @api.model
@@ -91,6 +104,7 @@ class QcChecksheet(models.Model):
                 # Through sudo: the Job may be one the user can't read; its name is all we show.
                 'job_id': change.job_id.id,
                 'job': change.job_id.sudo().display_name,
+                'type_id': change.type_id.id,
                 'type': change.type_id.name,
                 'from_revision': change.from_revision,
                 'to_revision': change.to_revision,

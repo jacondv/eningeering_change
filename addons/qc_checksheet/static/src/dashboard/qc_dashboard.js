@@ -149,6 +149,33 @@ export class QcDashboardController extends Component {
         });
     }
 
+    /** The Job sheets, of open Jobs, in one inspection state: what the search bar selects, as the Revision the Job prints. */
+    openInspections(inspectionState, name) {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name,
+            res_model: "qc.job.checksheet",
+            views: [[false, "list"], [false, "form"]],
+            domain: [
+                ["checksheet_id", "any", this.props.domain],
+                ["job_status", "in", ["in_progress", "on_hold"]],
+                ["inspection_state", "=", inspectionState],
+            ],
+            // The to-do view: oldest waiting first, with the buttons that go straight to the work.
+            context: { create: false, list_view_ref: "qc_checksheet.view_qc_job_checksheet_todo_list" },
+        });
+    }
+
+    /** The Job's QC page at the Type of this row, where the change is approved. */
+    openJobAt(row) {
+        return this.action.doAction({
+            type: "ir.actions.client",
+            tag: "qc_checksheet.job",
+            name: `QC: ${row.job}`,
+            context: { active_id: row.job_id, focus_type_id: row.type_id },
+        });
+    }
+
     /** The requests waiting for an Approver; the standard list, which opens on the Pending filter. */
     openChangeRequests() {
         return this.action.doAction("qc_checksheet.action_qc_job_checksheet_change");

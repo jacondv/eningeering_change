@@ -30,6 +30,19 @@ class QcChecksheet(models.Model):
             'context': {'active_id': self.id},
         }
 
+    def action_open_default(self):
+        """A row of the list: a standard sheet opens on the editor, where it is read and written;
+        a Panel & Sticker one on its form, which is where that layout is edited."""
+        self.ensure_one()
+        if self.checksheet_type == 'standard':
+            return self.action_open_editor()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': self._name,
+            'res_id': self.id,
+            'views': [(False, 'form')],
+        }
+
     # Loading
 
     def editor_load(self):

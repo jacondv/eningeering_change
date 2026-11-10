@@ -9,6 +9,9 @@
                 <group string="Dashboard">
                     <field name="review_overdue_days"/>
                 </group>
+                <group string="Scans">
+                    <field name="scan_max_file_mb"/>
+                </group>
                 <footer>
                     <button string="Save" name="action_save" type="object" class="btn-primary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>

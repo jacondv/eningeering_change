@@ -27,7 +27,7 @@
         <field name="arch" type="xml">
             <form string="Revision Change Request" create="0" duplicate="0" delete="0">
                 <header>
-                    <button string="Approve" name="action_approve" type="object" class="oe_highlight"
+                    <button string="Approve" name="action_open_approve" type="object" class="oe_highlight"
                             groups="qc_checksheet.group_qc_approver" invisible="state != 'pending'"/>
                     <button string="Reject" name="%(action_qc_job_change_reject_wizard)d" type="action"
                             context="{'default_change_id': id}"
@@ -54,6 +54,8 @@
                             <field name="decided_by_id" invisible="not decided_by_id"/>
                             <field name="decided_date" invisible="not decided_date"/>
                             <field name="reject_reason" invisible="not reject_reason"/>
+                            <field name="reinspection" invisible="not reinspection"/>
+                            <field name="reinspection_reason" invisible="not reinspection_reason"/>
                         </group>
                     </group>
                 </sheet>

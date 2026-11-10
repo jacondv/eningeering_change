@@ -30,12 +30,16 @@ export class QcRichCell extends Component {
     setup() {
         this.root = useRef("root");
         this.editor = null;
+        // The picture clicked while the cell was still plain Html: selected once the editor is there, so the
+        // editor's picture toolbar (Resize, Transform, ...) is there at once.
+        this.pendingImageIndex = null;
 
         useEffect(
             (editing) => {
                 if (editing && this.editor) {
                     this.props.registerCommit(() => this.commit());
                     this.placeCaret();
+                    this.selectPendingImage();
                 }
             },
             () => [this.editing]
@@ -85,6 +89,38 @@ export class QcRichCell extends Component {
         if (this.editor) {
             this.props.onChange(this.editor.getContent());
         }
+    }
+
+    // Pictures
+
+    /**
+     * Pressing the mouse on a picture of a cell that isn't being edited yet: the cell opens with that picture
+     * selected. This has to be the mouse press, not the click: the press focuses the cell, which opens it
+     * before any click is sent.
+     */
+    onRenderedMouseDown(ev) {
+        if (ev.target instanceof HTMLImageElement) {
+            this.pendingImageIndex = [...ev.currentTarget.querySelectorAll("img")].indexOf(ev.target);
+        }
+    }
+
+    onRenderedClick() {
+        this.props.onActivate();
+    }
+
+    selectPendingImage() {
+        const index = this.pendingImageIndex;
+        this.pendingImageIndex = null;
+        const image = index === null ? null : this.editor.editable.querySelectorAll("img")[index];
+        if (!image) {
+            return;
+        }
+        const parent = image.parentNode;
+        const at = [...parent.childNodes].indexOf(image);
+        this.editor.shared.selection.setSelection(
+            { anchorNode: parent, anchorOffset: at, focusNode: parent, focusOffset: at + 1 },
+            { normalize: false }
+        );
     }
 
     placeCaret() {

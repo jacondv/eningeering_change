@@ -408,6 +408,14 @@ class TestQcChecksheetEditor(QcChecksheetCase):
                 'model_id': self._create_model().id, 'type_id': self.type_general.id, 'header': 'X',
             })
 
+    def test_a_list_row_opens_a_standard_sheet_on_the_editor_and_a_panel_sheet_on_its_form(self):
+        standard = self._sheet()
+        action = standard.action_open_default()
+        self.assertEqual((action['tag'], action['context']['active_id']), ('qc_checksheet.editor', standard.id))
+        panel = self._create_checksheet(self.type_panel)
+        action = panel.action_open_default()
+        self.assertEqual((action['type'], action['res_model'], action['res_id']), ('ir.actions.act_window', 'qc.checksheet', panel.id))
+
     def test_action_open_editor_carries_the_sheet(self):
         checksheet = self._sheet()
         action = checksheet.action_open_editor()

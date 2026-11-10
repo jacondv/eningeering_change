@@ -273,6 +273,16 @@ $qce-band: #dbe5f1;
     white-space: nowrap;
 }
 
+// A Group name of several lines: one line each, stacked, each cut with an ellipsis if too long.
+.o_qce_outline_lines {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    .o_qce_ellipsis { flex: none; }
+}
+
 .o_qce_main {
     flex: 1 1 0;
     min-width: 0;
@@ -493,6 +503,31 @@ input.o_qce_diff_changed { background-color: $qce-changed; }
 .o_qce_number_cell {
     flex-direction: column;
     gap: 2px;
+}
+
+// Ticking Items to delete several together.
+.o_qce_select { margin: 0; cursor: pointer; }
+
+// Created by: Odoo's suggestion box, looking like the other boxes of the table.
+.o_qce_created_by {
+    display: block;
+    .o-autocomplete--input {
+        width: 100%;
+        padding: 6px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        background: #fff;
+        &:focus { outline: 0; border-color: $qce-teal; box-shadow: 0 0 0 2px rgba(0, 128, 128, 0.2); }
+    }
+}
+.o_qce_item.o_qce_selected { background: #fff8e1; }
+.o_qce_selection_bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: #fff3cd;
+    border-bottom: 1px solid #f0d78c;
 }
 
 .o_qce_diff_tag {

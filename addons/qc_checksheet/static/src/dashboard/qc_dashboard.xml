@@ -34,6 +34,18 @@
                                 <div class="o_qcd_kpi_value" t-esc="data.rev_changes.total"/>
                                 <div class="o_qcd_kpi_label">Rev changes waiting</div>
                             </div>
+                            <div class="o_qcd_kpi_card o_qcd_kpi_awaiting"
+                                 title="Printed sheets of open Jobs still waiting for their signed scan"
+                                 t-on-click="() => this.openInspections('awaiting', 'Awaiting scan')">
+                                <div class="o_qcd_kpi_value" t-esc="data.inspections.awaiting"/>
+                                <div class="o_qcd_kpi_label">Awaiting scan</div>
+                            </div>
+                            <div class="o_qcd_kpi_card o_qcd_kpi_reinspection"
+                                 title="Open Jobs whose Revision changed after they were inspected, and must be inspected again"
+                                 t-on-click="() => this.openInspections('reinspection', 'Re-inspection needed')">
+                                <div class="o_qcd_kpi_value" t-esc="data.inspections.reinspection"/>
+                                <div class="o_qcd_kpi_label">Re-inspection needed</div>
+                            </div>
                             <div class="o_qcd_kpi_card o_qcd_kpi_missing"
                                  title="Open Jobs whose Model has no Released sheet yet of every required Type"
                                  t-on-click="openWaitingJobs">
@@ -131,7 +143,7 @@
                                         <tbody>
                                             <tr t-foreach="data.rev_changes.items" t-as="row" t-key="row.id"
                                                 class="o_qcd_clickable" title="Opens the Job's QC page, where it is approved"
-                                                t-on-click="() => this.openJob({ key: row.job_id, label: row.job })">
+                                                t-on-click="() => this.openJobAt(row)">
                                                 <td t-esc="row.job"/>
                                                 <td t-esc="row.type"/>
                                                 <td>Rev <t t-esc="row.from_revision"/> &#8594; Rev <t t-esc="row.to_revision"/></td>

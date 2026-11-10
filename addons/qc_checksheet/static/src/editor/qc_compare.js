@@ -6,6 +6,28 @@ const IMG_SRC_RE = /<img\b[^>]*?\bsrc="([^"]*)"/gi;
 // holds its own copy of an image, so only the file tells whether it changed.
 const IMAGE_CHECKSUM_RE = /\/web\/image\/\d+-([0-9a-f]+)/;
 
+/**
+ * An Html's lines as text, one entry per paragraph or line break: a Group name of two paragraphs
+ * ("Check the panel" and "Kiểm tra tủ") is two lines, never run together.
+ */
+export function htmlToLines(html) {
+    const body = new DOMParser().parseFromString(html || "", "text/html").body;
+    body.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+    const blockTags = "p, div, li, h1, h2, h3, h4, h5, h6";
+    // The innermost blocks only: a paragraph inside a div would be read twice.
+    const blocks = [...body.querySelectorAll(blockTags)].filter((block) => !block.querySelector(blockTags));
+    const texts = blocks.length ? blocks.map((block) => block.textContent) : [body.textContent];
+    return texts
+        .flatMap((text) => text.split("\n"))
+        .map((line) => line.replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+}
+
+/** The same lines on one line, with " / " between them, where only one line fits. */
+export function htmlToLine(html) {
+    return htmlToLines(html).join(" / ");
+}
+
 export function htmlToText(html) {
     return new DOMParser()
         .parseFromString(html || "", "text/html")
@@ -31,7 +53,7 @@ function describe(html) {
 }
 
 function groupTitle(group) {
-    return htmlToText(group.name) || "Untitled Group";
+    return htmlToLine(group.name) || "Untitled Group";
 }
 
 /**

@@ -5,7 +5,8 @@
         <field name="name">qc.job.checksheet.list</field>
         <field name="model">qc.job.checksheet</field>
         <field name="arch" type="xml">
-            <list string="Job Check Sheets" create="0" delete="0" decoration-warning="update_available">
+            <list string="Job Check Sheets" create="0" delete="0" decoration-warning="update_available"
+                  action="action_open_job_page" type="object">
                 <field name="job_id"/>
                 <field name="type_id"/>
                 <field name="reference"/>
@@ -15,9 +16,38 @@
                 <field name="model_id"/>
                 <field name="machine_serial" optional="show"/>
                 <field name="job_status" optional="show"/>
+                <field name="inspection_state" widget="badge" decoration-success="inspection_state == 'scanned'"
+                       decoration-warning="inspection_state == 'awaiting'" decoration-danger="inspection_state == 'reinspection'"/>
                 <field name="check_date" optional="show"/>
                 <field name="pinned_date"/>
                 <field name="pinned_by_id" optional="hide"/>
+                <button string="Upload scan" name="action_upload_scan" type="object" icon="fa-upload"
+                        groups="qc_checksheet.group_qc_author" invisible="inspection_state == 'scanned'"/>
+                <button string="Print PDF" name="%(action_report_qc_job_checksheet)d" type="action" icon="fa-print"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Opened from the Dashboard's "Awaiting scan" and "Re-inspection needed": what is to be done, the oldest
+         first, with the buttons that go straight to doing it. A row opens the Job's QC page at that sheet. -->
+    <record id="view_qc_job_checksheet_todo_list" model="ir.ui.view">
+        <field name="name">qc.job.checksheet.todo.list</field>
+        <field name="model">qc.job.checksheet</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <list string="Sheets to inspect" create="0" delete="0" default_order="pinned_date asc"
+                  action="action_open_job_page" type="object">
+                <field name="job_id"/>
+                <field name="machine_serial"/>
+                <field name="customer" optional="show"/>
+                <field name="type_id"/>
+                <field name="revision"/>
+                <field name="inspection_state" widget="badge" decoration-warning="inspection_state == 'awaiting'"
+                       decoration-danger="inspection_state == 'reinspection'"/>
+                <field name="pinned_date" string="Printed On"/>
+                <field name="check_date" optional="hide"/>
+                <button string="Upload scan" name="action_upload_scan" type="object" icon="fa-upload"
+                        groups="qc_checksheet.group_qc_author" invisible="inspection_state == 'scanned'"/>
                 <button string="Print PDF" name="%(action_report_qc_job_checksheet)d" type="action" icon="fa-print"/>
             </list>
         </field>
@@ -30,6 +60,9 @@
             <form string="Job Check Sheet" create="0" duplicate="0" delete="0">
                 <header>
                     <button string="Print PDF" name="%(action_report_qc_job_checksheet)d" type="action" class="oe_highlight"/>
+                    <button string="Upload scan" name="action_upload_scan" type="object" class="oe_highlight"
+                            groups="qc_checksheet.group_qc_author" invisible="inspection_state == 'scanned'"/>
+                    <button string="Open Job QC page" name="action_open_job_page" type="object"/>
                     <button string="Open Check Sheet" name="action_open_checksheet" type="object"/>
                 </header>
                 <div class="alert alert-info mb-0" role="alert" invisible="not update_available">
@@ -54,12 +87,25 @@
                             <field name="engine_number"/>
                             <field name="customer"/>
                             <field name="job_status"/>
+                            <field name="inspection_state" widget="badge"/>
                             <field name="pinned_date"/>
                             <field name="pinned_by_id"/>
                             <field name="update_available" invisible="1"/>
                         </group>
                     </group>
                     <notebook>
+                        <page string="Scans" name="scans">
+                            <field name="scan_ids" readonly="1">
+                                <list>
+                                    <field name="check_date"/>
+                                    <field name="revision"/>
+                                    <field name="file_count" string="Files"/>
+                                    <field name="note"/>
+                                    <field name="uploaded_by_id"/>
+                                    <field name="uploaded_date"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Revision Change Requests" name="changes">
                             <field name="change_ids" readonly="1">
                                 <list>
@@ -89,6 +135,9 @@
                 <field name="type_id"/>
                 <field name="reference"/>
                 <filter string="Outdated (newer Rev on the Model)" name="outdated" domain="[('update_available', '=', True)]"/>
+                <filter string="Awaiting scan" name="awaiting_scan" domain="[('inspection_state', '=', 'awaiting')]"/>
+                <filter string="Scanned" name="scanned" domain="[('inspection_state', '=', 'scanned')]"/>
+                <filter string="Re-inspection needed" name="reinspection" domain="[('inspection_state', '=', 'reinspection')]"/>
                 <separator/>
                 <filter string="Open Jobs" name="open_jobs" domain="[('job_status', 'in', ['in_progress', 'on_hold'])]"
                         help="Jobs In Progress or On Hold."/>
