@@ -99,6 +99,7 @@ class QcChecksheet(models.Model):
                 'created_by': line.created_by or '',
                 'approved_by': line.approved_by or '',
                 'show_in_report': line.show_in_report,
+                'legacy': line.legacy,
                 'sheet_id': rev_sheets.get(line.rev, False),
             } for line in self.history_ids],
             # Suggestions for Created By in the Revision History.
@@ -220,8 +221,14 @@ class QcChecksheet(models.Model):
             if not line:
                 raise UserError(_("This content does not belong to this check sheet. Reload the page."))
             vals = {'show_in_report': bool(data.get('show_in_report'))}
-            # The write guard only lets the current Revision's own row change these.
-            if line.rev == self.revision:
+            # The write guard only lets the current Revision's own row change these, and a row of a
+            # Revision from before Odoo, which is typed in by hand, Approved By included.
+            if line.legacy:
+                vals['description'] = data.get('description') or False
+                vals['date'] = data.get('date') or False
+                vals['created_by'] = (data.get('created_by') or '').strip() or False
+                vals['approved_by'] = (data.get('approved_by') or '').strip() or False
+            elif line.rev == self.revision:
                 vals['description'] = data.get('description') or False
                 vals['date'] = data.get('date') or False
                 # Left empty it goes back to the user saving, like a Revision's first value.
@@ -303,6 +310,8 @@ class QcChecksheet(models.Model):
     @api.model
     def editor_create(self, vals):
         self._check_group(GROUP_AUTHOR)
+        start = vals.get('start_rev') or 0
+        self._check_start_revision(start, vals.get('model_id'), vals.get('type_id'))
         checksheet = self.create({
             'name': vals.get('header'),
             'type_id': vals.get('type_id'),
@@ -316,6 +325,7 @@ class QcChecksheet(models.Model):
                 'name': EMPTY_HTML,
                 'item_ids': [(0, 0, {})],
             })
+        checksheet._start_at_revision(start)
         return {'id': checksheet.id, 'layout': checksheet.checksheet_type}
 
     def _check_content_complete(self):

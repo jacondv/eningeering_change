@@ -5,6 +5,8 @@ import { useService } from "@web/core/utils/hooks";
 import { QcJobPicker } from "./qc_job_picker";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
+// The highest Revision a sheet may start at (MAX_START_REVISION on the server).
+const MAX_START_REV = 99;
 
 /** The New Check Sheet page: pick the Model and Type, and what to start from. */
 export class QcNewSheet extends Component {
@@ -27,6 +29,8 @@ export class QcNewSheet extends Component {
             model: null,
             header: "",
             headerIsAuto: false,
+            // Kept as typed, so the field can be empty while typing; see startRevOk.
+            startRev: "0",
             source: "blank",
             sourceId: false,
             sourceModel: null,
@@ -75,10 +79,21 @@ export class QcNewSheet extends Component {
         return "Printed as the top line of the PDF.";
     }
 
+    /** The Revision to start at, from 0 to MAX_START_REV. */
+    get startRevOk() {
+        const value = String(this.state.startRev).trim();
+        return /^\d{1,2}$/.test(value) && Number(value) <= MAX_START_REV;
+    }
+
+    get startRevNumber() {
+        return this.startRevOk ? Number(this.state.startRev) : 0;
+    }
+
     get cannotCreate() {
         const { model, header, typeId, source, sourceId, context, creating } = this.state;
         return (
             creating ||
+            !this.startRevOk ||
             !model ||
             !typeId ||
             !header.trim() ||
@@ -140,6 +155,7 @@ export class QcNewSheet extends Component {
                     type_id: typeId,
                     header: header.trim(),
                     source_id: source === "copy" ? sourceId : false,
+                    start_rev: this.startRevNumber,
                 },
             ]);
             this.props.onCreated(created);

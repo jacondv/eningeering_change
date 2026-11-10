@@ -129,6 +129,7 @@ class QcChecksheet(models.Model):
             'type_id': row['type_id'],
             'header': row.get('header'),
             'source_id': row.get('source_id') or False,
+            'start_rev': row.get('start_rev') or 0,
         }) for row in rows]
 
     @api.model

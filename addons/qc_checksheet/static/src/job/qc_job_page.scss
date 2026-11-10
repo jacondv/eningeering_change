@@ -50,6 +50,8 @@
 .o_qce_create_table {
     min-width: 900px;
     td { vertical-align: middle; }
-    td:nth-child(3) { width: 48%; }
-    td:nth-child(4) { width: 34%; }
+    td:nth-child(3) { width: 40%; }
+    td:nth-child(4) { width: 8rem; }
+    .o_qce_start_rev { min-width: 6rem; }
+    td:nth-child(5) { width: 40%; }
 }
