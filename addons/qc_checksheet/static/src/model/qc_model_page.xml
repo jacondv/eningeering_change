@@ -74,10 +74,11 @@
 
     <t t-name="qc_checksheet.CreateSheetsDialog">
         <Dialog title="'Create check sheets for ' + props.modelName" size="'xl'">
-            <p class="text-muted">Each one starts as Draft Rev 0. Copying brings over the content and approval positions only.</p>
+            <p class="text-muted">Each one starts as a Draft, at Rev 0 unless the sheet is already in use elsewhere (Word, say): then enter the
+                Revision it has, and the earlier ones are listed in its Revision History as "To be updated". Copying brings over the content and approval positions only.</p>
             <div class="o_qce_scroll_x">
                 <table class="o_qce_table o_qce_create_table">
-                    <thead><tr><th/><th>Type</th><th>Start from</th><th>Header</th></tr></thead>
+                    <thead><tr><th/><th>Type</th><th>Start from</th><th>Start at Rev</th><th>Header</th></tr></thead>
                     <tbody>
                         <tr t-foreach="state.rows" t-as="row" t-key="row.type_id">
                             <td><input type="checkbox" t-att-aria-label="'Create ' + row.type_name" t-model="row.selected"/></td>
@@ -97,6 +98,10 @@
                                         </t>
                                     </optgroup>
                                 </select>
+                            </td>
+                            <td>
+                                <input type="number" min="0" max="99" step="1" class="form-control o_qce_start_rev" t-att-aria-label="'Start ' + row.type_name + ' at Rev'"
+                                       t-att-class="{'is-invalid': row.selected and !startRevOk(row)}" t-att-disabled="!row.selected" t-model="row.start_rev"/>
                             </td>
                             <td>
                                 <input class="form-control" t-att-aria-label="'Header of ' + row.type_name" t-att-disabled="!row.selected"

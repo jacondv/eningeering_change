@@ -363,8 +363,9 @@ export class QcChecksheetEditor extends Component {
         ].join("; ");
     }
 
+    /** The current Revision's row, and a row of a Revision from before Odoo, which is typed in by hand. */
     isHistoryRowEditable(line) {
-        return this.editable && line.rev === this.sheet.revision;
+        return this.editable && (line.legacy || line.rev === this.sheet.revision);
     }
 
     get HISTORY_DATE_FORMAT() {
@@ -869,6 +870,7 @@ export class QcChecksheetEditor extends Component {
                         description: line.description,
                         date: line.date,
                         created_by: line.created_by,
+                        approved_by: line.approved_by,
                         show_in_report: line.show_in_report,
                     })),
                 },

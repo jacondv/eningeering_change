@@ -395,6 +395,93 @@ class TestQcChecksheetEditor(QcChecksheetCase):
             'id': source.id, 'label': f'Copied from {source.reference} Rev 0'})
         self.assertIs(source.editor_load()['source'], False)
 
+    def _start_at(self, start, **extra):
+        Checksheet = self.env['qc.checksheet'].with_user(self.author)
+        created = Checksheet.editor_create({
+            'model_id': self._create_model().id, 'type_id': self.type_general.id, 'header': 'Came from Word',
+            'start_rev': start, **extra,
+        })
+        return Checksheet.browse(created['id'])
+
+    def test_a_sheet_that_exists_on_paper_starts_at_its_own_revision(self):
+        sheet = self._start_at(4)
+        self.assertEqual((sheet.revision, sheet.state), (4, 'draft'))
+        self.assertEqual(sheet.root_id.revision_ids, sheet)
+        history = sheet.history_ids.sorted('rev')
+        self.assertEqual(history.mapped('rev'), [0, 1, 2, 3, 4])
+        self.assertEqual(history.mapped('legacy'), [True] * 4 + [False])
+        self.assertEqual(set(history[:4].mapped('description')), {'To be updated'})
+        self.assertFalse(any(history[:4].mapped('date')))
+        self.assertEqual(history[4].description, 'Initial release')
+        self.assertEqual(sheet.change_reason, 'Initial release')
+        self.assertEqual(len(sheet.group_ids), 1)
+
+    def test_starting_at_zero_changes_nothing(self):
+        sheet = self._start_at(0)
+        self.assertEqual(sheet.revision, 0)
+        self.assertEqual(sheet.history_ids.mapped('legacy'), [False])
+
+    def test_the_start_revision_is_from_0_to_99(self):
+        self.assertEqual(self._start_at(99).revision, 99)
+        for bad in (-1, 100, '4', 1.5, True):
+            with self.assertRaises(UserError, msg=repr(bad)):
+                self._start_at(bad)
+
+    def test_only_the_first_sheet_of_a_model_and_type_may_start_above_zero(self):
+        model = self._create_model()
+        Checksheet = self.env['qc.checksheet'].with_user(self.author)
+        self._create_checksheet(model=model)
+        with self.assertRaises(UserError):
+            Checksheet.editor_create({
+                'model_id': model.id, 'type_id': self.type_general.id, 'header': 'X', 'start_rev': 2})
+
+    def test_the_earlier_rows_are_filled_in_by_hand_and_the_next_revision_follows_on(self):
+        sheet = self._start_at(2)
+        payload = sheet.editor_load()
+        by_rev = {line['rev']: line for line in payload['history']}
+        by_rev[0].update({'description': 'First issue', 'date': '2023-02-01', 'created_by': 'An', 'approved_by': 'Binh'})
+        by_rev[1].update({'description': 'Added step 3', 'date': '2024-03-04', 'created_by': '', 'approved_by': 'Binh'})
+        by_rev[2].update({'description': 'Changed limit', 'approved_by': 'Tampered'})
+        sheet.editor_save(payload)
+        first, second, current = sheet.history_ids.sorted('rev')
+        self.assertEqual((first.description, str(first.date), first.created_by, first.approved_by),
+                         ('First issue', '2023-02-01', 'An', 'Binh'))
+        # Left empty, the author of an earlier Revision stays unknown: it isn't the user saving now.
+        self.assertFalse(second.created_by)
+        self.assertEqual(current.description, 'Changed limit')
+        # The current Revision's Approved By is the system's, as ever.
+        self.assertFalse(current.approved_by)
+        sheet.sudo().group_ids.unlink()
+        self._create_content(sheet)
+        sheet.action_submit()
+        sheet.with_user(self.approver).action_approve()
+        # Released: the rows are locked like any other.
+        with self.assertRaises(UserError):
+            first.with_user(self.author).write({'description': 'Late edit'})
+        new = sheet.browse(sheet.action_create_revision('Next change')['res_id'])
+        self.assertEqual(new.revision, 3)
+        self.assertEqual(new.history_ids.sorted('rev').mapped('legacy'), [True, True, False, False])
+        self.assertEqual(new.history_ids.sorted('rev')[0].approved_by, 'Binh')
+
+    def test_only_a_row_from_before_odoo_takes_approved_by_by_hand(self):
+        sheet = self._start_at(1)
+        legacy, current = sheet.history_ids.sorted('rev')
+        legacy.with_user(self.author).write({'approved_by': 'Binh'})
+        self.assertEqual(legacy.approved_by, 'Binh')
+        with self.assertRaises(UserError):
+            current.with_user(self.author).write({'approved_by': 'Me'})
+        with self.assertRaises(UserError):
+            legacy.with_user(self.author).write({'legacy': False})
+
+    def test_the_model_page_creates_sheets_at_their_own_revisions(self):
+        model = self._create_model()
+        created = self.env['qc.checksheet'].with_user(self.author).model_create_sheets(model.id, [
+            {'type_id': self.type_general.id, 'header': 'A', 'start_rev': 3},
+            {'type_id': self.type_panel.id, 'header': 'B'},
+        ])
+        revisions = {sheet.type_id: sheet.revision for sheet in self.env['qc.checksheet'].browse([c['id'] for c in created])}
+        self.assertEqual(revisions, {self.type_general: 3, self.type_panel: 0})
+
     def test_panel_sheet_is_created_empty_for_the_form(self):
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({
             'model_id': self._create_model().id, 'type_id': self.type_panel.id, 'header': 'Panel',

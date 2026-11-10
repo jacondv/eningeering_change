@@ -72,6 +72,16 @@
                     <input id="qce_header" class="form-control" t-att-value="state.header" t-on-input="onHeaderInput"/>
                     <small class="text-muted" t-esc="headerHint"/>
                 </div>
+                <div class="o_qce_field">
+                    <label for="qce_start_rev">Start at Rev</label>
+                    <input id="qce_start_rev" type="number" min="0" max="99" step="1" class="form-control w-auto" t-att-value="state.startRev"
+                           t-on-input="(ev) => { state.startRev = ev.target.value; }"/>
+                    <small t-att-class="startRevOk ? 'text-muted' : 'text-danger'">
+                        <t t-if="!startRevOk">Enter a whole number from 0 to 99.</t>
+                        <t t-elif="startRevNumber">The sheet already exists on paper at Rev <t t-esc="startRevNumber"/>: Revisions 0 to <t t-esc="startRevNumber - 1"/> are listed in its Revision History as "To be updated", for you to fill in.</t>
+                        <t t-else="">0 for a new sheet. A sheet already in use elsewhere (Word, say) starts at the Revision it has.</t>
+                    </small>
+                </div>
                 <div t-if="state.context.duplicate_id" class="alert alert-warning mb-0 d-flex flex-wrap align-items-center gap-2">
                     <span>This Model already has a sheet of this Type, and a Model holds one per Type.</span>
                     <button class="btn btn-link p-0" t-on-click="() => this.props.onOpen(state.context.duplicate_id)">Open it</button>
@@ -112,7 +122,7 @@
             <div class="o_qce_panel o_qce_new_summary">
                 <span class="fw-bold">This sheet will be</span>
                 <div class="o_qce_number" t-esc="previewNumber"/>
-                <div><span class="o_qce_badge o_qce_badge_draft">Draft</span> <span class="text-muted">Rev 0</span></div>
+                <div><span class="o_qce_badge o_qce_badge_draft">Draft</span> <span class="text-muted">Rev <t t-esc="startRevOk ? startRevNumber : '?'"/></span></div>
                 <dl class="o_qce_facts">
                     <dt>Model</dt><dd t-esc="state.context.model or '-'"/>
                     <dt>Product Family</dt><dd t-esc="state.context.family or '-'"/>
@@ -280,7 +290,10 @@
                                                           onChange="({ inputValue }) => this.setHistory(line, 'created_by', inputValue)"/>
                                             <input t-else="" class="form-control" readonly="readonly" t-att-value="line.created_by"/>
                                         </td>
-                                        <td t-esc="line.approved_by or '-'"/>
+                                        <td t-if="line.legacy and isHistoryRowEditable(line)">
+                                            <input class="form-control" t-att-value="line.approved_by" t-on-input="(ev) => this.onHistoryInput(line, 'approved_by', ev)"/>
+                                        </td>
+                                        <td t-else="" t-esc="line.approved_by or '-'"/>
                                         <td><input type="checkbox" t-att-checked="line.show_in_report" t-att-disabled="!editable" t-on-change="(ev) => this.onHistoryInput(line, 'show_in_report', ev)"/></td>
                                         <td>
                                             <span t-if="line.sheet_id === sheet.id" class="text-muted">Viewing</span>

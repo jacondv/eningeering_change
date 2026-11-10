@@ -38,6 +38,10 @@ class QcChecksheetHistory(models.Model):
     show_in_report = fields.Boolean(
         string='Show in Report', default=True,
         help="Uncheck to keep this revision in the record without printing it on the PDF.")
+    legacy = fields.Boolean(
+        string='Before Odoo', readonly=True,
+        help="A Revision made before the sheet came to Odoo (see Start at Rev). It has no sheet here, "
+             "so its row is typed in by hand, including Approved By, while the sheet is a Draft.")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -47,10 +51,14 @@ class QcChecksheetHistory(models.Model):
 
     def write(self, vals):
         if not self.env.su:
-            if vals.keys() - {'show_in_report', 'description', 'date', 'created_by'}:
+            # A row of a Revision from before Odoo is all typed by hand: Approved By too.
+            by_hand = {'show_in_report', 'description', 'date', 'created_by'}
+            if all(self.mapped('legacy')):
+                by_hand |= {'approved_by'}
+            if vals.keys() - by_hand:
                 raise UserError(_("Revision History is written by the system."))
-            if vals.keys() & {'description', 'date', 'created_by'}:
-                for line in self:
+            if vals.keys() & {'description', 'date', 'created_by', 'approved_by'}:
+                for line in self.filtered(lambda line: not line.legacy):
                     if line.rev != line.checksheet_id.revision:
                         raise UserError(_(
                             "Only the row of the current Revision can be changed (Rev %s).",

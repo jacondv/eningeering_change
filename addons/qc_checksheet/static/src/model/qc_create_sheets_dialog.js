@@ -5,6 +5,8 @@ import { Dialog } from "@web/core/dialog/dialog";
 import { useService } from "@web/core/utils/hooks";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
+// The highest Revision a sheet may start at (MAX_START_REVISION on the server).
+const MAX_START_REV = 99;
 
 /** One row per Type to create: what to start from, and its Header. */
 export class QcCreateSheetsDialog extends Component {
@@ -27,7 +29,8 @@ export class QcCreateSheetsDialog extends Component {
                 this.props.modelId,
                 this.props.typeIds,
             ]);
-            this.state.rows = rows.map((row) => ({ ...row, selected: true }));
+            // start_rev is kept as typed: a sheet already in use elsewhere starts at its own Revision.
+            this.state.rows = rows.map((row) => ({ ...row, selected: true, start_rev: "0" }));
         });
     }
 
@@ -37,7 +40,16 @@ export class QcCreateSheetsDialog extends Component {
 
     get cannotCreate() {
         const rows = this.selectedRows;
-        return this.state.creating || !rows.length || rows.some((row) => !row.header.trim());
+        return (
+            this.state.creating ||
+            !rows.length ||
+            rows.some((row) => !row.header.trim() || !this.startRevOk(row))
+        );
+    }
+
+    startRevOk(row) {
+        const value = String(row.start_rev).trim();
+        return /^\d{1,2}$/.test(value) && Number(value) <= MAX_START_REV;
     }
 
     sameTypeOptions(row) {
@@ -64,9 +76,10 @@ export class QcCreateSheetsDialog extends Component {
                     type_id: row.type_id,
                     header: row.header.trim(),
                     source_id: row.source_id,
+                    start_rev: Number(row.start_rev),
                 })),
             ]);
-            this.notification.add(`${created.length} check sheet(s) created as Draft Rev 0`, { type: "success" });
+            this.notification.add(`${created.length} check sheet(s) created as Draft`, { type: "success" });
             this.props.close();
             await this.props.onCreated(created);
         } finally {
