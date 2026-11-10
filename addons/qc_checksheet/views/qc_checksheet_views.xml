@@ -195,7 +195,8 @@
         <field name="name">qc.checksheet.list</field>
         <field name="model">qc.checksheet</field>
         <field name="arch" type="xml">
-            <list string="QC Check Sheets" js_class="qc_checksheet_list" duplicate="0">
+            <list string="QC Check Sheets" js_class="qc_checksheet_list" duplicate="0"
+                  action="action_open_default" type="object">
                 <field name="reference"/>
                 <field name="name" string="Header"/>
                 <field name="type_id"/>
@@ -205,9 +206,6 @@
                        decoration-warning="state == 'review'" decoration-success="state == 'released'"
                        decoration-muted="state == 'superseded'"/>
                 <field name="job_count" optional="show"/>
-                <field name="checksheet_type" column_invisible="1"/>
-                <button string="Open Editor" name="action_open_editor" type="object" icon="fa-pencil"
-                        invisible="checksheet_type != 'standard'"/>
             </list>
         </field>
     </record>

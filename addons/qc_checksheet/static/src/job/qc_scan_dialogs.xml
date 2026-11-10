@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="qc_checksheet.ScanDialog">
+        <Dialog title="'Upload the signed scan: ' + props.typeName" size="'lg'">
+            <p class="text-muted mb-2">The sheet is Rev <t t-esc="props.revision"/>. PDF, JPG or PNG, up to <t t-esc="maxSizeText"/> each, <t t-esc="props.limits.max_files"/> files at most.</p>
+
+            <input type="file" t-ref="fileInput" class="d-none" multiple="multiple"
+                   accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" t-on-change="onFilesPicked"/>
+            <button class="btn btn-secondary" t-on-click="openPicker"><i class="fa fa-upload me-1"/>Choose files</button>
+
+            <div t-if="state.error" class="o_qce_notice o_qce_notice_danger mt-2 mb-0" style="white-space: pre-line;" t-esc="state.error"/>
+
+            <div t-if="state.files.length" class="o_qce_scroll_x mt-3">
+                <table class="o_qce_table">
+                    <thead>
+                        <tr>
+                            <th>File</th><th class="text-end">Size</th>
+                            <th t-if="showAfter" class="text-end">After reducing</th><th/>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="state.files" t-as="item" t-key="item_index">
+                            <td t-esc="item.file.name"/>
+                            <td class="text-end text-nowrap" t-esc="humanSize(item.file.size)"/>
+                            <td t-if="showAfter" class="text-end text-nowrap">
+                                <i t-if="state.estimate.loading" class="fa fa-spinner fa-spin text-muted"/>
+                                <t t-elif="after(item_index)">
+                                    <strong t-esc="humanSize(after(item_index).estimated_size)"/>
+                                    <span t-if="!after(item_index).reduced" class="small text-muted ms-1">can't be reduced</span>
+                                </t>
+                            </td>
+                            <td class="text-end">
+                                <button class="o_qce_icon" title="Remove" t-on-click="() => this.removeFile(item_index)"><i class="fa fa-times"/></button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="mt-2 small">Total <strong t-esc="humanSize(totalSize)"/></div>
+            </div>
+
+            <div t-if="canReduce" class="mt-3">
+                <div class="fw-bold mb-1">Reduce file size <span class="fw-normal text-muted">(saves disk space; nothing is reduced before you press Upload)</span>
+                    <button class="btn btn-link btn-sm py-0 ms-1" t-att-disabled="state.estimate.loading" t-on-click="runEstimate">
+                        <i t-if="state.estimate.loading" class="fa fa-spinner fa-spin me-1"/>Show sizes after reducing
+                    </button></div>
+                <label class="d-flex align-items-start gap-2 mb-1">
+                    <input type="radio" name="qc_scan_reduce" class="mt-1" t-att-checked="state.reduce === 'none'" t-on-change="() => this.chooseReduce('none')"/>
+                    <span><strong>Keep the files as they are</strong>
+                        <span class="text-muted ms-1" t-esc="humanSize(totalSize)"/></span>
+                </label>
+                <label t-foreach="levels" t-as="level" t-key="level.key" class="d-flex align-items-start gap-2 mb-1">
+                    <input type="radio" name="qc_scan_reduce" class="mt-1" t-att-checked="state.reduce === level.key"
+                           t-on-change="() => this.chooseReduce(level.key)"/>
+                    <span>
+                        <strong t-esc="level.label"/>
+                        <t t-if="totalAfter(level.key) !== null">
+                            <span class="ms-1"><strong t-esc="humanSize(totalAfter(level.key))"/></span>
+                            <span t-if="savedPercent(level.key) > 0" class="text-success ms-1">(&#8722;<t t-esc="savedPercent(level.key)"/>%)</span>
+                        </t>
+                        <span class="text-muted d-block small" t-esc="level.hint"/>
+                    </span>
+                </label>
+                <div t-if="state.estimate.error" class="o_qce_notice o_qce_notice_danger mt-2 mb-0" t-esc="state.estimate.error"/>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-5">
+                    <label class="fw-bold mb-1" for="qce_scan_date">Check Date</label>
+                    <DateTimeInput id="'qce_scan_date'" type="'date'" format="dateFormat" value="checkDateValue"
+                                   class="'form-control'" onChange.bind="onDateChange"/>
+                    <small class="text-muted">The day the Job was inspected.</small>
+                    <div t-if="isFuture" class="text-danger small">The Check Date can't be in the future.</div>
+                </div>
+                <div class="col-md-7">
+                    <label class="fw-bold mb-1" for="qce_scan_note">Note <span class="fw-normal text-muted">(optional)</span></label>
+                    <input id="qce_scan_note" class="form-control" autocomplete="off" t-model="state.note"/>
+                </div>
+            </div>
+
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-att-disabled="isBlocked" t-on-click="upload">
+                    <i t-if="state.uploading" class="fa fa-spinner fa-spin me-1"/>Upload
+                </button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+    <t t-name="qc_checksheet.ApproveDialog">
+        <Dialog title="'Approve the change of ' + props.typeName" size="'md'">
+            <div class="o_qce_notice o_qce_notice_warning mb-3">
+                This Job already has a signed scan. <t t-esc="props.scanText"/>
+                It would move from Rev <t t-esc="props.fromRevision"/> to Rev <t t-esc="props.toRevision"/>.
+                Does it need a new inspection?
+            </div>
+            <label class="d-flex align-items-start gap-2 mb-2">
+                <input type="radio" name="qc_reinspection" class="mt-1" t-att-checked="state.decision === 'required'"
+                       t-on-change="() => { state.decision = 'required'; }"/>
+                <span><strong>Re-inspection required</strong>
+                    <span class="d-block small text-muted">The Job shows "Re-inspection needed" until a scan is uploaded for the new Revision.</span></span>
+            </label>
+            <label class="d-flex align-items-start gap-2">
+                <input type="radio" name="qc_reinspection" class="mt-1" t-att-checked="state.decision === 'skipped'"
+                       t-on-change="() => { state.decision = 'skipped'; }"/>
+                <span><strong>Skip re-inspection</strong>
+                    <span class="d-block small text-muted">The earlier scan keeps counting as the inspection, for this Revision.</span></span>
+            </label>
+            <div t-if="state.decision === 'skipped'" class="mt-3">
+                <label class="fw-bold mb-1" for="qce_skip_reason">Why no new inspection is needed</label>
+                <input id="qce_skip_reason" class="form-control" autocomplete="off" t-model="state.reason"
+                       placeholder="e.g. the new Revision only corrects a typo"/>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-att-disabled="isBlocked" t-on-click="confirm">Approve</button>
+                <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

@@ -12,6 +12,36 @@
     margin-right: 4px;
 }
 
+// Inspection state of a Job's sheet, and its scans.
+.o_qce_badge_insp_awaiting { background: #fff3cd; color: #664d03; }
+.o_qce_badge_insp_scanned { background: #d1e7dd; color: #0f5132; }
+.o_qce_badge_insp_reinspection { background: #f8d7da; color: #842029; }
+
+// A row's buttons: the next step first, spaced so none touches the next, wrapping on a narrow screen.
+.o_qce_actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px 8px;
+    min-width: 230px;
+}
+
+// The row a list or the Dashboard pointed at, lit for a moment.
+.o_qce_row_focus td { animation: o_qce_focus_fade 3s ease-out; }
+@keyframes o_qce_focus_fade {
+    from { background-color: #fff3b0; }
+    to { background-color: transparent; }
+}
+
+.o_qce_scan_line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    margin-top: 2px;
+}
+
 .o_qce_badge_missing {
     background: #f8dcdc;
     color: #7a1215;

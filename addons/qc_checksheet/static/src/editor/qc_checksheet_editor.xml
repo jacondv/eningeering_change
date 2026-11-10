@@ -140,7 +140,14 @@
             <button class="btn btn-secondary" t-on-click="goToList">Back to list</button>
             <strong class="o_qce_title"><t t-esc="sheet.number"/> ·
                 <button class="btn btn-link p-0 align-baseline o_qce_title" title="Open this Model's check sheets" t-on-click="openModel" t-esc="sheet.model"/>
-                · Rev <t t-esc="sheet.revision"/></strong>
+                · Rev</strong>
+            <select t-if="sheet.revisions.length > 1" class="form-select form-select-sm w-auto" aria-label="Revision" title="Switch to another Revision"
+                    t-on-change="onRevisionChange">
+                <option t-foreach="[...sheet.revisions].reverse()" t-as="rev" t-key="rev.id" t-att-value="rev.id" t-att-selected="rev.id === sheet.id">
+                    <t t-esc="rev.revision"/> · <t t-esc="rev.state_label"/>
+                </option>
+            </select>
+            <strong t-else="" t-esc="sheet.revision"/>
             <span t-att-class="badgeClass" t-esc="sheet.state_label"/>
             <small class="text-muted" t-att-class="saveLabelClass" t-esc="saveLabel"/>
             <span class="flex-grow-1"/>

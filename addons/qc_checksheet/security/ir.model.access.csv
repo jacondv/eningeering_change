@@ -30,3 +30,6 @@ access_qc_job_checksheet_user,qc.job.checksheet.user,model_qc_job_checksheet,gro
 access_qc_job_checksheet_admin,qc.job.checksheet.admin,model_qc_job_checksheet,group_qc_admin,1,1,0,1
 access_qc_job_checksheet_change_user,qc.job.checksheet.change.user,model_qc_job_checksheet_change,group_qc_user,1,0,0,0
 access_qc_job_change_reject_wizard_approver,qc.job.change.reject.wizard.approver,model_qc_job_change_reject_wizard,group_qc_approver,1,1,1,1
+access_qc_job_checksheet_scan_user,qc.job.checksheet.scan.user,model_qc_job_checksheet_scan,group_qc_user,1,0,0,0
+access_qc_job_checksheet_scan_admin,qc.job.checksheet.scan.admin,model_qc_job_checksheet_scan,group_qc_admin,1,0,0,1
+access_qc_job_change_approve_wizard_approver,qc.job.change.approve.wizard.approver,model_qc_job_change_approve_wizard,group_qc_approver,1,1,1,1

@@ -262,8 +262,10 @@ class QcJobChecksheet(models.Model):
             reason=reason.strip()))
         return request.id
 
-    def _apply_revision(self, release, reason, requested_by=None, approved_by=None):
-        """Move the pin. Only an approved request gets here (see qc.job.checksheet.change)."""
+    def _apply_revision(self, release, reason, requested_by=None, approved_by=None, reinspection=None):
+        """Move the pin. Only an approved request gets here (see qc.job.checksheet.change).
+        `reinspection` is the Approver's decision when the Job already has a scan: 'required',
+        or 'skipped' to keep the scan as the inspection of the new Revision."""
         self.ensure_one()
         old = self.checksheet_id
         if release == old:
@@ -275,12 +277,18 @@ class QcJobChecksheet(models.Model):
             'checksheet_id': release.id,
             'pinned_date': fields.Datetime.now(),
             'pinned_by_id': (approved_by or self.env.user).id,
+            # A skip holds for this Revision only; any other decision clears an older one.
+            'reinspection_waived_id': release.id if reinspection == 'skipped' else False,
         })
         sudo_self.message_post(body=_(
-            "Updated from %(old)s to %(new)s, asked by %(asker)s, approved by %(user)s: %(reason)s",
+            "Updated from %(old)s to %(new)s, asked by %(asker)s, approved by %(user)s: %(reason)s%(decision)s",
             old=old.display_name, new=release.display_name,
             asker=(requested_by or self.env.user).name, user=(approved_by or self.env.user).name,
-            reason=reason.strip()))
+            reason=reason.strip(),
+            decision={
+                'required': _(" Re-inspection is required."),
+                'skipped': _(" Re-inspection skipped: the earlier scan still counts."),
+            }.get(reinspection, '')))
 
     # Job QC page (static/src/job)
 

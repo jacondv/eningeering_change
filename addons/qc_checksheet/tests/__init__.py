@@ -8,3 +8,4 @@ from . import test_qc_checksheet_model_page
 from . import test_qc_checksheet_dashboard
 from . import test_qc_checksheet_print
 from . import test_qc_checksheet_ec
+from . import test_qc_checksheet_scan

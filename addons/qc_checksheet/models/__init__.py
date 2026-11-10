@@ -13,5 +13,7 @@ from . import qc_checksheet_inventor_bom_line
 from . import qc_checksheet_print
 from . import qc_checksheet_change
 from . import qc_job_checksheet
+from . import qc_job_checksheet_scan
+from . import qc_job_checksheet_inspection
 from . import equipment_model
 from . import qc_job_checksheet_change

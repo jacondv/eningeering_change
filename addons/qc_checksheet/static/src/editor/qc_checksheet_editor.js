@@ -233,6 +233,22 @@ export class QcChecksheetEditor extends Component {
         return markup(value || "");
     }
 
+    /** The Revision picker of the top bar: what was typed is saved first, so nothing is lost by switching. */
+    async onRevisionChange(ev) {
+        const id = Number(ev.target.value);
+        if (id === this.sheet.id) {
+            return;
+        }
+        if (this.editable && this.state.dirty) {
+            await this.save();
+            if (this.state.dirty) {
+                ev.target.value = this.sheet.id;
+                return;
+            }
+        }
+        await this.openSheet(id);
+    }
+
     openSheet(id) {
         return this.action.doAction(
             {

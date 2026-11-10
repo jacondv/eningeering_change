@@ -45,6 +45,23 @@ class QcJobChecksheetChange(models.Model):
     decided_by_id = fields.Many2one('res.users', string='Decided By', readonly=True)
     decided_date = fields.Datetime(string='Decided On', readonly=True)
     reject_reason = fields.Char(string='Reject Reason', readonly=True)
+    has_scan = fields.Boolean(
+        compute='_compute_has_scan', help="The Job already has a signed scan: approving asks whether it needs a new inspection.")
+    reinspection = fields.Selection([
+        ('required', 'Re-inspection required'),
+        ('skipped', 'Re-inspection skipped'),
+    ], string='Re-inspection', readonly=True,
+        help="What the Approver decided, when the Job already had a scan at the time.")
+    reinspection_reason = fields.Char(string='Why No Re-inspection', readonly=True)
+
+    @api.depends('job_sheet_id.scan_ids')
+    def _compute_has_scan(self):
+        scanned = {
+            sheet.id for [sheet] in self.env['qc.job.checksheet.scan'].sudo()._read_group(
+                [('job_sheet_id', 'in', self.job_sheet_id.ids)], ['job_sheet_id'])
+        }
+        for rec in self:
+            rec.has_scan = rec.job_sheet_id.id in scanned
 
     @api.depends('job_id', 'type_id', 'from_revision', 'to_revision')
     def _compute_display_name(self):
@@ -107,18 +124,48 @@ class QcJobChecksheetChange(models.Model):
             rec._clear_activities()
             rec._notify_approvers(waiting_days=(fields.Datetime.now() - rec.requested_date).days)
 
-    def action_approve(self):
+    def action_approve(self, reinspection=None, reinspection_reason=None):
+        """A Job that already has a scan needs the Approver's word on re-inspection:
+        'required' (the Job must be inspected again, and shows as such until it is)
+        or 'skipped', with why (the earlier scan stays as the inspection)."""
         self._check_approver()
         self._check_pending()
+        reason = (reinspection_reason or '').strip()
         for rec in self:
+            if rec.has_scan:
+                if reinspection not in ('required', 'skipped'):
+                    raise UserError(_(
+                        "%s already has a scan. Choose whether it needs a new inspection.", rec.job_id.sudo().name))
+                if reinspection == 'skipped' and not reason:
+                    raise UserError(_("Enter why no new inspection is needed."))
+        for rec in self:
+            decision = rec.has_scan and reinspection or False
             rec.job_sheet_id.sudo()._apply_revision(
-                rec.to_checksheet_id, rec.reason, requested_by=rec.requested_by_id, approved_by=self.env.user)
+                rec.to_checksheet_id, rec.reason, requested_by=rec.requested_by_id, approved_by=self.env.user,
+                reinspection=decision)
             sudo_rec = rec.sudo()
             sudo_rec.write({
-                'state': 'approved', 'decided_by_id': self.env.uid, 'decided_date': fields.Datetime.now()})
+                'state': 'approved', 'decided_by_id': self.env.uid, 'decided_date': fields.Datetime.now(),
+                'reinspection': decision, 'reinspection_reason': reason if decision == 'skipped' else False})
             rec._clear_activities()
             sudo_rec.message_post(body=_("Approved by %s.", self.env.user.name))
         return True
+
+    def action_open_approve(self):
+        """The form's Approve button: a Job with a scan asks about re-inspection first."""
+        self.ensure_one()
+        self._check_approver()
+        self._check_pending()
+        if not self.has_scan:
+            return self.action_approve()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Approve Revision change"),
+            'res_model': 'qc.job.change.approve.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_change_id': self.id},
+        }
 
     def action_reject(self, reason):
         self._check_approver()

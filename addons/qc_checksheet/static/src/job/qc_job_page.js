@@ -1,10 +1,12 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { deserializeDateTime, formatDateTime } from "@web/core/l10n/dates";
+import { deserializeDate, deserializeDateTime, formatDateTime } from "@web/core/l10n/dates";
 import { QcPromptDialog } from "../editor/qc_prompt_dialog";
+import { QcApproveDialog } from "./qc_approve_dialog";
+import { QcScanDialog } from "./qc_scan_dialog";
 import { QcUpdateRevisionDialog } from "./qc_update_revision_dialog";
 import { QcPrintAllDialog } from "./qc_print_all_dialog";
 
@@ -26,8 +28,88 @@ export class QcJobPage extends Component {
         this.action = useService("action");
         this.dialog = useService("dialog");
         this.jobId = this.props.action.context?.active_id;
-        this.state = useState({ job: null, printing: false });
+        this.page = useRef("page");
+        // Coming from a list or the Dashboard: the Type whose row to show, and whether to open its upload at once.
+        this.focusTypeId = this.props.action.context?.focus_type_id || false;
+        this.focusUpload = !!this.props.action.context?.focus_upload;
+        // openScans: the Types whose earlier scans are unfolded. focused: the row being pointed at.
+        this.state = useState({ job: null, printing: false, openScans: {}, focused: this.focusTypeId });
         onWillStart(() => this.load());
+        onMounted(() => this.applyFocus());
+    }
+
+    /** Scrolls to the row the user came for, and opens the scan upload when that is what they asked. */
+    applyFocus() {
+        if (!this.focusTypeId) {
+            return;
+        }
+        const row = this.job.rows.find((candidate) => candidate.type_id === this.focusTypeId);
+        const element = this.page.el?.querySelector(`[data-type-id="${this.focusTypeId}"]`);
+        element?.scrollIntoView({ block: "center" });
+        if (row && this.focusUpload && row.pinned && row.inspection?.can_upload) {
+            this.upload(row);
+        }
+        this.focusUpload = false;
+    }
+
+    /**
+     * What the row offers, always in the same order so every row reads alike: Print, Upload scan, Update/Change
+     * Rev, Choose Rev, then the links to look. The buttons all look alike, grey.
+     * Each: {key, label, css, title, disabled, run}
+     */
+    actions(row) {
+        const sheet = this.printed(row);
+        if (!sheet) {
+            return [];
+        }
+        const inspection = row.inspection;
+        const upload = {
+            key: "upload",
+            label: "Upload scan",
+            title: "Upload the signed scan of this sheet",
+            run: () => this.upload(row),
+        };
+        const print = {
+            key: "print",
+            label: "Print",
+            disabled: this.state.printing,
+            run: () => this.print(row),
+        };
+        const list = [];
+        // Same place in every row, so the eye finds a button where it was in the row above.
+        list.push({ ...print, css: "btn-secondary" });
+        if (inspection?.can_upload) {
+            list.push({ ...upload, css: "btn-secondary" });
+        }
+        if (row.update) {
+            list.push({
+                key: "update",
+                label: row.outdated ? "Update Rev" : "Change Rev",
+                title: "An Approver has to approve the change",
+                css: "btn-secondary",
+                run: () => this.update(row),
+            });
+        }
+        if (row.choosable) {
+            list.push({
+                key: "choose",
+                label: "Choose Rev",
+                title: "Pin another Revision than the current one",
+                css: "btn-secondary",
+                run: () => this.choose(row),
+            });
+        }
+        list.push({ key: "open", label: "Open", title: "Read the sheet", css: "btn-link", run: () => this.open(sheet) });
+        if (row.pinned) {
+            list.push({
+                key: "details",
+                label: "Details",
+                title: "Check Date and the history of this Job's sheet",
+                css: "btn-link",
+                run: () => this.openJobSheet(row),
+            });
+        }
+        return list;
     }
 
     async load() {
@@ -53,6 +135,53 @@ export class QcJobPage extends Component {
 
     formatDateTime(value) {
         return value ? formatDateTime(deserializeDateTime(value)) : "";
+    }
+
+    /** A day as 12-Aug-2025, the way the PDF prints it. */
+    formatDay(value) {
+        return value ? deserializeDate(value).toFormat("dd-MMM-yyyy") : "";
+    }
+
+    // Scans
+
+    toggleScans(row) {
+        this.state.openScans[row.type_id] = !this.state.openScans[row.type_id];
+    }
+
+    upload(row) {
+        this.dialog.add(QcScanDialog, {
+            jobSheetId: row.pinned.job_sheet_id,
+            typeName: row.type_name,
+            revision: row.pinned.revision,
+            limits: this.job.scan_limits,
+            onUploaded: () => this.load(),
+        });
+    }
+
+    /** Only a QC Administrator may: the scan is a signed record. */
+    deleteScan(scan) {
+        this.dialog.add(QcPromptDialog, {
+            title: "Delete this scan?",
+            body: `Rev ${scan.revision}, checked ${this.formatDay(scan.check_date)}, ${scan.files.length} file(s). The files are deleted with it.`,
+            buttons: [
+                {
+                    label: "Delete",
+                    primary: true,
+                    needsInput: false,
+                    onClick: async () => {
+                        await this.orm.unlink("qc.job.checksheet.scan", [scan.id]);
+                        await this.load();
+                    },
+                },
+                { label: "Cancel", needsInput: false, onClick: () => {} },
+            ],
+        });
+    }
+
+    /** What the Approver and the one asking for a change are told about the scan the Job already has. */
+    scanText(row) {
+        const [latest] = row.inspection?.scans || [];
+        return latest ? `It was inspected on Rev ${latest.revision}, checked ${this.formatDay(latest.check_date)}.` : "";
     }
 
     /** Pin what isn't pinned yet; returns the Job's own sheet ids, in the order asked. */
@@ -99,6 +228,10 @@ export class QcJobPage extends Component {
             typeName: row.type_name,
             mode: "change",
             options,
+            // A Job already inspected: whoever asks, and whoever approves, knows it may need inspecting again.
+            scanWarning: row.inspection?.scans.length
+                ? `${this.scanText(row)} After the change it may need a new inspection: the Approver decides.`
+                : "",
             onConfirm: async (revisionId, reason) => {
                 await this.orm.call(JOB_SHEET_MODEL, "action_request_change", [
                     [row.pinned.job_sheet_id],
@@ -125,9 +258,23 @@ export class QcJobPage extends Component {
         });
     }
 
+    /** A Job with a scan: the Approver says first whether it must be inspected again. */
     async approve(row) {
-        await this.orm.call(CHANGE_MODEL, "action_approve", [[row.pending.id]]);
-        await this.load();
+        if (!row.pending.has_scan) {
+            await this.orm.call(CHANGE_MODEL, "action_approve", [[row.pending.id]]);
+            await this.load();
+            return;
+        }
+        this.dialog.add(QcApproveDialog, {
+            typeName: row.type_name,
+            fromRevision: row.pinned.revision,
+            toRevision: row.pending.revision,
+            scanText: this.scanText(row),
+            onConfirm: async (decision, reason) => {
+                await this.orm.call(CHANGE_MODEL, "action_approve", [[row.pending.id], decision, reason]);
+                await this.load();
+            },
+        });
     }
 
     reject(row) {

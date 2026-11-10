@@ -54,12 +54,12 @@
                                     <span t-if="row.old_jobs" class="small text-warning ms-1" t-esc="'(' + row.old_jobs + ' on an old Rev)'"/>
                                     <span t-else="" class="text-muted">0</span>
                                 </td>
-                                <td class="text-end text-nowrap">
-                                    <t t-if="row.current">
-                                        <button class="btn btn-link" t-on-click="() => this.open(row.current)">Open</button>
-                                        <button t-if="row.next" class="btn btn-link" t-on-click="() => this.open(row.next)">Open Rev <t t-esc="row.next.revision"/></button>
-                                        <button class="btn btn-link" title="Blank, without any Job's details" t-on-click="() => this.print(row.current)">Print blank</button>
-                                    </t>
+                                <td class="text-end">
+                                    <div t-if="row.current" class="o_qce_actions">
+                                        <button class="btn btn-secondary btn-sm" t-on-click="() => this.open(row.current)">Open</button>
+                                        <button t-if="row.next" class="btn btn-secondary btn-sm" t-on-click="() => this.open(row.next)">Open Rev <t t-esc="row.next.revision"/></button>
+                                        <button class="btn btn-link btn-sm" title="Blank, without any Job's details" t-on-click="() => this.print(row.current)">Print blank</button>
+                                    </div>
                                     <button t-elif="model.can_author" class="btn btn-secondary btn-sm" t-on-click="() => this.create([row])">Create</button>
                                 </td>
                             </tr>

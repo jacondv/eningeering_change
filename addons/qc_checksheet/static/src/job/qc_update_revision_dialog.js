@@ -16,6 +16,7 @@ export class QcUpdateRevisionDialog extends Component {
         close: Function,
         typeName: String,
         mode: { type: String, optional: true },
+        scanWarning: { type: String, optional: true },
         // {id, revision, state, state_label, reason, changes, pinned, current}, newest first.
         options: Array,
         onConfirm: Function,

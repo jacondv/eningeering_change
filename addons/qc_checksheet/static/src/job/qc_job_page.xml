@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
 
     <t t-name="qc_checksheet.JobPage">
-        <div class="o_action o_qce_action">
+        <div class="o_action o_qce_action" t-ref="page">
             <div class="o_qce">
             <div class="o_qce_topbar">
                 <button class="btn btn-link p-0 o_qce_title" t-on-click="openJobForm" t-esc="job.name"/>
@@ -14,6 +14,7 @@
                 </span>
                 <span class="flex-grow-1"/>
                 <strong title="Required Types this Job can print"><t t-esc="job.ready"/>/<t t-esc="job.required"/> required ready</strong>
+                <strong class="ms-3" title="Required Types with a signed scan on the Revision the Job prints"><t t-esc="job.scanned"/>/<t t-esc="job.required"/> required scanned</strong>
                 <button t-if="printableRows.length" class="btn btn-secondary" t-on-click="printAll">Print All</button>
             </div>
             <div t-if="!job.model_id" class="o_qce_notice o_qce_notice_danger">
@@ -33,7 +34,8 @@
                             <tr><th>Type</th><th>Number</th><th>Header</th><th>Rev</th><th>Status</th><th/></tr>
                         </thead>
                         <tbody>
-                            <tr t-foreach="job.rows" t-as="row" t-key="row.type_id" t-att-class="{'o_qce_job_missing': row.required and !printed(row)}">
+                            <tr t-foreach="job.rows" t-as="row" t-key="row.type_id" t-att-data-type-id="row.type_id"
+                                t-att-class="{'o_qce_job_missing': row.required and !printed(row), 'o_qce_row_focus': state.focused === row.type_id}">
                                 <t t-set="sheet" t-value="printed(row)"/>
                                 <td>
                                     <span t-if="row.required" class="o_qce_required" title="Required for every Job">★</span>
@@ -63,6 +65,24 @@
                                                 <button t-if="row.pending.can_cancel" class="btn btn-link btn-sm" t-on-click="() => this.cancelRequest(row)">Cancel request</button>
                                             </div>
                                         </div>
+                                        <div t-if="row.inspection" class="o_qce_inspection mt-2">
+                                            <span t-attf-class="o_qce_badge o_qce_badge_insp_{{row.inspection.state}}" t-esc="row.inspection.state_label"/>
+                                            <span t-if="row.inspection.waived" class="small text-muted ms-1">re-inspection skipped</span>
+                                            <t t-set="scans" t-value="row.inspection.scans"/>
+                                            <div t-if="scans.length" class="mt-1">
+                                                <t t-call="qc_checksheet.ScanLine"><t t-set="scan" t-value="scans[0]"/></t>
+                                                <t t-if="scans.length > 1">
+                                                    <button class="btn btn-link btn-sm p-0" t-on-click="() => this.toggleScans(row)">
+                                                        <t t-esc="state.openScans[row.type_id] ? 'Hide' : 'Show'"/> <t t-esc="scans.length - 1"/> earlier scan(s)
+                                                    </button>
+                                                    <t t-if="state.openScans[row.type_id]">
+                                                        <t t-foreach="scans.slice(1)" t-as="scan" t-key="scan.id">
+                                                            <t t-call="qc_checksheet.ScanLine"/>
+                                                        </t>
+                                                    </t>
+                                                </t>
+                                            </div>
+                                        </div>
                                     </t>
                                     <t t-elif="row.current">
                                         <span class="o_qce_badge o_qce_badge_draft">Not printed yet</span>
@@ -75,20 +95,14 @@
                                         </div>
                                     </t>
                                 </td>
-                                <td class="text-end text-nowrap">
-                                    <t t-if="sheet">
-                                        <button class="btn btn-link" t-on-click="() => this.open(sheet)">Open</button>
-                                        <button class="btn btn-link" t-att-disabled="state.printing" t-on-click="() => this.print(row)">Print</button>
-                                        <button t-if="row.update" class="btn btn-sm" t-att-class="row.outdated ? 'btn-primary' : 'btn-secondary'"
-                                                title="An Approver has to approve the change" t-on-click="() => this.update(row)">
-                                            <t t-if="row.outdated">Update Rev</t><t t-else="">Change Rev</t>
-                                        </button>
-                                        <button t-if="row.choosable" class="btn btn-secondary btn-sm" title="Pin another Revision than the current one"
-                                                t-on-click="() => this.choose(row)">Choose Rev</button>
-                                        <button t-if="row.pinned" class="btn btn-link" title="Check Date and the history of this Job's sheet"
-                                                t-on-click="() => this.openJobSheet(row)">Details</button>
-                                    </t>
-                                    <button t-elif="job.model_id" class="btn btn-link" t-on-click="openModel">Go to the Model</button>
+                                <td class="text-end">
+                                    <div t-if="sheet" class="o_qce_actions">
+                                        <!-- Not named "action": the loop variable would replace the component's action service. -->
+                                        <button t-foreach="actions(row)" t-as="item" t-key="item.key" class="btn btn-sm"
+                                                t-att-class="item.css" t-att-title="item.title" t-att-disabled="item.disabled"
+                                                t-on-click="item.run" t-esc="item.label"/>
+                                    </div>
+                                    <button t-elif="job.model_id" class="btn btn-link btn-sm" t-on-click="openModel">Go to the Model</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -100,8 +114,24 @@
         </div>
     </t>
 
+    <!-- One scan: the Revision checked, the day, who uploaded, and its files to open. -->
+    <t t-name="qc_checksheet.ScanLine">
+        <div class="small o_qce_scan_line">
+            <i class="fa fa-paperclip text-muted"/>
+            <span t-attf-class="{{scan.covers_current ? '' : 'text-muted'}}">Rev <t t-esc="scan.revision"/> · checked <t t-esc="formatDay(scan.check_date)"/></span>
+            <span class="text-muted">· <t t-esc="scan.uploaded_by"/> · <t t-esc="scan.total_size"/></span>
+            <t t-foreach="scan.files" t-as="file" t-key="file.id">
+                <a t-att-href="file.url" target="_blank" rel="noopener" t-att-title="file.size" t-esc="file.name"/>
+            </t>
+            <span t-if="scan.note" class="text-muted fst-italic" t-esc="scan.note"/>
+            <button t-if="row.inspection.can_delete" class="o_qce_icon" title="Delete this scan (QC Administrator)"
+                    t-on-click="() => this.deleteScan(scan)"><i class="fa fa-trash-o"/></button>
+        </div>
+    </t>
+
     <t t-name="qc_checksheet.UpdateRevisionDialog">
         <Dialog title="isChoosing ? 'Choose the Revision of ' + props.typeName : 'Change the Revision of ' + props.typeName" size="'lg'">
+            <div t-if="props.scanWarning" class="o_qce_notice o_qce_notice_warning mb-3" t-esc="props.scanWarning"/>
             <p class="text-muted" t-if="isChoosing">The Job is pinned to the Revision you pick right away, and keeps it. No approval is needed for this first pinning.</p>
             <p class="text-muted" t-else="">An Approver has to approve this. The Job keeps the Revision it prints now until then.</p>
             <div class="o_qce_scroll_x">

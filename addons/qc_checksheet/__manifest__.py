@@ -34,6 +34,7 @@ Features:
         'wizard/qc_checksheet_new_revision_wizard_views.xml',
         'wizard/qc_checksheet_reject_wizard_views.xml',
         'wizard/qc_job_change_reject_wizard_views.xml',
+        'wizard/qc_job_change_approve_wizard_views.xml',
         'wizard/qc_checksheet_settings_views.xml',
         'report/qc_checksheet_report.xml',
         'report/qc_checksheet_report_templates.xml',
