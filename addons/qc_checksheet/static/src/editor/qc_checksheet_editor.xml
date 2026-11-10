@@ -103,14 +103,13 @@
                                          search="searchSourceModels" onPick.bind="pickSourceModel"
                                          emptyText="'No Model with a Released sheet to copy matches.'"/>
                         </div>
-                        <small class="text-muted">Released sheets of this layout, same Type first</small>
+                        <small class="text-muted">Released sheets of this same Type</small>
                     </div>
                     <t t-foreach="state.context.sources" t-as="source" t-key="source.id">
                         <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.sourceId === source.id}" t-on-click="() => { state.sourceId = source.id; }">
                             <span class="o_qce_dot"/>
                             <span class="flex-grow-1"><strong t-esc="source.label"/><br/>
                                 <small class="text-muted"><t t-esc="source.header"/> · <t t-esc="source.groups"/> Groups, <t t-esc="source.items"/> Items</small></span>
-                            <span t-if="source.same_type" class="o_qce_badge o_qce_badge_released">Same Type</span>
                         </button>
                     </t>
                     <div t-if="!state.context.sources.length" class="text-muted">
@@ -239,7 +238,8 @@
                     <small class="text-muted"><t t-esc="sheet.type_name"/> · <t t-esc="sheet.model"/>
                         · <button t-if="sheet.job_count" class="btn btn-link p-0 align-baseline small" title="Jobs using this sheet, by Revision"
                                   t-on-click="openJobs">Used by <t t-esc="sheet.job_count"/> Job(s)</button>
-                        <t t-else="">Not used by any Job yet</t></small>
+                        <t t-else="">Not used by any Job yet</t>
+                        <t t-if="sheet.shared_models.length" t-esc="' · Also used by ' + sheet.shared_models.join(', ')"/></small>
                 </div>
 
                 <div class="o_qce_panel">

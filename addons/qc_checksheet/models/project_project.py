@@ -17,11 +17,8 @@ class ProjectProject(models.Model):
         pinned = self.env['qc.job.checksheet'].sudo()._read_group(
             [('job_id', 'in', self.ids), ('type_id', 'in', required_types.ids)], ['job_id'], ['type_id:array_agg'])
         pinned_by_job = {job.id: set(type_ids) for job, type_ids in pinned}
-        released = self.env['qc.checksheet'].sudo()._read_group(
-            [('model_id', 'in', self.sudo().model_id.ids), ('state', '=', 'released'),
-             ('type_id', 'in', required_types.ids)],
-            ['model_id'], ['type_id:array_agg'])
-        released_by_model = {model.id: set(type_ids) for model, type_ids in released}
+        # Released on its Model, or on the Model whose sheet it uses.
+        released_by_model = self.env['qc.checksheet.share']._ready_types(self.sudo().model_id, required_types)
         return {
             job.id: pinned_by_job.get(job.id, set()) | released_by_model.get(job.sudo().model_id.id, set())
             for job in self

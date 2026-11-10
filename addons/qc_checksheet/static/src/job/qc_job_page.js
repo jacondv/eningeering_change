@@ -5,6 +5,7 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { deserializeDate, deserializeDateTime, formatDateTime } from "@web/core/l10n/dates";
 import { QcPromptDialog } from "../editor/qc_prompt_dialog";
+import { QcCreateSheetsDialog } from "../model/qc_create_sheets_dialog";
 import { QcApproveDialog } from "./qc_approve_dialog";
 import { QcScanDialog } from "./qc_scan_dialog";
 import { QcUpdateRevisionDialog } from "./qc_update_revision_dialog";
@@ -323,6 +324,23 @@ export class QcJobPage extends Component {
             res_model: JOB_SHEET_MODEL,
             res_id: row.pinned.job_sheet_id,
             views: [[false, "form"]],
+        });
+    }
+
+    /** The Model has no sheet of this Type yet: set it up here, without going to the Model's page first. */
+    createSheet(row) {
+        this.dialog.add(QcCreateSheetsDialog, {
+            modelId: this.job.model_id,
+            modelName: this.job.model,
+            typeIds: [row.type_id],
+            onCreated: async (created) => {
+                // A sheet written here is opened to be written; one that is only used from another Model, not.
+                if (created.length === 1 && created[0].id) {
+                    await this.open({ id: created[0].id, layout: created[0].layout });
+                } else {
+                    await this.load();
+                }
+            },
         });
     }
 

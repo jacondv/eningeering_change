@@ -58,6 +58,8 @@ class QcChecksheet(models.Model):
             'model_id': self.model_id.id,
             'family': self.model_id.sudo().family_id.name or '',
             'job_count': self.sheet_job_count,
+            # The other Models that print this sheet instead of having one of their own.
+            'shared_models': self.env['qc.checksheet.share']._users_of(self.model_id, self.type_id).model_id.mapped('name'),
             'type_name': self.type_id.name or '',
             'layout': self.checksheet_type,
             'revision': self.revision,
@@ -278,19 +280,17 @@ class QcChecksheet(models.Model):
             duplicate = self.search([('model_id', '=', model.id), ('type_id', '=', checksheet_type.id)], limit=1)
             result['duplicate_id'] = duplicate.id
         if checksheet_type:
-            domain = [('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)]
+            domain = [('state', '=', 'released'), ('type_id', '=', checksheet_type.id)]
             if source_model_id:
                 domain.append(('model_id', '=', source_model_id))
             sources = self.search(domain, limit=COPY_SOURCE_LIMIT, order='create_date desc')
-            # The closest content to start from first: the same Type, then a Model of the same Product Family.
-            sources = sources.sorted(lambda sheet: (
-                sheet.type_id != checksheet_type,
-                not (model.family_id and sheet.sudo().model_id.family_id == model.family_id)))
+            # The closest content to start from first: a Model of the same Product Family.
+            sources = sources.sorted(lambda sheet: not (
+                model.family_id and sheet.sudo().model_id.family_id == model.family_id))
             result['sources'] = [{
                 'id': sheet.id,
                 'label': sheet.display_name,
                 'header': sheet.name,
-                'same_type': sheet.type_id == checksheet_type,
                 'groups': len(sheet.group_ids),
                 'items': sheet.item_count,
             } for sheet in sources]
@@ -300,7 +300,7 @@ class QcChecksheet(models.Model):
     def editor_search_source_models(self, type_id, term=''):
         """Models with a Released sheet that a sheet of this Type could be copied from."""
         checksheet_type = self.env['qc.checksheet.type'].browse(type_id).exists()
-        released = self._search([('state', '=', 'released'), ('checksheet_type', '=', checksheet_type.layout)])
+        released = self._search([('state', '=', 'released'), ('type_id', '=', checksheet_type.id)])
         models_ = self.env['equipment.model'].sudo().with_context(active_test=False).search([
             ('id', 'in', released.subselect('model_id')),
             ('name', 'ilike', term or ''),
@@ -317,8 +317,16 @@ class QcChecksheet(models.Model):
             'type_id': vals.get('type_id'),
             'model_id': vals.get('model_id'),
         })
-        if vals.get('source_id'):
-            checksheet._copy_content_from(self.browse(vals['source_id']))
+        source = self.browse(vals.get('source_id'))
+        if not source and vals.get('source_model_id'):
+            # A Model to copy from: its Released sheet of this Type.
+            source = self.sudo().search([
+                ('model_id', '=', vals['source_model_id']), ('type_id', '=', vals.get('type_id')),
+                ('state', '=', 'released')], limit=1)
+            if not source:
+                raise UserError(_("That Model has no Released sheet of this Type to copy."))
+        if source:
+            checksheet._copy_content_from(source)
         elif checksheet.checksheet_type == 'standard':
             self.env['qc.checksheet.group'].create({
                 'checksheet_id': checksheet.id,

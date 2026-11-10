@@ -47,11 +47,14 @@
     color: #7a1215;
 }
 
-.o_qce_create_table {
-    min-width: 900px;
-    td { vertical-align: middle; }
-    td:nth-child(3) { width: 40%; }
-    td:nth-child(4) { width: 8rem; }
-    .o_qce_start_rev { min-width: 6rem; }
-    td:nth-child(5) { width: 40%; }
+.o_qce_create_row + .o_qce_create_row {
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+}
+.o_qce_create_off { opacity: 0.45; pointer-events: none; }
+.o_qce_create_new {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    .o_qce_start_rev { width: 6rem; }
 }

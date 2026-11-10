@@ -15,12 +15,9 @@ class EquipmentModel(models.Model):
         # Active required Types only, like the Model QC page. A Model's sheet counts once Released; a Job's
         # (see project.project) also once it printed one, since its pinned Revision may be Superseded.
         required_types = self.env['qc.checksheet.type']._required_types()
-        released = self.env['qc.checksheet']._read_group(
-            [('model_id', 'in', self.ids), ('state', '=', 'released'), ('type_id', 'in', required_types.ids)],
-            ['model_id'], ['type_id:count_distinct'])
-        released_by_model = {model.id: count for model, count in released}
+        released_by_model = self.env['qc.checksheet.share']._ready_types(self, required_types)
         for model in self:
-            model.qc_checksheet_progress = f'{released_by_model.get(model.id, 0)}/{len(required_types)}'
+            model.qc_checksheet_progress = f'{len(released_by_model[model.id])}/{len(required_types)}'
 
     def action_open_qc_model(self):
         self.ensure_one()

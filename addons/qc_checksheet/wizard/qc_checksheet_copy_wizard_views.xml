@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <form string="Copy Check Sheet Content">
                 <field name="checksheet_id" invisible="1"/>
-                <field name="checksheet_type" invisible="1"/>
+                <field name="type_id" invisible="1"/>
                 <group>
                     <field name="source_checksheet_id"/>
                 </group>
