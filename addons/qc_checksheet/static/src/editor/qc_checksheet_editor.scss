@@ -31,6 +31,33 @@ $qce-band: #dbe5f1;
     border-bottom: 1px solid $qce-line;
 }
 
+// Says which page this is: the Job's QC page and the Model's look alike.
+.o_qce_select_col { width: 2rem; }
+.o_qce_selection {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 6px 16px;
+    background: #fdf3d7;
+    border-bottom: 1px solid #ecd9a0;
+}
+
+.o_qce_kind {
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: #d9ecea;
+    color: #00574f;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.o_qce_kind_model {
+    background: #e6e0f0;
+    color: #4b3a78;
+}
+
 .o_qce_title {
     font-size: 16px;
 }

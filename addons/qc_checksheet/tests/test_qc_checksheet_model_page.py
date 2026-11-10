@@ -132,38 +132,42 @@ class TestQcChecksheetModelPage(QcChecksheetCase):
         self.assertEqual(row['next']['id'], rev1.id)
         self.assertEqual(row['next']['state'], 'draft')
 
-    def test_sources_prefer_the_same_type_of_another_model(self):
-        other_hy = self._released(self.type_hydraulic, self._create_model())
-        general = self._released(self.type_general, self._create_model())
+    def test_copy_sources_are_the_other_models_with_a_released_sheet_of_the_same_type(self):
+        other = self._create_model('M-COPY-1')
+        self._released(self.type_hydraulic, other)
         model = self._create_model()
-        own_hy = self._released(self.type_hydraulic, self._create_model())
+        own = self._create_model('M-COPY-OWN')
+        self._released(self.type_hydraulic, own)
+        # Never a sheet of another Type, even with the same layout, and never one still a Draft.
+        self._released(self.type_general, self._create_model('M-COPY-GENERAL'))
+        self._create_checksheet(self.type_hydraulic, model=self._create_model('M-COPY-DRAFT'))
+        found = self.Sheet.model_copy_sources(self.type_hydraulic.id, own.id, 'M-COPY')
+        self.assertEqual([m['name'] for m in found], ['M-COPY-1'])
+        self.assertEqual([m['name'] for m in self.Sheet.model_copy_sources(self.type_hydraulic.id, model.id, 'M-COPY-O')],
+                         ['M-COPY-OWN'])
 
-        source = self.Sheet.model_sheet_sources(model.id, [self.type_hydraulic.id])[0]
+    def test_a_sheet_is_copied_from_the_released_sheet_of_the_model_picked(self):
+        source = self._released(self.type_hydraulic, self._create_model('M-FROM'))
+        created = self.Sheet.model_create_sheets(self._create_model().id, [{
+            'type_id': self.type_hydraulic.id, 'header': 'Copied', 'source_model_id': source.model_id.id}])
+        copy = self.env['qc.checksheet'].browse(created[0]['id'])
+        self.assertEqual(copy.copied_from_id, source)
+        self.assertIn('HY question', copy.group_ids.item_ids.description)
 
-        ids = [option['id'] for option in source['options']]
-        self.assertIn(source['source_id'], (own_hy.id, other_hy.id))
-        self.assertEqual(set(ids[:2]), {own_hy.id, other_hy.id})
-        self.assertIn(general.id, ids)
-        self.assertFalse(next(o for o in source['options'] if o['id'] == general.id)['same_type'])
+    def test_nothing_is_copied_from_a_model_with_no_released_sheet_of_the_type(self):
+        self._released(self.type_general, self._create_model('M-OTHER-TYPE'))
+        with self.assertRaises(UserError):
+            self.Sheet.model_create_sheets(self._create_model().id, [{
+                'type_id': self.type_hydraulic.id, 'header': 'X',
+                'source_model_id': self.env['equipment.model'].search([('name', '=', 'M-OTHER-TYPE')]).id}])
 
-    def test_sources_never_offer_the_model_itself(self):
-        model = self._create_model()
-        own = self._released(self.type_general, model)
-        ids = [o['id'] for o in self.Sheet.model_sheet_sources(model.id, [self.type_hydraulic.id])[0]['options']]
-        self.assertNotIn(own.id, ids)
-
-    def test_sources_fall_back_to_blank(self):
-        self._released(self.type_general, self._create_model())
-        sources = self.Sheet.model_sheet_sources(self._create_model().id, [self.type_panel.id])
-        self.assertFalse(sources[0]['source_id'])
-
-    def test_sources_never_mix_layouts(self):
-        panel = self._released(self.type_panel, self._create_model())
-        general = self._released(self.type_general, self._create_model())
-        ids = [o['id'] for o in self.Sheet.model_sheet_sources(
-            self._create_model().id, [self.type_hydraulic.id])[0]['options']]
-        self.assertIn(general.id, ids)
-        self.assertNotIn(panel.id, ids)
+    def test_sources_give_the_model_whose_name_is_extended(self):
+        base = self._create_model('M-BASE')
+        self._released(self.type_hydraulic, base)
+        row = self.Sheet.model_sheet_sources(self._create_model('M-BASE-068').id, [self.type_hydraulic.id])[0]
+        self.assertEqual(row['share_model']['id'], base.id)
+        row = self.Sheet.model_sheet_sources(self._create_model('M-ALONE').id, [self.type_hydraulic.id])[0]
+        self.assertFalse(row['share_model'])
 
     def test_sources_offer_the_family_header(self):
         category = self.env['equipment.model.category'].create({'name': 'Category'})
@@ -178,7 +182,7 @@ class TestQcChecksheetModelPage(QcChecksheetCase):
         model = self._create_model()
         created = self.Sheet.model_create_sheets(model.id, [
             {'type_id': self.type_general.id, 'header': 'General', 'source_id': False},
-            {'type_id': self.type_hydraulic.id, 'header': 'Hydraulic', 'source_id': source.id},
+            {'type_id': self.type_hydraulic.id, 'header': 'Hydraulic', 'source_model_id': source.model_id.id},
         ])
         sheets = self.env['qc.checksheet'].browse([c['id'] for c in created])
         self.assertEqual(sheets.mapped('type_id'), self.type_general | self.type_hydraulic)

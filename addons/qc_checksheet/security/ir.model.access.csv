@@ -26,6 +26,8 @@ access_qc_checksheet_reject_wizard_approver,qc.checksheet.reject.wizard.approver
 access_qc_checksheet_admin,qc.checksheet.admin,model_qc_checksheet,group_qc_admin,1,0,0,1
 access_qc_checksheet_settings_admin,qc.checksheet.settings.admin,model_qc_checksheet_settings,group_qc_admin,1,1,1,0
 access_qc_checksheet_type_admin,qc.checksheet.type.admin,model_qc_checksheet_type,group_qc_admin,1,1,1,1
+access_qc_checksheet_share_user,qc.checksheet.share.user,model_qc_checksheet_share,group_qc_user,1,0,0,0
+access_qc_checksheet_share_admin,qc.checksheet.share.admin,model_qc_checksheet_share,group_qc_admin,1,1,1,1
 access_qc_job_checksheet_user,qc.job.checksheet.user,model_qc_job_checksheet,group_qc_user,1,1,0,0
 access_qc_job_checksheet_admin,qc.job.checksheet.admin,model_qc_job_checksheet,group_qc_admin,1,1,0,1
 access_qc_job_checksheet_change_user,qc.job.checksheet.change.user,model_qc_job_checksheet_change,group_qc_user,1,0,0,0

@@ -5,6 +5,7 @@
         <div class="o_action o_qce_action">
             <div class="o_qce">
             <div class="o_qce_topbar">
+                <span class="o_qce_kind o_qce_kind_model" title="The check sheets of one Model: written, revised and shared from here">Model QC</span>
                 <button class="btn btn-link p-0 o_qce_title" t-on-click="openModelForm" t-esc="model.name"/>
                 <span class="text-muted"><t t-esc="model.family or 'No Product Family'"/> · <t t-esc="model.job_count"/> Job(s)</span>
                 <span class="flex-grow-1"/>
@@ -24,17 +25,41 @@
                     <span class="text-muted"><t t-esc="change.title"/> (<t t-esc="change.state_label"/>)</span>
                 </t>
             </div>
+            <div t-if="state.selected.length" class="o_qce_selection">
+                <strong><t t-esc="state.selected.length"/> selected</strong>
+                <button class="btn btn-secondary btn-sm o_qce_danger" title="Take these sheets away from the Model, to set them up again with Create" t-on-click="deleteSelected">Delete</button>
+                <button class="btn btn-link btn-sm" t-on-click="clearSelection">Clear</button>
+            </div>
             <div class="o_qce_job">
                 <div class="o_qce_panel o_qce_scroll_x">
                     <table class="o_qce_table">
                         <thead>
-                            <tr><th>Type</th><th>Number</th><th>Header</th><th>Rev</th><th>Status</th><th>Jobs</th><th/></tr>
+                            <tr>
+                                <th class="o_qce_select_col">
+                                    <input t-if="selectableRows.length" type="checkbox" aria-label="Select all" t-att-checked="allSelected" t-on-change="toggleAll"/>
+                                </th>
+                                <th>Type</th><th>Number</th><th>Header</th><th>Rev</th><th>Status</th><th>Jobs</th><th/>
+                            </tr>
                         </thead>
                         <tbody>
                             <tr t-foreach="model.rows" t-as="row" t-key="row.type_id" t-att-class="{'o_qce_job_missing': row.required and !row.current}">
+                                <td class="o_qce_select_col">
+                                    <input t-if="row.current and model.can_share" type="checkbox" t-att-aria-label="'Select ' + row.type_name"
+                                           t-att-checked="state.selected.includes(row.type_id)" t-on-change="() => this.toggle(row)"/>
+                                </td>
                                 <td>
                                     <span t-if="row.required" class="o_qce_required" title="Required for every Job">★</span>
                                     <t t-esc="row.type_name"/>
+                                    <div t-if="row.shared_from" class="small text-muted">
+                                        Uses the sheet of
+                                        <a href="#" t-on-click.prevent="() => this.openModelPage(row.shared_from.model_id)" t-esc="row.shared_from.name"/>
+                                    </div>
+                                    <div t-if="row.shared_with.length" class="small text-muted" t-att-title="row.shared_with.join(', ')">
+                                        Also used by <t t-esc="row.shared_with.length"/> Model(s): <t t-esc="row.shared_with.slice(0, 3).join(', ')"/><t t-if="row.shared_with.length > 3">…</t>
+                                    </div>
+                                    <div t-if="row.same_as.length" class="small text-muted">
+                                        Prints the same as <t t-esc="row.same_as[0].name"/>
+                                    </div>
                                 </td>
                                 <td t-esc="row.number or '-'"/>
                                 <td t-esc="row.header or '-'"/>
@@ -58,9 +83,10 @@
                                     <div t-if="row.current" class="o_qce_actions">
                                         <button class="btn btn-secondary btn-sm" t-on-click="() => this.open(row.current)">Open</button>
                                         <button t-if="row.next" class="btn btn-secondary btn-sm" t-on-click="() => this.open(row.next)">Open Rev <t t-esc="row.next.revision"/></button>
+                                        <button t-if="row.same_as.length and model.can_author" class="btn btn-secondary btn-sm" t-att-title="'Replace this sheet by the one of ' + row.same_as[0].name" t-on-click="() => this.merge(row)">Merge</button>
                                         <button class="btn btn-link btn-sm" title="Blank, without any Job's details" t-on-click="() => this.print(row.current)">Print blank</button>
                                     </div>
-                                    <button t-elif="model.can_author" class="btn btn-secondary btn-sm" t-on-click="() => this.create([row])">Create</button>
+                                    <button t-elif="model.can_share or model.can_author" class="btn btn-secondary btn-sm" t-on-click="() => this.create([row])">Create</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -73,48 +99,70 @@
     </t>
 
     <t t-name="qc_checksheet.CreateSheetsDialog">
-        <Dialog title="'Create check sheets for ' + props.modelName" size="'xl'">
-            <p class="text-muted">Each one starts as a Draft, at Rev 0 unless the sheet is already in use elsewhere (Word, say): then enter the
-                Revision it has, and the earlier ones are listed in its Revision History as "To be updated". Copying brings over the content and approval positions only.</p>
-            <div class="o_qce_scroll_x">
-                <table class="o_qce_table o_qce_create_table">
-                    <thead><tr><th/><th>Type</th><th>Start from</th><th>Start at Rev</th><th>Header</th></tr></thead>
-                    <tbody>
-                        <tr t-foreach="state.rows" t-as="row" t-key="row.type_id">
-                            <td><input type="checkbox" t-att-aria-label="'Create ' + row.type_name" t-model="row.selected"/></td>
-                            <td class="fw-bold text-nowrap" t-esc="row.type_name"/>
-                            <td>
-                                <select class="form-select" t-att-aria-label="'Start ' + row.type_name + ' from'" t-att-disabled="!row.selected"
-                                        t-on-change="(ev) => this.onSourceChange(row, ev)">
-                                    <option value="" t-att-selected="!row.source_id">Blank sheet</option>
-                                    <optgroup t-if="sameTypeOptions(row).length" t-att-label="'Released ' + row.type_name + ' of other Models'">
-                                        <t t-foreach="sameTypeOptions(row)" t-as="option" t-key="option.id">
-                                            <option t-att-value="option.id" t-att-selected="option.id === row.source_id" t-esc="option.label"/>
-                                        </t>
-                                    </optgroup>
-                                    <optgroup t-if="otherTypeOptions(row).length" label="Other Types with the same layout">
-                                        <t t-foreach="otherTypeOptions(row)" t-as="option" t-key="option.id">
-                                            <option t-att-value="option.id" t-att-selected="option.id === row.source_id" t-esc="option.label"/>
-                                        </t>
-                                    </optgroup>
-                                </select>
-                            </td>
-                            <td>
-                                <input type="number" min="0" max="99" step="1" class="form-control o_qce_start_rev" t-att-aria-label="'Start ' + row.type_name + ' at Rev'"
-                                       t-att-class="{'is-invalid': row.selected and !startRevOk(row)}" t-att-disabled="!row.selected" t-model="row.start_rev"/>
-                            </td>
-                            <td>
-                                <input class="form-control" t-att-aria-label="'Header of ' + row.type_name" t-att-disabled="!row.selected"
-                                       placeholder="Printed as the top line of the PDF" t-model="row.header"/>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <Dialog title="'Check sheets for ' + props.modelName" size="'lg'">
+            <div class="d-flex flex-column gap-4">
+                <div t-foreach="state.rows" t-as="row" t-key="row.type_id" class="o_qce_create_row">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <input t-if="severalTypes" type="checkbox" t-att-aria-label="'Set up ' + row.type_name" t-model="row.selected"/>
+                        <h5 class="mb-0" t-esc="row.type_name"/>
+                    </div>
+                    <div class="d-flex flex-column gap-2" t-att-class="{'o_qce_create_off': !row.selected}">
+
+                        <div class="o_qce_choice" role="radio" t-att-aria-checked="row.mode === 'share'"
+                             t-att-class="{'o_qce_choice_on': row.mode === 'share'}" t-on-click="() => this.setMode(row, 'share')">
+                            <span class="o_qce_dot"/>
+                            <span class="flex-grow-1">
+                                <strong>Use the same sheet as another Model</strong><br/>
+                                <small class="text-muted">
+                                    Nothing new to write: Jobs of <t t-esc="props.modelName"/> print that Model's sheet, which is revised in one place.
+                                </small>
+                                <div t-if="row.mode === 'share'" class="mt-2">
+                                    <QcJobPicker inputId="'qce_share_' + row.type_id" placeholder="'Type a Model name…'" value="row.share_model"
+                                                 search="searchShare(row)" onPick="(model) => this.pickShare(row, model)"
+                                                 emptyText="'No other Model has a sheet of this Type.'"/>
+                                    <small t-if="row.share_model and row.share_model.id === row.suggested_id" class="text-muted">Chosen because its name is the start of this Model's.</small>
+                                </div>
+                            </span>
+                        </div>
+
+                        <div class="o_qce_choice" role="radio" t-att-aria-checked="row.mode === 'new'"
+                             t-att-class="{'o_qce_choice_on': row.mode === 'new'}" t-on-click="() => this.setMode(row, 'new')">
+                            <span class="o_qce_dot"/>
+                            <span class="flex-grow-1">
+                                <strong>Create a new sheet for <t t-esc="props.modelName"/> alone</strong><br/>
+                                <small class="text-muted">Written and approved here, with Revisions of its own.</small>
+                                <div t-if="row.mode === 'new'" class="o_qce_create_new mt-2">
+                                    <div>
+                                        <label class="fw-bold small" t-att-for="'qce_from_' + row.type_id">Start from</label>
+                                        <QcJobPicker inputId="'qce_from_' + row.type_id" placeholder="'A blank sheet. Or type a Model to copy its sheet…'" value="row.copy_model"
+                                                     clearable="true" search="searchCopy(row)" onPick="(model) => this.pickCopy(row, model)"
+                                                     emptyText="'No other Model has a Released sheet of this Type to copy.'"/>
+                                        <small class="text-muted">A copy brings the content and approval positions only, from a sheet of this same Type.</small>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <div class="flex-grow-1">
+                                            <label class="fw-bold small" t-att-for="'qce_header_' + row.type_id">Header</label>
+                                            <input t-att-id="'qce_header_' + row.type_id" class="form-control" placeholder="Printed as the top line of the PDF" t-model="row.header"/>
+                                        </div>
+                                        <div>
+                                            <label class="fw-bold small" t-att-for="'qce_rev_' + row.type_id">Start at Rev</label>
+                                            <input t-att-id="'qce_rev_' + row.type_id" type="number" min="0" max="99" step="1" class="form-control o_qce_start_rev"
+                                                   t-att-class="{'is-invalid': !startRevOk(row)}" t-model="row.start_rev"/>
+                                        </div>
+                                    </div>
+                                    <small t-att-class="startRevOk(row) ? 'text-muted' : 'text-danger'">
+                                        <t t-if="!startRevOk(row)">Enter a whole number from 0 to 99.</t>
+                                        <t t-elif="startsAbove0(row)">Already in use elsewhere (Word, say) at Rev <t t-esc="row.start_rev"/>: the earlier Revisions are listed in its Revision History as "To be updated", for you to fill in.</t>
+                                        <t t-else="">Rev 0 for a sheet that is new. Already in use elsewhere (Word, say)? Enter the Revision it has.</t>
+                                    </small>
+                                </div>
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <t t-set-slot="footer">
-                <button class="btn btn-primary" t-att-disabled="cannotCreate" t-on-click="create">
-                    Create <t t-esc="selectedRows.length"/> sheet(s)
-                </button>
+                <button class="btn btn-primary" t-att-disabled="cannotCreate" t-on-click="create" t-esc="confirmLabel"/>
                 <button class="btn btn-secondary" t-on-click="() => this.props.close()">Cancel</button>
             </t>
         </Dialog>

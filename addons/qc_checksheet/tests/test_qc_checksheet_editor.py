@@ -319,7 +319,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         context = Sheet.editor_new_context(self.model_za90.id, self.type_general.id)
         self.assertEqual(context['duplicate_id'], existing.id)
 
-    def test_new_context_lists_released_sources_same_type_first(self):
+    def test_new_context_lists_only_released_sources_of_the_same_type(self):
         type_other = self.env['qc.checksheet.type'].create({'name': 'Other', 'code': 'OT', 'layout': 'standard'})
         other_type = self._release(self._create_checksheet(type_other))
         same = self._release(self._create_checksheet())
@@ -329,12 +329,15 @@ class TestQcChecksheetEditor(QcChecksheetCase):
             self._create_model().id, self.type_general.id)['sources']
         ids = [source['id'] for source in sources]
         self.assertIn(same.id, ids)
-        self.assertIn(other_type.id, ids)
-        self.assertLess(ids.index(same.id), ids.index(other_type.id))
-        self.assertEqual(
-            self.env['qc.checksheet'].browse(ids).mapped('state'), ['released'] * len(ids))
-        self.assertEqual(
-            set(self.env['qc.checksheet'].browse(ids).mapped('checksheet_type')), {'standard'})
+        self.assertNotIn(other_type.id, ids)
+        self.assertEqual(self.env['qc.checksheet'].browse(ids).type_id, self.type_general)
+        self.assertEqual(self.env['qc.checksheet'].browse(ids).mapped('state'), ['released'] * len(ids))
+
+    def test_a_sheet_cannot_be_copied_from_another_type_with_the_same_layout(self):
+        type_other = self.env['qc.checksheet.type'].create({'name': 'Other', 'code': 'OT', 'layout': 'standard'})
+        other_type = self._release(self._create_checksheet(type_other))
+        with self.assertRaises(UserError):
+            self._create_checksheet()._copy_content_from(other_type)
 
     def test_new_context_lists_the_same_product_family_before_other_models(self):
         category = self.env['equipment.model.category'].create({'name': 'Category'})

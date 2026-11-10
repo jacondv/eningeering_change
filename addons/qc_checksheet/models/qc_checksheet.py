@@ -1,6 +1,9 @@
+import hashlib
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
+GROUP_USER = 'qc_checksheet.group_qc_user'
 GROUP_AUTHOR = 'qc_checksheet.group_qc_author'
 GROUP_APPROVER = 'qc_checksheet.group_qc_approver'
 GROUP_ADMIN = 'qc_checksheet.group_qc_admin'
@@ -179,6 +182,40 @@ class QcChecksheet(models.Model):
         if not self.name or self.name in family_headers:
             self.name = header
 
+    def _content_signature(self):
+        """A fingerprint of everything a printed sheet shows, ids and line keys left out: two sheets with the
+        same one print the same. Used to find sheets that could be one."""
+        self.ensure_one()
+        parts = [
+            self.checksheet_type, self.name or '', self.remarks or '',
+            [approval.position for approval in self.approval_ids.sorted(lambda a: (a.sequence, a.id))],
+        ]
+        if self.checksheet_type == 'panel_sticker':
+            parts.append([(
+                line.item_number, line.part_number, line.description, line.qty, line.note,
+                hashlib.sha1(line.image or b'').hexdigest(),
+            ) for line in self.panel_line_ids.sorted(lambda l: (l.sequence, l.id))])
+            parts.append([(group.name, [(
+                line.description, line.size_percent, line.width_percent, line.page_break_after,
+                line.keep_original_size, hashlib.sha1(line.image or b'').hexdigest(),
+            ) for line in group.image_line_ids.sorted(lambda l: (l.sequence, l.id))]
+            ) for group in self.image_group_ids.sorted(lambda g: (g.sequence, g.id))])
+        else:
+            parts.append([(group.name, [
+                (item.description, item.acceptance, item.note)
+                for item in group.item_ids.sorted(lambda i: (i.sequence, i.id))
+            ]) for group in self.group_ids.sorted(lambda g: (g.sequence, g.id))])
+        return hashlib.sha1(repr(parts).encode()).hexdigest()
+
+    @api.model
+    def _check_not_shared(self, model_id, type_id):
+        share = self.env['qc.checksheet.share'].sudo().search(
+            [('model_id', '=', model_id), ('type_id', '=', type_id)], limit=1)
+        if share:
+            raise UserError(_(
+                "This Model uses the sheet of %s for this Type. Go back to a sheet of its own first.",
+                share.source_model_id.display_name))
+
     @api.model
     def _check_start_revision(self, start, model_id, type_id):
         """The Revision a sheet new to Odoo starts at: 0, or the Revision it already has on paper, up to
@@ -220,6 +257,8 @@ class QcChecksheet(models.Model):
         for vals in vals_list:
             if not self.env.su and self.WORKFLOW_FIELDS & vals.keys():
                 raise UserError(_("Status, Revision and Number are set by the system."))
+            if vals.get('model_id') and vals.get('type_id'):
+                self._check_not_shared(vals['model_id'], vals['type_id'])
             vals['reference'] = vals.get('reference') or self._generate_reference(
                 self.env['qc.checksheet.type'].browse(vals.get('type_id')),
                 self.env['equipment.model'].browse(vals.get('model_id')),
@@ -332,7 +371,8 @@ class QcChecksheet(models.Model):
         Model's. The content comes over; its identity and history don't.
         """
         self.ensure_one()
-        if source.checksheet_type != self.checksheet_type:
+        # The same Type, never another that merely looks alike: its content is not meant for this one.
+        if source.type_id != self.type_id:
             raise UserError(_("Can only copy content from a check sheet of the same Type."))
         if source.state != 'released':
             raise UserError(_("Can only copy content from a Released check sheet."))

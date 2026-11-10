@@ -4,11 +4,10 @@ import zipfile
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .qc_checksheet import GROUP_APPROVER
+from .qc_checksheet import GROUP_APPROVER, GROUP_AUTHOR, GROUP_USER
 from .qc_checksheet_change import RUNNING_CHANGE_EXCLUDED_STATES
 from .qc_checksheet_print import safe_file_name
 
-GROUP_USER = 'qc_checksheet.group_qc_user'
 JOB_REPORT_NAME = 'qc_checksheet.report_qc_job_checksheet_document'
 
 
@@ -80,13 +79,18 @@ class QcJobChecksheet(models.Model):
 
     @api.depends('checksheet_id.state', 'checksheet_id.model_id', 'type_id')
     def _compute_latest_revision(self):
+        job_models = self.job_id.sudo().model_id
+        owners = self.env['qc.checksheet.share']._owners(job_models, self.type_id)
         released = self.env['qc.checksheet'].sudo().search([
-            ('state', '=', 'released'), ('model_id', 'in', self.job_id.sudo().model_id.ids),
+            ('state', '=', 'released'),
+            ('model_id', 'in', (job_models | self.env['equipment.model'].sudo().union(*owners.values())).ids),
             ('type_id', 'in', self.type_id.ids)])
         current = {(sheet.model_id, sheet.type_id): sheet.revision for sheet in released}
         for rec in self:
+            model = rec.job_id.sudo().model_id
+            owner = owners.get((model.id, rec.type_id.id), model)
             # Nothing Released on the Model: what the Job prints is the latest there is.
-            rec.latest_revision = current.get((rec.job_id.sudo().model_id, rec.type_id), rec.revision)
+            rec.latest_revision = current.get((owner, rec.type_id), rec.revision)
 
     @api.depends('change_ids.state')
     def _compute_pending_change(self):
@@ -137,8 +141,9 @@ class QcJobChecksheet(models.Model):
     def _current_release(self, model, checksheet_type):
         if not model or not checksheet_type:
             return self.env['qc.checksheet']
+        owner = self.env['qc.checksheet.share']._owner(model, checksheet_type)
         return self.env['qc.checksheet'].search([
-            ('model_id', '=', model.id), ('type_id', '=', checksheet_type.id), ('state', '=', 'released'),
+            ('model_id', '=', owner.id), ('type_id', '=', checksheet_type.id), ('state', '=', 'released'),
         ], limit=1)
 
     @api.model
@@ -157,9 +162,10 @@ class QcJobChecksheet(models.Model):
                     raise UserError(_("Job %s has no Model. Set its Model first.", job.sudo().display_name))
                 release = self._current_release(model, checksheet_type)
                 if not release:
+                    owner = self.env['qc.checksheet.share']._owner(model, checksheet_type)
                     raise UserError(_(
                         "Model %(model)s has no Released %(type)s sheet yet.",
-                        model=model.display_name, type=checksheet_type.name))
+                        model=owner.display_name, type=checksheet_type.name))
                 rec = self._create_pin(job, checksheet_type, release, _("first print")).sudo(False)
             result |= rec
         return result
@@ -182,8 +188,9 @@ class QcJobChecksheet(models.Model):
     @api.model
     def _issued_revisions(self, job, checksheet_type):
         """Every Revision of the Job's Model for this Type that was ever issued: what the Job can be pinned to."""
+        owner = self.env['qc.checksheet.share']._owner(job.sudo().model_id, checksheet_type)
         return self.env['qc.checksheet'].sudo().search([
-            ('model_id', '=', job.sudo().model_id.id), ('type_id', '=', checksheet_type.id),
+            ('model_id', '=', owner.id), ('type_id', '=', checksheet_type.id),
             ('state', 'in', ('released', 'superseded'))], order='revision desc')
 
     @api.model
@@ -315,7 +322,12 @@ class QcJobChecksheet(models.Model):
         pinned = {rec.type_id: rec for rec in self.search([('job_id', '=', job.id)])}
         Type = self.env['qc.checksheet.type']
         Sheet = self.env['qc.checksheet']
-        model_sheets = Sheet.search([('model_id', '=', job.model_id.id)]) if job.model_id else Sheet
+        # The Model's own sheets, and the other Models' sheets it uses (see qc.checksheet.share).
+        owners = self.env['qc.checksheet.share']._owners(job.model_id) if job.model_id else {}
+        owner_of = {type_id: owner for (_model_id, type_id), owner in owners.items()}
+        sheet_models = job.model_id | self.env['equipment.model'].sudo().union(*owners.values())
+        model_sheets = Sheet.search([('model_id', 'in', sheet_models.ids)]) if job.model_id else Sheet
+        model_sheets = model_sheets.filtered(lambda s: s.model_id == owner_of.get(s.type_id.id, job.model_id))
         # Required Types, plus an optional one the Model has Released; archived
         # Types still show the sheets the Job already printed.
         offered = model_sheets.filtered(lambda s: s.state == 'released').type_id
@@ -343,8 +355,10 @@ class QcJobChecksheet(models.Model):
                     job_sheet_id=rec.id,
                     pinned_date=fields.Datetime.to_string(rec.pinned_date) or '',
                     pinned_by=rec.pinned_by_id.name or '',
-                    other_model=rec.model_id != job.model_id,
+                    other_model=rec.model_id != owner_of.get(checksheet_type.id, job.model_id),
                 ) if rec else False,
+                # The Model whose sheet this is, when it isn't the Job's own.
+                'shared_from': owner_of[checksheet_type.id].name if checksheet_type.id in owner_of else False,
                 'current': self._summary(current) if current else False,
                 'next': self._summary(in_progress) if in_progress else False,
                 # Any other issued Revision can be asked for, an older one too, unless one is already waiting.
@@ -371,6 +385,9 @@ class QcJobChecksheet(models.Model):
             'name': job.display_name,
             'model': job.model_id.name or '',
             'model_id': job.model_id.id,
+            # Setting up a Model's missing sheet from here: using another's needs a viewer, writing one an Author.
+            'can_share': self.env.user.has_group(GROUP_USER),
+            'can_author': self.env.user.has_group(GROUP_AUTHOR),
             'customer': job.partner_id.name or '',
             'serial': job.machine_serial or '',
             'ready': sum(1 for row in rows if row['required'] and (row['pinned'] or row['current'])),

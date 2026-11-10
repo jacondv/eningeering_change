@@ -5,6 +5,7 @@
         <div class="o_action o_qce_action" t-ref="page">
             <div class="o_qce">
             <div class="o_qce_topbar">
+                <span class="o_qce_kind" title="The check sheets of one Job: printed, scanned, and moved to a newer Revision from here">Job QC</span>
                 <button class="btn btn-link p-0 o_qce_title" t-on-click="openJobForm" t-esc="job.name"/>
                 <span class="text-muted">
                     <button t-if="job.model_id" class="btn btn-link p-0 align-baseline" title="Open this Model's check sheets"
@@ -16,6 +17,10 @@
                 <strong title="Required Types this Job can print"><t t-esc="job.ready"/>/<t t-esc="job.required"/> required ready</strong>
                 <strong class="ms-3" title="Required Types with a signed scan on the Revision the Job prints"><t t-esc="job.scanned"/>/<t t-esc="job.required"/> required scanned</strong>
                 <button t-if="printableRows.length" class="btn btn-secondary" t-on-click="printAll">Print All</button>
+            </div>
+            <div class="o_qce_notice">
+                The check sheets of this Job: print them, upload their signed scans, and ask for a newer Revision. The sheets themselves are written
+                and revised on the Model's page<t t-if="job.model_id"> (<a href="#" t-on-click.prevent="openModel" t-esc="job.model"/>)</t>.
             </div>
             <div t-if="!job.model_id" class="o_qce_notice o_qce_notice_danger">
                 This Job has no Model. Set its Model to print the Model's check sheets.
@@ -40,6 +45,7 @@
                                 <td>
                                     <span t-if="row.required" class="o_qce_required" title="Required for every Job">★</span>
                                     <t t-esc="row.type_name"/>
+                                    <div t-if="row.shared_from" class="small text-muted" title="The Model of this Job uses the sheet of another Model">Sheet of <t t-esc="row.shared_from"/></div>
                                 </td>
                                 <td t-esc="sheet ? sheet.number : '-'"/>
                                 <td t-esc="sheet ? sheet.header : '-'"/>
@@ -102,6 +108,8 @@
                                                 t-att-class="item.css" t-att-title="item.title" t-att-disabled="item.disabled"
                                                 t-on-click="item.run" t-esc="item.label"/>
                                     </div>
+                                    <button t-elif="job.model_id and (job.can_share or job.can_author)" class="btn btn-secondary btn-sm"
+                                            title="The Model has no sheet of this Type yet: use another Model's, or create one" t-on-click="() => this.createSheet(row)">Create</button>
                                     <button t-elif="job.model_id" class="btn btn-link btn-sm" t-on-click="openModel">Go to the Model</button>
                                 </td>
                             </tr>

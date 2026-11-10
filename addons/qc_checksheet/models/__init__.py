@@ -1,6 +1,7 @@
 from . import qc_checksheet_line_mixin
 from . import qc_checksheet_type
 from . import qc_checksheet
+from . import qc_checksheet_share
 from . import qc_checksheet_editor
 from . import qc_checksheet_model_page
 from . import qc_checksheet_dashboard
