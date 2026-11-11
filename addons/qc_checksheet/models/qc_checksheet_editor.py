@@ -2,7 +2,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import html2plaintext
 
-from .qc_checksheet import GROUP_APPROVER, GROUP_AUTHOR
+from .qc_checksheet import FIRST_REVISION, GROUP_APPROVER, GROUP_AUTHOR
 
 EMPTY_HTML = '<p><br></p>'
 MODEL_SEARCH_LIMIT = 20
@@ -310,7 +310,7 @@ class QcChecksheet(models.Model):
     @api.model
     def editor_create(self, vals):
         self._check_group(GROUP_AUTHOR)
-        start = vals.get('start_rev') or 0
+        start = FIRST_REVISION if vals.get('start_rev') is None else vals['start_rev']
         self._check_start_revision(start, vals.get('model_id'), vals.get('type_id'))
         checksheet = self.create({
             'name': vals.get('header'),

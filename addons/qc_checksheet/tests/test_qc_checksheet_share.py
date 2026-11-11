@@ -75,7 +75,7 @@ class TestQcChecksheetShare(QcChecksheetCase):
         rev1 = self._new_revision(rev0, 'Check oil and filter')
         for job_sheet in (pinned, own_pinned):
             job_sheet.invalidate_recordset()
-            self.assertEqual((job_sheet.revision, job_sheet.latest_revision, job_sheet.update_available), (0, 1, True))
+            self.assertEqual((job_sheet.revision, job_sheet.latest_revision, job_sheet.update_available), (1, 2, True))
         # The variant's Job moves to Rev 1 like any other: by a request an Approver approves.
         request = self.env['qc.job.checksheet.change'].browse(pinned.action_request_change('New limit'))
         request.with_user(self.approver).action_approve()

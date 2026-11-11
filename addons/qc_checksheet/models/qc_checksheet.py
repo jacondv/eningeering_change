@@ -10,6 +10,8 @@ GROUP_ADMIN = 'qc_checksheet.group_qc_admin'
 ACTIVITY_TODO = 'mail.mail_activity_data_todo'
 # The highest Revision a sheet may start at when it comes over from paper (see _start_at_revision).
 MAX_START_REVISION = 99
+# A sheet's first Revision is 1, not 0.
+FIRST_REVISION = 1
 
 
 class QcChecksheet(models.Model):
@@ -61,7 +63,7 @@ class QcChecksheet(models.Model):
         ('released', 'Released'),
         ('superseded', 'Superseded'),
     ], default='draft', required=True, readonly=True, copy=False, tracking=True, index=True)
-    revision = fields.Integer(string='Rev', default=0, readonly=True, copy=False, tracking=True)
+    revision = fields.Integer(string='Rev', default=FIRST_REVISION, readonly=True, copy=False, tracking=True)
     root_id = fields.Many2one(
         'qc.checksheet', string='First Revision', readonly=True, copy=False, index=True,
         ondelete='cascade')
@@ -218,22 +220,22 @@ class QcChecksheet(models.Model):
 
     @api.model
     def _check_start_revision(self, start, model_id, type_id):
-        """The Revision a sheet new to Odoo starts at: 0, or the Revision it already has on paper, up to
-        MAX_START_REVISION. Only the first sheet of a Model and Type may start above 0: later ones follow on."""
-        if not isinstance(start, int) or isinstance(start, bool) or not 0 <= start <= MAX_START_REVISION:
-            raise UserError(_("Start at a Revision from 0 to %s.", MAX_START_REVISION))
-        if start and self.search_count([('model_id', '=', model_id), ('type_id', '=', type_id)]):
+        """The Revision a sheet new to Odoo starts at: 1, or the Revision it already has on paper, up to
+        MAX_START_REVISION. Only the first sheet of a Model and Type may start above 1: later ones follow on."""
+        if not isinstance(start, int) or isinstance(start, bool) or not FIRST_REVISION <= start <= MAX_START_REVISION:
+            raise UserError(_("Start at a Revision from %(first)s to %(last)s.", first=FIRST_REVISION, last=MAX_START_REVISION))
+        if start > FIRST_REVISION and self.search_count([('model_id', '=', model_id), ('type_id', '=', type_id)]):
             raise UserError(_("This Model already has a sheet of this Type, so its Revisions follow on from it."))
 
     def _start_at_revision(self, start):
-        """Make this new Draft Rev 0 start at Rev `start`: the Revisions before it were made on paper, and are
+        """Make this new Draft Rev 1 start at Rev `start`: the Revisions before it were made on paper, and are
         listed in its Revision History as rows to fill in, marked 'To be updated'."""
         self.ensure_one()
-        if not start:
+        if not start or start == FIRST_REVISION:
             return
         sudo_self = self.sudo()
-        if self.state != 'draft' or self.revision != 0 or len(sudo_self.root_id.revision_ids) > 1:
-            raise UserError(_("Only a new Draft Rev 0 can start at another Revision."))
+        if self.state != 'draft' or self.previous_revision_id or len(sudo_self.root_id.revision_ids) > 1:
+            raise UserError(_("Only a new Draft first Revision can start at another Revision."))
         sudo_self.revision = start
         sudo_self.history_ids.write({'rev': start})
         self.env['qc.checksheet.history'].sudo().create([{
@@ -242,7 +244,7 @@ class QcChecksheet(models.Model):
             'description': _("To be updated"),
             'date': False,
             'legacy': True,
-        } for rev in range(start)])
+        } for rev in range(FIRST_REVISION, start)])
 
     @api.model
     def _generate_reference(self, checksheet_type, model):
@@ -367,7 +369,7 @@ class QcChecksheet(models.Model):
                 })
 
     def _copy_content_from(self, source):
-        """Start this Rev 0 from another Released sheet, usually another
+        """Start this first Revision from another Released sheet, usually another
         Model's. The content comes over; its identity and history don't.
         """
         self.ensure_one()
@@ -376,8 +378,8 @@ class QcChecksheet(models.Model):
             raise UserError(_("Can only copy content from a check sheet of the same Type."))
         if source.state != 'released':
             raise UserError(_("Can only copy content from a Released check sheet."))
-        if self.state != 'draft' or self.revision != 0:
-            raise UserError(_("Can only copy content into a Draft Rev 0."))
+        if self.state != 'draft' or self.previous_revision_id:
+            raise UserError(_("Can only copy content into a Draft first Revision."))
         if self.group_ids or self.panel_line_ids:
             raise UserError(_("This check sheet already has content."))
 

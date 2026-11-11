@@ -174,7 +174,7 @@ class TestQcChecksheetDashboard(QcChecksheetCase):
         ids = [item['id'] for item in data['items']]
         self.assertLess(ids.index(older.id), ids.index(newer.id))
         row = next(item for item in data['items'] if item['id'] == older.id)
-        self.assertEqual((row['job'], row['from_revision'], row['to_revision'], row['waiting_days']), ('J-CHG-2', 0, 1, 6))
+        self.assertEqual((row['job'], row['from_revision'], row['to_revision'], row['waiting_days']), ('J-CHG-2', 1, 2, 6))
         self.assertEqual(row['job_id'], older.job_id.id)
         self.assertTrue(row['requested_by'])
         self.assertEqual(row['type'], self.type_general.name)

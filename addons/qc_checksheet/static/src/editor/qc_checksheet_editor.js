@@ -147,7 +147,7 @@ export class QcChecksheetEditor extends Component {
         this.state.active = null;
         this.commitActive = null;
         // What an Approver needs to see first is what changed: against the
-        // previous Revision, or for a copied Rev 0 against what it was copied from.
+        // previous Revision, or for a copied first Revision against what it was copied from.
         if (sheet.state === "review" && this.defaultBaseId) {
             await this.compareWith(this.defaultBaseId);
         } else if (this.state.compare) {

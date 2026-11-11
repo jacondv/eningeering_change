@@ -1,7 +1,7 @@
 from odoo import _, api, models
 from odoo.exceptions import UserError
 
-from .qc_checksheet import GROUP_AUTHOR, GROUP_USER
+from .qc_checksheet import FIRST_REVISION, GROUP_AUTHOR, GROUP_USER
 from .qc_checksheet_change import RUNNING_CHANGE_EXCLUDED_STATES
 from .qc_checksheet_editor import COPY_SOURCE_LIMIT, MODEL_SEARCH_LIMIT
 
@@ -194,7 +194,7 @@ class QcChecksheet(models.Model):
                     'type_id': row['type_id'],
                     'header': row.get('header'),
                     'source_model_id': row.get('source_model_id') or False,
-                    'start_rev': row.get('start_rev') or 0,
+                    'start_rev': row.get('start_rev'),
                 }))
         return created
 

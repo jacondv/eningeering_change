@@ -94,7 +94,7 @@ class TestQcJobChecksheet(QcChecksheetCase):
         with self.assertRaisesRegex(UserError, 'reason'):
             job_sheet.action_request_change(' ')
         request = self._request(job_sheet, 'EC-1 applies to this machine')
-        self.assertEqual((request.state, request.from_revision, request.to_revision), ('pending', 0, 1))
+        self.assertEqual((request.state, request.from_revision, request.to_revision), ('pending', 1, 2))
         self.assertEqual(request.requested_by_id, self.viewer)
         # The Job still prints Rev 0.
         self.assertEqual(job_sheet.checksheet_id, rev0)
@@ -212,7 +212,7 @@ class TestQcJobChecksheet(QcChecksheetCase):
         job_sheet = self._print(self._create_job(), self.type_general)
         self.assertEqual(job_sheet.checksheet_id, rev2)
         options = self.JobSheet.job_options(job_sheet.job_id.id, self.type_general.id)
-        self.assertEqual([o['revision'] for o in options], [2, 1, 0])
+        self.assertEqual([o['revision'] for o in options], [3, 2, 1])
         self.assertEqual([o['pinned'] for o in options], [True, False, False])
         self.assertEqual([o['current'] for o in options], [True, False, False])
         # Not just the newest: a middle Revision, and going back.
@@ -220,11 +220,11 @@ class TestQcJobChecksheet(QcChecksheetCase):
         self.assertEqual(job_sheet.checksheet_id, rev1)
         self._request(job_sheet, 'Back to Rev 0', rev0).with_user(self.approver).action_approve()
         self.assertEqual(job_sheet.checksheet_id, rev0)
-        self.assertEqual(job_sheet.latest_revision, 2)
+        self.assertEqual(job_sheet.latest_revision, 3)
         self.assertTrue(job_sheet.update_available)
         # With no pick, it goes to the current one.
         request = self.env['qc.job.checksheet.change'].browse(job_sheet.with_user(self.viewer).action_request_change('Latest'))
-        self.assertEqual(request.to_revision, 2)
+        self.assertEqual(request.to_revision, 3)
         request.with_user(self.approver).action_approve()
         self.assertFalse(job_sheet.update_available)
 
@@ -260,7 +260,7 @@ class TestQcJobChecksheet(QcChecksheetCase):
         with self.assertRaisesRegex(UserError, 'reason'):
             self.JobSheet.job_pin(job.id, self.type_general.id, rev0.id, ' ')
         options = self.JobSheet.job_options(job.id, self.type_general.id)
-        self.assertEqual([(o['revision'], o['pinned']) for o in options], [(1, False), (0, False)])
+        self.assertEqual([(o['revision'], o['pinned']) for o in options], [(2, False), (1, False)])
         job_sheet = self.JobSheet.browse(self.JobSheet.job_pin(job.id, self.type_general.id, rev0.id, 'Built to Rev 0'))
         self.assertEqual(job_sheet.checksheet_id, rev0)
         self.assertIn('Built to Rev 0', job_sheet.message_ids[0].body)
@@ -285,8 +285,8 @@ class TestQcJobChecksheet(QcChecksheetCase):
         stale = self._print(self._create_job(), self.type_general)
         self._new_revision(rev0)
         fresh = self._print(self._create_job(), self.type_general)
-        self.assertEqual((stale.latest_revision, fresh.latest_revision), (1, 1))
-        self.assertEqual((stale.revision, fresh.revision), (0, 1))
+        self.assertEqual((stale.latest_revision, fresh.latest_revision), (2, 2))
+        self.assertEqual((stale.revision, fresh.revision), (1, 2))
         outdated = self.env['qc.job.checksheet'].search([('update_available', '=', True)])
         self.assertIn(stale, outdated)
         self.assertNotIn(fresh, outdated)
@@ -311,7 +311,7 @@ class TestQcJobChecksheet(QcChecksheetCase):
         row = self._row(self.JobSheet.job_overview(job.id), self.type_general)
         self.assertFalse(row['update'])
         self.assertEqual((row['pending']['revision'], row['pending']['requested_by'], row['pending']['reason']),
-                         (1, self.viewer.name, 'Please'))
+                         (2, self.viewer.name, 'Please'))
         self.assertEqual((row['pending']['can_decide'], row['pending']['can_cancel']), (False, True))
         row = self._row(self.env['qc.job.checksheet'].with_user(self.approver).job_overview(job.id), self.type_general)
         self.assertEqual((row['pending']['can_decide'], row['pending']['can_cancel']), (True, True))
@@ -440,7 +440,7 @@ class TestQcJobChecksheet(QcChecksheetCase):
         request = self._request(job_sheet)
         html = render()
         self.assertIn('REVISION CHANGE PENDING APPROVAL', html)
-        self.assertRegex(html, r'\(REV\s*0\s*TO REV\s*1\)')
+        self.assertRegex(html, r'\(REV\s*1\s*TO REV\s*2\)')
         self.assertIn('CHECK WITH QC BEFORE USE', html)
         # The Model's blank print has no Job, so nothing to warn about.
         blank = self.env['ir.actions.report']._render_qweb_html(
@@ -483,7 +483,7 @@ class TestQcJobChecksheet(QcChecksheetCase):
             'qc_checksheet.report_qc_job_checksheet_document', job_sheet.ids)[0].decode()
         for text in ('SN-7', 'EN-7', 'ACME Co', job.name, 'QC-GE-ZA90'):
             self.assertIn(text, html)
-        self.assertRegex(html, r'Revision:\s*<span>0</span>')
+        self.assertRegex(html, r'Revision:\s*<span>1</span>')
         self.assertNotIn('SUPERSEDED', html)
         # The same Revision printed from the Model says it's superseded.
         html = self.env['ir.actions.report']._render_qweb_html(

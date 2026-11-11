@@ -187,7 +187,7 @@ class TestQcChecksheetModelPage(QcChecksheetCase):
         sheets = self.env['qc.checksheet'].browse([c['id'] for c in created])
         self.assertEqual(sheets.mapped('type_id'), self.type_general | self.type_hydraulic)
         self.assertEqual(sheets.model_id, model)
-        self.assertEqual(set(sheets.mapped('revision')), {0})
+        self.assertEqual(set(sheets.mapped('revision')), {1})
         self.assertEqual(set(sheets.mapped('state')), {'draft'})
         hydraulic = sheets.filtered(lambda s: s.type_id == self.type_hydraulic)
         self.assertEqual(hydraulic.copied_from_id, source)

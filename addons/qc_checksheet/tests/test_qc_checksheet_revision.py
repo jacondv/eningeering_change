@@ -48,10 +48,10 @@ class TestQcChecksheetRevision(QcChecksheetCase):
     def test_number_comes_from_type_and_model(self):
         checksheet = self._create_checksheet()
         self.assertEqual(checksheet.reference, 'QC-GE-ZA90')
-        self.assertEqual(checksheet.revision, 0)
+        self.assertEqual(checksheet.revision, 1)
         self.assertEqual(checksheet.state, 'draft')
         self.assertEqual(checksheet.root_id, checksheet)
-        self.assertEqual(checksheet.history_ids.mapped('rev'), [0])
+        self.assertEqual(checksheet.history_ids.mapped('rev'), [1])
 
     def test_number_is_kept_when_model_is_renamed(self):
         checksheet = self._create_checksheet()
@@ -91,7 +91,7 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         self.assertEqual(checksheet.state, 'review')
         checksheet.action_recall()
         self.assertEqual(checksheet.state, 'draft')
-        self.assertEqual(checksheet.revision, 0)
+        self.assertEqual(checksheet.revision, 1)
         # Editable again, then can be submitted again.
         checksheet.group_ids.write({'name': 'Corrected'})
         checksheet.action_submit()
@@ -111,7 +111,7 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         as_approver.action_reject('Wrong limit')
         self.assertEqual(checksheet.state, 'draft')
         self.assertEqual(checksheet.reject_reason, 'Wrong limit')
-        self.assertEqual(checksheet.revision, 0)
+        self.assertEqual(checksheet.revision, 1)
 
     def test_approve_needs_approver_group(self):
         checksheet = self._draft_as_author()
@@ -233,7 +233,7 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         rev0 = self._released_as_author()
         rev1 = self._new_revision(rev0)
 
-        self.assertEqual(rev1.revision, 1)
+        self.assertEqual(rev1.revision, 2)
         self.assertEqual(rev1.state, 'draft')
         self.assertEqual(rev1.reference, rev0.reference)
         self.assertEqual(rev1.root_id, rev0)
@@ -297,23 +297,23 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         rev1.unlink()
         self.assertTrue(rev0.exists())
         self.assertEqual(rev0.state, 'released')
-        self.assertEqual(self._new_revision(rev0).revision, 1)
+        self.assertEqual(self._new_revision(rev0).revision, 2)
 
     def test_history_records_each_revision(self):
         rev0 = self._released_as_author()
         rev1 = self._new_revision(rev0, 'Raise pressure limit')
-        self.assertEqual(rev1.history_ids.mapped('rev'), [0, 1])
+        self.assertEqual(rev1.history_ids.mapped('rev'), [1, 2])
         self.assertEqual(rev1.history_ids[1].description, 'Raise pressure limit')
         self.assertEqual(rev1.history_ids[1].created_by, self.author.name)
         self.assertFalse(rev1.history_ids[1].approved_by)
         # The old Revision's own history stops at itself.
-        self.assertEqual(rev0.history_ids.mapped('rev'), [0])
+        self.assertEqual(rev0.history_ids.mapped('rev'), [1])
 
     def test_history_rev_does_not_shift_when_a_row_is_removed(self):
         rev0 = self._released_as_author()
         rev1 = self._new_revision(rev0)
         rev1.sudo().history_ids[0].unlink()
-        self.assertEqual(rev1.history_ids.mapped('rev'), [1])
+        self.assertEqual(rev1.history_ids.mapped('rev'), [2])
 
     def test_open_current_revision_from_an_old_one(self):
         rev0 = self._released_as_author()
@@ -386,7 +386,7 @@ class TestQcChecksheetRevision(QcChecksheetCase):
         rev1.history_ids[1].write({'show_in_report': False})
         html = self._render(rev1)
         self.assertNotIn('Secret row', html)
-        self.assertRegex(html, r'Revision:\s*<span>1</span>')
+        self.assertRegex(html, r'Revision:\s*<span>2</span>')
 
     def test_report_prints_name_as_header_and_type_name_below(self):
         html = self._render(self._create_checksheet(name='Pre Delivery'))
@@ -400,10 +400,10 @@ class TestQcChecksheetRevision(QcChecksheetCase):
             })
             self.env.flush_all()
 
-    def test_report_shows_rev_zero_and_model(self):
+    def test_report_shows_the_first_rev_and_model(self):
         checksheet = self._released_as_author()
         html = self._render(checksheet)
-        self.assertRegex(html, r'Revision:\s*<span>0</span>')
+        self.assertRegex(html, r'Revision:\s*<span>1</span>')
         self.assertIn('QC-GE-ZA90', html)
         self.assertIn('ZA90</span>', html)
         # Printed from the Model: blank, without any Job.
