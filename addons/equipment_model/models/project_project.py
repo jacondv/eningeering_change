@@ -2,6 +2,7 @@ import re
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from odoo.fields import Domain
 from odoo.tools import escape_psql
 
 
@@ -36,33 +37,35 @@ class ProjectProject(models.Model):
                 "Model %(model)s has no Product Family, nor does any of its parent Models. "
                 "Set one on the Model first.", model=model.name))
         group = family.category_id
-        used = {
-            number
-            for group_family in group.with_context(active_test=False).family_ids
-            for _project, number in self._job_numbers(group_family, group)
-        }
+        used = {number for _project, number in self._job_numbers(group.with_context(active_test=False).family_ids, group)}
         number = group.last_job_number + 1
         while number in used:
             number += 1
         return f"{family.name}-{str(number).zfill(group.job_number_digits)}"
 
-    def _job_numbers(self, family, group):
-        """(Job, number) for every Job named <family>-<number>."""
-        pattern = self._job_name_pattern(family, group)
-        projects = self.with_context(active_test=False).search([
-            ('name', '=ilike', f"{escape_psql(family.name)}-%"),
-            ('is_template', '=', False),
-        ])
+    @api.model
+    def _job_numbers(self, families, group):
+        """(Job, number) for every Job named <Family>-<number>, whichever of
+        `families` it is of - all found by one search."""
+        if not families:
+            return
+        patterns = [self._job_name_pattern(family, group) for family in families]
+        name_matches = Domain.OR([Domain('name', '=ilike', f"{escape_psql(family.name)}-%") for family in families])
+        projects = self.with_context(active_test=False).search(
+            Domain.AND([self._equipment_job_domain(), name_matches]))
         for project in projects:
-            match = pattern.match(project.name)
-            if match:
-                yield project, int(match.group(1))
+            for pattern in patterns:
+                match = pattern.match(project.name)
+                if match:
+                    yield project, int(match.group(1))
+                    break
 
     @api.model
     def _job_name_pattern(self, family, group):
-        # The number may be followed by anything but another digit:
-        # "S100-265 (Hardware version)" is Job 265, "S100-2650" isn't.
-        return re.compile(rf"{re.escape(family.name)}-(\d{{{group.job_number_digits}}})(?!\d)", re.IGNORECASE)
+        # At least the Group's digits, so a Group that outgrows them (S100-999,
+        # then S100-1000) keeps counting. Anything may follow the number:
+        # "S100-265 (Hardware version)" is Job 265.
+        return re.compile(rf"{re.escape(family.name)}-(\d{{{group.job_number_digits},}})", re.IGNORECASE)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -80,22 +83,16 @@ class ProjectProject(models.Model):
         """A Job saved as <Family>-<number> above its Group's Last Job Number
         moves that number up to it, whether the name was suggested or typed.
         Any other name - a draft without a number yet - leaves it alone."""
+        highest = {}
         for project in self:
             if project.is_template or not project.name or not project.model_id:
                 continue
             family = project.model_id._effective_family()
             group = family.category_id
             match = group and self._job_name_pattern(family, group).match(project.name)
-            if not match:
-                continue
-            # Holds the Group until commit, so that two Jobs saved at once with
-            # the same new number go one after the other: the second is then
-            # stopped by the unique Project name check (jacon_core) instead of
-            # both passing it before either is committed.
-            self.env.cr.execute(
-                "SELECT last_job_number FROM equipment_model_category WHERE id = %s FOR UPDATE", [group.id])
-            current = self.env.cr.fetchone()[0] or 0
-            number = int(match.group(1))
-            if number > current:
-                # Whoever may save a Job moves the counter, Group editing rights or not.
-                group.sudo().last_job_number = number
+            if match:
+                highest[group] = max(highest.get(group, 0), int(match.group(1)))
+        # In a fixed order, so that two saves touching several Groups can't wait on each other.
+        for group in sorted(highest, key=lambda group: group.id):
+            if highest[group] > group.last_job_number:
+                group._raise_last_job_number(highest[group])

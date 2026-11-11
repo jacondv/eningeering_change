@@ -70,6 +70,7 @@
         <field name="res_model">equipment.model.import.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
+        <field name="group_ids" eval="[(4, ref('equipment_model.group_equipment_model_manager'))]"/>
     </record>
 
     <record id="action_equipment_model_export" model="ir.actions.server">
@@ -77,6 +78,7 @@
         <field name="model_id" ref="model_equipment_model_import_wizard"/>
         <field name="state">code</field>
         <field name="code">action = model.action_export()</field>
+        <field name="group_ids" eval="[(4, ref('equipment_model.group_equipment_model_manager'))]"/>
     </record>
 
 </odoo>

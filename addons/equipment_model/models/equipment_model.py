@@ -44,57 +44,63 @@ class EquipmentModel(models.Model):
 
     @api.model
     def get_dashboard_data(self):
-        """Counts for the Equipment Models dashboard (equipment_model_dashboard.js).
-        Only what the user can see is counted, so a figure always matches the
-        list its click opens."""
-        Project = self.env['project.project']
-        Family = self.env['equipment.model.family']
-        job_domain = Project._equipment_job_domain()
+        """What the Equipment Models dashboard (equipment_model_dashboard.js)
+        shows: every Group, Product Family and Model with its counts, for the
+        page to filter between. Only what the user can see is counted.
 
-        models_per_family = {
-            family.id: count
-            for family, count in self._read_group([], ['family_id'], ['__count'])
-        }
+        A Model without a Product Family of its own is counted under its parent
+        Model's, as Job names and the import do (_effective_family)."""
+        Project = self.env['project.project']
+        job_domain = Project._equipment_job_domain()
         jobs_per_model = {
             model.id: count
             for model, count in Project._read_group(job_domain + [('model_id', '!=', False)], ['model_id'], ['__count'])
         }
-        jobs_per_family = {}
-        for model in self.browse(jobs_per_model):
-            family = model.family_id.id
-            jobs_per_family[family] = jobs_per_family.get(family, 0) + jobs_per_model[model.id]
+        families = self.env['equipment.model.family'].search([])
+        family_group = {family.id: family.category_id.id for family in families}
 
-        families = [{
-            'id': family.id,
-            'name': family.name,
-            'group_id': family.category_id.id,
-            'group': family.category_id.name,
-            'models': models_per_family.get(family.id, 0),
-            'jobs': jobs_per_family.get(family.id, 0),
-        } for family in Family.search([])]
-        groups = []
-        for group in self.env['equipment.model.category'].search([]):
-            own = [family for family in families if family['group_id'] == group.id]
-            groups.append({
-                'id': group.id,
-                'name': group.name,
-                'families': len(own),
-                'models': sum(family['models'] for family in own),
-                'jobs': sum(family['jobs'] for family in own),
-                'last_job_number': group.last_job_number,
+        models = []
+        for model in self.search([]):
+            family_id = model._effective_family().id
+            models.append({
+                'id': model.id,
+                'name': model.name,
+                'parent': model.parent_id.name or '',
+                'family_id': family_id,
+                'group_id': family_group.get(family_id, 0),
+                'jobs': jobs_per_model.get(model.id, 0),
             })
+
+        def counts(key, value):
+            own = [model for model in models if model[key] == value]
+            return {'models': len(own), 'jobs': sum(model['jobs'] for model in own)}
+
+        family_rows = [{
+            'id': family.id, 'name': family.name, 'group_id': family.category_id.id,
+            **counts('family_id', family.id),
+        } for family in families]
+        unassigned = counts('family_id', 0)
+        if unassigned['models']:
+            # Id 0 stands for "no Product Family", so that these Models can be reached too.
+            family_rows.append({'id': 0, 'name': _("No Product Family"), 'group_id': 0, **unassigned})
+
+        groups = [{
+            'id': group.id,
+            'name': group.name,
+            'last_job_number': group.last_job_number,
+            'families': len(group.family_ids),
+            **counts('group_id', group.id),
+        } for group in self.env['equipment.model.category'].search([])]
         return {
             'totals': {
                 'groups': len(groups),
                 'families': len(families),
-                'models': self.search_count([]),
+                'models': len(models),
                 'jobs': Project.search_count(job_domain),
             },
-            'attention': {
-                'models_without_family': models_per_family.get(False, 0),
-                'jobs_without_model': Project.search_count(job_domain + [('model_id', '=', False)]),
-            },
+            'jobs_without_model': Project.search_count(job_domain + [('model_id', '=', False)]),
             'groups': groups,
-            'families': families,
+            'families': family_rows,
+            'models': models,
             'job_domain': job_domain,
         }

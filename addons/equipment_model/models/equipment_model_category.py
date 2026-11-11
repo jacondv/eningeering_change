@@ -36,18 +36,26 @@ class EquipmentModelCategory(models.Model):
             if not 1 <= rec.job_number_digits <= 6:
                 raise ValidationError(_("Job Number Digits must be between 1 and 6."))
 
+    def _raise_last_job_number(self, number):
+        """Move Last Job Number up to `number`, never down. Holds the Group until
+        commit, so that two Jobs saved at once with the same new number go one
+        after the other: the second is then stopped by the unique Project name
+        check (jacon_core) instead of both passing it before either is committed.
+        Whoever may save a Job moves the counter, Group editing rights or not."""
+        self.ensure_one()
+        self.env.cr.execute("SELECT last_job_number FROM equipment_model_category WHERE id = %s FOR UPDATE", [self.id])
+        if number > (self.env.cr.fetchone()[0] or 0):
+            self.sudo().last_job_number = number
+
     def _fill_last_job_numbers(self):
-        """Groups still at 0 start from the highest Job number already in use
-        in any of their Product Families. A number set by hand is kept."""
+        """Move each Group's Last Job Number up to the highest Job number already
+        in use in any of its Product Families. Never lowers a number."""
         Project = self.env['project.project']
-        for group in self.filtered(lambda group: not group.last_job_number):
-            numbers = [
-                number
-                for family in group.with_context(active_test=False).family_ids
-                for _project, number in Project._job_numbers(family, group)
-            ]
-            if numbers:
-                group.last_job_number = max(numbers)
+        for group in self:
+            families = group.with_context(active_test=False).family_ids
+            highest = max((number for _project, number in Project._job_numbers(families, group)), default=0)
+            if highest > group.last_job_number:
+                group._raise_last_job_number(highest)
 
     def _compute_family_count(self):
         for rec in self:

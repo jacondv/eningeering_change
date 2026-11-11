@@ -6,7 +6,7 @@
             <div class="o_em_header">
                 <div>
                     <h2>Equipment Models</h2>
-                    <div class="text-muted">Click any number to open its list.</div>
+                    <div class="text-muted">Pick a Group, then a Product Family, then a Model, or search: its Jobs are listed below.</div>
                 </div>
                 <div t-if="state.isManager" class="d-flex gap-2">
                     <button class="btn btn-primary" t-on-click="importFile">
@@ -21,119 +21,177 @@
             <div t-if="!state.data" class="text-center p-5"><i class="fa fa-spinner fa-spin fa-2x"/></div>
             <t t-else="">
                 <t t-set="data" t-value="state.data"/>
-                <div class="o_em_kpis">
-                    <div class="o_em_kpi" t-on-click="openGroups">
-                        <i class="fa fa-th-large"/>
-                        <div class="o_em_kpi_value" t-esc="data.totals.groups"/>
-                        <div class="o_em_kpi_label">Groups</div>
+
+                <div class="o_em_searchbar">
+                    <div class="o_em_search_box" t-on-click="focusSearch">
+                        <i class="fa fa-search o_em_search_icon"/>
+                        <span t-foreach="facets" t-as="facet" t-key="facet.key" class="o_em_facet">
+                            <span class="o_em_facet_label" t-esc="facet.label"/>
+                            <span class="o_em_facet_value" t-esc="facet.value"/>
+                            <button type="button" class="o_em_facet_remove" title="Remove this filter" t-on-click.stop="() => this.removeFacet(facet)">
+                                <i class="fa fa-times"/>
+                            </button>
+                        </span>
+                        <input t-ref="searchInput" type="text" class="o_em_search_input"
+                               placeholder="Search Group, Product Family, Model, Job..."
+                               t-model="state.query"
+                               t-on-input="onSearchInput" t-on-keydown="onSearchKeydown"
+                               t-on-focus="() => this.state.searchOpen = true"
+                               t-on-blur="() => this.state.searchOpen = false"/>
+                        <button t-if="facets.length" type="button" class="btn btn-sm btn-link o_em_clear_all" t-on-click.stop="clearAll">Clear all</button>
                     </div>
-                    <div class="o_em_kpi" t-on-click="() => this.openFamilies()">
-                        <i class="fa fa-sitemap"/>
-                        <div class="o_em_kpi_value" t-esc="data.totals.families"/>
-                        <div class="o_em_kpi_label">Product Families</div>
-                    </div>
-                    <div class="o_em_kpi" t-on-click="() => this.openModels('Equipment Models', [])">
-                        <i class="fa fa-cogs"/>
-                        <div class="o_em_kpi_value" t-esc="data.totals.models"/>
-                        <div class="o_em_kpi_label">Models</div>
-                    </div>
-                    <div class="o_em_kpi" t-on-click="() => this.openJobs('Jobs', [])">
-                        <i class="fa fa-briefcase"/>
-                        <div class="o_em_kpi_value" t-esc="data.totals.jobs"/>
-                        <div class="o_em_kpi_label">Jobs</div>
+                    <div t-if="state.searchOpen and state.query.trim()" class="o_em_search_options">
+                        <div t-foreach="searchOptions" t-as="option" t-key="option.type" class="o_em_search_option"
+                             t-att-class="{ active: option_index === state.highlighted }"
+                             t-on-mousedown.prevent="() => this.addFilter(option.type)"
+                             t-on-mouseenter="() => this.state.highlighted = option_index">
+                            Search <strong t-esc="option.label"/> for: <em t-esc="state.query.trim()"/>
+                        </div>
                     </div>
                 </div>
 
-                <div class="o_em_attention">
-                    <div t-attf-class="o_em_check {{ data.attention.models_without_family ? 'o_em_check_warn' : 'o_em_check_ok' }}"
-                         t-on-click="() => data.attention.models_without_family and this.openModels('Models without a Product Family', [['family_id', '=', false]])">
-                        <i t-attf-class="fa {{ data.attention.models_without_family ? 'fa-exclamation-triangle' : 'fa-check-circle' }}"/>
-                        <span t-if="data.attention.models_without_family">
-                            <strong t-esc="data.attention.models_without_family"/> Models have no Product Family, so no Group
-                        </span>
-                        <span t-else="">Every Model has a Product Family</span>
-                    </div>
-                    <div t-attf-class="o_em_check {{ data.attention.jobs_without_model ? 'o_em_check_warn' : 'o_em_check_ok' }}"
-                         t-on-click="() => data.attention.jobs_without_model and this.openJobs('Jobs without a Model', [['model_id', '=', false]])">
-                        <i t-attf-class="fa {{ data.attention.jobs_without_model ? 'fa-exclamation-triangle' : 'fa-check-circle' }}"/>
-                        <span t-if="data.attention.jobs_without_model">
-                            <strong t-esc="data.attention.jobs_without_model"/> Jobs have no Model
-                        </span>
-                        <span t-else="">Every Job has a Model</span>
-                    </div>
+                <div class="o_em_summary">
+                    <span><strong t-esc="data.totals.groups"/> Groups</span>
+                    <span><strong t-esc="data.totals.families"/> Product Families</span>
+                    <span><strong t-esc="data.totals.models"/> Models</span>
+                    <span><strong t-esc="data.totals.jobs"/> Jobs</span>
+                    <a t-if="data.jobs_without_model" href="#" class="o_em_warn" t-on-click.prevent="openJobsWithoutModel">
+                        <i class="fa fa-exclamation-triangle me-1"/><strong t-esc="data.jobs_without_model"/> Jobs have no Model
+                    </a>
                 </div>
 
-                <div class="o_em_panels">
+                <div class="o_em_columns">
                     <div class="o_em_panel">
                         <h4>By Group</h4>
-                        <table class="table table-hover o_em_table">
-                            <thead>
-                                <tr>
-                                    <th>Group</th>
-                                    <th class="text-end">Product Families</th>
-                                    <th class="text-end">Models</th>
-                                    <th class="o_em_jobs_col">Jobs</th>
-                                    <th class="text-end" title="The next suggested Job name gets the number after this one">Last Job No.</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr t-foreach="data.groups" t-as="group" t-key="group.id"
-                                    t-att-class="{ 'o_em_selected': group.id === state.groupId }"
-                                    t-on-click="() => this.toggleGroup(group.id)">
-                                    <td class="fw-bold" t-esc="group.name"/>
-                                    <td class="text-end">
-                                        <a href="#" t-on-click.prevent.stop="() => this.openFamilies(group)" t-esc="group.families"/>
-                                    </td>
-                                    <td class="text-end">
-                                        <a href="#" t-on-click.prevent.stop="() => this.openModels(group.name, [['family_id.category_id', '=', group.id]])" t-esc="group.models"/>
-                                    </td>
-                                    <td class="o_em_jobs_col">
-                                        <div class="o_em_bar"><div class="o_em_bar_fill" t-att-style="'width: ' + barWidth(group.jobs)"/></div>
-                                        <a href="#" t-on-click.prevent.stop="() => this.openJobs(group.name, [['model_id.family_id.category_id', '=', group.id]])" t-esc="group.jobs"/>
-                                    </td>
-                                    <td class="text-end">
-                                        <a href="#" t-on-click.prevent.stop="() => this.openGroupRecord(group)" t-esc="group.last_job_number"/>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div class="text-muted small">Click a Group to see only its Product Families on the right.</div>
+                        <div class="o_em_scroll">
+                            <table class="table table-hover o_em_table">
+                                <thead>
+                                    <tr>
+                                        <th>Group</th>
+                                        <th class="text-end">Families</th>
+                                        <th class="text-end">Models</th>
+                                        <th class="text-end">Jobs</th>
+                                        <th class="text-end" title="The next suggested Job name gets the number after this one">Last No.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="groups" t-as="group" t-key="group.id"
+                                        t-att-class="{ o_em_selected: group.id === state.groupId }"
+                                        t-on-click="() => this.selectGroup(group.id)">
+                                        <td class="fw-bold" t-esc="group.name"/>
+                                        <td class="text-end" t-esc="group.families"/>
+                                        <td class="text-end" t-esc="group.models"/>
+                                        <td class="o_em_jobs_col">
+                                            <div class="o_em_bar"><div class="o_em_bar_fill" t-att-style="'width: ' + barWidth(group.jobs, data.groups)"/></div>
+                                            <t t-esc="group.jobs"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="#" title="Edit this Group" t-on-click.prevent.stop="() => this.openGroup(group)" t-esc="group.last_job_number"/>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="!groups.length">
+                                        <td colspan="5" class="text-muted">No Group matches.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="o_em_panel">
-                        <h4>
-                            By Product Family
-                            <span t-if="selectedGroup" class="badge text-bg-primary ms-2">
-                                <t t-esc="selectedGroup.name"/>
-                                <i class="fa fa-times ms-1" role="button" title="Show all" t-on-click="() => this.toggleGroup(state.groupId)"/>
-                            </span>
-                        </h4>
+                        <h4>By Product Family</h4>
                         <div class="o_em_scroll">
                             <table class="table table-hover o_em_table">
                                 <thead>
                                     <tr>
                                         <th>Product Family</th>
-                                        <th t-if="!selectedGroup">Group</th>
+                                        <th t-if="state.groupId === null">Group</th>
                                         <th class="text-end">Models</th>
                                         <th class="text-end">Jobs</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr t-foreach="families" t-as="family" t-key="family.id">
+                                    <tr t-foreach="families" t-as="family" t-key="family.id"
+                                        t-att-class="{ o_em_selected: family.id === state.familyId, o_em_unassigned: !family.id }"
+                                        t-on-click="() => this.selectFamily(family.id)">
                                         <td class="fw-bold" t-esc="family.name"/>
-                                        <td t-if="!selectedGroup" class="text-muted" t-esc="family.group"/>
-                                        <td class="text-end">
-                                            <a href="#" t-on-click.prevent="() => this.openModels(family.name, [['family_id', '=', family.id]])" t-esc="family.models"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <a href="#" t-on-click.prevent="() => this.openJobs(family.name, [['model_id.family_id', '=', family.id]])" t-esc="family.jobs"/>
+                                        <td t-if="state.groupId === null" class="text-muted" t-esc="groupById[family.group_id]?.name || ''"/>
+                                        <td class="text-end" t-esc="family.models"/>
+                                        <td class="o_em_jobs_col">
+                                            <div class="o_em_bar"><div class="o_em_bar_fill" t-att-style="'width: ' + barWidth(family.jobs, data.families)"/></div>
+                                            <t t-esc="family.jobs"/>
                                         </td>
                                     </tr>
                                     <tr t-if="!families.length">
-                                        <td colspan="4" class="text-muted">No Product Family in this Group yet.</td>
+                                        <td colspan="4" class="text-muted">No Product Family matches.</td>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <div class="o_em_panel">
+                        <h4>By Model</h4>
+                        <div class="o_em_scroll">
+                            <table class="table table-hover o_em_table">
+                                <thead>
+                                    <tr>
+                                        <th>Model</th>
+                                        <th t-if="state.familyId === null">Product Family</th>
+                                        <th>Parent</th>
+                                        <th class="text-end">Jobs</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="models" t-as="model" t-key="model.id"
+                                        t-att-class="{ o_em_selected: model.id === state.modelId }"
+                                        t-on-click="() => this.selectModel(model.id)">
+                                        <td class="fw-bold" t-esc="model.name"/>
+                                        <td t-if="state.familyId === null" class="text-muted" t-esc="modelContext(model).family"/>
+                                        <td class="text-muted" t-esc="model.parent"/>
+                                        <td class="text-end" t-esc="model.jobs"/>
+                                    </tr>
+                                    <tr t-if="!models.length">
+                                        <td colspan="4" class="text-muted">No Model matches.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="o_em_panel o_em_jobs_panel">
+                    <h4 class="d-flex align-items-center">
+                        Jobs
+                        <span t-if="hasCriteria" class="text-muted fw-normal ms-2">(<t t-esc="state.jobCount"/>)</span>
+                    </h4>
+                    <p t-if="!hasCriteria" class="text-muted mb-0">Pick a Group, a Product Family or a Model, or search, to list Jobs.</p>
+                    <p t-elif="!state.jobs.length and !state.loadingJobs" class="text-muted mb-0">No Job matches.</p>
+                    <div t-else="" class="o_em_scroll o_em_jobs_scroll">
+                        <table class="table table-hover o_em_table">
+                            <thead>
+                                <tr>
+                                    <th>Job</th>
+                                    <th>Model</th>
+                                    <th>Product Family</th>
+                                    <th>Group</th>
+                                    <th>Customer</th>
+                                    <th>Stage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="state.jobs" t-as="job" t-key="job.id" t-on-click="() => this.openJob(job)">
+                                    <td class="fw-bold" t-esc="job.name"/>
+                                    <td t-esc="job.model_id ? job.model_id[1] : ''"/>
+                                    <td t-esc="jobContext(job).family"/>
+                                    <td t-esc="jobContext(job).group"/>
+                                    <td class="text-muted" t-esc="job.partner_id ? job.partner_id[1] : ''"/>
+                                    <td t-esc="job.stage_id ? job.stage_id[1] : ''"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div t-if="state.jobCount > state.jobs.length" class="text-muted small">
+                            Showing the latest <t t-esc="state.jobs.length"/> of <t t-esc="state.jobCount"/>.
+                            <a href="#" t-on-click.prevent="openAllJobs">Open them all</a>
                         </div>
                     </div>
                 </div>
