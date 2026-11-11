@@ -74,12 +74,12 @@
                 </div>
                 <div class="o_qce_field">
                     <label for="qce_start_rev">Start at Rev</label>
-                    <input id="qce_start_rev" type="number" min="0" max="99" step="1" class="form-control w-auto" t-att-value="state.startRev"
+                    <input id="qce_start_rev" type="number" min="1" max="99" step="1" class="form-control w-auto" t-att-value="state.startRev"
                            t-on-input="(ev) => { state.startRev = ev.target.value; }"/>
                     <small t-att-class="startRevOk ? 'text-muted' : 'text-danger'">
-                        <t t-if="!startRevOk">Enter a whole number from 0 to 99.</t>
-                        <t t-elif="startRevNumber">The sheet already exists on paper at Rev <t t-esc="startRevNumber"/>: Revisions 0 to <t t-esc="startRevNumber - 1"/> are listed in its Revision History as "To be updated", for you to fill in.</t>
-                        <t t-else="">0 for a new sheet. A sheet already in use elsewhere (Word, say) starts at the Revision it has.</t>
+                        <t t-if="!startRevOk">Enter a whole number from 1 to 99.</t>
+                        <t t-elif="startRevNumber > 1">The sheet already exists on paper at Rev <t t-esc="startRevNumber"/>: Revisions 1 to <t t-esc="startRevNumber - 1"/> are listed in its Revision History as "To be updated", for you to fill in.</t>
+                        <t t-else="">1 for a new sheet. A sheet already in use elsewhere (Word, say) starts at the Revision it has.</t>
                     </small>
                 </div>
                 <div t-if="state.context.duplicate_id" class="alert alert-warning mb-0 d-flex flex-wrap align-items-center gap-2">
@@ -92,7 +92,7 @@
                         <span class="o_qce_dot"/><span><strong>Blank sheet</strong><br/><small class="text-muted">Start with one empty Group and Item</small></span>
                     </button>
                     <button class="o_qce_choice" t-att-class="{'o_qce_choice_on': state.source === 'copy'}" t-on-click="() => { state.source = 'copy'; }">
-                        <span class="o_qce_dot"/><span><strong>Copy from another Model</strong><br/><small class="text-muted">Content and approval positions only, restarting at Rev 0</small></span>
+                        <span class="o_qce_dot"/><span><strong>Copy from another Model</strong><br/><small class="text-muted">Content and approval positions only, restarting at Rev 1</small></span>
                     </button>
                 </div>
                 <div t-if="state.source === 'copy'" class="o_qce_sources">

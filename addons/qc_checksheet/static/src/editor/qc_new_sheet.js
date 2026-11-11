@@ -30,7 +30,7 @@ export class QcNewSheet extends Component {
             header: "",
             headerIsAuto: false,
             // Kept as typed, so the field can be empty while typing; see startRevOk.
-            startRev: "0",
+            startRev: "1",
             source: "blank",
             sourceId: false,
             sourceModel: null,
@@ -79,14 +79,14 @@ export class QcNewSheet extends Component {
         return "Printed as the top line of the PDF.";
     }
 
-    /** The Revision to start at, from 0 to MAX_START_REV. */
+    /** The Revision to start at, from 1 to MAX_START_REV. */
     get startRevOk() {
         const value = String(this.state.startRev).trim();
-        return /^\d{1,2}$/.test(value) && Number(value) <= MAX_START_REV;
+        return /^\d{1,2}$/.test(value) && Number(value) >= 1 && Number(value) <= MAX_START_REV;
     }
 
     get startRevNumber() {
-        return this.startRevOk ? Number(this.state.startRev) : 0;
+        return this.startRevOk ? Number(this.state.startRev) : 1;
     }
 
     get cannotCreate() {

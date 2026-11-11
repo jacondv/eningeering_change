@@ -25,7 +25,7 @@
                     <button string="Copy Content From..." name="%(action_qc_checksheet_copy_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
                             groups="qc_checksheet.group_qc_author"
-                            invisible="checksheet_type == 'standard' or state != 'draft' or revision != 0 or not id or panel_line_ids"/>
+                            invisible="checksheet_type == 'standard' or state != 'draft' or previous_revision_id or not id or panel_line_ids"/>
                     <button string="Import from Inventor BOM" name="%(action_qc_checksheet_inventor_import_wizard)d"
                             type="action" context="{'default_checksheet_id': id}"
                             groups="qc_checksheet.group_qc_author"
@@ -62,10 +62,11 @@
                             <field name="type_id" required="1" readonly="id and type_id" options="{'no_create': True}"/>
                             <field name="model_id" required="1" readonly="id and model_id" options="{'no_create': True}"/>
                             <field name="checksheet_type" invisible="1"/>
+                            <field name="previous_revision_id" invisible="1"/>
                             <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
                         </group>
                         <group>
-                            <field name="change_reason" invisible="revision == 0 or not change_reason"/>
+                            <field name="change_reason" invisible="not previous_revision_id or not change_reason"/>
                             <field name="copied_from_id" invisible="not copied_from_id"/>
                             <field name="change_request_ids" widget="many2many_tags" options="{'no_create': True}"
                                    readonly="state != 'draft'" invisible="state != 'draft' and not change_request_ids"/>

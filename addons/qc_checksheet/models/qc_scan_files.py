@@ -166,7 +166,7 @@ def _compress_pdf(data, level):
                 except Exception:
                     # One picture that can't be handled stays as it is; the rest is still reduced.
                     _logger.warning("Scan reduction: picture %s left as it is", xref, exc_info=True)
-        return document.tobytes(garbage=4, deflate=True, clean=True)
+        return document.tobytes(garbage=4, deflate=True, clean=True, no_new_id=True)
     finally:
         # The document holds native memory: freed here, not whenever the garbage collector comes.
         document.close()

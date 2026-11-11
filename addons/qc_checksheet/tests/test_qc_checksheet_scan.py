@@ -91,14 +91,14 @@ class TestQcChecksheetScan(QcChecksheetCase):
             date=fields.Date.today() - timedelta(days=2), note=' Checked by Binh '))
         self.assertEqual(scan.job_sheet_id, job_sheet)
         self.assertEqual(scan.checksheet_id, job_sheet.checksheet_id)
-        self.assertEqual((scan.revision, scan.file_count, scan.note), (0, 2, 'Checked by Binh'))
+        self.assertEqual((scan.revision, scan.file_count, scan.note), (1, 2, 'Checked by Binh'))
         self.assertEqual(scan.uploaded_by_id, self.author)
         self.assertEqual(scan.attachment_ids.mapped('name'), ['page1.pdf', 'page2.jpg'])
         self.assertEqual(sorted(scan.attachment_ids.mapped('mimetype')), ['application/pdf', 'image/jpeg'])
         self.assertEqual(scan.total_size, sum(scan.attachment_ids.mapped('file_size')))
         # The sheet now counts as inspected, on the day the scan says.
         self.assertEqual((job_sheet.inspection_state, job_sheet.check_date), ('scanned', fields.Date.today() - timedelta(days=2)))
-        self.assertIn('Scan of Rev 0 uploaded', job_sheet.message_ids[0].body)
+        self.assertIn('Scan of Rev 1 uploaded', job_sheet.message_ids[0].body)
 
     def test_the_check_date_is_that_of_the_latest_scan(self):
         self._released()
@@ -379,7 +379,7 @@ class TestQcChecksheetScan(QcChecksheetCase):
         self.assertEqual(action['res_model'], 'qc.job.change.approve.wizard')
         wizard = self.env['qc.job.change.approve.wizard'].with_user(self.approver).create(
             {'change_id': request.id, 'decision': 'skipped', 'reason': 'Typo'})
-        self.assertIn('Rev 0', wizard.scan_summary)
+        self.assertIn('Rev 1', wizard.scan_summary)
         wizard.action_approve()
         self.assertEqual((request.state, request.reinspection, job_sheet.inspection_state), ('approved', 'skipped', 'scanned'))
         # Without a scan the button approves at once.
@@ -405,7 +405,7 @@ class TestQcChecksheetScan(QcChecksheetCase):
         self.assertTrue(row['inspection']['can_delete'])
         self.assertFalse(self.env['qc.job.checksheet'].with_user(self.viewer).job_overview(job.id)['rows'][0]['inspection']['can_upload'])
         [scan] = row['inspection']['scans']
-        self.assertEqual((scan['revision'], scan['note'], scan['covers_current'], len(scan['files'])), (0, 'All good', True, 2))
+        self.assertEqual((scan['revision'], scan['note'], scan['covers_current'], len(scan['files'])), (1, 'All good', True, 2))
         self.assertEqual([f['name'] for f in scan['files']], ['a.pdf', 'b.png'])
         self.assertTrue(scan['files'][0]['url'].startswith('/web/content/'))
         # A pending change of a scanned Job says so, so the Approver is asked.

@@ -68,12 +68,12 @@ class TestQcChecksheet(QcChecksheetCase):
         copy.sudo().group_ids.name = 'Renamed'
         self.assertIn('Hydraulic System', source.group_ids.name)
 
-        # Starts over at Rev 0 on its own Model and Number.
-        self.assertEqual(copy.revision, 0)
+        # Starts over at Rev 1 on its own Model and Number.
+        self.assertEqual(copy.revision, 1)
         self.assertEqual(copy.state, 'draft')
         self.assertEqual(copy.reference, 'QC-GE-M-TARGET')
-        self.assertEqual(copy.history_ids.mapped('rev'), [0])
-        self.assertEqual(copy.history_ids.description, 'Adapted from QC-GE-M-SOURCE Rev 0')
+        self.assertEqual(copy.history_ids.mapped('rev'), [1])
+        self.assertEqual(copy.history_ids.description, 'Adapted from QC-GE-M-SOURCE Rev 1')
 
     def test_copy_content_requires_released_source(self):
         source = self._create_checksheet()

@@ -14,7 +14,7 @@ const MAX_START_REV = 99;
  *  - use the sheet of another Model (JSV6-EMU-A-068 uses that of JSV6-EMU-A): nothing is written, and the Model
  *    whose name this one extends is chosen when there is one;
  *  - create a new sheet of its own: blank, or copied from the sheet of a Model of the same Type (found by typing
- *    its name), at Rev 0 or at the Revision it already has elsewhere (Word, say).
+ *    its name), at Rev 1 or at the Revision it already has elsewhere (Word, say).
  * A sheet of another Type is never offered to copy, whatever it looks like.
  */
 export class QcCreateSheetsDialog extends Component {
@@ -48,7 +48,7 @@ export class QcCreateSheetsDialog extends Component {
                 // "share": use another Model's sheet; "new": write one. Sharing first when a Model is suggested.
                 mode: row.share_model ? "share" : "new",
                 // start_rev is kept as typed: the field can be empty while typing.
-                start_rev: "0",
+                start_rev: "1",
             }));
         });
     }
@@ -63,12 +63,12 @@ export class QcCreateSheetsDialog extends Component {
 
     startRevOk(row) {
         const value = String(row.start_rev).trim();
-        return /^\d{1,2}$/.test(value) && Number(value) <= MAX_START_REV;
+        return /^\d{1,2}$/.test(value) && Number(value) >= 1 && Number(value) <= MAX_START_REV;
     }
 
     /** A sheet that already has Revisions on paper: its earlier ones go into the Revision History. */
-    startsAbove0(row) {
-        return Number(row.start_rev) > 0;
+    startsAbove1(row) {
+        return Number(row.start_rev) > 1;
     }
 
     /** What still stops this row: a Model to use, or the Header and Revision of a new sheet. */

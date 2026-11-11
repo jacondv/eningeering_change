@@ -30,7 +30,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         checksheet = self._sheet()
         data = checksheet.editor_load()
         self.assertEqual(data['number'], 'QC-GE-ZA90')
-        self.assertEqual(data['revision'], 0)
+        self.assertEqual(data['revision'], 1)
         self.assertEqual(data['state'], 'draft')
         self.assertIn('Hydraulic System', data['groups'][0]['name'])
         self.assertIn('Check oil level', data['groups'][0]['items'][0]['description'])
@@ -45,7 +45,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         rev1 = rev0.browse(rev0.action_create_revision('Change')['res_id'])
         data = rev1.editor_load()
         self.assertEqual(
-            [(r['id'], r['revision']) for r in data['revisions']], [(rev0.id, 0), (rev1.id, 1)])
+            [(r['id'], r['revision']) for r in data['revisions']], [(rev0.id, 1), (rev1.id, 2)])
         old = rev0.editor_load()
         self.assertEqual(data['groups'][0]['line_key'], old['groups'][0]['line_key'])
         self.assertEqual(data['groups'][0]['items'][0]['line_key'], old['groups'][0]['items'][0]['line_key'])
@@ -376,7 +376,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         checksheet = self.env['qc.checksheet'].browse(created['id'])
         self.assertEqual(created['layout'], 'standard')
         self.assertEqual(checksheet.name, 'My Header')
-        self.assertEqual(checksheet.revision, 0)
+        self.assertEqual(checksheet.revision, 1)
         self.assertEqual(len(checksheet.group_ids), 1)
         self.assertEqual(len(checksheet.group_ids.item_ids), 1)
 
@@ -390,12 +390,12 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         })
         checksheet = self.env['qc.checksheet'].browse(created['id'])
         self.assertEqual(checksheet.copied_from_id, source)
-        self.assertEqual(checksheet.revision, 0)
+        self.assertEqual(checksheet.revision, 1)
         self.assertEqual(len(checksheet.group_ids), 1)
         self.assertIn('Copied question', checksheet.group_ids.item_ids.description)
         # The editor offers the source as a base to compare with.
         self.assertEqual(checksheet.with_user(self.author).editor_load()['source'], {
-            'id': source.id, 'label': f'Copied from {source.reference} Rev 0'})
+            'id': source.id, 'label': f'Copied from {source.reference} Rev 1'})
         self.assertIs(source.editor_load()['source'], False)
 
     def _start_at(self, start, **extra):
@@ -411,22 +411,22 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         self.assertEqual((sheet.revision, sheet.state), (4, 'draft'))
         self.assertEqual(sheet.root_id.revision_ids, sheet)
         history = sheet.history_ids.sorted('rev')
-        self.assertEqual(history.mapped('rev'), [0, 1, 2, 3, 4])
-        self.assertEqual(history.mapped('legacy'), [True] * 4 + [False])
-        self.assertEqual(set(history[:4].mapped('description')), {'To be updated'})
-        self.assertFalse(any(history[:4].mapped('date')))
-        self.assertEqual(history[4].description, 'Initial release')
+        self.assertEqual(history.mapped('rev'), [1, 2, 3, 4])
+        self.assertEqual(history.mapped('legacy'), [True] * 3 + [False])
+        self.assertEqual(set(history[:3].mapped('description')), {'To be updated'})
+        self.assertFalse(any(history[:3].mapped('date')))
+        self.assertEqual(history[3].description, 'Initial release')
         self.assertEqual(sheet.change_reason, 'Initial release')
         self.assertEqual(len(sheet.group_ids), 1)
 
-    def test_starting_at_zero_changes_nothing(self):
-        sheet = self._start_at(0)
-        self.assertEqual(sheet.revision, 0)
+    def test_starting_at_one_changes_nothing(self):
+        sheet = self._start_at(1)
+        self.assertEqual(sheet.revision, 1)
         self.assertEqual(sheet.history_ids.mapped('legacy'), [False])
 
-    def test_the_start_revision_is_from_0_to_99(self):
+    def test_the_start_revision_is_from_1_to_99(self):
         self.assertEqual(self._start_at(99).revision, 99)
-        for bad in (-1, 100, '4', 1.5, True):
+        for bad in (-1, 0, 100, '4', 1.5, True):
             with self.assertRaises(UserError, msg=repr(bad)):
                 self._start_at(bad)
 
@@ -439,12 +439,12 @@ class TestQcChecksheetEditor(QcChecksheetCase):
                 'model_id': model.id, 'type_id': self.type_general.id, 'header': 'X', 'start_rev': 2})
 
     def test_the_earlier_rows_are_filled_in_by_hand_and_the_next_revision_follows_on(self):
-        sheet = self._start_at(2)
+        sheet = self._start_at(3)
         payload = sheet.editor_load()
         by_rev = {line['rev']: line for line in payload['history']}
-        by_rev[0].update({'description': 'First issue', 'date': '2023-02-01', 'created_by': 'An', 'approved_by': 'Binh'})
-        by_rev[1].update({'description': 'Added step 3', 'date': '2024-03-04', 'created_by': '', 'approved_by': 'Binh'})
-        by_rev[2].update({'description': 'Changed limit', 'approved_by': 'Tampered'})
+        by_rev[1].update({'description': 'First issue', 'date': '2023-02-01', 'created_by': 'An', 'approved_by': 'Binh'})
+        by_rev[2].update({'description': 'Added step 3', 'date': '2024-03-04', 'created_by': '', 'approved_by': 'Binh'})
+        by_rev[3].update({'description': 'Changed limit', 'approved_by': 'Tampered'})
         sheet.editor_save(payload)
         first, second, current = sheet.history_ids.sorted('rev')
         self.assertEqual((first.description, str(first.date), first.created_by, first.approved_by),
@@ -462,12 +462,12 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         with self.assertRaises(UserError):
             first.with_user(self.author).write({'description': 'Late edit'})
         new = sheet.browse(sheet.action_create_revision('Next change')['res_id'])
-        self.assertEqual(new.revision, 3)
+        self.assertEqual(new.revision, 4)
         self.assertEqual(new.history_ids.sorted('rev').mapped('legacy'), [True, True, False, False])
         self.assertEqual(new.history_ids.sorted('rev')[0].approved_by, 'Binh')
 
     def test_only_a_row_from_before_odoo_takes_approved_by_by_hand(self):
-        sheet = self._start_at(1)
+        sheet = self._start_at(2)
         legacy, current = sheet.history_ids.sorted('rev')
         legacy.with_user(self.author).write({'approved_by': 'Binh'})
         self.assertEqual(legacy.approved_by, 'Binh')
@@ -483,7 +483,7 @@ class TestQcChecksheetEditor(QcChecksheetCase):
             {'type_id': self.type_panel.id, 'header': 'B'},
         ])
         revisions = {sheet.type_id: sheet.revision for sheet in self.env['qc.checksheet'].browse([c['id'] for c in created])}
-        self.assertEqual(revisions, {self.type_general: 3, self.type_panel: 0})
+        self.assertEqual(revisions, {self.type_general: 3, self.type_panel: 1})
 
     def test_panel_sheet_is_created_empty_for_the_form(self):
         created = self.env['qc.checksheet'].with_user(self.author).editor_create({

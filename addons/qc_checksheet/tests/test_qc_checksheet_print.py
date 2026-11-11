@@ -38,7 +38,7 @@ class TestQcChecksheetPrint(QcChecksheetCase):
 
     def test_a_models_blank_sheet_is_named_after_its_number_and_revision(self):
         sheet = self.env['qc.checksheet'].search([('model_id', '=', self.model_za90.id), ('type_id', '=', self.type_general.id)])
-        self.assertEqual(sheet.pdf_file_name, 'QC-GE-ZA90-REV0')
+        self.assertEqual(sheet.pdf_file_name, 'QC-GE-ZA90-REV1')
 
     def test_the_pdf_reports_use_those_names(self):
         for xmlid in ('qc_checksheet.action_report_qc_checksheet', 'qc_checksheet.action_report_qc_job_checksheet'):
