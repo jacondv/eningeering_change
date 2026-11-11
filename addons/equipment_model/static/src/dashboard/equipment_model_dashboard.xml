@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="equipment_model.Dashboard">
+        <div class="o_action o_em_dashboard">
+            <div class="o_em_header">
+                <div>
+                    <h2>Equipment Models</h2>
+                    <div class="text-muted">Click any number to open its list.</div>
+                </div>
+                <div t-if="state.isManager" class="d-flex gap-2">
+                    <button class="btn btn-primary" t-on-click="importFile">
+                        <i class="fa fa-upload me-1"/>Import from Excel
+                    </button>
+                    <button class="btn btn-secondary" t-on-click="exportFile">
+                        <i class="fa fa-download me-1"/>Export to Excel
+                    </button>
+                </div>
+            </div>
+
+            <div t-if="!state.data" class="text-center p-5"><i class="fa fa-spinner fa-spin fa-2x"/></div>
+            <t t-else="">
+                <t t-set="data" t-value="state.data"/>
+                <div class="o_em_kpis">
+                    <div class="o_em_kpi" t-on-click="openGroups">
+                        <i class="fa fa-th-large"/>
+                        <div class="o_em_kpi_value" t-esc="data.totals.groups"/>
+                        <div class="o_em_kpi_label">Groups</div>
+                    </div>
+                    <div class="o_em_kpi" t-on-click="() => this.openFamilies()">
+                        <i class="fa fa-sitemap"/>
+                        <div class="o_em_kpi_value" t-esc="data.totals.families"/>
+                        <div class="o_em_kpi_label">Product Families</div>
+                    </div>
+                    <div class="o_em_kpi" t-on-click="() => this.openModels('Equipment Models', [])">
+                        <i class="fa fa-cogs"/>
+                        <div class="o_em_kpi_value" t-esc="data.totals.models"/>
+                        <div class="o_em_kpi_label">Models</div>
+                    </div>
+                    <div class="o_em_kpi" t-on-click="() => this.openJobs('Jobs', [])">
+                        <i class="fa fa-briefcase"/>
+                        <div class="o_em_kpi_value" t-esc="data.totals.jobs"/>
+                        <div class="o_em_kpi_label">Jobs</div>
+                    </div>
+                </div>
+
+                <div class="o_em_attention">
+                    <div t-attf-class="o_em_check {{ data.attention.models_without_family ? 'o_em_check_warn' : 'o_em_check_ok' }}"
+                         t-on-click="() => data.attention.models_without_family and this.openModels('Models without a Product Family', [['family_id', '=', false]])">
+                        <i t-attf-class="fa {{ data.attention.models_without_family ? 'fa-exclamation-triangle' : 'fa-check-circle' }}"/>
+                        <span t-if="data.attention.models_without_family">
+                            <strong t-esc="data.attention.models_without_family"/> Models have no Product Family, so no Group
+                        </span>
+                        <span t-else="">Every Model has a Product Family</span>
+                    </div>
+                    <div t-attf-class="o_em_check {{ data.attention.jobs_without_model ? 'o_em_check_warn' : 'o_em_check_ok' }}"
+                         t-on-click="() => data.attention.jobs_without_model and this.openJobs('Jobs without a Model', [['model_id', '=', false]])">
+                        <i t-attf-class="fa {{ data.attention.jobs_without_model ? 'fa-exclamation-triangle' : 'fa-check-circle' }}"/>
+                        <span t-if="data.attention.jobs_without_model">
+                            <strong t-esc="data.attention.jobs_without_model"/> Jobs have no Model
+                        </span>
+                        <span t-else="">Every Job has a Model</span>
+                    </div>
+                </div>
+
+                <div class="o_em_panels">
+                    <div class="o_em_panel">
+                        <h4>By Group</h4>
+                        <table class="table table-hover o_em_table">
+                            <thead>
+                                <tr>
+                                    <th>Group</th>
+                                    <th class="text-end">Product Families</th>
+                                    <th class="text-end">Models</th>
+                                    <th class="o_em_jobs_col">Jobs</th>
+                                    <th class="text-end" title="The next suggested Job name gets the number after this one">Last Job No.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="data.groups" t-as="group" t-key="group.id"
+                                    t-att-class="{ 'o_em_selected': group.id === state.groupId }"
+                                    t-on-click="() => this.toggleGroup(group.id)">
+                                    <td class="fw-bold" t-esc="group.name"/>
+                                    <td class="text-end">
+                                        <a href="#" t-on-click.prevent.stop="() => this.openFamilies(group)" t-esc="group.families"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="#" t-on-click.prevent.stop="() => this.openModels(group.name, [['family_id.category_id', '=', group.id]])" t-esc="group.models"/>
+                                    </td>
+                                    <td class="o_em_jobs_col">
+                                        <div class="o_em_bar"><div class="o_em_bar_fill" t-att-style="'width: ' + barWidth(group.jobs)"/></div>
+                                        <a href="#" t-on-click.prevent.stop="() => this.openJobs(group.name, [['model_id.family_id.category_id', '=', group.id]])" t-esc="group.jobs"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="#" t-on-click.prevent.stop="() => this.openGroupRecord(group)" t-esc="group.last_job_number"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="text-muted small">Click a Group to see only its Product Families on the right.</div>
+                    </div>
+
+                    <div class="o_em_panel">
+                        <h4>
+                            By Product Family
+                            <span t-if="selectedGroup" class="badge text-bg-primary ms-2">
+                                <t t-esc="selectedGroup.name"/>
+                                <i class="fa fa-times ms-1" role="button" title="Show all" t-on-click="() => this.toggleGroup(state.groupId)"/>
+                            </span>
+                        </h4>
+                        <div class="o_em_scroll">
+                            <table class="table table-hover o_em_table">
+                                <thead>
+                                    <tr>
+                                        <th>Product Family</th>
+                                        <th t-if="!selectedGroup">Group</th>
+                                        <th class="text-end">Models</th>
+                                        <th class="text-end">Jobs</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="families" t-as="family" t-key="family.id">
+                                        <td class="fw-bold" t-esc="family.name"/>
+                                        <td t-if="!selectedGroup" class="text-muted" t-esc="family.group"/>
+                                        <td class="text-end">
+                                            <a href="#" t-on-click.prevent="() => this.openModels(family.name, [['family_id', '=', family.id]])" t-esc="family.models"/>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="#" t-on-click.prevent="() => this.openJobs(family.name, [['model_id.family_id', '=', family.id]])" t-esc="family.jobs"/>
+                                        </td>
+                                    </tr>
+                                    <tr t-if="!families.length">
+                                        <td colspan="4" class="text-muted">No Product Family in this Group yet.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>

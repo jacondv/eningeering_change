@@ -9,6 +9,7 @@
                 <field name="name"/>
                 <field name="family_count"/>
                 <field name="model_count"/>
+                <field name="last_job_number"/>
                 <field name="description"/>
             </list>
         </field>
@@ -25,6 +26,10 @@
                             <field name="name" placeholder="Category name..."/>
                         </h1>
                     </div>
+                    <group string="Job Numbering">
+                        <field name="last_job_number"/>
+                        <field name="job_number_digits"/>
+                    </group>
                     <field name="description" placeholder="Description..."/>
                     <notebook>
                         <page string="Product Families" name="families">

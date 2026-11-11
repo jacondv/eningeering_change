@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="equipment_model.JobNameSuggest">
+        <button t-if="visible" type="button" class="btn btn-sm btn-secondary o_job_name_suggest text-nowrap ms-2 align-self-center"
+                title="Suggest a Job name: Product Family of the Model, then the next number of its Group"
+                t-on-click="suggest">
+            <i class="fa fa-magic me-1"/>Suggest
+        </button>
+    </t>
+
+</templates>

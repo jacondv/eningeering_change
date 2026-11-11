@@ -1,8 +1,13 @@
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ProjectProject(models.Model):
     _inherit = 'project.project'
+
+    @api.model
+    def _equipment_job_domain(self):
+        # A Support Request's own container Project isn't a Job.
+        return super()._equipment_job_domain() + [('is_ps_project', '=', False)]
 
     is_ps_project = fields.Boolean(
         string='Created for a Product Support Request', copy=False,

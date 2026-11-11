@@ -18,6 +18,8 @@ class EquipmentModelFamily(models.Model):
     model_count = fields.Integer(compute='_compute_model_count')
     active = fields.Boolean(default=True)
 
+    _unique_name = models.UniqueIndex('(lower(name))', "A Product Family with this name already exists.")
+
     def _compute_model_count(self):
         for rec in self:
             rec.model_count = len(rec.model_ids)
