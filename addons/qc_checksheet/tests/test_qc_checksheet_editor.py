@@ -319,6 +319,14 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         context = Sheet.editor_new_context(self.model_za90.id, self.type_general.id)
         self.assertEqual(context['duplicate_id'], existing.id)
 
+    def test_creating_a_sheet_the_model_already_has_opens_that_one(self):
+        existing = self._create_checksheet(model=self.model_za90)
+        created = self.env['qc.checksheet'].with_user(self.author).editor_create({
+            'model_id': self.model_za90.id, 'type_id': self.type_general.id, 'header': 'Again'})
+        self.assertEqual(created, {'id': existing.id, 'layout': existing.checksheet_type, 'existing': True})
+        self.assertEqual(self.env['qc.checksheet'].search_count([
+            ('model_id', '=', self.model_za90.id), ('type_id', '=', self.type_general.id)]), 1)
+
     def test_new_context_lists_only_released_sources_of_the_same_type(self):
         type_other = self.env['qc.checksheet.type'].create({'name': 'Other', 'code': 'OT', 'layout': 'standard'})
         other_type = self._release(self._create_checksheet(type_other))
@@ -434,10 +442,11 @@ class TestQcChecksheetEditor(QcChecksheetCase):
         model = self._create_model()
         Checksheet = self.env['qc.checksheet'].with_user(self.author)
         self._create_checksheet(model=model)
-        with self.assertRaises(UserError):
-            Checksheet.editor_create({
-                'model_id': model.id, 'type_id': self.type_general.id, 'header': 'X', 'start_rev': 2})
-
+        # The Model already has its sheet: that one is opened, never a second one made at Rev 2.
+        created = Checksheet.editor_create({
+            'model_id': model.id, 'type_id': self.type_general.id, 'header': 'X', 'start_rev': 2})
+        self.assertTrue(created['existing'])
+        self.assertEqual(Checksheet.search_count([('model_id', '=', model.id)]), 1)
     def test_the_earlier_rows_are_filled_in_by_hand_and_the_next_revision_follows_on(self):
         sheet = self._start_at(3)
         payload = sheet.editor_load()

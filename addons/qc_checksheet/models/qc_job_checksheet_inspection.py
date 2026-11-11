@@ -4,7 +4,7 @@ from urllib.parse import quote
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .qc_checksheet import GROUP_ADMIN, GROUP_AUTHOR
+from .qc_checksheet import GROUP_ADMIN, GROUP_AUTHOR, GROUP_USER
 from .qc_scan_files import KINDS, LEVELS, MAX_FILES, check_file, compress, human_size, max_file_size
 
 
@@ -122,7 +122,7 @@ class QcJobChecksheet(models.Model):
         sudo_self.check_date = max(sudo_self.scan_ids.mapped('check_date'))
         before = sum(item['original_size'] for item in prepared)
         after = sum(item['size'] for item in prepared)
-        sudo_self.message_post(body=_(
+        self._log(_(
             "Scan of Rev %(rev)s uploaded by %(user)s: checked on %(date)s, %(count)s file(s), %(size)s%(reduced)s.",
             rev=self.revision, user=self.env.user.name, date=check_date, count=len(prepared), size=human_size(after),
             reduced=_(" (reduced from %s)", human_size(before)) if after < before else ''))
@@ -147,6 +147,31 @@ class QcJobChecksheet(models.Model):
     def action_upload_scan(self):
         self._check_author()
         return self._job_page_action(upload=True)
+
+    # Taking a sheet away from a Job
+
+    @api.model
+    def job_delete_sheets(self, job_id, type_ids):
+        """Take the Job's sheets of these Types away, so they can be set up again. A sheet with a signed
+        scan stays until its scans are deleted: they are signed records."""
+        self._check_user()
+        job = self.env['project.project'].sudo().browse(job_id).exists()
+        if not job:
+            raise UserError(_("This Job no longer exists."))
+        recs = self.sudo().search([('job_id', '=', job.id), ('type_id', 'in', type_ids)])
+        if not recs:
+            raise UserError(_("These sheets were not printed for this Job."))
+        scanned = recs.filtered('scan_ids')
+        if scanned:
+            raise UserError(_(
+                "These sheets have a signed scan: %s. Delete the scan first.",
+                ', '.join(scanned.mapped('type_id.name'))))
+        for rec in recs:
+            job.message_post(body=_(
+                "%(user)s deleted the %(type)s sheet (%(sheet)s).",
+                user=self.env.user.name, type=rec.type_id.name, sheet=rec.checksheet_id.display_name))
+        recs.unlink()
+        return True
 
     # Job QC page
 
@@ -193,6 +218,7 @@ class QcJobChecksheet(models.Model):
             } if rec else False
             if row['pending'] and rec:
                 row['pending']['has_scan'] = bool(rec.scan_ids)
+        data['can_delete_sheets'] = user.has_group(GROUP_USER)
         data['scan_limits'] = self.scan_limits()
         data['scanned'] = sum(1 for row in data['rows'] if row['required'] and row['inspection'] and row['inspection']['state'] == 'scanned')
         return data

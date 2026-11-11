@@ -53,6 +53,9 @@ Features:
     'assets': {
         'web.assets_backend': [
             'qc_checksheet/static/src/css/qc_checksheet.css',
+            'qc_checksheet/static/src/common/*.js',
+            'qc_checksheet/static/src/common/*.xml',
+            'qc_checksheet/static/src/common/*.scss',
             'qc_checksheet/static/src/editor/*.js',
             'qc_checksheet/static/src/editor/*.xml',
             'qc_checksheet/static/src/editor/*.scss',

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Laid out like the chatter of a form (see jacon_core): a thin handle, then the panel. -->
+    <t t-name="qc_checksheet.ChatterPanel">
+        <div class="o_qce_chatter_wrap">
+            <div class="o_chatter_collapse_toggle" title="Collapse/expand chatter" t-on-click="toggle">
+                <i class="fa" t-att-class="state.collapsed ? 'fa-angle-left' : 'fa-angle-right'"/>
+            </div>
+            <aside class="o_qce_chatter" t-att-class="{'o_chatter_collapsed': state.collapsed}">
+                <Chatter threadModel="props.threadModel" threadId="props.threadId"/>
+            </aside>
+        </div>
+    </t>
+
+</templates>

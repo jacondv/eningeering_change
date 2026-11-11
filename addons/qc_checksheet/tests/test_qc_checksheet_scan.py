@@ -317,6 +317,47 @@ class TestQcChecksheetScan(QcChecksheetCase):
         first.with_user(self.admin).unlink()
         self.assertFalse(job_sheet.check_date)
 
+    # Taking a sheet away from a Job
+
+    def test_a_sheet_is_taken_away_from_a_job_unless_it_has_a_scan(self):
+        self._released()
+        job = self._create_job()
+        job_sheet = self._job_sheet(job)
+        JobSheet = self.env['qc.job.checksheet']
+        with self.assertRaises(AccessError):
+            JobSheet.with_user(self.env['res.users'].create({
+                'name': 'Portal', 'login': 'qc_portal_x', 'group_ids': [(6, 0, [self.env.ref('base.group_portal').id])],
+            })).job_delete_sheets(job.id, [self.type_general.id])
+        scan = self.env['qc.job.checksheet.scan'].browse(self._upload(job_sheet))
+        with self.assertRaisesRegex(UserError, 'signed scan'):
+            JobSheet.with_user(self.viewer).job_delete_sheets(job.id, [self.type_general.id])
+        self.assertTrue(job_sheet.exists())
+        scan.with_user(self.admin).unlink()
+        JobSheet.with_user(self.viewer).job_delete_sheets(job.id, [self.type_general.id])
+        self.assertFalse(job_sheet.exists())
+        self.assertIn('deleted the', job.sudo().message_ids[0].body)
+        with self.assertRaisesRegex(UserError, 'not printed'):
+            JobSheet.with_user(self.viewer).job_delete_sheets(job.id, [self.type_general.id])
+
+    def test_what_happens_to_a_jobs_sheet_is_told_in_the_chatter_of_the_job(self):
+        rev0 = self._released()
+        job = self._create_job()
+        job_sheet = self._job_sheet(job)
+        lines = lambda: ' | '.join(str(m.body) for m in job.sudo().message_ids.sorted('id'))
+        self.assertIn('General Check Sheet: Pinned to', lines())
+        self._upload(job_sheet)
+        self.assertIn('Scan of Rev 1 uploaded', lines())
+        rev1 = self._new_revision(rev0)
+        request = self._request(job_sheet, rev1)
+        self.assertIn('asked to change', lines())
+        request.with_user(self.approver).action_approve('required')
+        self.assertIn('approved by', lines())
+        request2 = self._request(job_sheet, rev0)
+        request2.with_user(self.author).action_cancel()
+        self.assertIn('cancelled by', lines())
+        self.env['qc.job.checksheet.scan'].search([('job_sheet_id', '=', job_sheet.id)]).with_user(self.admin).unlink()
+        self.assertIn('deleted by', lines())
+
     # Re-inspection after a change of Revision
 
     def test_a_change_after_a_scan_needs_the_approvers_word_on_re_inspection(self):

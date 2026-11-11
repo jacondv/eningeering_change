@@ -208,7 +208,16 @@ class QcChecksheet(models.Model):
         existing = Share.search([('model_id', '=', model_id), ('type_id', '=', type_id)])
         existing.unlink()
         Share.create({'model_id': model_id, 'type_id': type_id, 'source_model_id': source_model_id})
+        self._log_on_model(model_id, _(
+            "%(type)s: now uses the sheet of %(source)s (set by %(user)s).",
+            type=self.env['qc.checksheet.type'].browse(type_id).name,
+            source=self.env['equipment.model'].sudo().browse(source_model_id).name, user=self.env.user.name))
         return True
+
+    @api.model
+    def _log_on_model(self, model_id, body):
+        """A line in the Model's chatter, shown on its QC page."""
+        self.env['equipment.model'].sudo().browse(model_id).message_post(body=body)
 
     @api.model
     def model_delete_sheets(self, model_id, type_ids):
@@ -226,7 +235,11 @@ class QcChecksheet(models.Model):
         for checksheet_type in self.env['qc.checksheet.type'].browse(type_ids).exists():
             share = Share.search([('model_id', '=', model.id), ('type_id', '=', checksheet_type.id)])
             if share:
+                source_name = share.source_model_id.name
                 share.unlink()
+                self._log_on_model(model.id, _(
+                    "%(type)s: no longer uses the sheet of %(source)s (set by %(user)s).",
+                    type=checksheet_type.name, source=source_name, user=self.env.user.name))
                 continue
             sheets = self.sudo().search([('model_id', '=', model.id), ('type_id', '=', checksheet_type.id)])
             if not sheets:
@@ -241,8 +254,12 @@ class QcChecksheet(models.Model):
                     "The %(type)s sheet of %(model)s was printed by %(count)s Job(s), such as %(job)s, so it can't be deleted.",
                     type=checksheet_type.name, model=model.name, count=len(jobs), job=jobs[0].name))
             own_to_delete |= sheets
+        deleted_types = own_to_delete.type_id.mapped('name')
         # With the user's own rights: who may delete which Revisions is decided by qc.checksheet itself.
         own_to_delete.sudo(False).unlink()
+        if deleted_types:
+            self._log_on_model(model.id, _(
+                "%(types)s: sheet deleted by %(user)s.", types=', '.join(deleted_types), user=self.env.user.name))
         return True
 
     @api.model
@@ -298,7 +315,7 @@ class QcChecksheet(models.Model):
         for sheet, target in moved.items():
             for job_sheet in JobSheet.search([('checksheet_id', '=', sheet.id)]):
                 job_sheet.checksheet_id = target
-                job_sheet.message_post(body=_(
+                job_sheet._log(_(
                     "The sheet of %(model)s was merged into that of %(source)s: this Job is now on %(rev)s.",
                     model=model.name, source=target.model_id.name, rev=target.display_name))
             JobSheet.search([('reinspection_waived_id', '=', sheet.id)]).write({'reinspection_waived_id': target.id})
@@ -308,6 +325,10 @@ class QcChecksheet(models.Model):
         own.unlink()
         self.env['qc.checksheet.share'].sudo().create({
             'model_id': model_id, 'type_id': type_id, 'source_model_id': source_model_id})
+        self._log_on_model(model_id, _(
+            "%(type)s: the sheet was merged into that of %(source)s, which this Model now uses (by %(user)s).",
+            type=self.env['qc.checksheet.type'].browse(type_id).name,
+            source=theirs[0].model_id.name, user=self.env.user.name))
         return True
 
     @api.model

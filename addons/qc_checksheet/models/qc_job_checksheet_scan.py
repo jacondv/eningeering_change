@@ -68,7 +68,7 @@ class QcJobChecksheetScan(models.Model):
             if not self.env.user.has_group(GROUP_ADMIN):
                 raise AccessError(_("Only a QC Administrator can delete a scan."))
             for rec in self:
-                rec.job_sheet_id.sudo().message_post(body=_(
+                rec.job_sheet_id._log(_(
                     "Scan of Rev %(rev)s checked on %(date)s, uploaded by %(who)s (%(count)s file(s)), "
                     "deleted by %(user)s.",
                     rev=rec.revision, date=rec.check_date, who=rec.uploaded_by_id.name or '-',

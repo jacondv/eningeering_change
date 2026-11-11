@@ -3,7 +3,10 @@
 import { Component, onMounted, onWillStart, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { deserializeDate, deserializeDateTime, formatDateTime } from "@web/core/l10n/dates";
+import { QcChatterPanel } from "../common/qc_chatter_panel";
+import { useColumnResize } from "../common/qc_column_resize";
 import { QcPromptDialog } from "../editor/qc_prompt_dialog";
 import { QcCreateSheetsDialog } from "../model/qc_create_sheets_dialog";
 import { QcApproveDialog } from "./qc_approve_dialog";
@@ -21,9 +24,11 @@ const CHANGE_MODEL = "qc.job.checksheet.change";
  */
 export class QcJobPage extends Component {
     static template = "qc_checksheet.JobPage";
+    static components = { QcChatterPanel };
     static props = ["*"];
 
     setup() {
+        useColumnResize("job");
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.action = useService("action");
@@ -34,7 +39,8 @@ export class QcJobPage extends Component {
         this.focusTypeId = this.props.action.context?.focus_type_id || false;
         this.focusUpload = !!this.props.action.context?.focus_upload;
         // openScans: the Types whose earlier scans are unfolded. focused: the row being pointed at.
-        this.state = useState({ job: null, printing: false, openScans: {}, focused: this.focusTypeId });
+        // selected: the Types ticked for deletion.
+        this.state = useState({ job: null, printing: false, openScans: {}, focused: this.focusTypeId, selected: [] });
         onWillStart(() => this.load());
         onMounted(() => this.applyFocus());
     }
@@ -82,24 +88,23 @@ export class QcJobPage extends Component {
         if (inspection?.can_upload) {
             list.push({ ...upload, css: "btn-secondary" });
         }
-        if (row.update) {
-            list.push({
-                key: "update",
-                label: row.outdated ? "Update Rev" : "Change Rev",
-                title: "An Approver has to approve the change",
-                css: "btn-secondary",
-                run: () => this.update(row),
-            });
-        }
-        if (row.choosable) {
-            list.push({
-                key: "choose",
-                label: "Choose Rev",
-                title: "Pin another Revision than the current one",
-                css: "btn-secondary",
-                run: () => this.choose(row),
-            });
-        }
+        // One button for every row, always there so the rows read alike: greyed out when there is no other
+        // Revision to move to, or while a request waits for approval.
+        const others = row.pinned ? row.other_revisions : row.revision_count > 1;
+        list.push({
+            key: "revision",
+            label: "Change Rev",
+            title: !others
+                ? "This sheet has no other Revision yet"
+                : row.pending
+                  ? "A change is waiting for approval"
+                  : !row.pinned
+                    ? "Pin another Revision than the current one"
+                    : "An Approver has to approve the change",
+            disabled: !others || !!row.pending,
+            css: "btn-secondary",
+            run: () => this.changeRevision(row),
+        });
         list.push({ key: "open", label: "Open", title: "Read the sheet", css: "btn-link", run: () => this.open(sheet) });
         if (row.pinned) {
             list.push({
@@ -115,6 +120,58 @@ export class QcJobPage extends Component {
 
     async load() {
         this.state.job = await this.orm.call(JOB_SHEET_MODEL, "job_overview", [this.jobId]);
+        // Only sheets still printed can stay ticked.
+        this.state.selected = this.state.selected.filter((id) => this.state.job.rows.some((row) => row.type_id === id && row.pinned));
+    }
+
+    /** Change Rev: a Job not printed yet is pinned at once; one that printed it asks an Approver, whoever asks. */
+    changeRevision(row) {
+        if (!row.pinned) {
+            return this.choose(row);
+        }
+        return this.update(row);
+    }
+
+    // Selecting and deleting the Job's sheets
+
+    get selectableRows() {
+        return this.job.can_delete_sheets ? this.job.rows.filter((row) => row.pinned) : [];
+    }
+
+    get allSelected() {
+        return this.selectableRows.length > 0 && this.selectableRows.every((row) => this.state.selected.includes(row.type_id));
+    }
+
+    toggle(row) {
+        const at = this.state.selected.indexOf(row.type_id);
+        if (at >= 0) {
+            this.state.selected.splice(at, 1);
+        } else {
+            this.state.selected.push(row.type_id);
+        }
+    }
+
+    toggleAll() {
+        this.state.selected = this.allSelected ? [] : this.selectableRows.map((row) => row.type_id);
+    }
+
+    clearSelection() {
+        this.state.selected = [];
+    }
+
+    deleteSelected() {
+        const rows = this.job.rows.filter((row) => this.state.selected.includes(row.type_id));
+        this.dialog.add(ConfirmationDialog, {
+            title: `Delete ${rows.length} sheet(s) of this Job?`,
+            body: `${rows.map((row) => row.type_name).join(", ")}. They go back to "Not printed yet" and can be printed again. A sheet with a signed scan is kept: delete its scan first.`,
+            confirmLabel: "Delete",
+            confirm: async () => {
+                await this.orm.call(JOB_SHEET_MODEL, "job_delete_sheets", [this.jobId, rows.map((row) => row.type_id)]);
+                this.state.selected = [];
+                await this.load();
+            },
+            cancel: () => {},
+        });
     }
 
     get job() {

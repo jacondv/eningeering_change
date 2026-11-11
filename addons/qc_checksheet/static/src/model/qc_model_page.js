@@ -4,6 +4,8 @@ import { Component, onWillStart, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { QcChatterPanel } from "../common/qc_chatter_panel";
+import { useColumnResize } from "../common/qc_column_resize";
 import { QcCreateSheetsDialog } from "./qc_create_sheets_dialog";
 
 const CHECKSHEET_MODEL = "qc.checksheet";
@@ -14,9 +16,11 @@ const CHECKSHEET_MODEL = "qc.checksheet";
  */
 export class QcModelPage extends Component {
     static template = "qc_checksheet.ModelPage";
+    static components = { QcChatterPanel };
     static props = ["*"];
 
     setup() {
+        useColumnResize("model");
         this.orm = useService("orm");
         this.action = useService("action");
         this.dialog = useService("dialog");

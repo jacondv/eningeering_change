@@ -136,12 +136,14 @@ export class QcCreateSheetsDialog extends Component {
                 ),
             ]);
             const shared = created.filter((item) => !item.id).length;
-            this.notification.add(
-                shared === created.length
-                    ? `${shared} sheet(s) shared from another Model`
-                    : `${created.length - shared} check sheet(s) created as Draft` + (shared ? `, ${shared} shared` : ""),
-                { type: "success" }
-            );
+            const existing = created.filter((item) => item.existing).length;
+            const made = created.length - shared - existing;
+            const parts = [
+                made && `${made} check sheet(s) created as Draft`,
+                shared && `${shared} shared from another Model`,
+                existing && `${existing} already existed: opened instead`,
+            ].filter(Boolean);
+            this.notification.add(parts.join(", "), { type: "success" });
             this.props.close();
             await this.props.onCreated(created);
         } finally {

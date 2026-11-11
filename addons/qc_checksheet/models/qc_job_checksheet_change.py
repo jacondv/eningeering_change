@@ -179,7 +179,7 @@ class QcJobChecksheetChange(models.Model):
                 'decided_by_id': self.env.uid, 'decided_date': fields.Datetime.now()})
             rec._clear_activities()
             sudo_rec.message_post(body=_("Rejected by %(user)s: %(reason)s", user=self.env.user.name, reason=reason.strip()))
-            sudo_rec.job_sheet_id.message_post(body=_(
+            sudo_rec.job_sheet_id._log(_(
                 "Change to %(new)s rejected by %(user)s: %(reason)s",
                 new=rec.to_checksheet_id.display_name, user=self.env.user.name, reason=reason.strip()))
             if rec.requested_by_id:
@@ -199,6 +199,9 @@ class QcJobChecksheetChange(models.Model):
             sudo_rec.write({'state': 'cancelled'})
             rec._clear_activities()
             sudo_rec.message_post(body=_("Cancelled by %s.", self.env.user.name))
+            sudo_rec.job_sheet_id._log(_(
+                "Change to %(new)s cancelled by %(user)s.",
+                new=rec.to_checksheet_id.display_name, user=self.env.user.name))
         return True
 
     def action_open_job_sheet(self):
