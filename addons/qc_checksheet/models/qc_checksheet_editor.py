@@ -310,6 +310,12 @@ class QcChecksheet(models.Model):
     @api.model
     def editor_create(self, vals):
         self._check_group(GROUP_AUTHOR)
+        # The Model already has a sheet of this Type (made meanwhile, or the page was out of date): open that
+        # one, newest Revision first, rather than fail on the unique Revision.
+        existing = self.search([
+            ('model_id', '=', vals.get('model_id')), ('type_id', '=', vals.get('type_id'))], order='revision desc', limit=1)
+        if existing:
+            return {'id': existing.id, 'layout': existing.checksheet_type, 'existing': True}
         start = FIRST_REVISION if vals.get('start_rev') is None else vals['start_rev']
         self._check_start_revision(start, vals.get('model_id'), vals.get('type_id'))
         checksheet = self.create({
@@ -334,6 +340,9 @@ class QcChecksheet(models.Model):
                 'item_ids': [(0, 0, {})],
             })
         checksheet._start_at_revision(start)
+        checksheet._log(_(
+            "Created by %(user)s%(source)s.", user=self.env.user.name,
+            source=_(", copied from %s", source.sudo().model_id.name) if source else ''))
         return {'id': checksheet.id, 'layout': checksheet.checksheet_type}
 
     def _check_content_complete(self):

@@ -4,7 +4,9 @@ from odoo import fields, models
 class EquipmentModel(models.Model):
     """A Model owns its check sheets: they are written and revised here, and
     every Job of the Model prints them."""
-    _inherit = 'equipment.model'
+    _inherit = ['equipment.model', 'mail.thread']
+    # The chatter of the Model QC page: anyone who can see the Model may write in it.
+    _mail_post_access = 'read'
 
     qc_checksheet_progress = fields.Char(
         string='QC Check Sheets', compute='_compute_qc_checksheet_progress',

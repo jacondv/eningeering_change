@@ -1,0 +1,47 @@
+// Header grips to resize a column.
+.o_qce_table thead th {
+    position: relative;
+}
+
+.o_qce_grip {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 7px;
+    cursor: col-resize;
+    user-select: none;
+    &:hover {
+        background: rgba(255, 255, 255, 0.45);
+    }
+}
+
+// The page and its chatter side by side.
+// !important: the web client sets the direction of every action's root itself.
+.o_qce_action.o_qce_with_chatter {
+    flex-direction: row !important;
+}
+
+// The handle is jacon_core's (.o_chatter_collapse_toggle); the panel is as wide as the chatter of a form.
+.o_qce_chatter_wrap {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 0;
+    background: #fff;
+}
+
+.o_qce_chatter {
+    flex: 0 0 450px;
+    width: 450px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--o-view-background-color, #fff);
+    border-left: 1px solid var(--border-color, #e0e0e0);
+    transition: flex-basis 0.2s ease, width 0.2s ease;
+    &.o_chatter_collapsed {
+        flex-basis: 0;
+        width: 0;
+        border: none;
+    }
+}

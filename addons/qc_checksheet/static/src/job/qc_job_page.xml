@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
 
     <t t-name="qc_checksheet.JobPage">
-        <div class="o_action o_qce_action" t-ref="page">
+        <div class="o_action o_qce_action o_qce_with_chatter" t-ref="page">
             <div class="o_qce">
             <div class="o_qce_topbar">
                 <span class="o_qce_kind" title="The check sheets of one Job: printed, scanned, and moved to a newer Revision from here">Job QC</span>
@@ -32,24 +32,36 @@
                     <span class="text-muted"><t t-esc="change.title"/> (<t t-esc="change.state_label"/>)</span>
                 </t>
             </div>
+            <div t-if="state.selected.length" class="o_qce_selection">
+                <strong><t t-esc="state.selected.length"/> selected</strong>
+                <button class="btn btn-secondary btn-sm o_qce_danger" title="Take these sheets away from the Job; a sheet with a signed scan stays" t-on-click="deleteSelected">Delete</button>
+                <button class="btn btn-link btn-sm" t-on-click="clearSelection">Clear</button>
+            </div>
             <div class="o_qce_job">
                 <div class="o_qce_panel o_qce_scroll_x">
-                    <table class="o_qce_table">
+                    <table class="o_qce_table" t-ref="resizable">
                         <thead>
-                            <tr><th>Type</th><th>Number</th><th>Header</th><th>Rev</th><th>Status</th><th/></tr>
+                            <tr><th class="o_qce_select_col"><input t-if="selectableRows.length" type="checkbox" aria-label="Select all" t-att-checked="allSelected" t-on-change="toggleAll"/></th><th>Type</th><th>Job Number</th><th>Number</th><th>Header</th><th>Rev</th><th>Status</th><th/></tr>
                         </thead>
                         <tbody>
                             <tr t-foreach="job.rows" t-as="row" t-key="row.type_id" t-att-data-type-id="row.type_id"
                                 t-att-class="{'o_qce_job_missing': row.required and !printed(row), 'o_qce_row_focus': state.focused === row.type_id}">
                                 <t t-set="sheet" t-value="printed(row)"/>
+                                <td class="o_qce_select_col">
+                                    <input t-if="row.pinned and job.can_delete_sheets" type="checkbox" t-att-aria-label="'Select ' + row.type_name"
+                                           t-att-checked="state.selected.includes(row.type_id)" t-on-change="() => this.toggle(row)"/>
+                                </td>
                                 <td>
                                     <span t-if="row.required" class="o_qce_required" title="Required for every Job">★</span>
                                     <t t-esc="row.type_name"/>
                                     <div t-if="row.shared_from" class="small text-muted" title="The Model of this Job uses the sheet of another Model">Sheet of <t t-esc="row.shared_from"/></div>
                                 </td>
+                                <td t-esc="job.name"/>
                                 <td t-esc="sheet ? sheet.number : '-'"/>
                                 <td t-esc="sheet ? sheet.header : '-'"/>
-                                <td t-esc="sheet ? sheet.revision : '-'"/>
+                                <td>
+                                    <t t-esc="sheet ? sheet.revision : '-'"/>
+                                </td>
                                 <td>
                                     <t t-if="row.pinned">
                                         <span class="o_qce_badge o_qce_badge_released">Printed</span>
@@ -119,6 +131,7 @@
                 </div>
             </div>
         </div>
+        <QcChatterPanel threadModel="'project.project'" threadId="jobId"/>
         </div>
     </t>
 

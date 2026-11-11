@@ -410,6 +410,14 @@ class QcChecksheet(models.Model):
     def _clear_workflow_activities(self):
         self.sudo().activity_unlink([ACTIVITY_TODO])
 
+    def _log(self, body):
+        """Say what happened on the sheet and on its Model's chatter, which is the one the Model QC page shows."""
+        for rec in self:
+            rec.sudo().message_post(body=body)
+            if rec.model_id:
+                rec.model_id.sudo().message_post(body=_(
+                    "%(type)s Rev %(rev)s: %(what)s", type=rec.type_id.name, rev=rec.revision, what=body))
+
     def action_submit(self):
         self._check_group(GROUP_AUTHOR)
         self._check_state('draft')
@@ -430,6 +438,7 @@ class QcChecksheet(models.Model):
                 'reference': rec.reference or self._generate_reference(rec.type_id, rec.model_id),
             })
             rec._clear_workflow_activities()
+            rec._log(_("Submitted for approval by %s.", self.env.user.name))
             for approver in approvers:
                 sudo_rec.activity_schedule(
                     ACTIVITY_TODO, user_id=approver.id,
@@ -441,7 +450,7 @@ class QcChecksheet(models.Model):
         self.sudo().write({'state': 'draft'})
         self._clear_workflow_activities()
         for rec in self:
-            rec.sudo().message_post(body=_("Recalled to Draft by %s.", self.env.user.name))
+            rec._log(_("Recalled to Draft by %s.", self.env.user.name))
 
     def action_reject(self, reason):
         self.ensure_one()
@@ -452,7 +461,7 @@ class QcChecksheet(models.Model):
         sudo_self = self.sudo()
         sudo_self.write({'state': 'draft', 'reject_reason': reason})
         self._clear_workflow_activities()
-        sudo_self.message_post(body=_("Rejected by %(user)s: %(reason)s", user=self.env.user.name, reason=reason))
+        self._log(_("Rejected by %(user)s: %(reason)s", user=self.env.user.name, reason=reason))
         if self.submitted_by_id:
             sudo_self.activity_schedule(
                 ACTIVITY_TODO, user_id=self.submitted_by_id.id,
@@ -470,11 +479,12 @@ class QcChecksheet(models.Model):
             line = sudo_rec._current_history_line()
             line.write({'date': line.date or today, 'approved_by': self.env.user.name})
             rec._clear_workflow_activities()
-            if previous:
-                sudo_rec.message_post(body=_(
-                    "Rev %(new)s is now current: Jobs printing this sheet from now on get it. "
-                    "Jobs that already printed Rev %(old)s keep it until they are updated.",
-                    new=rec.revision, old=previous[0].revision))
+            rec._log(
+                _("Released by %s. Jobs printing this sheet from now on get it.", self.env.user.name)
+                if not previous else
+                _("Released by %(user)s, replacing Rev %(old)s. Jobs printing this sheet from now on get it; "
+                  "Jobs that already printed Rev %(old)s keep it until they are updated.",
+                  user=self.env.user.name, old=previous[0].revision))
 
     def action_create_revision(self, reason, change_ids=None):
         """Open the next Draft Revision. This one stays Released, and in use,
@@ -520,6 +530,7 @@ class QcChecksheet(models.Model):
             'change_request_ids': [(6, 0, self.env['engineering.change'].browse(change_ids or []).exists().ids)],
         })
         new_revision._copy_lines_from(self.sudo())
+        new_revision._log(_("Opened by %(user)s from Rev %(old)s: %(reason)s", user=self.env.user.name, old=self.revision, reason=reason.strip()))
         return {
             'type': 'ir.actions.act_window',
             'res_model': self._name,

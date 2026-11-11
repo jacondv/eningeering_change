@@ -1,8 +1,6 @@
-from psycopg2 import IntegrityError
 
 from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import new_test_user, tagged
-from odoo.tools import mute_logger
 
 from .common import QcChecksheetCase
 
@@ -195,13 +193,53 @@ class TestQcChecksheetModelPage(QcChecksheetCase):
 
     def test_create_sheets_is_all_or_nothing(self):
         model = self._create_model()
-        self._create_checksheet(self.type_hydraulic, model=model)
-        with mute_logger('odoo.sql_db'), self.assertRaises(IntegrityError):
+        with self.assertRaises(UserError), self.env.cr.savepoint():
             self.Sheet.model_create_sheets(model.id, [
                 {'type_id': self.type_general.id, 'header': 'General'},
-                {'type_id': self.type_hydraulic.id, 'header': 'Hydraulic'},
+                {'type_id': self.type_hydraulic.id, 'header': 'Hydraulic', 'start_rev': 0},
             ])
-            self.env.flush_all()
+        self.assertFalse(self.Sheet.search([('model_id', '=', model.id)]))
+
+    def test_create_sheets_opens_the_sheet_a_model_already_has(self):
+        model = self._create_model()
+        existing = self._create_checksheet(self.type_hydraulic, model=model)
+        created = self.Sheet.model_create_sheets(model.id, [
+            {'type_id': self.type_general.id, 'header': 'General'},
+            {'type_id': self.type_hydraulic.id, 'header': 'Hydraulic'},
+        ])
+        self.assertEqual([bool(item.get('existing')) for item in created], [False, True])
+        self.assertEqual(created[1]['id'], existing.id)
+
+    def _lines(self, record):
+        return ' | '.join(record.sudo().message_ids.sorted('id').mapped(lambda m: m.body and str(m.body)))
+
+    def test_what_happens_to_a_sheet_is_told_in_the_chatter_of_its_model(self):
+        model = self._create_model()
+        source = self._create_model()
+        self._released(self.type_general, source)
+        created = self.Sheet.model_create_sheets(model.id, [{'type_id': self.type_general.id, 'header': 'General'}])
+        sheet = self.Sheet.browse(created[0]['id'])
+        self.assertIn('General Check Sheet Rev 1: Created by', self._lines(model))
+        sheet.sudo().group_ids.write({'name': 'Hydraulic'})
+        sheet.sudo().group_ids.item_ids.write({'description': 'Check oil'})
+        sheet.action_submit()
+        self.assertIn('Submitted for approval', self._lines(model))
+        # Sharing, and taking the link away, are told on the Model too.
+        other = self._create_model()
+        self.Sheet.model_share(other.id, self.type_general.id, source.id)
+        self.assertIn('now uses the sheet of %s' % source.name, self._lines(other))
+        self.Sheet.model_delete_sheets(other.id, [self.type_general.id])
+        self.assertIn('no longer uses the sheet of %s' % source.name, self._lines(other))
+        sheet.action_recall()
+        self.assertIn('Recalled to Draft', self._lines(model))
+        self.Sheet.model_delete_sheets(model.id, [self.type_general.id])
+        self.assertIn('sheet deleted by', self._lines(model))
+
+    def test_a_viewer_writes_in_the_chatter_of_the_model(self):
+        model = self._create_model()
+        message = model.with_user(self.viewer).message_post(body='Rev 2 is on its way')
+        self.assertEqual(message.model, 'equipment.model')
+        self.assertEqual(message.res_id, model.id)
 
     def test_viewer_sees_the_page_but_cannot_create(self):
         model = self._create_model()

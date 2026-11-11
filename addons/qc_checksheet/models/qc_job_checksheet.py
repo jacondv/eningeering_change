@@ -180,10 +180,16 @@ class QcJobChecksheet(models.Model):
             'pinned_date': fields.Datetime.now(),
             'pinned_by_id': self.env.uid,
         })
-        rec.message_post(body=_(
+        rec._log(_(
             "Pinned to %(rev)s by %(user)s: %(note)s",
             rev=release.display_name, user=self.env.user.name, note=note.strip()))
         return rec
+
+    def _log(self, body):
+        """Say what happened on the Job's sheet and on the Job's own chatter, which is the one the Job QC page shows."""
+        for rec in self:
+            rec.sudo().message_post(body=body)
+            rec.job_id.sudo().message_post(body=_("%(type)s: %(what)s", type=rec.type_id.name, what=body))
 
     @api.model
     def _issued_revisions(self, job, checksheet_type):
@@ -263,7 +269,7 @@ class QcJobChecksheet(models.Model):
             'requested_by_id': self.env.uid,
         })
         request._notify_approvers()
-        self.sudo().message_post(body=_(
+        self._log(_(
             "%(user)s asked to change from %(old)s to %(new)s: %(reason)s",
             user=self.env.user.name, old=self.checksheet_id.display_name, new=release.display_name,
             reason=reason.strip()))
@@ -287,7 +293,7 @@ class QcJobChecksheet(models.Model):
             # A skip holds for this Revision only; any other decision clears an older one.
             'reinspection_waived_id': release.id if reinspection == 'skipped' else False,
         })
-        sudo_self.message_post(body=_(
+        self._log(_(
             "Updated from %(old)s to %(new)s, asked by %(asker)s, approved by %(user)s: %(reason)s%(decision)s",
             old=old.display_name, new=release.display_name,
             asker=(requested_by or self.env.user).name, user=(approved_by or self.env.user).name,
@@ -363,6 +369,10 @@ class QcJobChecksheet(models.Model):
                 'next': self._summary(in_progress) if in_progress else False,
                 # Any other issued Revision can be asked for, an older one too, unless one is already waiting.
                 'update': bool(rec and not request and (issued - rec.checksheet_id)),
+                # How many Revisions were issued: shown whenever there is more than one, not only when a newer one exists.
+                'revision_count': len(issued),
+                # Another issued Revision exists: an Administrator may move the Job to it at once.
+                'other_revisions': bool(rec and (issued - rec.checksheet_id)),
                 # Not printed yet: a Revision other than the current one can be chosen at once.
                 'choosable': bool(not rec and len(issued) > 1),
                 'outdated': bool(rec and rec.update_available),

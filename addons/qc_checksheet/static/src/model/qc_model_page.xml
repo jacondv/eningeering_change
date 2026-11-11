@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
 
     <t t-name="qc_checksheet.ModelPage">
-        <div class="o_action o_qce_action">
+        <div class="o_action o_qce_action o_qce_with_chatter">
             <div class="o_qce">
             <div class="o_qce_topbar">
                 <span class="o_qce_kind o_qce_kind_model" title="The check sheets of one Model: written, revised and shared from here">Model QC</span>
@@ -32,7 +32,7 @@
             </div>
             <div class="o_qce_job">
                 <div class="o_qce_panel o_qce_scroll_x">
-                    <table class="o_qce_table">
+                    <table class="o_qce_table" t-ref="resizable">
                         <thead>
                             <tr>
                                 <th class="o_qce_select_col">
@@ -77,7 +77,7 @@
                                     <button t-if="row.jobs" class="btn btn-link p-0" title="Jobs pinned to this sheet, by Revision"
                                             t-on-click="() => this.openJobs(row)" t-esc="row.jobs"/>
                                     <span t-if="row.old_jobs" class="small text-warning ms-1" t-esc="'(' + row.old_jobs + ' on an old Rev)'"/>
-                                    <span t-else="" class="text-muted">0</span>
+                                    <span t-if="!row.jobs" class="text-muted">0</span>
                                 </td>
                                 <td class="text-end">
                                     <div t-if="row.current" class="o_qce_actions">
@@ -95,6 +95,7 @@
                 </div>
             </div>
         </div>
+        <QcChatterPanel threadModel="'equipment.model'" threadId="modelId"/>
         </div>
     </t>
 
