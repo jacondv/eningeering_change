@@ -52,10 +52,12 @@ class TestJobName(EquipmentModelCase):
         set_by_hand = self.env['equipment.model.category'].create({'name': 'Test Group 10', 'last_job_number': 5})
         self.env.cr.execute("UPDATE equipment_model_category SET last_job_number = 0 WHERE id = %s", [self.group.id])
         self.group.invalidate_recordset()
-        (self.group | empty_group | set_by_hand)._fill_last_job_numbers()
+        ahead = self.env['equipment.model.category'].create({'name': 'Test Group 11', 'last_job_number': 400})
+        (self.group | empty_group | set_by_hand | ahead)._fill_last_job_numbers()
         self.assertEqual(self.group.last_job_number, 130)
         self.assertEqual(empty_group.last_job_number, 0)
         self.assertEqual(set_by_hand.last_job_number, 5)
+        self.assertEqual(ahead.last_job_number, 400, "never lowered")
 
     def test_model_without_family_uses_its_parents(self):
         child = self.env['equipment.model'].create({'name': 'TS100-A-1', 'parent_id': self.model.id})
@@ -91,9 +93,17 @@ class TestJobName(EquipmentModelCase):
         self._job('TS100 draft')
         self.assertEqual(self.group.last_job_number, 264)
 
-    def test_more_digits_than_configured_is_not_a_job_number(self):
-        self._job('TS100-2650')
-        self.assertEqual(self.group.last_job_number, 264)
+    def test_a_group_that_outgrows_its_digits_keeps_counting(self):
+        self.group.last_job_number = 998
+        self._job(self.suggest())
+        self.assertEqual(self.group.last_job_number, 999)
+        self._job('TS100-1000')
+        self.assertEqual(self.group.last_job_number, 1000)
+        self.assertEqual(self.suggest(), 'TS100-1001')
+
+    def test_templates_do_not_use_up_numbers(self):
+        self._job('TS100-265', is_template=True)
+        self.assertEqual(self.suggest(), 'TS100-265')
 
     def test_another_familys_prefix_does_not_count(self):
         self._job('OTHER-300')

@@ -6,12 +6,14 @@ import openpyxl
 import xlsxwriter
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tools import escape_psql
 
 # The one layout both ways: what Export writes is what Import reads back.
 COLUMNS = ['Group', 'Product Family', 'Model', 'Parent Model', 'Job']
 KEYS = ['group', 'family', 'model', 'parent', 'job']
+# The preview and the apply each run the whole file inside one request.
+MAX_ROWS = 3000
 STATUSES = [
     ('create', 'Create'),
     ('update', 'Update'),
@@ -105,8 +107,15 @@ class EquipmentModelImportWizard(models.TransientModel):
 
     # Import
 
+    def _check_can_import(self):
+        """Only an Equipment Model Manager imports. The wizard's access rights say
+        so too, but it is this check that every way in goes through."""
+        if not self.env.user.has_group('equipment_model.group_equipment_model_manager'):
+            raise AccessError(_("Only Equipment Model Managers can import."))
+
     def action_preview(self):
         self.ensure_one()
+        self._check_can_import()
         rows = self._read_rows()
         try:
             with self.env.cr.savepoint():
@@ -120,6 +129,7 @@ class EquipmentModelImportWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
+        self._check_can_import()
         results = self._import_rows(self._read_rows())
         if any(result['status'] == 'error' for result in results):
             # The data changed since the preview: nothing of this is kept.
@@ -177,6 +187,9 @@ class EquipmentModelImportWizard(models.TransientModel):
                       for key, position in zip(KEYS, positions)}
             if any(values.values()):
                 rows.append({'row': number, **values})
+            if len(rows) > MAX_ROWS:
+                workbook.close()
+                raise UserError(_("The file has more than %(max)s rows. Import it in smaller files.", max=MAX_ROWS))
         workbook.close()
         if not rows:
             raise UserError(_("The file has no rows to import."))
@@ -239,16 +252,18 @@ class EquipmentModelImportWizard(models.TransientModel):
         if row['model']:
             # A Model may be on several rows, one per Job. Empty cells change
             # nothing, so only two filled-in values that differ conflict.
-            earlier = seen.setdefault(row['model'].lower(), {})
+            claimed = dict(seen.get(row['model'].lower(), {}))
             for key, label in (('family', _("Product Family")), ('parent', _("Parent Model"))):
                 value = row[key].lower()
-                if value and earlier.get(key, value) != value:
+                if value and claimed.get(key, value) != value:
                     raise UserError(_("Model %(model)s has another %(label)s on an earlier row.", model=row['model'], label=label))
                 if value:
-                    earlier[key] = value
+                    claimed[key] = value
             model = self._get_or_create('equipment.model', row['model'], {'family_id': family.id} if family else {}, result, _("Model"))
             if family and model.family_id != family:
                 self._update(model, {'family_id': family.id}, result, _("Model %(name)s moved to Product Family %(family)s", name=model.name, family=family.name))
+            # Only now: a row that failed above took nothing, so it claims nothing.
+            seen[row['model'].lower()] = claimed
 
     def _import_links(self, row, result):
         model = row['model'] and self._find('equipment.model', row['model'])

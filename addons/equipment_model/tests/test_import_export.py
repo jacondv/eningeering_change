@@ -1,9 +1,10 @@
 import base64
 import io
+import uuid
 
 import openpyxl
 
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.tests.common import tagged
 
 from .common import EquipmentModelCase
@@ -18,6 +19,17 @@ class TestImportExport(EquipmentModelCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.job = cls.env['project.project'].create({'name': 'TS100-001'})
+        # Importing is for Managers: run the tests as one, not as the superuser.
+        cls.manager = cls._create_user('equipment_model.group_equipment_model_manager', 'project.group_project_manager')
+        cls.env = cls.env(user=cls.manager)
+
+    @classmethod
+    def _create_user(cls, *groups):
+        return cls.env['res.users'].sudo().create({
+            'name': 'Import tester',
+            'login': f"import_{uuid.uuid4().hex[:8]}",
+            'group_ids': [(6, 0, [cls.env.ref('base.group_user').id] + [cls.env.ref(group).id for group in groups])],
+        })
 
     def workbook(self, rows, header=HEADER):
         book = openpyxl.Workbook()
@@ -160,6 +172,23 @@ class TestImportExport(EquipmentModelCase):
         self.model.parent_id = self.env['equipment.model'].create({'name': 'TS100-BASE', 'family_id': self.family.id})
         wizard = self.preview([['', '', 'TS100-A', '', '']])
         self.assertEqual(self.lines(wizard), [(2, 'unchanged')])
+
+    def test_only_managers_import(self):
+        wizard = self.wizard([['Test Group 01', 'TS100', 'TS100-A', '', '']])
+        for groups in ((), ('equipment_model.group_equipment_model_user',)):
+            user = self._create_user(*groups)
+            with self.assertRaises(AccessError):
+                self.env['equipment.model.import.wizard'].with_user(user).create({'file': wizard.file})
+            # Past the access rights, the import itself still refuses.
+            with self.assertRaisesRegex(AccessError, 'Only Equipment Model Managers'):
+                wizard.with_user(user).sudo().action_preview()
+            with self.assertRaisesRegex(AccessError, 'Only Equipment Model Managers'):
+                wizard.with_user(user).sudo().action_apply()
+
+    def test_the_import_actions_are_for_managers(self):
+        manager_group = self.env.ref('equipment_model.group_equipment_model_manager')
+        for xmlid in ('equipment_model.action_equipment_model_import', 'equipment_model.action_equipment_model_export'):
+            self.assertEqual(self.env.ref(xmlid).sudo().group_ids, manager_group)
 
     def test_wrong_layout_is_explained(self):
         wizard = self.wizard([['x']], header=['Name'])
