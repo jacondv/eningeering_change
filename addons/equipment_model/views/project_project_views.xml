@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Suggest button right after the name, on the full form and on the
+         quick-create popup, where most Jobs get created. model_id is repeated
+         invisible so that the button can read it wherever the visible one sits. -->
+    <record id="edit_project_inherit_job_name_suggest" model="ir.ui.view">
+        <field name="name">project.project.form.job.name.suggest</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_title')]//field[@name='name']" position="after">
+                <field name="model_id" invisible="1"/>
+                <widget name="job_name_suggest"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="project_project_view_form_simplified_inherit_job_name_suggest" model="ir.ui.view">
+        <field name="name">project.project.form.simplified.job.name.suggest</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.project_project_view_form_simplified"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="model_id" invisible="1"/>
+                <widget name="job_name_suggest"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>

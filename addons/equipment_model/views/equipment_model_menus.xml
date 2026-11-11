@@ -4,6 +4,11 @@
     <menuitem id="menu_equipment_model_root" name="Equipment Models"
           groups="equipment_model.group_equipment_model_user"/>
 
+    <menuitem id="menu_equipment_model_dashboard" name="Dashboard"
+          parent="menu_equipment_model_root"
+          action="action_equipment_model_dashboard"
+          sequence="5"/>
+
     <menuitem id="menu_equipment_model_all" name="Equipment Models"
           parent="menu_equipment_model_root"
           action="action_equipment_model"
@@ -18,5 +23,20 @@
           parent="menu_equipment_model_root"
           action="action_equipment_model_category"
           sequence="30"/>
+
+    <menuitem id="menu_equipment_model_import_export" name="Import / Export"
+          parent="menu_equipment_model_root"
+          groups="equipment_model.group_equipment_model_manager"
+          sequence="40"/>
+
+    <menuitem id="menu_equipment_model_import" name="Import from Excel"
+          parent="menu_equipment_model_import_export"
+          action="action_equipment_model_import"
+          sequence="10"/>
+
+    <menuitem id="menu_equipment_model_export" name="Export to Excel"
+          parent="menu_equipment_model_import_export"
+          action="action_equipment_model_export"
+          sequence="20"/>
 
 </odoo>

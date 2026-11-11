@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_equipment_model_import_wizard_form" model="ir.ui.view">
+        <field name="name">equipment.model.import.wizard.form</field>
+        <field name="model">equipment.model.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Import Equipment Models">
+                <field name="state" invisible="1"/>
+                <div invisible="state != 'upload'">
+                    <p>
+                        Upload an Excel file with the columns
+                        <strong>Group, Product Family, Model, Parent Model, Job</strong>.
+                        The easiest way to get one is <strong>Export</strong>: edit it, then import it back.
+                    </p>
+                    <ul class="text-muted">
+                        <li>Names are matched ignoring case: an existing name is updated, a new one is created. Nothing is ever duplicated.</li>
+                        <li>A Model without a Product Family takes its Parent Model's.</li>
+                        <li>Jobs must already exist: they are linked to the row's Model, never created.</li>
+                        <li>An empty cell changes nothing.</li>
+                        <li>Nothing is saved before you check the preview and click Apply.</li>
+                    </ul>
+                    <group>
+                        <field name="file" filename="filename" string="Excel File"/>
+                        <field name="filename" invisible="1"/>
+                    </group>
+                </div>
+                <div invisible="state == 'upload'">
+                    <div class="alert alert-info" role="status" invisible="state != 'preview' or error_count">
+                        Nothing is saved yet. Check the rows below, then click <strong>Apply</strong>.
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="state != 'preview' or not error_count">
+                        <field name="error_count" class="oe_inline fw-bold" readonly="1"/> row(s) have an error. Fix them in the file and upload it again: nothing can be applied until every row is valid.
+                    </div>
+                    <div class="alert alert-success" role="status" invisible="state != 'done'">
+                        Import applied.
+                    </div>
+                    <div class="d-flex gap-4 mb-3 fs-5">
+                        <span><field name="create_count" class="oe_inline fw-bold" readonly="1"/> to create</span>
+                        <span><field name="update_count" class="oe_inline fw-bold" readonly="1"/> to update</span>
+                        <span class="text-muted"><field name="unchanged_count" class="oe_inline fw-bold" readonly="1"/> unchanged</span>
+                    </div>
+                    <field name="line_ids" readonly="1">
+                        <list decoration-danger="status == 'error'" decoration-success="status == 'create'"
+                              decoration-info="status == 'update'" decoration-muted="status == 'unchanged'" limit="200">
+                            <field name="row" string="Row"/>
+                            <field name="status" string="Result"/>
+                            <field name="group_name"/>
+                            <field name="family_name"/>
+                            <field name="model_name"/>
+                            <field name="parent_name"/>
+                            <field name="job_name"/>
+                            <field name="message" string="Details"/>
+                        </list>
+                    </field>
+                </div>
+                <footer>
+                    <button name="action_preview" type="object" string="Preview" class="btn-primary" invisible="state != 'upload'"/>
+                    <button name="action_apply" type="object" string="Apply" class="btn-primary"
+                            invisible="state != 'preview' or error_count or not (create_count or update_count)"/>
+                    <button name="action_back" type="object" string="Upload Another File" invisible="state == 'upload'"/>
+                    <button string="Close" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_equipment_model_import" model="ir.actions.act_window">
+        <field name="name">Import Equipment Models</field>
+        <field name="res_model">equipment.model.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <record id="action_equipment_model_export" model="ir.actions.server">
+        <field name="name">Export Equipment Models</field>
+        <field name="model_id" ref="model_equipment_model_import_wizard"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_export()</field>
+    </record>
+
+</odoo>
