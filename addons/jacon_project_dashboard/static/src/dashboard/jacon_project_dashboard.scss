@@ -376,6 +376,10 @@
         .bar-wrapper .bar { fill: #4e79a7; }
         .bar-progress { fill: #2e7d32; }
         .o_pd_gantt_bar_overloaded .bar { fill: #e15759; }
+        // A Done task: greyed, so it never reads as work still to do.
+        .o_pd_gantt_bar_done .bar { fill: #b0b7bd; }
+        .o_pd_gantt_bar_done .bar-progress { fill: #8f979d; }
+        .o_pd_gantt_bar_done .bar-label { fill: #6c757d; }
         // SVG text uses `fill`, not `color` - the label (task name/hours,
         // drawn as its own <text class="bar-label">) otherwise stays the
         // library's default dark grey even on a red overloaded bar.
@@ -415,5 +419,53 @@
             font-size: .78rem;
             font-weight: 500;
         }
+    }
+}
+
+// "My to-do": the viewer's own tasks that still need something filled in.
+.o_pd_reminders {
+    .o_pd_reminder_total {
+        margin-left: 10px;
+        padding: 1px 10px;
+        border-radius: 10px;
+        background: #fdecea;
+        color: #b3261e;
+        font-weight: 600;
+        font-size: 12px;
+    }
+    .o_pd_reminder_clear {
+        margin: 6px 0 0;
+        color: #2e7d32;
+        font-weight: 600;
+    }
+    .o_pd_reminder_chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .o_pd_reminder_chip {
+        padding: 3px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 14px;
+        background: #fff;
+        font-size: 13px;
+        &.active { background: #e8eef6; border-color: #4e79a7; }
+        &.o_pd_reminder_chip_empty { color: #9aa1a8; }
+    }
+    .o_pd_reminder_table tbody tr {
+        cursor: pointer;
+        &:hover { background: rgba(78, 121, 167, 0.08); }
+    }
+    .o_pd_reminder_tag {
+        display: inline-block;
+        margin: 0 4px 2px 0;
+        padding: 1px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+        background: #eef0f2;
+        &.o_pd_reminder_tag_overdue { background: #fdecea; color: #b3261e; }
+        &.o_pd_reminder_tag_done_no_timesheet { background: #fff4e0; color: #8a5a00; }
     }
 }

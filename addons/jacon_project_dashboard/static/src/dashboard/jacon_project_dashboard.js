@@ -173,6 +173,11 @@ export class JaconProjectDashboard extends Component {
             data: null,
             taskGanttData: [],
             taskGanttHolidays: [],
+            // Done tasks are drawn on the timeline only when ticked; off by default.
+            showDone: false,
+            // The "My to-do" card: the viewer's own tasks to complete, and the kind picked to narrow it.
+            reminders: null,
+            reminderKind: false,
             taskGanttViewMode: loadStoredTaskGanttViewMode() || "Day",
             filters: {
                 years: [new Date().getFullYear()],
@@ -240,11 +245,13 @@ export class JaconProjectDashboard extends Component {
     async fetchData() {
         storeFilters(this.state.filters);
         this.state.loading = true;
-        const [data, taskTimeline] = await Promise.all([
+        const [data, taskTimeline, reminders] = await Promise.all([
             this.orm.call("jacon.project.dashboard", "get_dashboard_data", [], { filters: this.state.filters }),
             this.fetchTaskTimeline(),
+            this.orm.call("jacon.project.dashboard", "get_my_reminders", [], { filters: this.state.filters }),
         ]);
         this.state.data = data;
+        this.state.reminders = reminders;
         this.state.loading = false;
         const taskGanttData = taskTimeline.bars;
         this.state.taskGanttHolidays = taskTimeline.holidays || [];
@@ -276,8 +283,31 @@ export class JaconProjectDashboard extends Component {
      * assigning it directly to state - see the ordering note in
      * fetchData for why the assignment itself has to happen later. */
     async fetchTaskTimeline() {
-        return this.orm.call(
-            "jacon.project.dashboard", "get_task_timeline", [], { filters: this.state.filters });
+        return this.orm.call("jacon.project.dashboard", "get_task_timeline", [], {
+            filters: { ...this.state.filters, show_done: this.state.showDone },
+        });
+    }
+
+    async toggleShowDone() {
+        this.state.showDone = !this.state.showDone;
+        const timeline = await this.fetchTaskTimeline();
+        this.state.taskGanttHolidays = timeline.holidays || [];
+        this.state.taskGanttData = timeline.bars;
+    }
+
+    // "My to-do" card
+    get reminderRows() {
+        const rows = this.state.reminders?.rows || [];
+        const kind = this.state.reminderKind;
+        return kind ? rows.filter((row) => row.issues.includes(kind)) : rows;
+    }
+
+    reminderLabel(key) {
+        return this.state.reminders.kinds.find((kind) => kind.key === key)?.label || key;
+    }
+
+    pickReminderKind(key) {
+        this.state.reminderKind = this.state.reminderKind === key ? false : key;
     }
 
     setTaskGanttViewMode(mode) {
@@ -616,6 +646,11 @@ export class JaconProjectDashboard extends Component {
         return row ? row.hours : 0;
     }
 
+    /** What a cell shows: one decimal at most (the shade still follows the exact hours). */
+    heatmapLabel(employee, taskType) {
+        return Math.round(this.heatmapValue(employee, taskType) * 10) / 10;
+    }
+
     get heatmapMax() {
         return Math.max(1, ...this.state.data.employee_task_type_matrix.map((r) => r.hours));
     }
@@ -689,18 +724,6 @@ export class JaconProjectDashboard extends Component {
             start: row.start,
             end: row.end,
             progress: row.progress,
-            // Red bar = this task didn't finish on time under the
-            // priority queue (same flag as the Task form warning) - the
-            // progress fill (green, via SCSS) stays a separate,
-            // independent signal on top. A locked bar (plain assignee,
-            // not their manager/PM/admin - see can_edit_schedule) gets its
-            // own class disabling drag/resize interaction entirely (see
-            // .o_pd_gantt_bar_locked in the SCSS) rather than letting the
-            // drag proceed only to fail server-side on drop.
-            custom_class: [
-                row.overloaded ? "o_pd_gantt_bar_overloaded" : "",
-                row.can_edit_schedule ? "" : "o_pd_gantt_bar_locked",
-            ].filter(Boolean).join(" "),
         }));
         this.taskGantt = new window.Gantt(el, tasks, {
             view_mode: this.state.taskGanttViewMode,
@@ -734,6 +757,27 @@ export class JaconProjectDashboard extends Component {
             // once the ambiguity of "whose leave is this" is gone.
             holidays: this.taskGanttHolidaysOption(),
         });
+        this.styleTaskGanttBars(rows);
+    }
+
+    /** The bars' own classes, added once drawn: Frappe Gantt takes a single class per task (a second one,
+     * space-separated, makes it throw), and a bar can be several things at once.
+     * - Red: this task didn't finish on time under the priority queue (same flag as the Task form warning);
+     *   the progress fill (green, via SCSS) stays a separate, independent signal on top.
+     * - Grey: a Done task (only drawn when "Show Done" is ticked).
+     * - Locked: a plain assignee, not their manager/PM/admin (see can_edit_schedule), gets a class disabling
+     *   drag/resize interaction entirely (see .o_pd_gantt_bar_locked in the SCSS) rather than letting the drag
+     *   proceed only to fail server-side on drop. */
+    styleTaskGanttBars(rows) {
+        for (const row of rows) {
+            const bar = this.taskGanttRef.el.querySelector(`.bar-wrapper[data-id="${row.id}"]`);
+            if (!bar) {
+                continue;
+            }
+            bar.classList.toggle("o_pd_gantt_bar_overloaded", !!row.overloaded);
+            bar.classList.toggle("o_pd_gantt_bar_done", !!row.done);
+            bar.classList.toggle("o_pd_gantt_bar_locked", !row.can_edit_schedule);
+        }
     }
 
     taskGanttHolidaysOption() {

@@ -11,6 +11,16 @@ from odoo.addons.jacon_core.models.hr_employee import _priority_value
 from odoo.addons.jacon_core.models.project_task import TASK_TYPE_SELECTION
 
 DONE_TASK_STATES = ('1_done', '1_canceled')
+GROUP_DASHBOARD_ADMIN = 'jacon_project_dashboard.group_project_dashboard_admin'
+# Most task rows one reminder list sends; the counts above it are always complete.
+REMINDER_ROW_LIMIT = 200
+# The reminders, most urgent first: (key, label shown on the page).
+REMINDER_KINDS = [
+    ('overdue', 'Overdue'),
+    ('done_no_timesheet', 'Done, no timesheet'),
+    ('no_deadline', 'No deadline'),
+    ('no_type', 'No task type'),
+]
 TASK_TYPE_LABELS = dict(TASK_TYPE_SELECTION)
 
 
@@ -53,6 +63,21 @@ class JaconProjectDashboard(models.AbstractModel):
     _name = 'jacon.project.dashboard'
     _description = 'Jacon Project Dashboard'
 
+    def _is_admin(self):
+        return self.env.user.has_group(GROUP_DASHBOARD_ADMIN)
+
+    def _own_employee(self):
+        return self.env['hr.employee'].sudo().search([('user_id', '=', self.env.uid)], limit=1)
+
+    def _scope_filters(self, filters):
+        """The filters as sent, except that someone who is not a Dashboard Administrator only ever sees
+        their own: whatever Engineer the page asked for, it is replaced by the user's own employee (0
+        when they have none, so nothing at all matches)."""
+        filters = dict(filters or {})
+        if not self._is_admin():
+            filters['employee_ids'] = self._own_employee().ids or [0]
+        return filters
+
     @api.model
     def get_filter_options(self):
         # check_access(): being an AbstractModel with no records of its own,
@@ -67,9 +92,19 @@ class JaconProjectDashboard(models.AbstractModel):
         # granted access, not a partial view narrowed by each viewer's own
         # project-follower/timesheet-ownership access.
         self.check_access('read')
+        is_admin = self._is_admin()
+        own = self._own_employee()
         self = self.sudo()
-        projects = self.env['project.project'].search_read([], ['name'], order='name')
-        employees = self.env['hr.employee'].search_read([], ['name'], order='name')
+        if is_admin:
+            projects = self.env['project.project'].search_read([], ['name'], order='name')
+            employees = self.env['hr.employee'].search_read([], ['name'], order='name')
+        else:
+            # Only the projects the user has tasks or hours in, and only themselves as Engineer.
+            task_projects = self.env['project.task'].search([('user_ids', 'in', [self.env.uid])]).project_id
+            hour_projects = self.env['account.analytic.line'].search(
+                [('employee_id', 'in', own.ids), ('project_id', '!=', False)]).project_id
+            projects = (task_projects | hour_projects).sorted('name').read(['name'])
+            employees = own.read(['name'])
 
         current_year = fields.Date.context_today(self).year
         first_line = self.env['account.analytic.line'].search(
@@ -80,6 +115,7 @@ class JaconProjectDashboard(models.AbstractModel):
         months = [{'key': m, 'label': calendar.month_abbr[m]} for m in range(1, 13)]
 
         return {
+            'is_admin': is_admin,
             'projects': [{'id': p['id'], 'name': p['name']} for p in projects],
             'employees': [{'id': e['id'], 'name': e['name']} for e in employees],
             'task_types': [{'key': key, 'label': label} for key, label in TASK_TYPE_SELECTION],
@@ -156,7 +192,7 @@ class JaconProjectDashboard(models.AbstractModel):
         if project_ids:
             planned_domain.append(('project_id', 'in', project_ids))
         if employee_ids:
-            user_ids = self.env['hr.employee'].browse(employee_ids).mapped('user_id').ids
+            user_ids = self.env['hr.employee'].browse(employee_ids).exists().mapped('user_id').ids
             planned_domain.append(('user_ids', 'in', user_ids))
         if task_types:
             planned_domain.append(('task_type', 'in', task_types))
@@ -281,9 +317,11 @@ class JaconProjectDashboard(models.AbstractModel):
         today = fields.Date.context_today(self)
         emp_by_user = {emp.user_id.id: emp for emp in employees}
 
+        # Done tasks only when the panel's "Show Done" is ticked; Cancelled ones never.
+        hidden_states = ['1_canceled'] if filters.get('show_done') else list(DONE_TASK_STATES)
         tasks = self.env['project.task'].search([
             ('user_ids', 'in', employees.user_id.ids),
-            ('state', 'not in', list(DONE_TASK_STATES)),
+            ('state', 'not in', hidden_states),
             ('date_deadline', '!=', False),
         ])
 
@@ -318,7 +356,8 @@ class JaconProjectDashboard(models.AbstractModel):
                 # *100 nearly every bar rounds down to 0% regardless of how
                 # much timesheet was actually logged.
                 'progress': round((task.progress or 0.0) * 100),
-                'overdue': deadline < today,
+                'done': task.state == '1_done',
+                'overdue': deadline < today and task.state != '1_done',
                 # Assignee's working weekdays (0=Monday..6=Sunday, see
                 # hr.employee._work_weekdays) - the frontend needs this to
                 # keep a task's *working*-day length intact when it's
@@ -461,8 +500,8 @@ class JaconProjectDashboard(models.AbstractModel):
         "previous/current/next calendar month" default centered on
         today."""
         self.check_access('read')  # see get_filter_options
+        filters = self._scope_filters(filters)
         self = self.sudo()
-        filters = filters or {}
         today = fields.Date.context_today(self)
         if range_start and range_end:
             window_start = fields.Date.to_date(range_start)
@@ -476,11 +515,83 @@ class JaconProjectDashboard(models.AbstractModel):
             window_end = today.replace(day=1) + relativedelta(months=2) - relativedelta(days=1)
         return self._task_timeline(filters, window_start, window_end)
 
+    def _done_period_domain(self, filters):
+        """The tasks that turned Done in the selected Year/Month period: by their Last Stage Update, or, for
+        the few with none, by their last write. Datetimes, so the end of each period is midnight of the day
+        after, exclusive."""
+        def within(field):
+            return Domain.OR([
+                [(field, '>=', datetime.combine(start, time.min)),
+                 (field, '<', datetime.combine(end + timedelta(days=1), time.min))]
+                for start, end in self._period_segments(filters)
+            ])
+        return Domain.OR([
+            within('date_last_stage_update'),
+            Domain.AND([[('date_last_stage_update', '=', False)], within('write_date')]),
+        ])
+
+    @api.model
+    def get_my_reminders(self, filters=None):
+        """The tasks of the person looking at the page that still need something filled in, for the "My
+        to-do" card: always their own, whoever they are (a Dashboard Administrator too). It follows the
+        Project and Task Type filters. The Year/Months period applies to Done tasks (those that turned Done
+        in it); an open task needs fixing whatever the period, so it always shows.
+
+        - Overdue: open, Deadline passed.
+        - Done, no timesheet: Done, with no hours logged on it.
+        - No deadline: open, none set. A subtask is left out: its parent carries the Deadline.
+        - No task type: open, none chosen.
+        """
+        self.check_access('read')  # see get_filter_options
+        uid = self.env.uid
+        self = self.sudo()
+        filters = filters or {}
+        today = fields.Date.context_today(self)
+        base = [('project_id', '!=', False), ('user_ids', 'in', [uid])]
+        if filters.get('project_ids'):
+            base.append(('project_id', 'in', filters['project_ids']))
+        if filters.get('task_types'):
+            base.append(('task_type', 'in', filters['task_types']))
+        open_tasks = base + [('state', 'not in', list(DONE_TASK_STATES))]
+        domains = {
+            'overdue': open_tasks + [('date_deadline', '<', today)],
+            'done_no_timesheet': Domain.AND([
+                base + [('state', '=', '1_done'), ('timesheet_ids', '=', False)],
+                self._done_period_domain(filters)]),
+            'no_deadline': open_tasks + [('parent_id', '=', False), ('date_deadline', '=', False)],
+            'no_type': open_tasks + [('task_type', '=', False)],
+        }
+        Task = self.env['project.task']
+        counts = {}
+        rows = {}
+        for kind, _label in REMINDER_KINDS:
+            counts[kind] = Task.search_count(domains[kind])
+            for task in Task.search(domains[kind], order='date_deadline asc, id desc', limit=REMINDER_ROW_LIMIT):
+                row = rows.setdefault(task.id, {
+                    'id': task.id,
+                    'name': task.name,
+                    'project': task.project_id.name or '',
+                    'project_id': task.project_id.id,
+                    'parent': task.parent_id.name or '',
+                    'deadline': fields.Date.to_string(task.date_deadline) if task.date_deadline else '',
+                    'done': task.state == '1_done',
+                    'issues': [],
+                })
+                row['issues'].append(kind)
+        # Most to fix first, then the most urgent kind.
+        urgency = {kind: index for index, (kind, _label) in enumerate(REMINDER_KINDS)}
+        ordered = sorted(rows.values(), key=lambda r: (-len(r['issues']), min(urgency[k] for k in r['issues']), r['id']))
+        return {
+            'kinds': [{'key': kind, 'label': label, 'count': counts[kind]} for kind, label in REMINDER_KINDS],
+            'total': sum(counts.values()),
+            'rows': ordered,
+        }
+
     @api.model
     def get_dashboard_data(self, filters=None):
         self.check_access('read')  # see get_filter_options
+        filters = self._scope_filters(filters)
         self = self.sudo()
-        filters = filters or {}
         Timesheet = self.env['account.analytic.line']
         Task = self.env['project.task']
         spent_domain, planned_domain = self._build_domains(filters)

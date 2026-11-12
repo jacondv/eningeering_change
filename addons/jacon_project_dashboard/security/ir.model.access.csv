@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_jacon_project_dashboard_user,jacon.project.dashboard.user,model_jacon_project_dashboard,group_project_dashboard_user,1,0,0,0
+access_jacon_project_dashboard_admin,jacon.project.dashboard.admin,model_jacon_project_dashboard,group_project_dashboard_admin,1,0,0,0
