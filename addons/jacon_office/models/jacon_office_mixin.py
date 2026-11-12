@@ -39,6 +39,8 @@ class JaconOfficeMixin(models.AbstractModel):
             'name': self.env._("New Document"),
             'res_model': 'jacon.office.document.create.wizard',
             'view_mode': 'form',
+            # `views` too: the Documents tab calls this directly, without the button machinery that adds it.
+            'views': [(False, 'form')],
             'target': 'new',
             'context': {'default_res_model': self._name, 'default_res_id': self.id},
         }
