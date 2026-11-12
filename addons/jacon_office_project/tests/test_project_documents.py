@@ -22,6 +22,7 @@ class TestProjectDocuments(TransactionCase):
     def test_the_new_document_dialog_starts_from_the_projects_name(self):
         action = self.project.action_new_office_document()
         self.assertEqual(action['res_model'], 'jacon.office.document.create.wizard')
+        self.assertEqual(action['views'], [(False, 'form')])
         wizard = self.env['jacon.office.document.create.wizard'].with_context(**action['context']).create({})
         self.assertEqual(wizard.name, 'S45-268-Specification')
         wizard.action_create()
