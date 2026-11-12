@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_jacon_office_root" name="Office Documents"
+              parent="jacon_documents.menu_jacon_documents_root"
+              groups="jacon_office.group_jacon_office_user"
+              sequence="10"/>
+
+    <menuitem id="menu_jacon_office_documents" name="Documents"
+              parent="menu_jacon_office_root"
+              action="action_jacon_office_document"
+              sequence="10"/>
+
+    <menuitem id="menu_jacon_office_config" name="Configuration"
+              parent="menu_jacon_office_root"
+              groups="jacon_office.group_jacon_office_manager"
+              sequence="90"/>
+
+    <menuitem id="menu_jacon_office_category" name="Categories"
+              parent="menu_jacon_office_config"
+              action="action_jacon_office_category"
+              sequence="10"/>
+
+</odoo>

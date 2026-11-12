@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_jacon_office_document_list" model="ir.ui.view">
+        <field name="name">jacon.office.document.list</field>
+        <field name="model">jacon.office.document</field>
+        <field name="arch" type="xml">
+            <list string="Office Documents" create="0">
+                <field name="name"/>
+                <field name="kind" widget="badge"/>
+                <field name="category_id"/>
+                <field name="res_name" string="Belongs to"/>
+                <field name="create_uid" string="Created By"/>
+                <field name="create_date" string="Created On"/>
+                <field name="file_size_text"/>
+                <button name="action_open_editor" type="object" icon="fa-pencil" title="Open in ONLYOFFICE"/>
+                <button name="action_download" type="object" icon="fa-download" title="Download"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_jacon_office_document_form" model="ir.ui.view">
+        <field name="name">jacon.office.document.form</field>
+        <field name="model">jacon.office.document</field>
+        <field name="arch" type="xml">
+            <form string="Office Document" create="0">
+                <header>
+                    <button name="action_open_editor" type="object" string="Open" class="btn-primary"
+                            invisible="not attachment_id"/>
+                    <button name="action_download" type="object" string="Download"
+                            invisible="not attachment_id"/>
+                </header>
+                <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Document name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="kind" readonly="id"/>
+                            <field name="category_id" options="{'no_create': true}"/>
+                        </group>
+                        <group>
+                            <field name="res_name" string="Belongs to"/>
+                            <field name="file_size_text"/>
+                        </group>
+                    </group>
+                    <field name="description" placeholder="Description..."/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_jacon_office_document_search" model="ir.ui.view">
+        <field name="name">jacon.office.document.search</field>
+        <field name="model">jacon.office.document</field>
+        <field name="arch" type="xml">
+            <search string="Office Documents">
+                <field name="name"/>
+                <field name="category_id"/>
+                <separator/>
+                <filter name="word" string="Word" domain="[('kind', '=', 'docx')]"/>
+                <filter name="excel" string="Excel" domain="[('kind', '=', 'xlsx')]"/>
+                <filter name="powerpoint" string="PowerPoint" domain="[('kind', '=', 'pptx')]"/>
+                <separator/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_kind" string="Type" context="{'group_by': 'kind'}"/>
+                    <filter name="group_category" string="Category" context="{'group_by': 'category_id'}"/>
+                    <filter name="group_model" string="Belongs to (model)" context="{'group_by': 'res_model'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_jacon_office_document" model="ir.actions.act_window">
+        <field name="name">Office Documents</field>
+        <field name="res_model">jacon.office.document</field>
+        <field name="path">office-documents</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_jacon_office_document_search"/>
+    </record>
+
+</odoo>

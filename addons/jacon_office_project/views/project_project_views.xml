@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="edit_project_inherit_office_documents" model="ir.ui.view">
+        <field name="name">project.project.form.inherit.office.documents</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='description']" position="after">
+                <page name="office_documents" string="Documents" invisible="not id">
+                    <div class="mb-2">
+                        <button name="action_new_office_document" type="object" class="btn btn-primary"
+                                icon="fa-plus" string="New Document"/>
+                    </div>
+                    <field name="office_document_ids" nolabel="1" readonly="1">
+                        <list create="0" delete="0">
+                            <field name="name"/>
+                            <field name="kind" widget="badge"/>
+                            <field name="category_id"/>
+                            <field name="create_uid" string="Created By"/>
+                            <field name="create_date" string="Created On"/>
+                            <field name="file_size_text"/>
+                            <button name="action_open_editor" type="object" icon="fa-pencil"
+                                    title="Open in ONLYOFFICE"/>
+                            <button name="action_download" type="object" icon="fa-download" title="Download"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

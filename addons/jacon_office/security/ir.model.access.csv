@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_jacon_office_category_user,jacon.office.category.user,model_jacon_office_category,group_jacon_office_user,1,0,0,0
+access_jacon_office_category_manager,jacon.office.category.manager,model_jacon_office_category,group_jacon_office_manager,1,1,1,1
+access_jacon_office_document_user,jacon.office.document.user,model_jacon_office_document,group_jacon_office_user,1,1,1,0
+access_jacon_office_document_manager,jacon.office.document.manager,model_jacon_office_document,group_jacon_office_manager,1,1,1,1
+access_jacon_office_document_create_wizard_user,jacon.office.document.create.wizard.user,model_jacon_office_document_create_wizard,group_jacon_office_user,1,1,1,1
