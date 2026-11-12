@@ -33,7 +33,7 @@
                 <field name="kind" widget="badge"/>
                 <field name="category_id"/>
                 <field name="res_name" string="Belongs to"/>
-                <field name="author_id"/>
+                <field name="author"/>
                 <field name="last_edit_date"/>
                 <field name="revision"/>
                 <field name="version_count" string="Previous Revs"/>
@@ -81,7 +81,7 @@
                         <group>
                             <field name="kind" readonly="id"/>
                             <field name="category_id" options="{'no_create': true}"/>
-                            <field name="author_id"/>
+                            <field name="author"/>
                             <label for="res_name" string="Belongs to"/>
                             <div>
                                 <button name="action_open_record" type="object" class="btn btn-link p-0 text-start"
@@ -115,7 +115,7 @@
             <search string="Office Documents">
                 <field name="name"/>
                 <field name="category_id"/>
-                <field name="author_id"/>
+                <field name="author"/>
                 <separator/>
                 <filter name="word" string="Word" domain="[('kind', '=', 'docx')]"/>
                 <filter name="excel" string="Excel" domain="[('kind', '=', 'xlsx')]"/>
@@ -128,7 +128,7 @@
                 <group>
                     <filter name="group_kind" string="Type" context="{'group_by': 'kind'}"/>
                     <filter name="group_category" string="Category" context="{'group_by': 'category_id'}"/>
-                    <filter name="group_author" string="Author" context="{'group_by': 'author_id'}"/>
+                    <filter name="group_author" string="Author" context="{'group_by': 'author'}"/>
                     <filter name="group_model" string="Belongs to (model)" context="{'group_by': 'res_model'}"/>
                 </group>
             </search>

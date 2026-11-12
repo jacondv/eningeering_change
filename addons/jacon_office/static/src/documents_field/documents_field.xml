@@ -40,10 +40,6 @@
                 </label>
             </div>
 
-            <datalist t-att-id="usersListId">
-                <option t-foreach="state.users" t-as="user" t-key="user.id" t-att-value="user.name"/>
-            </datalist>
-
             <div t-if="!state.loaded" class="text-center text-muted p-4"><i class="fa fa-spinner fa-spin"/></div>
             <div t-elif="!rows.length" class="text-muted p-3">
                 <t t-if="state.query">No document matches.</t>
@@ -88,10 +84,11 @@
                                         t-att-selected="doc.category_id and doc.category_id[0] === category.id"/>
                             </select>
                         </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm o_jo_select" t-att-list="usersListId"
-                                   t-att-value="doc.author_id ? doc.author_id[1] : ''" t-att-disabled="doc.is_locked"
-                                   t-on-change="(ev) => this.setAuthor(doc, ev)"/>
+                        <td class="o_jo_author_cell">
+                            <AutoComplete value="doc.author || ''" sources="authorOptions(doc)"
+                                          searchOnInputClick="true" autoSelect="false"
+                                          class="'o_jo_author' + (doc.is_locked ? ' o_jo_disabled' : '')"
+                                          onChange="(change) => this.authorChanged(doc, change)"/>
                         </td>
                         <td class="text-nowrap">
                             <div t-esc="formatDate(doc.last_edit_date)"/>

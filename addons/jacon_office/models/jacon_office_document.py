@@ -31,6 +31,9 @@ KIND_FOLDERS = {'docx': 'word/', 'xlsx': 'xl/', 'pptx': 'ppt/'}
 VERSIONS_TO_KEEP_PARAM = 'jacon_office.versions_to_keep'
 DEFAULT_VERSIONS_TO_KEEP = 3
 PDF_TIMEOUT = 90
+# PDF/A, not plain PDF: ONLYOFFICE writes gradient fills of plain PDFs in a way many viewers draw wrongly
+# (shapes lost or smeared), while its PDF/A shows them right.
+PDF_OUTPUT_TYPE = 'pdfa'
 
 
 class OfficeConversionError(Exception):
@@ -58,9 +61,8 @@ class JaconOfficeDocument(models.Model):
     name = fields.Char(required=True, tracking=True)
     kind = fields.Selection(KINDS, required=True)
     category_id = fields.Many2one('jacon.office.category', tracking=True)
-    author_id = fields.Many2one(
-        'res.users', string="Author", default=lambda self: self.env.user, ondelete='set null', tracking=True,
-    )
+    # Free text: the author can be someone who is not a user. The tab suggests the users' names.
+    author = fields.Char(default=lambda self: self.env.user.name, tracking=True)
     description = fields.Text()
     active = fields.Boolean(default=True)
     res_model = fields.Char(string="Belongs to (model)", required=True, index=True)
@@ -345,7 +347,7 @@ class JaconOfficeDocument(models.Model):
         # is then recognised as out of date (`_pdf_is_current`) rather than passed off as current.
         checksum = attachment.checksum
         try:
-            content = doc._onlyoffice_convert(attachment, 'pdf')
+            content = doc._onlyoffice_convert(attachment, PDF_OUTPUT_TYPE)
         except Exception as error:  # a document the converter chokes on must not stop the others
             _logger.warning(
                 "PDF of document %s (%s) failed: %s", doc.id, doc.name, error,
@@ -364,6 +366,39 @@ class JaconOfficeDocument(models.Model):
         doc.write({'pdf_state': 'ready', 'pdf_checksum': checksum, 'pdf_error': False})
         return True
 
+    def _onlyoffice_sign(self, body):
+        """The headers and the body to send ONLYOFFICE, signed with the connector's JWT secret."""
+        env = self.env
+        headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+        secret = config_utils.get_jwt_secret(env)
+        if secret:
+            headers[config_utils.get_jwt_header(env)] = 'Bearer ' + jwt_utils.encode_payload(
+                env, {'payload': dict(body)}, secret,
+            )
+            body = dict(body, token=jwt_utils.encode_payload(env, dict(body), secret))
+        return headers, body
+
+    def _editor_is_open(self):
+        """Whether someone has this document open in the editor right now.
+
+        What they type reaches Odoo only when the last of them closes it (and a few seconds after), so
+        the file here, and the PDF made from it, can be behind what they see.
+        """
+        self.ensure_one()
+        env = self.env
+        key = '%s%s' % (self.attachment_id.id, self.attachment_id.checksum)  # the connector's editing key
+        try:
+            headers, body = self._onlyoffice_sign({'c': 'info', 'key': key})
+            response = requests.post(
+                '%scoauthoring/CommandService.ashx' % config_utils.get_doc_server_inner_url(env),
+                data=json.dumps(body), headers=headers, timeout=10,
+                verify=not config_utils.get_certificate_verify_disabled(env),
+            )
+            result = response.json()
+        except (requests.RequestException, ValueError):
+            return False  # unknown: say nothing rather than something wrong
+        return result.get('error') == 0 and bool(result.get('users'))
+
     def _onlyoffice_convert(self, attachment, output_type):
         """Have ONLYOFFICE convert the attachment; returns the converted file's bytes.
 
@@ -373,12 +408,11 @@ class JaconOfficeDocument(models.Model):
         env = self.env
         odoo_url = config_utils.get_base_or_odoo_url(env)
         server_url = config_utils.get_doc_server_inner_url(env)
-        secret = config_utils.get_jwt_secret(env)
         token = jwt_utils.encode_payload(env, {'id': SUPERUSER_ID}, config_utils.get_internal_jwt_secret(env))
         token = token.decode() if isinstance(token, bytes) else token
         # A key names one content: ONLYOFFICE reuses what it converted before for the same key. It
         # must differ from the editing session's key (`<id><checksum>`).
-        key = 'pdf-%s-%s' % (attachment.id, attachment.checksum)
+        key = '%s-%s-%s' % (output_type, attachment.id, attachment.checksum)
         body = {
             'async': False,
             'filetype': self.kind,
@@ -387,12 +421,7 @@ class JaconOfficeDocument(models.Model):
             'title': attachment.name,
             'url': '%sonlyoffice/file/content/%s?oo_security_token=%s' % (odoo_url, attachment.id, token),
         }
-        headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
-        if secret:
-            headers[config_utils.get_jwt_header(env)] = 'Bearer ' + jwt_utils.encode_payload(
-                env, {'payload': dict(body)}, secret,
-            )
-            body['token'] = jwt_utils.encode_payload(env, dict(body), secret)
+        headers, body = self._onlyoffice_sign(body)
         verify = not config_utils.get_certificate_verify_disabled(env)
 
         deadline = time.monotonic() + PDF_TIMEOUT
@@ -505,6 +534,16 @@ class JaconOfficeDocument(models.Model):
                     'sticky': True,
                 },
             }
+        if self._editor_is_open():
+            self.env['bus.bus']._sendone(self.env.user.partner_id, 'simple_notification', {
+                'type': 'warning',
+                'title': _("%s is open in the editor", self.name),
+                'message': _(
+                    "The PDF shows the last version saved to Odoo. What is typed in the editor reaches Odoo "
+                    "when the editor's tab is closed: close it, wait about 10 seconds, then view the PDF again."
+                ),
+                'sticky': True,
+            })
         pdf = self.sudo().pdf_attachment_id
         return {
             'type': 'ir.actions.act_url',

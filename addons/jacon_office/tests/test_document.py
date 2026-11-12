@@ -230,6 +230,12 @@ class TestOfficeDocument(TransactionCase):
         other = Wizard.with_context(default_res_id=self.other_partner.id)
         self.assertEqual(other.default_get(['name'])['name'], 'Other-Specification')
 
+    def test_the_author_is_free_text_starting_with_who_made_the_document(self):
+        doc = self._doc()
+        self.assertEqual(doc.author, self.env.user.name)
+        doc.author = 'A customer, not a user'
+        self.assertEqual(doc.author, 'A customer, not a user')
+
     def test_the_belongs_to_names_are_read_for_all_documents_at_once(self):
         docs = self._doc(name='One') | self._doc(name='Two', partner=self.other_partner)
         self.assertEqual(docs.mapped('res_name'), ['Acme', 'Other'])

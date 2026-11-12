@@ -170,9 +170,9 @@ class TestRevs(TransactionCase):
     def test_documents_can_be_archived_and_changed_in_bulk(self):
         docs = self._doc(name='One') | self._doc(name='Two')
         category = self.env.ref('jacon_office.category_report')
-        docs.with_user(self.user).write({'category_id': category.id, 'author_id': self.user.id})
+        docs.with_user(self.user).write({'category_id': category.id, 'author': 'Someone Outside'})
         self.assertEqual(docs.category_id, category)
-        self.assertEqual(docs.author_id, self.user)
+        self.assertEqual(docs.mapped('author'), ['Someone Outside'] * 2)
         docs.with_user(self.user).action_archive()
         self.assertFalse(docs.filtered('active'))
         docs.with_user(self.user).action_unarchive()
@@ -193,6 +193,10 @@ class TestRevs(TransactionCase):
         self.assertFalse(doc.is_locked)
 
     # -- PDF ------------------------------------------------------------
+
+    def _conversions(self, post_mock):
+        """How many times ONLYOFFICE was asked to convert (not to say whether a document is open)."""
+        return len([call for call in post_mock.call_args_list if 'converter' in call.args[0]])
 
     def _convert_ok(self, pdf=b'%PDF-1.7 fake'):
         converter = MagicMock(status_code=200)
@@ -217,14 +221,14 @@ class TestRevs(TransactionCase):
             self.assertEqual(doc.pdf_attachment_id.raw, b'%PDF-1.7 fake')
             # viewing it again does not convert again
             self.assertIn('/web/content/%s/' % doc.pdf_attachment_id.id, doc.action_view_pdf()['url'])
-            self.assertEqual(post_mock.call_count, 1)
+            self.assertEqual(self._conversions(post_mock), 1)
 
             # a new content makes the PDF stale; viewing it makes it again
             self._save(doc, 'two')
             self.assertFalse(doc._pdf_is_current())
             doc.action_view_pdf()
             self.assertTrue(doc._pdf_is_current())
-            self.assertEqual(post_mock.call_count, 2)
+            self.assertEqual(self._conversions(post_mock), 2)
 
     def test_the_conversion_asks_onlyoffice_with_a_signed_request(self):
         self.env['ir.config_parameter'].set_param('onlyoffice_connector.doc_server_jwt_secret', 'a-test-secret-long-enough-for-hs256')
@@ -237,8 +241,8 @@ class TestRevs(TransactionCase):
         args, kwargs = post_mock.call_args
         self.assertTrue(args[0].startswith('http://onlyoffice/converter'))
         body = json.loads(kwargs['data'])
-        self.assertEqual((body['filetype'], body['outputtype'], body['async']), ('docx', 'pdf', False))
-        self.assertTrue(body['key'].startswith('pdf-%s-' % doc.attachment_id.id))
+        self.assertEqual((body['filetype'], body['outputtype'], body['async']), ('docx', 'pdfa', False))
+        self.assertTrue(body['key'].startswith('pdfa-%s-' % doc.attachment_id.id))
         self.assertIn('http://odoo:8069/onlyoffice/file/content/%s?oo_security_token=' % doc.attachment_id.id, body['url'])
         self.assertTrue(body['token'])
         self.assertTrue(kwargs['headers']['Authorization'].startswith('Bearer '))
@@ -293,11 +297,11 @@ class TestRevs(TransactionCase):
         post, get = self._convert_ok()
         with post as post_mock, get:
             self._save(doc, 'two')
-            self.assertEqual(post_mock.call_count, 0)
+            self.assertEqual(self._conversions(post_mock), 0)
             self.assertEqual(doc.pdf_state, 'pending')
             self.assertFalse(doc.pdf_attachment_id)
             doc.action_view_pdf()
-            self.assertEqual(post_mock.call_count, 1)
+            self.assertEqual(self._conversions(post_mock), 1)
 
     def test_no_old_content_is_read_when_no_rev_is_kept(self):
         self._set_keep(0)
@@ -311,3 +315,34 @@ class TestRevs(TransactionCase):
             doc._convert_to_pdf()
         doc.name = 'Renamed'
         self.assertEqual(doc.pdf_attachment_id.name, 'Renamed.pdf')
+
+    # -- an editor still open ------------------------------------------
+
+    def _command_reply(self, **reply):
+        response = MagicMock(status_code=200)
+        response.json.return_value = reply
+        return patch(DOCUMENT_MODULE + '.requests.post', return_value=response)
+
+    def test_a_document_open_in_the_editor_is_noticed(self):
+        doc = self._doc()
+        with self._command_reply(error=0, users=['2']):
+            self.assertTrue(doc._editor_is_open())
+        with self._command_reply(error=0, users=[]):
+            self.assertFalse(doc._editor_is_open())  # closed (its file may still be on its way)
+        with self._command_reply(error=1):
+            self.assertFalse(doc._editor_is_open())  # ONLYOFFICE does not know this content
+        with patch(DOCUMENT_MODULE + '.requests.post', side_effect=requests.ConnectionError('down')):
+            self.assertFalse(doc._editor_is_open())  # unknown: no false alarm
+
+    def test_viewing_the_pdf_of_a_document_open_in_the_editor_warns(self):
+        doc = self._doc()
+        post, get = self._convert_ok()
+        with post, get:
+            doc._convert_to_pdf()
+        with patch.object(type(self.env['jacon.office.document']), '_editor_is_open', lambda rec: True), \
+                patch.object(self.env.registry['bus.bus'], '_sendone') as sendone:
+            action = doc.action_view_pdf()
+        self.assertEqual(action['type'], 'ir.actions.act_url')  # the PDF still opens
+        args = sendone.call_args.args
+        self.assertEqual(args[1], 'simple_notification')
+        self.assertEqual(args[2]['type'], 'warning')

@@ -1,5 +1,6 @@
 import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { browser } from "@web/core/browser/browser";
+import { AutoComplete } from "@web/core/autocomplete/autocomplete";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
@@ -11,10 +12,9 @@ import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 const MODEL = "jacon.office.document";
 const FIELDS = [
-    "name", "kind", "category_id", "author_id", "last_edit_user_id", "last_edit_date", "revision",
+    "name", "kind", "category_id", "author", "last_edit_user_id", "last_edit_date", "revision",
     "version_count", "file_size_text", "pdf_state", "is_locked", "active",
 ];
-let nextListId = 0;
 const KIND_LABELS = { docx: _t("Word"), xlsx: _t("Excel"), pptx: _t("PowerPoint") };
 
 /**
@@ -28,7 +28,7 @@ const KIND_LABELS = { docx: _t("Word"), xlsx: _t("Excel"), pptx: _t("PowerPoint"
  */
 export class OfficeDocumentsField extends Component {
     static template = "jacon_office.DocumentsField";
-    static components = { Dropdown, DropdownItem };
+    static components = { AutoComplete, Dropdown, DropdownItem };
     static props = { ...standardFieldProps };
 
     setup() {
@@ -49,7 +49,7 @@ export class OfficeDocumentsField extends Component {
         });
         this.root = useRef("root");
         this.loadSeq = 0;
-        this.usersListId = `o_jo_users_${nextListId++}`;
+        this.authorSources = new Map();
         // Coming back from the editor's tab: show what changed there. Not while something is being
         // typed in a row: the half-typed value would be wiped.
         this.onFocus = () => {
@@ -234,15 +234,35 @@ export class OfficeDocumentsField extends Component {
         return this.setField(doc, field, ev.target.value ? parseInt(ev.target.value, 10) : false);
     }
 
-    setAuthor(doc, ev) {
-        const name = ev.target.value.trim();
-        const user = this.state.users.find((candidate) => candidate.name === name);
-        if (name && !user) {
-            // Not a user's name: put the author back.
-            ev.target.value = doc.author_id ? doc.author_id[1] : "";
-            return;
+    /**
+     * What the Author box offers while typing: the users' names. Anything else can be typed too, so
+     * the box also keeps the text as it is (see `authorChanged`).
+     */
+    authorOptions(doc) {
+        if (!this.authorSources.has(doc.id)) {
+            this.authorSources.set(doc.id, [
+                {
+                    options: (request) => {
+                        const query = request.trim().toLowerCase();
+                        return this.state.users
+                            .filter((user) => user.name.toLowerCase().includes(query))
+                            .slice(0, 10)
+                            .map((user) => ({
+                                label: user.name,
+                                onSelect: () => this.setField(doc, "author", user.name),
+                            }));
+                    },
+                },
+            ]);
         }
-        return this.setField(doc, "author_id", user ? user.id : false);
+        return this.authorSources.get(doc.id);
+    }
+
+    authorChanged(doc, { inputValue, isOptionSelected }) {
+        const author = inputValue.trim();
+        if (!isOptionSelected && author !== (doc.author || "")) {
+            return this.setField(doc, "author", author || false);
+        }
     }
 
     // -- the selected documents --------------------------------------
