@@ -30,8 +30,6 @@ KIND_FOLDERS = {'docx': 'word/', 'xlsx': 'xl/', 'pptx': 'ppt/'}
 
 VERSIONS_TO_KEEP_PARAM = 'jacon_office.versions_to_keep'
 DEFAULT_VERSIONS_TO_KEEP = 3
-# How many documents the cron turns into PDFs per run, so one run stays short.
-PDF_BATCH = 20
 PDF_TIMEOUT = 90
 
 
@@ -49,7 +47,8 @@ class JaconOfficeDocument(models.Model):
 
     Every time the file's content changes (ONLYOFFICE saved an edit, a Rev was
     restored) the previous content is kept as a Rev (`jacon.office.document.version`)
-    and the PDF is made again.
+    and the PDF becomes out of date. It is made when someone asks to view it (most
+    documents are never viewed as a PDF), then reused until the file changes again.
     """
     _name = 'jacon.office.document'
     _description = 'Office Document'
@@ -84,7 +83,7 @@ class JaconOfficeDocument(models.Model):
     # The checksum of the file this PDF was made from: it is stale once the file's checksum differs.
     pdf_checksum = fields.Char(copy=False, readonly=True)
     pdf_state = fields.Selection(
-        [('pending', "Being updated"), ('ready', "Ready"), ('failed', "Failed")],
+        [('pending', "Not up to date"), ('ready', "Ready"), ('failed', "Failed")],
         string="PDF", default='pending', copy=False, readonly=True,
     )
     pdf_error = fields.Char(string="PDF Error", copy=False, readonly=True)
@@ -96,9 +95,16 @@ class JaconOfficeDocument(models.Model):
 
     @api.depends('res_model', 'res_id')
     def _compute_res_name(self):
+        ids_by_model = defaultdict(set)
         for doc in self:
-            parent = self.env[doc.res_model].sudo().browse(doc.res_id) if doc.res_model in self.env else None
-            doc.res_name = parent.exists().display_name if parent else ''
+            ids_by_model[doc.res_model].add(doc.res_id)
+        names = {}
+        for res_model, res_ids in ids_by_model.items():
+            if res_model in self.env:
+                for parent in self.env[res_model].sudo().browse(res_ids).exists():
+                    names[(res_model, parent.id)] = parent.display_name
+        for doc in self:
+            doc.res_name = names.get((doc.res_model, doc.res_id), '')
 
     def _compute_is_locked(self):
         ids_by_model = defaultdict(set)
@@ -248,7 +254,6 @@ class JaconOfficeDocument(models.Model):
             'res_id': self.id,
         })
         self.sudo().write({'last_edit_user_id': self.env.uid, 'last_edit_date': fields.Datetime.now()})
-        self._schedule_pdf()
 
     # ------------------------------------------------------------------
     # Revs: the content a file had before it was last saved
@@ -264,12 +269,12 @@ class JaconOfficeDocument(models.Model):
 
     def _content_before_write(self):
         """What the file holds right now, to be compared once it was written."""
-        return {doc.id: (doc.attachment_id.checksum, doc.attachment_id.raw) for doc in self}
+        keep = self._versions_to_keep()
+        return {doc.id: (doc.attachment_id.checksum, doc.attachment_id.raw if keep else None) for doc in self}
 
     def _content_written(self, before):
         """The files of these documents were just written: if their content changed, keep the old
-        content as a Rev, note who edited and make the PDF again."""
-        changed = self.browse()
+        content as a Rev, note who edited and mark the PDF as out of date."""
         for doc in self:
             checksum, old_content = before[doc.id]
             if doc.attachment_id.checksum == checksum:
@@ -282,9 +287,6 @@ class JaconOfficeDocument(models.Model):
                 'pdf_state': 'pending',
                 'pdf_error': False,
             })
-            changed |= doc
-        if changed:
-            changed._schedule_pdf()
 
     def _keep_version(self, content, checksum):
         self.ensure_one()
@@ -330,21 +332,6 @@ class JaconOfficeDocument(models.Model):
     def _pdf_is_current(self):
         self.ensure_one()
         return bool(self.pdf_attachment_id and self.pdf_checksum == self.attachment_id.checksum)
-
-    def _schedule_pdf(self):
-        """Have the cron make the PDFs soon, without making the user wait for them."""
-        cron = self.env.ref('jacon_office.ir_cron_convert_pdf', raise_if_not_found=False)
-        if cron:
-            cron.sudo()._trigger()
-
-    @api.model
-    def _cron_convert_pending_pdfs(self):
-        docs = self.search([('pdf_state', '=', 'pending'), ('attachment_id', '!=', False)], limit=PDF_BATCH)
-        remaining = self.search_count([('pdf_state', '=', 'pending'), ('attachment_id', '!=', False)]) - len(docs)
-        self.env['ir.cron']._commit_progress(remaining=len(docs) + remaining)
-        for doc in docs:
-            doc._convert_to_pdf()
-            self.env['ir.cron']._commit_progress(1)
 
     def _convert_to_pdf(self):
         """Make the PDF of the current file with ONLYOFFICE. Returns whether it worked; if not,

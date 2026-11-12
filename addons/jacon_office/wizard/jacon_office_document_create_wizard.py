@@ -18,7 +18,8 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
         default='new', required=True,
     )
     kind = fields.Selection(KINDS, default='docx')
-    upload = fields.Binary(string="File")
+    # A temporary value in the database, not a second copy of the file in the filestore.
+    upload = fields.Binary(string="File", attachment=False)
     upload_filename = fields.Char()
     category_id = fields.Many2one(
         'jacon.office.category',
@@ -46,11 +47,23 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
     def _suggest_name(self, res_model, res_id, category, upload_filename=None):
         """`<record name>-<category>`, or the uploaded file's name."""
         if upload_filename:
-            return os.path.splitext(upload_filename)[0]
-        parent = self.env[res_model].browse(res_id) if res_model in self.env else None
-        parent_name = parent.exists().display_name if parent else ''
-        suffix = category.name or _("Document")
-        return '%s-%s' % (parent_name, suffix) if parent_name else suffix
+            name = os.path.splitext(upload_filename)[0]
+        else:
+            parent = self.env[res_model].browse(res_id) if res_model in self.env else None
+            parent_name = parent.exists().display_name if parent else ''
+            suffix = category.name or _("Document")
+            name = '%s-%s' % (parent_name, suffix) if parent_name else suffix
+        # A record can't have two documents of the same name: number the new one.
+        taken = {
+            doc.name.lower() for doc in self.env['jacon.office.document'].sudo().search([
+                ('res_model', '=', res_model), ('res_id', '=', res_id),
+            ])
+        } if res_model and res_id else set()
+        candidate, number = name, 1
+        while candidate.lower() in taken:
+            number += 1
+            candidate = '%s (%s)' % (name, number)
+        return candidate
 
     @api.onchange('upload_filename')
     def _onchange_upload_filename(self):

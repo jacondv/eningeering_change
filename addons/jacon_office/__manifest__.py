@@ -1,6 +1,6 @@
 {
     'name': 'Office Documents',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Productivity',
     'summary': 'Word, Excel and PowerPoint documents kept on the Odoo server, edited in the browser with ONLYOFFICE and attachable to any record',
     'description': """
@@ -27,7 +27,6 @@ is Closed.
         'security/jacon_office_groups.xml',
         'security/ir.model.access.csv',
         'data/jacon_office_category_data.xml',
-        'data/jacon_office_cron_data.xml',
         'views/jacon_office_category_views.xml',
         'views/jacon_office_document_views.xml',
         'views/res_config_settings_views.xml',

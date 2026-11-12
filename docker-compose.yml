@@ -31,15 +31,20 @@ services:
       - odoo-web-data:/var/lib/odoo
       - ./addons:/mnt/extra-addons
       - ./config:/etc/odoo
+    networks:
+      - default
+      # Shares a network with ONLYOFFICE, which has no other one.
+      - office_net
 
   # ONLYOFFICE Document Server: the in-browser Word/Excel/PowerPoint editor and the
   # PDF converter used by jacon_office. Odoo stays the only place files are stored;
   # this container only edits/converts the copy it is handed. Needs ~2-4 GB RAM.
+  #
+  # It is cut off from the internet: it is only on `office_net`, an `internal` network, and
+  # publishes no port itself. Browsers reach it through `office_gateway` below.
   onlyoffice:
     image: onlyoffice/documentserver:10.0.0
     restart: unless-stopped
-    ports:
-      - "8082:80"
     environment:
       JWT_ENABLED: "true"
       # Must equal "Document Server JWT Secret" in Odoo (Settings > ONLYOFFICE). Set it in .env.
@@ -51,6 +56,23 @@ services:
       - onlyoffice-data:/var/www/onlyoffice/Data
       - onlyoffice-lib:/var/lib/onlyoffice
       - onlyoffice-log:/var/log/onlyoffice
+    networks:
+      - office_net
+
+  # The only way in to ONLYOFFICE: publishes its port on the host and passes the traffic on
+  # (WebSocket included) over `office_net`.
+  office_gateway:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - onlyoffice
+    ports:
+      - "8082:80"
+    volumes:
+      - ./config/onlyoffice-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - default
+      - office_net
 
 volumes:
   odoo-db-data:
@@ -58,3 +80,8 @@ volumes:
   onlyoffice-data:
   onlyoffice-lib:
   onlyoffice-log:
+
+networks:
+  # No route to the outside world: what is only on this network cannot reach the internet.
+  office_net:
+    internal: true
