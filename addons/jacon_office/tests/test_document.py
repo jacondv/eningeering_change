@@ -216,3 +216,20 @@ class TestOfficeDocument(TransactionCase):
         self._hide_acme_from_internal_users()
         with self.assertRaises(AccessError):
             doc.with_user(self.user).action_open_record()
+
+    def test_the_suggested_name_is_numbered_when_it_is_taken(self):
+        Wizard = self.env['jacon.office.document.create.wizard'].with_context(
+            default_res_model='res.partner', default_res_id=self.partner.id,
+        )
+        self.assertEqual(Wizard.default_get(['name'])['name'], 'Acme-Specification')
+        self._doc()
+        self.assertEqual(Wizard.default_get(['name'])['name'], 'Acme-Specification (2)')
+        self._doc(name='Acme-Specification (2)')
+        self.assertEqual(Wizard.default_get(['name'])['name'], 'Acme-Specification (3)')
+        # another record is not affected
+        other = Wizard.with_context(default_res_id=self.other_partner.id)
+        self.assertEqual(other.default_get(['name'])['name'], 'Other-Specification')
+
+    def test_the_belongs_to_names_are_read_for_all_documents_at_once(self):
+        docs = self._doc(name='One') | self._doc(name='Two', partner=self.other_partner)
+        self.assertEqual(docs.mapped('res_name'), ['Acme', 'Other'])

@@ -28,7 +28,7 @@ Merge nhánh `addon/jacon_office` vào `main` (PR), rồi trên máy production:
 Làm trước, không ảnh hưởng ai (Odoo vẫn chạy bình thường):
 
 ```
-docker compose pull onlyoffice      # khoảng 3 GB
+docker compose pull onlyoffice office_gateway   # ONLYOFFICE khoảng 3 GB, nginx nhỏ
 docker compose build odoo           # thêm thư viện python3-jwt, 1-2 phút
 ```
 
@@ -43,7 +43,10 @@ Sửa cấu hình:
    qua web (dữ liệu vẫn nguyên).
 3. **Mở cổng 8082** trên tường lửa của máy production (Windows Defender Firewall: Inbound Rule, TCP 8082),
    để máy người dùng truy cập được `http://<địa-chỉ-máy>:8082/`. Giữ nguyên `"8082:80"` trong
-   `docker-compose.yml`. (Chỉ khi dùng reverse proxy ở bước 4 mới đổi thành `"127.0.0.1:8082:80"`.)
+   `docker-compose.yml`. Cổng 8082 do container `office_gateway` (nginx) công bố; ONLYOFFICE thì nằm trong
+   mạng nội bộ `office_net`, **không ra được internet** (Odoo và DB vẫn ra được như cũ). Cấu hình của
+   cổng vào nằm ở `config/onlyoffice-nginx.conf`. (Chỉ khi dùng reverse proxy ở bước 4 mới đổi thành
+   `"127.0.0.1:8082:80"`.)
 
 Khởi động (khoảng 10-30 giây Odoo không dùng được vì container `odoo` được tạo lại; nên làm lúc ít
 người dùng):

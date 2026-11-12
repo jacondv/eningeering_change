@@ -9,7 +9,7 @@ class IrAttachment(models.Model):
     def write(self, vals):
         """Writing the content of a document's file (ONLYOFFICE saving an edit, a Rev restored)
         keeps the previous content as a Rev, see `jacon.office.document._content_written`."""
-        if not ({'raw', 'datas'} & vals.keys()):
+        if not ({'raw', 'datas'} & vals.keys()) or not self._may_be_a_document_file():
             return super().write(vals)
         documents = self.env['jacon.office.document'].sudo().with_context(active_test=False).search([
             ('attachment_id', 'in', self.ids),
@@ -23,6 +23,10 @@ class IrAttachment(models.Model):
         res = super().write(vals)
         documents._content_written(before)
         return res
+
+    def _may_be_a_document_file(self):
+        """A document's file is linked to the document: any other attachment can be left alone."""
+        return any(model == 'jacon.office.document' for model in self.sudo().mapped('res_model'))
 
     def _checksum_of(self, vals):
         """The checksum the content in `vals` will have, or None if it can't be told."""

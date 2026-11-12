@@ -261,19 +261,16 @@ class TestRevs(TransactionCase):
             self.assertEqual(doc.pdf_state, 'failed')
         self.assertEqual(doc.pdf_attachment_id.raw, old_pdf)
 
-    def test_a_document_the_converter_chokes_on_does_not_stop_the_others(self):
-        broken = self._doc(name='Broken')
-        fine = self._doc(name='Fine')
+    def test_an_unexpected_converter_error_is_a_failed_pdf_not_a_crash(self):
+        doc = self._doc()
 
         def convert(doc, attachment, output_type):
-            if doc.name == 'Broken':
-                raise KeyError('endConvert')
-            return b'%PDF-1.7 fine'
+            raise KeyError('endConvert')
 
-        with patch.object(self.env.registry['jacon.office.document'], '_onlyoffice_convert', convert), \
-                patch.object(self.env.registry['ir.cron'], '_commit_progress', return_value=float('inf')):
-            self.Document._cron_convert_pending_pdfs()
-        self.assertEqual((broken.pdf_state, fine.pdf_state), ('failed', 'ready'))
+        with patch.object(self.env.registry['jacon.office.document'], '_onlyoffice_convert', convert):
+            self.assertFalse(doc._convert_to_pdf())
+        self.assertEqual(doc.pdf_state, 'failed')
+        self.assertIn('endConvert', doc.pdf_error)
 
     def test_a_rev_cannot_be_restored_when_none_is_kept(self):
         doc = self._doc()
@@ -291,14 +288,21 @@ class TestRevs(TransactionCase):
             self.assertFalse(doc._convert_to_pdf())
         self.assertEqual(doc.pdf_state, 'failed')
 
-    def test_the_cron_makes_the_pending_pdfs(self):
+    def test_no_pdf_is_made_until_someone_asks_for_it(self):
         doc = self._doc()
-        other = self._doc(name='Other')
         post, get = self._convert_ok()
-        # Between documents the cron commits its progress, which a test must not do.
-        with post, get, patch.object(self.env.registry['ir.cron'], '_commit_progress', return_value=float('inf')):
-            self.Document._cron_convert_pending_pdfs()
-        self.assertEqual((doc | other).mapped('pdf_state'), ['ready', 'ready'])
+        with post as post_mock, get:
+            self._save(doc, 'two')
+            self.assertEqual(post_mock.call_count, 0)
+            self.assertEqual(doc.pdf_state, 'pending')
+            self.assertFalse(doc.pdf_attachment_id)
+            doc.action_view_pdf()
+            self.assertEqual(post_mock.call_count, 1)
+
+    def test_no_old_content_is_read_when_no_rev_is_kept(self):
+        self._set_keep(0)
+        doc = self._doc()
+        self.assertEqual(doc._content_before_write()[doc.id][1], None)
 
     def test_renaming_renames_the_pdf(self):
         doc = self._doc()
