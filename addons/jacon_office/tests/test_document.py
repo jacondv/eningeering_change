@@ -202,3 +202,17 @@ class TestOfficeDocument(TransactionCase):
         doc = self._doc()
         self.assertEqual(doc.action_open_editor()['url'], '/onlyoffice/editor/%s' % doc.attachment_id.id)
         self.assertIn('/web/content/%s' % doc.attachment_id.id, doc.action_download()['url'])
+
+    def test_the_document_leads_to_the_record_it_belongs_to(self):
+        doc = self._doc()
+        action = doc.action_open_record()
+        self.assertEqual((action['res_model'], action['res_id']), ('res.partner', self.partner.id))
+        self.partner.unlink()
+        with self.assertRaises(UserError):
+            doc.action_open_record()
+
+    def test_the_link_to_the_record_follows_access_to_it(self):
+        doc = self._doc()
+        self._hide_acme_from_internal_users()
+        with self.assertRaises(AccessError):
+            doc.with_user(self.user).action_open_record()

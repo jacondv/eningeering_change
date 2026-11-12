@@ -1,0 +1,50 @@
+.o_jo_documents {
+    // The toolbar's items sit on one row as long as they fit (the search box shrinks first), and
+    // line up on the left when they wrap.
+    .o_jo_search {
+        flex: 1 1 10rem;
+        width: auto;
+        min-width: 8rem;
+        max-width: 20rem;
+    }
+
+    .o_jo_table {
+        th {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .o_jo_check {
+            width: 2rem;
+        }
+
+        tr.o_jo_selected > td {
+            background: var(--bs-primary-bg-subtle, #e7f1ff);
+        }
+
+        tr.o_jo_archived > td {
+            opacity: 0.6;
+        }
+    }
+
+    // A name reads as text until it is hovered or edited.
+    .o_jo_name,
+    .o_jo_select {
+        border-color: transparent;
+        background-color: transparent;
+
+        &:hover:not(:disabled),
+        &:focus {
+            border-color: var(--bs-border-color, #ced4da);
+            background-color: var(--bs-body-bg, #fff);
+        }
+    }
+
+    .o_jo_name_cell {
+        min-width: 14rem;
+    }
+
+    .o_jo_select {
+        min-width: 8rem;
+    }
+}

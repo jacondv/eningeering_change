@@ -38,5 +38,10 @@
             <field name="implied_ids" eval="[(4, ref('jacon_office.group_jacon_office_user'))]"/>
         </record>
 
+        <!-- Settings administrators manage Office Documents too (the number of Revs kept...). -->
+        <record id="base.group_system" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('jacon_office.group_jacon_office_manager'))]"/>
+        </record>
+
     </data>
 </odoo>
