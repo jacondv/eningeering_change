@@ -22,7 +22,15 @@
         <record id="group_project_dashboard_user" model="res.groups">
             <field name="name">User</field>
             <field name="privilege_id" ref="privilege_project_dashboard_access"/>
-            <field name="comment">Can open the Hours Dashboard (Project app). Granted per-person, independent of any other role - nobody gets it by default, not even Administrator.</field>
+            <field name="comment">Can open the Hours Dashboard (Project app), and sees only their own hours, tasks and reminders. Granted per-person, independent of any other role - nobody gets it by default, not even Administrator.</field>
+        </record>
+
+        <!-- Sees everyone's: the whole company's hours, tasks and capacity, and may narrow it to any Engineer. -->
+        <record id="group_project_dashboard_admin" model="res.groups">
+            <field name="name">Administrator</field>
+            <field name="privilege_id" ref="privilege_project_dashboard_access"/>
+            <field name="implied_ids" eval="[(4, ref('group_project_dashboard_user'))]"/>
+            <field name="comment">Sees the Hours Dashboard for everyone, not only their own. Granted per-person.</field>
         </record>
 
     </data>
