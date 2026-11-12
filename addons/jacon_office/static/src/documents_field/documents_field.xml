@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_office.DocumentsField">
+        <div class="o_jo_documents" t-ref="root">
+
+            <div class="o_jo_toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+                <button type="button" class="btn btn-primary" t-on-click="newDocument">
+                    <i class="fa fa-plus me-1"/>Document
+                </button>
+                <Dropdown t-if="selection.length">
+                    <button type="button" class="btn btn-secondary">
+                        Action <i class="fa fa-caret-down ms-1"/>
+                    </button>
+                    <t t-set-slot="content">
+                        <DropdownItem t-if="!state.showArchived" onSelected="() => this.archive()">
+                            <i class="fa fa-archive fa-fw me-2"/>Archive
+                        </DropdownItem>
+                        <DropdownItem t-else="" onSelected="() => this.unarchive()">
+                            <i class="fa fa-undo fa-fw me-2"/>Unarchive
+                        </DropdownItem>
+                        <DropdownItem onSelected="() => this.deleteOldRevs()">
+                            <i class="fa fa-history fa-fw me-2"/>Delete old Revs
+                        </DropdownItem>
+                        <DropdownItem class="text-danger" onSelected="() => this.deleteSelected()">
+                            <i class="fa fa-trash fa-fw me-2"/>Delete
+                        </DropdownItem>
+                    </t>
+                </Dropdown>
+                <span t-if="selection.length" class="text-muted">
+                    <t t-esc="selection.length"/> selected
+                    <a href="#" class="ms-1" t-on-click.prevent="clearSelection">Clear</a>
+                </span>
+                <input type="search" class="form-control o_jo_search" placeholder="Search documents..."
+                       t-model="state.query"/>
+                <label class="form-check form-switch mb-0">
+                    <input type="checkbox" class="form-check-input"
+                           t-att-checked="state.showArchived" t-on-change="toggleArchived"/>
+                    <span class="form-check-label">Show archived</span>
+                </label>
+            </div>
+
+            <datalist t-att-id="usersListId">
+                <option t-foreach="state.users" t-as="user" t-key="user.id" t-att-value="user.name"/>
+            </datalist>
+
+            <div t-if="!state.loaded" class="text-center text-muted p-4"><i class="fa fa-spinner fa-spin"/></div>
+            <div t-elif="!rows.length" class="text-muted p-3">
+                <t t-if="state.query">No document matches.</t>
+                <t t-elif="state.showArchived">No archived document.</t>
+                <t t-else="">No document yet. Use <em>+ Document</em> to create one.</t>
+            </div>
+            <table t-else="" class="table table-sm align-middle o_jo_table">
+                <thead>
+                    <tr>
+                        <th class="o_jo_check">
+                            <input type="checkbox" class="form-check-input" t-att-checked="allSelected" t-on-change="toggleAll"/>
+                        </th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Author</th>
+                        <th>Last edited</th>
+                        <th class="text-end">Rev</th>
+                        <th>Size</th>
+                        <th/>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="rows" t-as="doc" t-key="doc.id + '-' + state.version"
+                        t-att-class="{ 'o_jo_selected': isSelected(doc.id), 'o_jo_archived': !doc.active }">
+                        <td class="o_jo_check">
+                            <input type="checkbox" class="form-check-input"
+                                   t-att-checked="isSelected(doc.id)" t-on-change="() => this.toggleSelected(doc.id)"/>
+                        </td>
+                        <td class="o_jo_name_cell">
+                            <i t-if="doc.is_locked" class="fa fa-lock text-warning me-1" title="Locked: it can no longer be changed"/>
+                            <input type="text" class="form-control form-control-sm o_jo_name" t-att-value="doc.name"
+                                   t-att-disabled="doc.is_locked" t-on-change="(ev) => this.rename(doc, ev)"/>
+                        </td>
+                        <td><span class="badge text-bg-secondary" t-esc="kindLabel(doc.kind)"/></td>
+                        <td>
+                            <select class="form-select form-select-sm o_jo_select" t-att-disabled="doc.is_locked"
+                                    t-on-change="(ev) => this.setMany2one(doc, 'category_id', ev)">
+                                <option value=""/>
+                                <option t-foreach="state.categories" t-as="category" t-key="category.id"
+                                        t-att-value="category.id" t-esc="category.name"
+                                        t-att-selected="doc.category_id and doc.category_id[0] === category.id"/>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm o_jo_select" t-att-list="usersListId"
+                                   t-att-value="doc.author_id ? doc.author_id[1] : ''" t-att-disabled="doc.is_locked"
+                                   t-on-change="(ev) => this.setAuthor(doc, ev)"/>
+                        </td>
+                        <td class="text-nowrap">
+                            <div t-esc="formatDate(doc.last_edit_date)"/>
+                            <div class="small text-muted" t-if="doc.last_edit_user_id" t-esc="doc.last_edit_user_id[1]"/>
+                        </td>
+                        <td class="text-end" t-esc="doc.revision"/>
+                        <td class="text-nowrap text-muted" t-esc="doc.file_size_text"/>
+                        <td class="o_jo_actions text-nowrap text-end">
+                            <button type="button" class="btn btn-link btn-sm"
+                                    t-att-title="doc.pdf_state === 'failed' ? 'View as PDF (the last attempt to make it failed; it will be tried again)' : 'View as PDF'"
+                                    t-on-click="() => this.viewPdf(doc)">
+                                <i class="fa fa-eye" t-att-class="{ 'text-danger': doc.pdf_state === 'failed' }"/>
+                            </button>
+                            <button type="button" class="btn btn-link btn-sm" title="Edit in ONLYOFFICE" t-on-click="() => this.edit(doc)">
+                                <i class="fa fa-pencil"/>
+                            </button>
+                            <button type="button" class="btn btn-link btn-sm" title="Previous Revs" t-on-click="() => this.versions(doc)">
+                                <i class="fa fa-history"/>
+                                <span t-if="doc.version_count" class="badge text-bg-secondary ms-1" t-esc="doc.version_count"/>
+                            </button>
+                            <button type="button" class="btn btn-link btn-sm" title="Download" t-on-click="() => this.download(doc)">
+                                <i class="fa fa-download"/>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </t>
+
+</templates>

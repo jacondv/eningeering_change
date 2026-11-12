@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_jacon_office" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.jacon.office</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="90"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Office Documents" string="Office Documents" name="jacon_office"
+                     groups="jacon_office.group_jacon_office_manager">
+                    <block title="Revs">
+                        <setting help="How many previous Revs of each document Odoo keeps. The oldest are deleted as new ones are made; 0 keeps none.">
+                            <field name="jacon_office_versions_to_keep"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

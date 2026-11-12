@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_jacon_office_category_list" model="ir.ui.view">
+        <field name="name">jacon.office.category.list</field>
+        <field name="model">jacon.office.category</field>
+        <field name="arch" type="xml">
+            <list string="Document Categories" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_jacon_office_category" model="ir.actions.act_window">
+        <field name="name">Document Categories</field>
+        <field name="res_model">jacon.office.category</field>
+        <field name="view_mode">list</field>
+    </record>
+
+</odoo>

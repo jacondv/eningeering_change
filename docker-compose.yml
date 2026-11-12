@@ -32,6 +32,29 @@ services:
       - ./addons:/mnt/extra-addons
       - ./config:/etc/odoo
 
+  # ONLYOFFICE Document Server: the in-browser Word/Excel/PowerPoint editor and the
+  # PDF converter used by jacon_office. Odoo stays the only place files are stored;
+  # this container only edits/converts the copy it is handed. Needs ~2-4 GB RAM.
+  onlyoffice:
+    image: onlyoffice/documentserver:10.0.0
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      JWT_ENABLED: "true"
+      # Must equal "Document Server JWT Secret" in Odoo (Settings > ONLYOFFICE). Set it in .env.
+      JWT_SECRET: ${ONLYOFFICE_JWT_SECRET:-}
+      # Odoo is reached over the private Docker network; Document Server blocks private IPs by default.
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      ALLOW_META_IP_ADDRESS: "true"
+    volumes:
+      - onlyoffice-data:/var/www/onlyoffice/Data
+      - onlyoffice-lib:/var/lib/onlyoffice
+      - onlyoffice-log:/var/log/onlyoffice
+
 volumes:
   odoo-db-data:
   odoo-web-data:
+  onlyoffice-data:
+  onlyoffice-lib:
+  onlyoffice-log:
