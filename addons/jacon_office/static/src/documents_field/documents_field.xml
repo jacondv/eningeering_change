@@ -153,6 +153,14 @@
                                     <DropdownItem onSelected="() => this.download(doc)">
                                         <i class="fa fa-download fa-fw me-2"/>Download
                                     </DropdownItem>
+                                    <DropdownItem t-if="doc.kind === 'pptx'"
+                                                  onSelected="() => this.openAction(doc, 'action_download_original')">
+                                        <i class="fa fa-download fa-fw me-2"/>Download original (with placeholders)
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.can_edit"
+                                                  onSelected="() => this.ask(doc, 'action_ask_replace_file')">
+                                        <i class="fa fa-upload fa-fw me-2"/>Replace file
+                                    </DropdownItem>
                                 </t>
                             </Dropdown>
                         </td>

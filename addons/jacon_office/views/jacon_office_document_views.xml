@@ -13,6 +13,7 @@
                 <field name="note"/>
                 <field name="file_size_text"/>
                 <field name="document_state" column_invisible="1"/>
+                <button name="action_view_pdf" type="object" icon="fa-eye" title="View this Rev as PDF"/>
                 <button name="action_download" type="object" icon="fa-download" title="Download this Rev"/>
                 <button name="action_new_revision" type="object" icon="fa-plus-square-o"
                         title="Open a new Rev that starts from this one"

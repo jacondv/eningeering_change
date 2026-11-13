@@ -1,5 +1,7 @@
 import base64
 
+from markupsafe import Markup, escape
+
 from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
@@ -35,6 +37,8 @@ class JaconOfficeTemplate(models.Model):
 
     # What the file's `{{placeholders}}` will be filled with, and what else can be used.
     placeholder_report = fields.Text(string="Placeholders", compute='_compute_placeholder_report')
+    # The guide to writing them (the same for every template).
+    placeholder_guide = fields.Html(compute='_compute_placeholder_guide', sanitize=False)
     # Whether the user may change this template (a new one, or they are a Manager).
     can_change = fields.Boolean(compute='_compute_can_change')
 
@@ -55,7 +59,6 @@ class JaconOfficeTemplate(models.Model):
     @api.depends('attachment_id.checksum', 'kind')
     def _compute_placeholder_report(self):
         catalog = office_placeholders.CATALOG
-        available = '\n'.join('{{%s}}  %s' % (name, label) for name, label in catalog.items())
         for template in self:
             attachment = template.sudo().attachment_id
             if not attachment:
@@ -72,10 +75,35 @@ class JaconOfficeTemplate(models.Model):
                     lines.append(_("{{%s}}: comes from the record the document belongs to (not checked here)", name))
                 else:
                     lines.append(_("{{%s}}: UNKNOWN, it will stay as typed. Check its spelling.", name))
-            template.placeholder_report = '%s\n\n%s\n%s' % (
-                '\n'.join(lines) if lines else _("No placeholder in this file."),
-                _("You can use:"), available,
+            template.placeholder_report = '\n'.join(lines) if lines else _("No placeholder in this file.")
+
+    def _compute_placeholder_guide(self):
+        def table(tokens):
+            rows = Markup('').join(
+                Markup('<tr><td><code>{{%s}}</code></td><td>%s</td><td class="text-muted">%s</td></tr>')
+                % (name, _(label), example) for name, (label, example) in tokens.items()
             )
+            return Markup(
+                '<table class="table table-sm table-borderless mb-3"><thead><tr><th>%s</th><th>%s</th><th>%s</th>'
+                '</tr></thead><tbody>%s</tbody></table>'
+            ) % (_("Type"), _("Stands for"), _("Shows, for example"), rows)
+
+        guide = Markup(
+            '<p>%s</p><p class="fw-bold mb-1">%s</p><p class="text-muted mb-1">%s</p>%s'
+            '<p class="fw-bold mb-1">%s</p><p class="text-muted mb-1">%s</p>%s'
+            '<p class="text-muted">%s</p>'
+        ) % (
+            _("In the PowerPoint file, type a placeholder like {{rev}} in any text: a slide, the footer or the slide master."),
+            _("Follow the workflow"),
+            _("Filled in when the document is viewed, made into a PDF or downloaded. The file keeps the placeholder, so each Rev shows its own."),
+            table(office_placeholders.WORKFLOW_TOKENS),
+            _("Filled in once"),
+            _("Written into the file when a document is made from this template; after that, change them by hand in the file."),
+            table(office_placeholders.CREATION_TOKENS),
+            _("A name that is not in these lists stays as typed: check the result below. Names ignore capitals and spaces inside the braces."),
+        )
+        for template in self:
+            template.placeholder_guide = guide
 
     @api.depends('attachment_id.file_size')
     def _compute_file_size_text(self):

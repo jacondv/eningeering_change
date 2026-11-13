@@ -4,6 +4,7 @@ import os
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from odoo.addons.jacon_office.models import office_placeholders
 from odoo.addons.jacon_office.models.jacon_office_document import KINDS
 
 
@@ -20,6 +21,8 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
     # a choice of theirs is not replaced when the category changes.
     auto_template_id = fields.Many2one('jacon.office.template')
     template_chosen = fields.Boolean()
+    # What the chosen template fills in by itself, so that nobody retypes it.
+    template_tokens = fields.Char(compute='_compute_template_tokens')
     # A temporary value in the database, not a second copy of the file in the filestore.
     upload = fields.Binary(string="File", attachment=False)
     upload_filename = fields.Char()
@@ -31,6 +34,15 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
     # The name suggested last, to tell a name the user typed from one we proposed.
     auto_name = fields.Char()
     description = fields.Text()
+
+    @api.depends('template_id')
+    def _compute_template_tokens(self):
+        for wizard in self:
+            attachment = wizard.template_id.sudo().attachment_id
+            found = office_placeholders.tokens_in(attachment.raw, wizard.template_id.kind) if (
+                attachment and office_placeholders.is_supported(wizard.template_id.kind)) else set()
+            known = [name for name in office_placeholders.CATALOG if name in found]
+            wizard.template_tokens = _("This template fills in: %s", ', '.join(known)) if known else False
 
     @api.model
     def default_get(self, fields_list):

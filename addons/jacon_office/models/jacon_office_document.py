@@ -708,7 +708,7 @@ class JaconOfficeDocument(models.Model):
             return False  # unknown: say nothing rather than something wrong
         return result.get('error') == 0 and bool(result.get('users'))
 
-    def _onlyoffice_convert(self, attachment, output_type):
+    def _onlyoffice_convert(self, attachment, output_type, key=None, url=None):
         """Have ONLYOFFICE convert the attachment; returns the converted file's bytes.
 
         ONLYOFFICE fetches the file from Odoo itself (with a token naming the superuser), the
@@ -722,9 +722,10 @@ class JaconOfficeDocument(models.Model):
         # A key names one content: ONLYOFFICE reuses what it converted before for the same key. It
         # must differ from the editing session's key (`<id><checksum>`), and it follows what the file
         # shows (see `_render_key`), not only the file.
-        key = '%s-%s-%s' % (output_type, attachment.id, self._render_key())
-        url = '%sonlyoffice/file/content/%s?oo_security_token=%s' % (odoo_url, attachment.id, token)
-        if attachment == self.attachment_id and self._placeholders_used():
+        # (`key` and `url` are given for a file that is not the document's current one, a Rev's.)
+        key = key or '%s-%s-%s' % (output_type, attachment.id, self._render_key())
+        url = url or '%sonlyoffice/file/content/%s?oo_security_token=%s' % (odoo_url, attachment.id, token)
+        if url.startswith('%sonlyoffice/' % odoo_url) and attachment == self.attachment_id and self._placeholders_used():
             # ONLYOFFICE is given the file with its placeholders filled in: Odoo fills them as the
             # file is fetched, so no copy is stored anywhere.
             url = '%sjacon_office/document/%s/filled?oo_security_token=%s' % (
@@ -815,7 +816,8 @@ class JaconOfficeDocument(models.Model):
 
     def unlink(self):
         # The Revs go with the document (database cascade), but not the files they hold.
-        attachments = (self.attachment_id | self.pdf_attachment_id | self.sudo().version_ids.attachment_id).sudo()
+        versions = self.sudo().version_ids
+        attachments = (self.attachment_id | self.pdf_attachment_id | versions.attachment_id | versions.pdf_attachment_id).sudo()
         res = super().unlink()
         attachments.exists().unlink()
         return res
@@ -935,13 +937,59 @@ class JaconOfficeDocument(models.Model):
         )
         return token.decode() if isinstance(token, bytes) else token
 
-    def _download_file(self):
-        """(file name, mimetype, content) of what a download gives: the file with its placeholders filled."""
+    def action_download_original(self):
+        """The file as stored, placeholders (`{{rev}}`...) not filled: the one to change and put back."""
+        self.ensure_one()
+        self.check_access('read')
+        if not self.attachment_id:
+            raise UserError(_("This document has no file."))
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/jacon_office/document/%s/download?original=1' % self.id,
+            'target': 'self',
+        }
+
+    def action_ask_replace_file(self):
+        self.ensure_one()
+        self.check_access('write')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Replace File"),
+            'res_model': 'jacon.office.document.replace.wizard',
+            'views': [(False, 'form')],
+            'target': 'new',
+            'context': {'default_document_id': self.id},
+        }
+
+    def action_replace_file(self, content, filename=None):
+        """Put `content` (the file's bytes) in place of the file of this Draft."""
+        self.ensure_one()
+        self.check_access('write')  # a Draft only, and only whoever may change its record
+        if not self.attachment_id:
+            raise UserError(_("This document has no file."))
+        if filename and self._kind_of_filename(filename) not in (None, self.kind):
+            raise UserError(_("This document is %s: choose a file of the same type.", dict(KINDS)[self.kind]))
+        self._check_office_file(content, self.kind)
+        if self._editor_is_open():
+            raise UserError(_(
+                "%s is still open in the editor. Close its tab, wait about 10 seconds so that what was "
+                "typed reaches Odoo, then replace the file.", self.name,
+            ))
+        # The attachment's write hook notes who changed the file and makes the PDF out of date.
+        self.sudo().attachment_id.raw = content
+        self._log(_("%(user)s replaced the file of %(name)s.", user=self.env.user.name, name=self.name))
+        return True
+
+    def _download_file(self, original=False):
+        """(file name, mimetype, content) of what a download gives: the file with its placeholders filled,
+        or as stored when `original`."""
         self.ensure_one()
         self.check_access('read')
         attachment = self.sudo().attachment_id
         if not attachment:
             raise UserError(_("This document has no file."))
+        if original:
+            return attachment.name, attachment.mimetype, attachment.raw
         filled = self._filled_content()
         return attachment.name, attachment.mimetype, attachment.raw if filled is None else filled
 

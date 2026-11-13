@@ -32,6 +32,7 @@ is Closed.
         'views/jacon_office_template_views.xml',
         'wizard/jacon_office_document_create_wizard_views.xml',
         'wizard/jacon_office_document_reason_wizard_views.xml',
+        'wizard/jacon_office_document_replace_wizard_views.xml',
         'views/jacon_office_menus.xml',
     ],
     'assets': {

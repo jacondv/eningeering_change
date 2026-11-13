@@ -17,23 +17,27 @@ from lxml import etree
 
 TOKEN_RE = re.compile(r'\{\{\s*([A-Za-z][A-Za-z0-9_.]*)\s*\}\}')
 
-# What the document's own values can be asked for (more come from the record a document belongs to).
-CATALOG = {
-    'rev': "The Rev number",
-    'state': "Draft, In Review or Released",
-    # written into the file once, when the document is made (then changed by hand):
-    'category': "The document's category",
-    'author': "The author",
-    'description': "The description",
-    'belongs_to': "The name of the record the document belongs to (e.g. the Project)",
-    'company': "The company's name",
-    # filled whenever the file is shown, they follow the workflow:
-    'released_by': "Who released the Rev",
-    'released_date': "When the Rev was released",
-    'submitted_by': "Who submitted the Rev for review",
-    'last_edit_by': "Who saved the file last",
-    'last_edit_date': "When the file was saved last",
+# What the document's own values can be asked for (more come from the record a document belongs to):
+# name -> (what it stands for, an example of what it shows).
+# Written into the file once, when the document is made; from then on people change them by hand.
+CREATION_TOKENS = {
+    'author': ("The author", "Nguyen Van A"),
+    'category': ("The document's category", "Specification"),
+    'description': ("The description", "Main assembly drawings"),
+    'belongs_to': ("The name of the record the document belongs to (e.g. the Project)", "Project Alpha"),
+    'company': ("The company's name", "Jacon"),
 }
+# Filled in whenever the file is shown, converted or downloaded: they follow the workflow, so each Rev shows its own.
+WORKFLOW_TOKENS = {
+    'rev': ("The Rev number", "3"),
+    'state': ("Draft, In Review or Released", "Released"),
+    'released_by': ("Who released the Rev", "Tran Thi B"),
+    'released_date': ("When the Rev was released", "12-Aug-2026"),
+    'submitted_by': ("Who submitted the Rev for review", "Nguyen Van A"),
+    'last_edit_by': ("Who saved the file last", "Le Van C"),
+    'last_edit_date': ("When the file was saved last", "11-Aug-2026"),
+}
+CATALOG = {name: info[0] for name, info in {**CREATION_TOKENS, **WORKFLOW_TOKENS}.items()}
 
 _A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 # Everything of a presentation that holds text: slides, and also the layouts and masters (where footers

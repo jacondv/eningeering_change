@@ -51,12 +51,10 @@
                         </group>
                     </group>
                     <field name="description" placeholder="What this template is for..." readonly="not can_change"/>
-                    <group string="Placeholders" invisible="not attachment_id">
-                        <div class="text-muted" colspan="2">
-                            Type <code>{{rev}}</code>, <code>{{author}}</code>... in the file: they are filled in when the
-                            document is viewed as a PDF or downloaded (the file itself keeps them, so each Rev shows its own).
-                        </div>
-                        <field name="placeholder_report" nolabel="1" colspan="2" readonly="1"/>
+                    <group string="Placeholders">
+                        <field name="placeholder_guide" nolabel="1" colspan="2"/>
+                        <field name="placeholder_report" string="In this file" colspan="2" readonly="1"
+                               invisible="not placeholder_report"/>
                     </group>
                 </sheet>
             </form>

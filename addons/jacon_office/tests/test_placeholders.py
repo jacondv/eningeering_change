@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import re
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from lxml import etree
 
+from odoo.exceptions import AccessError, UserError
 from odoo.tools import config
 from odoo.tests import HttpCase, TransactionCase, tagged
 
@@ -156,6 +158,23 @@ class TestPlaceholders(TransactionCase):
         doc.write({'author': 'Bob'})
         self.assertEqual(self._paragraphs(doc._download_file()[2]), ['Ann / Acme / Rev 1'])
 
+    def test_the_template_form_guides_the_designer(self):
+        template = self.env['jacon.office.template'].create({
+            'name': 'Guided deck', 'kind': 'pptx',
+            'upload': base64.b64encode(self._pptx([paragraph(('{{rev}} {{author}} {{typo}}', False))])),
+            'upload_filename': 'deck.pptx',
+        })
+        guide = str(template.placeholder_guide)
+        for name in office_placeholders.CATALOG:
+            self.assertIn('{{%s}}' % name, guide)
+        self.assertIn('12-Aug-2026', guide)
+        self.assertIn('{{rev}}: OK', template.placeholder_report)
+        self.assertIn('{{typo}}: UNKNOWN', template.placeholder_report)
+        self.assertNotIn('You can use', template.placeholder_report)
+        wizard = self.env['jacon.office.document.create.wizard'].new({'template_id': template.id})
+        self.assertEqual(wizard.template_tokens, 'This template fills in: author, rev')
+        self.assertFalse(self.env['jacon.office.document.create.wizard'].new({}).template_tokens)
+
     def test_the_record_a_document_belongs_to_adds_values(self):
         doc = self._doc(self._pptx([paragraph(('City: {{Partner.City}}', False))]))
         with patch.object(self.env.registry['res.partner'], '_office_placeholders', create=True,
@@ -172,6 +191,37 @@ class TestPlaceholders(TransactionCase):
         self.assertEqual(self._paragraphs(content), ['Spec Rev 1 Draft'])
         self.assertEqual(doc.attachment_id.raw, stored)
 
+    def test_the_original_download_keeps_the_placeholders_and_can_be_put_back(self):
+        doc = self._doc(self._pptx([paragraph(('Rev {{rev}}', False))]))
+        name, mimetype, original = doc._download_file(original=True)
+        self.assertEqual(self._paragraphs(original), ['Rev {{rev}}'])
+        self.assertEqual(self._paragraphs(doc._download_file()[2]), ['Rev 1'])
+        changed = self._pptx([paragraph(('Changed in Office, Rev {{rev}}', False))])
+        wizard = self.env['jacon.office.document.replace.wizard'].create({
+            'document_id': doc.id, 'upload': base64.b64encode(changed), 'upload_filename': 'Acme-Spec.pptx',
+        })
+        wizard.action_confirm()  # what the dialog does: the file arrives base64 encoded
+        self.assertEqual(doc.attachment_id.raw, changed)
+        action = doc.action_ask_replace_file()  # the web client needs `views` to open it
+        self.assertEqual(action['views'], [(False, 'form')])
+        self.assertTrue(doc.action_replace_file(changed, 'Acme-Spec.pptx'))
+        self.assertEqual(doc.attachment_id.raw, changed)
+        self.assertEqual(self._paragraphs(doc._download_file()[2]), ['Changed in Office, Rev 1'])
+        self.assertEqual(doc.pdf_state, 'pending')
+        self.assertIn('replaced the file', doc.message_ids[0].body)
+
+    def test_the_file_of_a_draft_is_replaced_by_a_file_of_the_same_type_only(self):
+        doc = self._doc(self._pptx([paragraph(('x', False))]))
+        before = doc.attachment_id.raw
+        with self.assertRaises(UserError):
+            doc.action_replace_file(self.Document._blank_file('docx'), 'Other.docx')  # another type
+        with self.assertRaises(UserError):
+            doc.action_replace_file(b'not an office file', 'Other.pptx')
+        self.assertEqual(doc.attachment_id.raw, before)
+        self._release(doc)
+        with self.assertRaises(AccessError):
+            doc.with_user(self.manager).action_replace_file(self._pptx([paragraph(('y', False))]), 'x.pptx')  # released
+
     def test_each_rev_downloads_with_the_values_it_was_released_with(self):
         doc = self._doc(self._pptx([paragraph(('Rev {{rev}} {{state}} by {{released_by}}', False))]))
         self._release(doc)
@@ -183,6 +233,31 @@ class TestPlaceholders(TransactionCase):
         self.assertEqual(self._paragraphs(rev2._download_file()[2]), ['Rev 2 Released by Office Manager'])
         # the Rev keeps the placeholders themselves too: a new Rev built on it fills them again
         self.assertEqual(self._paragraphs(rev1.attachment_id.raw), ['Rev {{rev}} {{state}} by {{released_by}}'])
+
+    def test_an_old_rev_is_viewed_as_a_pdf_made_once_with_the_values_it_was_released_with(self):
+        doc = self._doc(self._pptx([paragraph(('Rev {{rev}}', False))]))
+        self._release(doc)
+        doc.action_new_revision('Change')
+        self._release(doc)
+        rev1 = doc.version_ids.filtered(lambda v: v.number == 1)
+        converter = MagicMock(status_code=200)
+        converter.json.return_value = {'endConvert': True, 'fileUrl': 'http://onlyoffice/cache/files/output.pdf'}
+        download = MagicMock(status_code=200, content=b'%PDF-1.7 fake')
+        with patch(DOCUMENT_MODULE + '.requests.post', return_value=converter) as post,                 patch(DOCUMENT_MODULE + '.requests.get', return_value=download):
+            action = rev1.with_user(self.manager).action_view_pdf()
+            again = rev1.with_user(self.manager).action_view_pdf()
+        self.assertEqual(post.call_count, 1)  # the second view reuses the PDF
+        body = json.loads(post.call_args.kwargs['data'])
+        self.assertEqual(body['key'], 'pdfa-rev-%s' % rev1.id)
+        self.assertIn('/jacon_office/rev/%s/filled?oo_security_token=' % rev1.id, body['url'])
+        self.assertEqual(action['url'], again['url'])
+        self.assertEqual(action['target'], 'new')
+        self.assertEqual(rev1.pdf_attachment_id.raw, b'%PDF-1.7 fake')
+        # what ONLYOFFICE fetches shows Rev 1 although the document is now at Rev 2
+        self.assertEqual(self._paragraphs(rev1._download_file()[2]), ['Rev 1'])
+        pdf = rev1.pdf_attachment_id
+        rev1.unlink()
+        self.assertFalse(pdf.exists())
 
     def test_the_pdf_follows_the_values_the_file_shows(self):
         doc = self._doc(self._pptx([paragraph(('Rev {{rev}}', False))]))
@@ -274,7 +349,7 @@ class TestPlaceholders(TransactionCase):
         self.assertIn('{{rev}}: OK', report)
         self.assertIn('{{rv}}: UNKNOWN', report)
         self.assertIn('{{partner.x}}: comes from the record', report)
-        self.assertIn('{{released_by}}', report)  # the list of what can be used
+        self.assertIn('{{released_by}}', str(template.placeholder_guide))  # the list of what can be used
 
 
 @tagged('post_install', '-at_install', 'jacon_office')

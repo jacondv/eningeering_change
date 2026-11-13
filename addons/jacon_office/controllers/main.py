@@ -18,10 +18,10 @@ _logger = logging.getLogger(__name__)
 class JaconOfficeController(http.Controller):
     """Downloads of the files of documents, with their placeholders filled in."""
 
-    def _send(self, record):
+    def _send(self, record, original=False):
         if not record:
             raise NotFound()
-        name, mimetype, content = record._download_file()
+        name, mimetype, content = record._download_file(original=True) if original else record._download_file()
         return request.make_response(content, headers=[
             ('Content-Type', mimetype),
             ('Content-Length', len(content)),
@@ -29,8 +29,9 @@ class JaconOfficeController(http.Controller):
         ])
 
     @http.route('/jacon_office/document/<int:document_id>/download', type='http', auth='user')
-    def download_document(self, document_id):
-        return self._send(request.env['jacon.office.document'].browse(document_id).exists())
+    def download_document(self, document_id, original=None):
+        """`?original=1`: the file as stored, with its placeholders, to be changed and put back."""
+        return self._send(request.env['jacon.office.document'].browse(document_id).exists(), original=bool(original))
 
     @http.route('/jacon_office/document/<int:document_id>/filled', type='http', auth='public')
     def filled_document(self, document_id, oo_security_token=None):
@@ -90,6 +91,19 @@ class JaconOfficeController(http.Controller):
         values['editorConfig'] = markupsafe.Markup(json.dumps(config))
         values['session_info'] = markupsafe.Markup(json.dumps(values['session_info']))
         return values
+
+    @http.route('/jacon_office/rev/<int:version_id>/filled', type='http', auth='public')
+    def filled_rev(self, version_id, oo_security_token=None):
+        """What ONLYOFFICE fetches to make the PDF of a Rev: its file with the values it was released with.
+        Asks for the token only `version._filled_token` gives, which names this Rev."""
+        env = request.env
+        try:
+            payload = jwt_utils.decode_token(env, oo_security_token or '', config_utils.get_internal_jwt_secret(env))
+        except jwt.PyJWTError:
+            raise NotFound()
+        if payload.get('jacon_office_rev') != version_id:
+            raise NotFound()
+        return self._send(env['jacon.office.document.version'].sudo().browse(version_id).exists())
 
     @http.route('/jacon_office/rev/<int:version_id>/download', type='http', auth='user')
     def download_rev(self, version_id):

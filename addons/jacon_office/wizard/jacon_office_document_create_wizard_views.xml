@@ -21,6 +21,7 @@
                     <field name="name"/>
                     <field name="description" placeholder="Optional"/>
                 </group>
+                <field name="template_tokens" nolabel="1" class="text-muted small" invisible="not template_tokens"/>
                 <footer>
                     <button string="Save and Edit" name="action_create_and_edit" type="object"
                             class="btn-primary" data-hotkey="q"/>

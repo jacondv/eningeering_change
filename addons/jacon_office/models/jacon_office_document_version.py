@@ -1,12 +1,23 @@
 import json
+import logging
 from collections import defaultdict
+from urllib.parse import quote
+
+import requests
 
 from odoo import _, api, fields, models, tools
 from odoo.exceptions import AccessError, MissingError, UserError
 from odoo.fields import Domain
 
+from odoo.addons.onlyoffice_odoo.utils import config_utils, jwt_utils
+
 from . import office_placeholders
-from .jacon_office_document import state_lock_skipped
+from .jacon_office_document import OfficeConversionError, PDF_OUTPUT_TYPE, state_lock_skipped
+
+_logger = logging.getLogger(__name__)
+
+# The first key of the advisory lock that keeps a Rev from being converted twice at once.
+REV_CONVERSION_LOCK_CLASS = 7313
 
 
 class JaconOfficeDocumentVersion(models.Model):
@@ -32,6 +43,8 @@ class JaconOfficeDocumentVersion(models.Model):
     checksum = fields.Char()
     attachment_id = fields.Many2one('ir.attachment', string="File", ondelete='set null', readonly=True)
     file_size_text = fields.Char(string="Size", compute='_compute_file_size_text')
+    # Made the first time someone views it, and kept: a released Rev never changes.
+    pdf_attachment_id = fields.Many2one('ir.attachment', string="PDF File", ondelete='set null', copy=False, readonly=True)
 
     _unique_number = models.Constraint('UNIQUE (document_id, number)', "This Rev already exists.")
 
@@ -99,7 +112,7 @@ class JaconOfficeDocumentVersion(models.Model):
         return versions
 
     def unlink(self):
-        attachments = self.attachment_id.sudo()
+        attachments = (self.attachment_id | self.pdf_attachment_id).sudo()
         res = super().unlink()
         attachments.exists().unlink()
         return res
@@ -116,6 +129,67 @@ class JaconOfficeDocumentVersion(models.Model):
             'url': '/jacon_office/rev/%s/download' % self.id,
             'target': 'self',
         }
+
+    def action_view_pdf(self):
+        """Show this Rev as a PDF in a new browser tab; made now the first time, then kept."""
+        self.ensure_one()
+        self.check_access('read')
+        if not self.attachment_id:
+            raise UserError(_("This Rev has no file."))
+        if not self.pdf_attachment_id:
+            self.env.cr.execute('SELECT pg_try_advisory_xact_lock(%s, %s)', (REV_CONVERSION_LOCK_CLASS, self.id))
+            if not self.env.cr.fetchone()[0]:
+                return self._notify(_("The PDF is being made"), _("Someone else just asked for it. Try again in a few seconds."), 'info')
+            error = self._make_pdf()
+            if error:
+                return self._notify(_("The PDF could not be created"), error, 'danger', sticky=True)
+        pdf = self.sudo().pdf_attachment_id
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/%s/%s' % (pdf.id, quote(pdf.name)),
+            'target': 'new',
+        }
+
+    def _notify(self, title, message, kind, sticky=False):
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {'title': title, 'message': message, 'type': kind, 'sticky': sticky},
+        }
+
+    def _filled_token(self):
+        """The token ONLYOFFICE presents to fetch the filled file of this Rev (and of no other)."""
+        self.ensure_one()
+        token = jwt_utils.encode_payload(
+            self.env, {'jacon_office_rev': self.id}, config_utils.get_internal_jwt_secret(self.env),
+        )
+        return token.decode() if isinstance(token, bytes) else token
+
+    def _make_pdf(self):
+        """Convert this Rev's file with ONLYOFFICE; returns None, or why it could not be done."""
+        self.ensure_one()
+        rev = self.sudo()
+        url = None
+        if rev.placeholder_values:  # ONLYOFFICE is given the file with the values the Rev was released with
+            url = '%sjacon_office/rev/%s/filled?oo_security_token=%s' % (
+                config_utils.get_base_or_odoo_url(self.env), rev.id, rev._filled_token(),
+            )
+        try:
+            content = rev.document_id._onlyoffice_convert(
+                rev.attachment_id, PDF_OUTPUT_TYPE, key='%s-rev-%s' % (PDF_OUTPUT_TYPE, rev.id), url=url,
+            )
+        except Exception as error:  # a file the converter chokes on is told, not raised: nothing to roll back
+            _logger.warning(
+                "PDF of Rev %s of document %s failed: %s", rev.number, rev.document_id.id, error,
+                exc_info=not isinstance(error, (OfficeConversionError, requests.RequestException)),
+            )
+            return str(error)[:250]
+        rev.pdf_attachment_id = self.env['ir.attachment'].sudo().create({
+            'name': '%s Rev %s.pdf' % (rev.document_id._stem(), rev.number),
+            'raw': content, 'mimetype': 'application/pdf',
+            'res_model': self._name, 'res_id': rev.id,
+        })
+        return None
 
     def _download_file(self):
         """(file name, mimetype, content) of this Rev, its placeholders filled as they were when it was released."""
