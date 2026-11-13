@@ -31,7 +31,7 @@ class JaconOfficeController(http.Controller):
     @http.route('/jacon_office/document/<int:document_id>/download', type='http', auth='user')
     def download_document(self, document_id, original=None):
         """`?original=1`: the file as stored, with its placeholders, to be changed and put back."""
-        return self._send(request.env['jacon.office.document'].browse(document_id).exists(), original=bool(original))
+        return self._send(request.env['jacon.office.document'].browse(document_id).exists(), original=original in ('1', 'true'))
 
     @http.route('/jacon_office/document/<int:document_id>/filled', type='http', auth='public')
     def filled_document(self, document_id, oo_security_token=None):

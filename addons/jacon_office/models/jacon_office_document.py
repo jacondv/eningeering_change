@@ -8,7 +8,7 @@ import time
 from contextlib import contextmanager
 import zipfile
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 import requests
@@ -38,6 +38,8 @@ GROUP_MANAGER = 'jacon_office.group_jacon_office_manager'
 # While set, a document that is no longer a Draft may still be moved along the workflow or archived
 # (`state_lock_skipped`). It lives on the cursor, not in the context: a client can send any context.
 STATE_LOCK_KEY = 'jacon_office_skip_state_lock'
+OWNER_MODELS_KEY = 'jacon_office_owner_models'
+OFFICE_DOWN_KEY = 'jacon_office_onlyoffice_down'
 
 
 @contextmanager
@@ -60,6 +62,7 @@ WORKFLOW_FIELDS = frozenset({
 })
 
 PDF_TIMEOUT = 90
+PDF_RETRY_AFTER = timedelta(minutes=5)  # a PDF that failed is not tried again before
 # The first key of the advisory lock that keeps a document from being converted twice at once.
 CONVERSION_LOCK_CLASS = 7312
 MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -146,6 +149,7 @@ class JaconOfficeDocument(models.Model):
         string="PDF", default='pending', copy=False, readonly=True,
     )
     pdf_error = fields.Char(string="PDF Error", copy=False, readonly=True)
+    pdf_failed_date = fields.Datetime(copy=False, readonly=True)
 
     _unique_name_per_record = models.UniqueIndex(
         '(res_model, res_id, lower(name)) WHERE active',
@@ -255,9 +259,8 @@ class JaconOfficeDocument(models.Model):
             return super()._search(domain, offset, limit, order, active_test=active_test, bypass_access=bypass_access)
         # Only the documents of records the user can read. A record counts even
         # when archived, like an attachment's record does.
-        self.env.cr.execute("SELECT DISTINCT res_model FROM jacon_office_document")
         visible = []
-        for (res_model,) in self.env.cr.fetchall():
+        for res_model in self._owner_models():
             parents = self.env.get(res_model)
             if parents is None:
                 continue
@@ -269,6 +272,16 @@ class JaconOfficeDocument(models.Model):
         return super()._search(
             Domain(domain) & Domain.OR(visible), offset, limit, order, active_test=active_test,
         )
+
+    @api.model
+    def _owner_models(self):
+        """The models whose records own documents: asked once per transaction (a search, its count and
+        its reads would ask again and again); a document made or removed forgets it."""
+        cache = self.env.cr.cache
+        if OWNER_MODELS_KEY not in cache:
+            self.env.cr.execute("SELECT DISTINCT res_model FROM jacon_office_document")
+            cache[OWNER_MODELS_KEY] = [res_model for (res_model,) in self.env.cr.fetchall()]
+        return cache[OWNER_MODELS_KEY]
 
     @api.model
     def _is_locked(self, parent):
@@ -301,6 +314,8 @@ class JaconOfficeDocument(models.Model):
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as archive:
                 names = archive.namelist()
+                if not office_placeholders.unpacked_size_is_ok(archive):
+                    raise UserError(_("This file is too big once unpacked: it can't be used here."))
         except zipfile.BadZipFile:
             names = []
         if '[Content_Types].xml' not in names or not any(n.startswith(KIND_FOLDERS[kind]) for n in names):
@@ -441,7 +456,6 @@ class JaconOfficeDocument(models.Model):
             })
             doc._log(
                 _("%(user)s submitted Rev %(rev)s for review.", user=self.env.user.name, rev=doc.revision),
-                notify=approvers,
             )
             for approver in approvers:
                 doc.activity_schedule(
@@ -481,10 +495,14 @@ class JaconOfficeDocument(models.Model):
         self._check_is_approver()
         self._check_state('review')
         for doc in self.sudo():
-            doc.write({'state': 'released', 'approved_by_id': self.env.uid, 'approved_date': fields.Datetime.now()})
+            number = max(doc.version_ids.mapped('number') + [doc.revision - 1]) + 1  # the older Revs count too
+            doc.write({
+                'state': 'released', 'revision': number,
+                'approved_by_id': self.env.uid, 'approved_date': fields.Datetime.now(),
+            })
             self.env['jacon.office.document.version'].sudo().create({
                 'document_id': doc.id,
-                'number': doc.revision,
+                'number': number,
                 'user_id': self.env.uid,
                 'date': doc.approved_date,
                 'note': doc.revision_reason or _("First release"),
@@ -591,7 +609,7 @@ class JaconOfficeDocument(models.Model):
         parent = self.env[doc.res_model].sudo().browse(doc.res_id) if doc.res_model in self.env else None
         extra = parent._office_placeholders() if parent and parent.exists() and hasattr(parent, '_office_placeholders') else {}
         values.update({name.lower(): value for name, value in extra.items()})
-        return {name: '' if value in (False, None) else value for name, value in values.items()}
+        return {name: '' if value is False or value is None else value for name, value in values.items()}
 
     def _placeholders_used(self):
         """The placeholders in the file, or an empty set (no need to read anything but the file)."""
@@ -638,6 +656,14 @@ class JaconOfficeDocument(models.Model):
         self.ensure_one()
         return bool(self.pdf_attachment_id and self.pdf_checksum == self._render_key())
 
+    def _failed_recently(self):
+        """Whether the last attempt to make this PDF failed a short while ago and nothing has changed
+        since (a change makes the PDF 'pending' again): the converter is not asked at every click."""
+        self.ensure_one()
+        doc = self.sudo()
+        return bool(doc.pdf_state == 'failed' and doc.pdf_failed_date
+                    and doc.pdf_failed_date > fields.Datetime.now() - PDF_RETRY_AFTER)
+
     def _take_conversion_lock(self):
         """Whether this request may convert the document: the lock lasts until its transaction ends."""
         self.ensure_one()
@@ -662,7 +688,7 @@ class JaconOfficeDocument(models.Model):
                 "PDF of document %s (%s) failed: %s", doc.id, doc.name, error,
                 exc_info=not isinstance(error, (OfficeConversionError, requests.RequestException)),
             )
-            doc.write({'pdf_state': 'failed', 'pdf_error': str(error)[:250]})
+            doc.write({'pdf_state': 'failed', 'pdf_error': str(error)[:250], 'pdf_failed_date': fields.Datetime.now()})
             return False
         values = {
             'name': '%s.pdf' % doc._stem(), 'raw': content, 'mimetype': 'application/pdf',
@@ -672,7 +698,7 @@ class JaconOfficeDocument(models.Model):
             doc.pdf_attachment_id.write(values)
         else:
             doc.pdf_attachment_id = self.env['ir.attachment'].sudo().create(values)
-        doc.write({'pdf_state': 'ready', 'pdf_checksum': checksum, 'pdf_error': False})
+        doc.write({'pdf_state': 'ready', 'pdf_checksum': checksum, 'pdf_error': False, 'pdf_failed_date': False})
         return True
 
     def _onlyoffice_sign(self, body):
@@ -695,6 +721,8 @@ class JaconOfficeDocument(models.Model):
         """
         self.ensure_one()
         env = self.env
+        if OFFICE_DOWN_KEY in env.cr.cache:
+            return False  # it didn't answer a moment ago: don't make anyone wait for it again
         key = '%s%s' % (self.attachment_id.id, self.attachment_id.checksum)  # the connector's editing key
         try:
             headers, body = self._onlyoffice_sign({'c': 'info', 'key': key})
@@ -705,6 +733,7 @@ class JaconOfficeDocument(models.Model):
             )
             result = response.json()
         except (requests.RequestException, ValueError):
+            env.cr.cache[OFFICE_DOWN_KEY] = True
             return False  # unknown: say nothing rather than something wrong
         return result.get('error') == 0 and bool(result.get('users'))
 
@@ -781,6 +810,7 @@ class JaconOfficeDocument(models.Model):
                 for field in WORKFLOW_FIELDS & vals.keys():
                     del vals[field]
             self._check_can_receive(vals.get('res_model'), vals.get('res_id'))
+        self.env.cr.cache.pop(OWNER_MODELS_KEY, None)
         docs = super().create(vals_list)
         for doc, content in zip(docs, contents):
             doc._init_attachment(content)
@@ -818,6 +848,7 @@ class JaconOfficeDocument(models.Model):
         # The Revs go with the document (database cascade), but not the files they hold.
         versions = self.sudo().version_ids
         attachments = (self.attachment_id | self.pdf_attachment_id | versions.attachment_id | versions.pdf_attachment_id).sudo()
+        self.env.cr.cache.pop(OWNER_MODELS_KEY, None)
         res = super().unlink()
         attachments.exists().unlink()
         return res
@@ -878,6 +909,18 @@ class JaconOfficeDocument(models.Model):
         if not self.attachment_id:
             raise UserError(_("This document has no file."))
         if not self._pdf_is_current():
+            if self._failed_recently():
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': _("The PDF could not be created"),
+                        'message': _("%(error)s (It will be tried again in a few minutes, or sooner if the file changes.)",
+                                     error=self.sudo().pdf_error),
+                        'type': 'danger',
+                        'sticky': True,
+                    },
+                }
             if not self._take_conversion_lock():
                 # Someone asked for this very PDF a moment ago: don't make it twice.
                 return {

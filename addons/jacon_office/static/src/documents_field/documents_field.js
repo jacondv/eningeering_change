@@ -20,8 +20,10 @@ const FIELDS = [
 ];
 const KIND_LABELS = { docx: _t("Word"), xlsx: _t("Excel"), pptx: _t("PowerPoint") };
 // The colours the QC Checksheet uses for the same states.
-// Categories and users change rarely: fetched once for the whole session, not on every form that opens.
+// Categories and users change rarely: fetched again after a few minutes, not on every form that opens.
 let lookups = null;
+let lookupsAt = 0;
+const LOOKUPS_LIFETIME = 5 * 60 * 1000; // ms
 
 const STATE_BADGES = { draft: "text-bg-info", review: "text-bg-warning", released: "text-bg-success" };
 const STATE_LABELS = { draft: _t("Draft"), review: _t("In Review"), released: _t("Released") };
@@ -74,7 +76,8 @@ export class OfficeDocumentsField extends Component {
         };
         this.loadedAt = 0;
         onWillStart(async () => {
-            if (!lookups) {
+            if (!lookups || Date.now() - lookupsAt > LOOKUPS_LIFETIME) {
+                lookupsAt = Date.now();
                 lookups = Promise.all([
                     this.orm.searchRead("jacon.office.category", [], ["name"], { order: "sequence, name" }),
                     this.orm.searchRead("res.users", [["share", "=", false]], ["name"], { order: "name", limit: 500 }),

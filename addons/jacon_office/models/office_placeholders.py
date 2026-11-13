@@ -91,12 +91,25 @@ def _process(content, kind, values):
         return None, set()  # a file that can't be read has nothing to fill: it is shown as it is
 
 
+# What a file may unpack to: a small archive can hold a huge part (a "zip bomb"), and reading it would
+# fill the worker's memory.
+MAX_PART_SIZE = 100 * 1024 * 1024
+MAX_UNPACKED_SIZE = 500 * 1024 * 1024
+
+
+def unpacked_size_is_ok(archive):
+    sizes = [item.file_size for item in archive.infolist()]
+    return max(sizes, default=0) <= MAX_PART_SIZE and sum(sizes) <= MAX_UNPACKED_SIZE
+
+
 def _process_zip(content, kind, values):
     parts = _PARTS.get(kind)
     if not parts:
         return None, set()
     found, filled = set(), {}
     with zipfile.ZipFile(io.BytesIO(content)) as source:
+        if not unpacked_size_is_ok(source):
+            return None, set()  # not read: shown as it is
         for name in source.namelist():
             if parts.match(name):
                 new_xml, names = _fill_part(source.read(name), values)

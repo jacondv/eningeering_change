@@ -1,10 +1,12 @@
 import io
 import json
 import zipfile
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import requests
 
+from odoo import fields
 from odoo.exceptions import AccessError, UserError
 from odoo.tests import TransactionCase, tagged
 
@@ -212,7 +214,8 @@ class TestRevs(TransactionCase):
             doc.with_user(self.user).action_submit()
         submitted = doc.message_ids[0]
         self.assertIn('submitted Rev 1 for review', submitted.body)
-        self.assertIn(self.manager.partner_id, submitted.partner_ids)
+        self.assertIn(self.manager, doc.activity_ids.user_id)  # the Managers are told by their activity: no second notice
+        self.assertFalse(submitted.partner_ids)
         self.assertIn('Document Acme-Specification', self.partner.message_ids[0].body)  # also on the record's chatter
         doc.with_user(self.manager).action_approve()
         self.assertIn(self.user.partner_id, doc.message_ids[0].partner_ids)  # the submitter hears of the release
@@ -429,6 +432,41 @@ class TestRevs(TransactionCase):
             self.assertIn('refused', action['params']['message'])
             self.assertEqual(doc.pdf_state, 'failed')
         self.assertEqual(doc.pdf_attachment_id.raw, old_pdf)
+
+    def test_a_pdf_that_failed_is_not_tried_again_at_every_click(self):
+        doc = self._doc()
+        with patch(DOCUMENT_MODULE + '.requests.post', side_effect=requests.ConnectionError('refused')) as post:
+            doc.action_view_pdf()
+            self.assertEqual(post.call_count, 1)
+            action = doc.action_view_pdf()  # a moment later
+            self.assertEqual(post.call_count, 1)
+            self.assertEqual(action['params']['type'], 'danger')
+            doc.pdf_failed_date = fields.Datetime.now() - timedelta(minutes=6)
+            doc.action_view_pdf()
+            self.assertEqual(post.call_count, 2)  # a while later: tried again
+
+    def test_a_document_with_the_older_revs_of_before_the_workflow_can_be_released(self):
+        doc = self._doc()
+        for number in (1, 2, 3):
+            self.env['jacon.office.document.version'].sudo().create({
+                'document_id': doc.id, 'number': number, 'file_content': self._content('old %s' % number),
+            })
+        self.assertEqual(doc.revision, 1)  # the Revs of its saves are already numbered 1..3
+        self._release(doc)
+        self.assertEqual((doc.revision, max(doc.version_ids.mapped('number'))), (4, 4))
+        doc.action_new_revision('Change')
+        self.assertEqual(doc.revision, 5)
+
+    def test_the_models_that_own_documents_follow_the_documents(self):
+        self._doc()
+        self.env.cr.cache.pop('jacon_office_owner_models', None)
+        self.assertEqual(self.env['jacon.office.document']._owner_models().count('res.partner'), 1)
+        other = self.env['jacon.office.document'].create({
+            'name': 'On a user', 'kind': 'docx', 'res_model': 'res.users', 'res_id': self.env.user.id,
+        })
+        self.assertIn('res.users', self.env['jacon.office.document']._owner_models())  # forgotten on create
+        other.unlink()
+        self.assertNotIn('res.users', self.env['jacon.office.document']._owner_models())
 
     def test_an_unexpected_converter_error_is_a_failed_pdf_not_a_crash(self):
         doc = self._doc()

@@ -1,6 +1,6 @@
 {
     'name': 'Office Documents',
-    'version': '19.0.1.6.0',
+    'version': '19.0.1.7.0',
     'category': 'Productivity',
     'summary': 'Word, Excel and PowerPoint documents kept on the Odoo server, edited in the browser with ONLYOFFICE and attachable to any record',
     'description': """

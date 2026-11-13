@@ -12,7 +12,7 @@ from odoo.fields import Domain
 from odoo.addons.onlyoffice_odoo.utils import config_utils, jwt_utils
 
 from . import office_placeholders
-from .jacon_office_document import OfficeConversionError, PDF_OUTPUT_TYPE, state_lock_skipped
+from .jacon_office_document import OfficeConversionError, PDF_OUTPUT_TYPE, PDF_RETRY_AFTER, state_lock_skipped
 
 _logger = logging.getLogger(__name__)
 
@@ -45,6 +45,8 @@ class JaconOfficeDocumentVersion(models.Model):
     file_size_text = fields.Char(string="Size", compute='_compute_file_size_text')
     # Made the first time someone views it, and kept: a released Rev never changes.
     pdf_attachment_id = fields.Many2one('ir.attachment', string="PDF File", ondelete='set null', copy=False, readonly=True)
+    pdf_error = fields.Char(copy=False, readonly=True)
+    pdf_failed_date = fields.Datetime(copy=False, readonly=True)
 
     _unique_number = models.Constraint('UNIQUE (document_id, number)', "This Rev already exists.")
 
@@ -137,6 +139,9 @@ class JaconOfficeDocumentVersion(models.Model):
         if not self.attachment_id:
             raise UserError(_("This Rev has no file."))
         if not self.pdf_attachment_id:
+            failed = self.sudo().pdf_failed_date
+            if failed and failed > fields.Datetime.now() - PDF_RETRY_AFTER:  # not at every click
+                return self._notify(_("The PDF could not be created"), self.sudo().pdf_error, 'danger', sticky=True)
             self.env.cr.execute('SELECT pg_try_advisory_xact_lock(%s, %s)', (REV_CONVERSION_LOCK_CLASS, self.id))
             if not self.env.cr.fetchone()[0]:
                 return self._notify(_("The PDF is being made"), _("Someone else just asked for it. Try again in a few seconds."), 'info')
@@ -183,7 +188,9 @@ class JaconOfficeDocumentVersion(models.Model):
                 "PDF of Rev %s of document %s failed: %s", rev.number, rev.document_id.id, error,
                 exc_info=not isinstance(error, (OfficeConversionError, requests.RequestException)),
             )
+            rev.write({'pdf_error': str(error)[:250], 'pdf_failed_date': fields.Datetime.now()})
             return str(error)[:250]
+        rev.write({'pdf_error': False, 'pdf_failed_date': False})
         rev.pdf_attachment_id = self.env['ir.attachment'].sudo().create({
             'name': '%s Rev %s.pdf' % (rev.document_id._stem(), rev.number),
             'raw': content, 'mimetype': 'application/pdf',

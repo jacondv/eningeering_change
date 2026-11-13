@@ -175,6 +175,20 @@ class TestPlaceholders(TransactionCase):
         self.assertEqual(wizard.template_tokens, 'This template fills in: author, rev')
         self.assertFalse(self.env['jacon.office.document.create.wizard'].new({}).template_tokens)
 
+    def test_a_value_of_zero_is_shown_as_zero(self):
+        doc = self._doc(self._pptx([paragraph(('Qty {{Partner.Qty}} / {{Partner.None}}', False))]))
+        with patch.object(self.env.registry['res.partner'], '_office_placeholders', create=True,
+                          new=lambda rec: {'Partner.Qty': 0, 'Partner.None': None}):
+            self.assertEqual(self._paragraphs(doc._download_file()[2]), ['Qty 0 / '])
+
+    def test_a_file_that_unpacks_to_far_too_much_is_refused_or_left_alone(self):
+        content = self._pptx([paragraph(('{{rev}}', False))])
+        with patch.object(office_placeholders, 'MAX_UNPACKED_SIZE', 10):
+            self.assertIs(office_placeholders.fill(content, 'pptx', {'rev': 1}), content)
+            self.assertEqual(office_placeholders.tokens_in(content, 'pptx'), set())
+            with self.assertRaises(UserError):
+                self.Document._check_office_file(content, 'pptx')
+
     def test_the_record_a_document_belongs_to_adds_values(self):
         doc = self._doc(self._pptx([paragraph(('City: {{Partner.City}}', False))]))
         with patch.object(self.env.registry['res.partner'], '_office_placeholders', create=True,
