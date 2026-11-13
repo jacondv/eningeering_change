@@ -25,6 +25,7 @@ class TestOfficeDocument(TransactionCase):
             # Internal users may only read partners; the Contact Creation group lets them write too.
             'group_ids': [(6, 0, [
                 cls.env.ref('base.group_user').id, cls.env.ref('base.group_partner_manager').id,
+                cls.env.ref('jacon_office.group_jacon_office_editor').id,
             ])],
         })
 
@@ -181,7 +182,7 @@ class TestOfficeDocument(TransactionCase):
 
         content = self.Document._blank_file('docx')
         wizard = self._wizard(
-            name='Uploaded one', source='upload',
+            name='Uploaded one',
             upload=base64.b64encode(content), upload_filename='From my laptop.DOCX',
         )
         action = wizard.action_create_and_edit()
@@ -192,16 +193,16 @@ class TestOfficeDocument(TransactionCase):
 
     def test_the_dialog_refuses_what_it_cannot_store(self):
         with self.assertRaises(UserError):
-            self._wizard(name='x', source='upload').action_create()
+            self._wizard(name='x', kind=False).action_create()
         with self.assertRaises(UserError):
             self._wizard(
-                name='x', source='upload', upload=base64.b64encode(b'x'), upload_filename='notes.txt',
+                name='x', upload=base64.b64encode(b'x'), upload_filename='notes.txt',
             ).action_create()
 
     def test_open_goes_to_the_editor_and_download_to_the_file(self):
         doc = self._doc()
         self.assertEqual(doc.action_open_editor()['url'], '/onlyoffice/editor/%s' % doc.attachment_id.id)
-        self.assertIn('/web/content/%s' % doc.attachment_id.id, doc.action_download()['url'])
+        self.assertEqual(doc.action_download()['url'], '/jacon_office/document/%s/download' % doc.id)
 
     def test_the_document_leads_to_the_record_it_belongs_to(self):
         doc = self._doc()
@@ -229,6 +230,12 @@ class TestOfficeDocument(TransactionCase):
         # another record is not affected
         other = Wizard.with_context(default_res_id=self.other_partner.id)
         self.assertEqual(other.default_get(['name'])['name'], 'Other-Specification')
+
+    def test_the_author_is_free_text_starting_with_who_made_the_document(self):
+        doc = self._doc()
+        self.assertEqual(doc.author, self.env.user.name)
+        doc.author = 'A customer, not a user'
+        self.assertEqual(doc.author, 'A customer, not a user')
 
     def test_the_belongs_to_names_are_read_for_all_documents_at_once(self):
         docs = self._doc(name='One') | self._doc(name='Two', partner=self.other_partner)

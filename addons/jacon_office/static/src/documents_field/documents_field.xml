@@ -5,7 +5,7 @@
         <div class="o_jo_documents" t-ref="root">
 
             <div class="o_jo_toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
-                <button type="button" class="btn btn-primary" t-on-click="newDocument">
+                <button t-if="canAdd" type="button" class="btn btn-primary" t-on-click="newDocument">
                     <i class="fa fa-plus me-1"/>Document
                 </button>
                 <Dropdown t-if="selection.length">
@@ -19,10 +19,10 @@
                         <DropdownItem t-else="" onSelected="() => this.unarchive()">
                             <i class="fa fa-undo fa-fw me-2"/>Unarchive
                         </DropdownItem>
-                        <DropdownItem onSelected="() => this.deleteOldRevs()">
+                        <DropdownItem t-if="state.canManage" onSelected="() => this.deleteOldRevs()">
                             <i class="fa fa-history fa-fw me-2"/>Delete old Revs
                         </DropdownItem>
-                        <DropdownItem class="text-danger" onSelected="() => this.deleteSelected()">
+                        <DropdownItem t-if="state.canManage" class="text-danger" onSelected="() => this.deleteSelected()">
                             <i class="fa fa-trash fa-fw me-2"/>Delete
                         </DropdownItem>
                     </t>
@@ -40,28 +40,27 @@
                 </label>
             </div>
 
-            <datalist t-att-id="usersListId">
-                <option t-foreach="state.users" t-as="user" t-key="user.id" t-att-value="user.name"/>
-            </datalist>
-
             <div t-if="!state.loaded" class="text-center text-muted p-4"><i class="fa fa-spinner fa-spin"/></div>
             <div t-elif="!rows.length" class="text-muted p-3">
                 <t t-if="state.query">No document matches.</t>
                 <t t-elif="state.showArchived">No archived document.</t>
-                <t t-else="">No document yet. Use <em>+ Document</em> to create one.</t>
+                <t t-elif="canAdd">No document yet. Use <em>+ Document</em> to create one.</t>
+                <t t-else="">No document yet.</t>
             </div>
-            <table t-else="" class="table table-sm align-middle o_jo_table">
+            <div t-else="" class="overflow-auto">
+            <table class="table table-sm align-middle o_jo_table">
                 <thead>
                     <tr>
                         <th class="o_jo_check">
-                            <input type="checkbox" class="form-check-input" t-att-checked="allSelected" t-on-change="toggleAll"/>
+                            <input t-if="workableRows.length" type="checkbox" class="form-check-input"
+                                   t-att-checked="allSelected" t-on-change="toggleAll"/>
                         </th>
                         <th>Name</th>
                         <th>Type</th>
                         <th>Category</th>
                         <th>Author</th>
                         <th>Last edited</th>
-                        <th class="text-end">Rev</th>
+                        <th>Rev</th>
                         <th>Size</th>
                         <th/>
                     </tr>
@@ -70,17 +69,19 @@
                     <tr t-foreach="rows" t-as="doc" t-key="doc.id + '-' + state.version"
                         t-att-class="{ 'o_jo_selected': isSelected(doc.id), 'o_jo_archived': !doc.active }">
                         <td class="o_jo_check">
-                            <input type="checkbox" class="form-check-input"
+                            <input t-if="doc.can_work" type="checkbox" class="form-check-input"
                                    t-att-checked="isSelected(doc.id)" t-on-change="() => this.toggleSelected(doc.id)"/>
                         </td>
                         <td class="o_jo_name_cell">
                             <i t-if="doc.is_locked" class="fa fa-lock text-warning me-1" title="Locked: it can no longer be changed"/>
+                            <i t-if="doc.state === 'draft' and doc.reject_reason" class="fa fa-exclamation-triangle text-danger me-1"
+                               t-att-title="'Rejected: ' + doc.reject_reason"/>
                             <input type="text" class="form-control form-control-sm o_jo_name" t-att-value="doc.name"
-                                   t-att-disabled="doc.is_locked" t-on-change="(ev) => this.rename(doc, ev)"/>
+                                   t-att-disabled="!doc.can_edit" t-on-change="(ev) => this.rename(doc, ev)"/>
                         </td>
                         <td><span class="badge text-bg-secondary" t-esc="kindLabel(doc.kind)"/></td>
                         <td>
-                            <select class="form-select form-select-sm o_jo_select" t-att-disabled="doc.is_locked"
+                            <select class="form-select form-select-sm o_jo_select" t-att-disabled="!doc.can_edit"
                                     t-on-change="(ev) => this.setMany2one(doc, 'category_id', ev)">
                                 <option value=""/>
                                 <option t-foreach="state.categories" t-as="category" t-key="category.id"
@@ -88,16 +89,20 @@
                                         t-att-selected="doc.category_id and doc.category_id[0] === category.id"/>
                             </select>
                         </td>
-                        <td>
-                            <input type="text" class="form-control form-control-sm o_jo_select" t-att-list="usersListId"
-                                   t-att-value="doc.author_id ? doc.author_id[1] : ''" t-att-disabled="doc.is_locked"
-                                   t-on-change="(ev) => this.setAuthor(doc, ev)"/>
+                        <td class="o_jo_author_cell">
+                            <AutoComplete value="doc.author || ''" sources="authorOptions(doc)"
+                                          searchOnInputClick="true" autoSelect="false"
+                                          class="'o_jo_author' + (doc.can_edit ? '' : ' o_jo_disabled')"
+                                          onChange="(change) => this.authorChanged(doc, change)"/>
                         </td>
                         <td class="text-nowrap">
                             <div t-esc="formatDate(doc.last_edit_date)"/>
                             <div class="small text-muted" t-if="doc.last_edit_user_id" t-esc="doc.last_edit_user_id[1]"/>
                         </td>
-                        <td class="text-end" t-esc="doc.revision"/>
+                        <td class="text-nowrap">
+                            <div>Rev <t t-esc="doc.revision"/></div>
+                            <span class="badge" t-att-class="stateBadge(doc.state)" t-esc="stateLabel(doc.state)"/>
+                        </td>
                         <td class="text-nowrap text-muted" t-esc="doc.file_size_text"/>
                         <td class="o_jo_actions text-nowrap text-end">
                             <button type="button" class="btn btn-link btn-sm"
@@ -105,20 +110,64 @@
                                     t-on-click="() => this.viewPdf(doc)">
                                 <i class="fa fa-eye" t-att-class="{ 'text-danger': doc.pdf_state === 'failed' }"/>
                             </button>
-                            <button type="button" class="btn btn-link btn-sm" title="Edit in ONLYOFFICE" t-on-click="() => this.edit(doc)">
+                            <button t-if="doc.can_edit" type="button" class="btn btn-link btn-sm"
+                                    title="Edit in ONLYOFFICE" t-on-click="() => this.edit(doc)">
                                 <i class="fa fa-pencil"/>
                             </button>
-                            <button type="button" class="btn btn-link btn-sm" title="Previous Revs" t-on-click="() => this.versions(doc)">
-                                <i class="fa fa-history"/>
-                                <span t-if="doc.version_count" class="badge text-bg-secondary ms-1" t-esc="doc.version_count"/>
+                            <button t-else="" type="button" class="btn btn-link btn-sm"
+                                    title="Open in ONLYOFFICE (view only, it can't be changed now)" t-on-click="() => this.edit(doc)">
+                                <i class="fa fa-file-text-o"/>
                             </button>
-                            <button type="button" class="btn btn-link btn-sm" title="Download" t-on-click="() => this.download(doc)">
-                                <i class="fa fa-download"/>
-                            </button>
+                            <Dropdown>
+                                <button type="button" class="btn btn-link btn-sm" title="More actions">
+                                    <i class="fa fa-ellipsis-v"/>
+                                </button>
+                                <t t-set-slot="content">
+                                    <DropdownItem t-if="doc.state === 'draft' and doc.can_work"
+                                                  onSelected="() => this.step(doc, 'action_submit')">
+                                        <i class="fa fa-paper-plane fa-fw me-2"/>Submit for review
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.state === 'review' and doc.can_work"
+                                                  onSelected="() => this.step(doc, 'action_recall')">
+                                        <i class="fa fa-undo fa-fw me-2"/>Take back from review
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.can_approve" class="text-success"
+                                                  onSelected="() => this.step(doc, 'action_approve')">
+                                        <i class="fa fa-check fa-fw me-2"/>Approve and release
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.can_approve" class="text-danger"
+                                                  onSelected="() => this.ask(doc, 'action_ask_reject')">
+                                        <i class="fa fa-times fa-fw me-2"/>Reject
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.state === 'released' and doc.can_work"
+                                                  onSelected="() => this.ask(doc, 'action_ask_new_revision')">
+                                        <i class="fa fa-plus-square-o fa-fw me-2"/>Open a new Rev
+                                    </DropdownItem>
+                                    <DropdownItem onSelected="() => this.versions(doc)">
+                                        <i class="fa fa-history fa-fw me-2"/>Released Revs
+                                        <span t-if="doc.version_count" class="badge text-bg-secondary ms-1" t-esc="doc.version_count"/>
+                                    </DropdownItem>
+                                    <DropdownItem onSelected="() => this.openAction(doc, 'action_open_form')">
+                                        <i class="fa fa-comments-o fa-fw me-2"/>Details and history
+                                    </DropdownItem>
+                                    <DropdownItem onSelected="() => this.download(doc)">
+                                        <i class="fa fa-download fa-fw me-2"/>Download
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.kind === 'pptx'"
+                                                  onSelected="() => this.openAction(doc, 'action_download_original')">
+                                        <i class="fa fa-download fa-fw me-2"/>Download original (with placeholders)
+                                    </DropdownItem>
+                                    <DropdownItem t-if="doc.can_edit"
+                                                  onSelected="() => this.ask(doc, 'action_ask_replace_file')">
+                                        <i class="fa fa-upload fa-fw me-2"/>Replace file
+                                    </DropdownItem>
+                                </t>
+                            </Dropdown>
                         </td>
                     </tr>
                 </tbody>
             </table>
+            </div>
         </div>
     </t>
 

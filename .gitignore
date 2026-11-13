@@ -20,3 +20,6 @@ Thumbs.db
 # Scratch / to-be-deleted
 /willdelete/
 /docs
+# Local admin helpers: may hold credentials and compiled files
+tools/**/__pycache__/
+tools/**/config.json

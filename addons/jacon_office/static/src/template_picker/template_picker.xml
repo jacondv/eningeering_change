@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="jacon_office.TemplatePicker">
+        <Dropdown menuClass="'o_jo_template_menu'" disabled="props.readonly">
+            <button type="button" class="btn btn-light border o_jo_template_toggle text-start" t-att-disabled="props.readonly">
+                <t t-if="selected">
+                    <img class="o_jo_file_icon me-2" t-att-src="icon(selected.kind)" alt=""/>
+                    <span t-esc="selected.name"/>
+                </t>
+                <span t-else="" class="text-muted">Blank</span>
+                <i class="fa fa-caret-down ms-2"/>
+            </button>
+            <t t-set-slot="content">
+                <DropdownItem onSelected="() => this.choose(null)">
+                    <i class="fa fa-file-o o_jo_file_icon me-2 text-center"/>Blank
+                </DropdownItem>
+                <DropdownItem t-foreach="state.templates" t-as="template" t-key="template.id"
+                              onSelected="() => this.choose(template)">
+                    <img class="o_jo_file_icon me-2" t-att-src="icon(template.kind)" alt=""/>
+                    <span t-esc="template.name"/>
+                </DropdownItem>
+            </t>
+        </Dropdown>
+    </t>
+
+</templates>

@@ -9,21 +9,23 @@
                 <field name="res_model" invisible="1"/>
                 <field name="res_id" invisible="1"/>
                 <field name="auto_name" invisible="1"/>
+                <field name="auto_template_id" invisible="1"/>
+                <field name="template_chosen" invisible="1"/>
                 <field name="upload_filename" invisible="1"/>
                 <group>
-                    <field name="source" widget="radio" options="{'horizontal': true}"/>
+                    <field name="template_id" widget="jacon_office_template_picker"/>
                     <field name="kind" widget="radio" options="{'horizontal': true}"
-                           invisible="source != 'new'" required="source == 'new'"/>
-                    <field name="upload" filename="upload_filename"
-                           invisible="source != 'upload'" required="source == 'upload'"/>
+                           invisible="template_id or upload" required="not template_id and not upload"/>
+                    <field name="upload" string="Upload" filename="upload_filename"/>
                     <field name="category_id" options="{'no_create': true}"/>
                     <field name="name"/>
                     <field name="description" placeholder="Optional"/>
                 </group>
+                <field name="template_tokens" nolabel="1" class="text-muted small" invisible="not template_tokens"/>
                 <footer>
-                    <button string="Create and Edit" name="action_create_and_edit" type="object"
+                    <button string="Save and Edit" name="action_create_and_edit" type="object"
                             class="btn-primary" data-hotkey="q"/>
-                    <button string="Create" name="action_create" type="object" data-hotkey="w"/>
+                    <button string="Save" name="action_create" type="object" data-hotkey="w"/>
                     <button string="Cancel" special="cancel" data-hotkey="x"/>
                 </footer>
             </form>

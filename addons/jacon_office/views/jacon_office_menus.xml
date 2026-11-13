@@ -3,7 +3,7 @@
 
     <menuitem id="menu_jacon_office_root" name="Office Documents"
               parent="jacon_documents.menu_jacon_documents_root"
-              groups="jacon_office.group_jacon_office_user"
+              groups="jacon_office.group_jacon_office_viewer"
               sequence="10"/>
 
     <menuitem id="menu_jacon_office_documents" name="Documents"
@@ -13,11 +13,17 @@
 
     <menuitem id="menu_jacon_office_config" name="Configuration"
               parent="menu_jacon_office_root"
-              groups="jacon_office.group_jacon_office_manager"
+              groups="jacon_office.group_jacon_office_editor"
               sequence="90"/>
+
+    <menuitem id="menu_jacon_office_template" name="Templates"
+              parent="menu_jacon_office_config"
+              action="action_jacon_office_template"
+              sequence="5"/>
 
     <menuitem id="menu_jacon_office_category" name="Categories"
               parent="menu_jacon_office_config"
+              groups="jacon_office.group_jacon_office_manager"
               action="action_jacon_office_category"
               sequence="10"/>
 

@@ -41,10 +41,46 @@
     }
 
     .o_jo_name_cell {
-        min-width: 14rem;
+        min-width: 11rem;
     }
 
     .o_jo_select {
+        min-width: 7rem;
+    }
+
+    // The Author box looks like the Category box: plain text until hovered or edited.
+    .o_jo_author_cell {
         min-width: 8rem;
+    }
+
+    // Many steps can sit in a row: keep the buttons close together.
+    .o_jo_actions .o-dropdown {
+        display: inline-block;
+    }
+
+    .o_jo_actions .btn {
+        padding-left: 0.3rem;
+        padding-right: 0.3rem;
+    }
+
+    .o_jo_author {
+        input {
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--bs-border-radius, 0.375rem);
+            width: 100%;
+
+            &:hover,
+            &:focus {
+                border-color: var(--bs-border-color, #ced4da);
+                background-color: var(--bs-body-bg, #fff);
+            }
+        }
+
+        &.o_jo_disabled {
+            pointer-events: none;
+            opacity: 0.6;
+        }
     }
 }
