@@ -7,8 +7,9 @@ class IrAttachment(models.Model):
     _inherit = 'ir.attachment'
 
     def write(self, vals):
-        """Writing the content of a document's file (ONLYOFFICE saving an edit, a Rev restored)
-        keeps the previous content as a Rev, see `jacon.office.document._content_written`."""
+        """Writing the content of a document's file (ONLYOFFICE saving an edit, a Rev started from an
+        older one) notes who edited and makes the PDF out of date, see
+        `jacon.office.document._content_written`."""
         if not ({'raw', 'datas'} & vals.keys()) or not self._may_be_a_document_file():
             return super().write(vals)
         documents = self.env['jacon.office.document'].sudo().with_context(active_test=False).search([
@@ -16,10 +17,10 @@ class IrAttachment(models.Model):
         ])
         if not documents:
             return super().write(vals)
-        # Saving what the file already holds changes nothing: don't even read the old content then.
+        # Saving what the file already holds changes nothing.
         new_checksum = self._checksum_of(vals)
         documents = documents.filtered(lambda doc: doc.attachment_id.checksum != new_checksum)
-        before = documents._content_before_write()
+        before = {doc.id: doc.attachment_id.checksum for doc in documents}
         res = super().write(vals)
         documents._content_written(before)
         return res

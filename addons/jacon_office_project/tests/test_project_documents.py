@@ -16,7 +16,10 @@ class TestProjectDocuments(TransactionCase):
         group_user = cls.env.ref('base.group_user')
         cls.project_user = cls.env['res.users'].create({
             'name': 'Project User', 'login': 'project_user',
-            'group_ids': [(6, 0, [group_user.id, cls.env.ref('project.group_project_user').id])],
+            'group_ids': [(6, 0, [
+                group_user.id, cls.env.ref('project.group_project_user').id,
+                cls.env.ref('jacon_office.group_jacon_office_editor').id,
+            ])],
         })
 
     def test_the_new_document_dialog_starts_from_the_projects_name(self):

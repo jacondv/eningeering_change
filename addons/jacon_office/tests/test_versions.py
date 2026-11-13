@@ -25,6 +25,14 @@ class TestRevs(TransactionCase):
             'name': 'Office User', 'login': 'rev_user',
             'group_ids': [(6, 0, [
                 cls.env.ref('base.group_user').id, cls.env.ref('base.group_partner_manager').id,
+                cls.env.ref('jacon_office.group_jacon_office_editor').id,
+            ])],
+        })
+        cls.manager = cls.env['res.users'].create({
+            'name': 'Office Manager', 'login': 'rev_manager',
+            'group_ids': [(6, 0, [
+                cls.env.ref('base.group_user').id, cls.env.ref('base.group_partner_manager').id,
+                cls.env.ref('jacon_office.group_jacon_office_manager').id,
             ])],
         })
 
@@ -32,7 +40,8 @@ class TestRevs(TransactionCase):
         """A valid .docx whose content is `text`, so that two of them differ."""
         buffer = io.BytesIO(self.Document._blank_file('docx'))
         with zipfile.ZipFile(buffer, 'a') as archive:
-            archive.writestr('word/note.txt', text)
+            # a fixed time stamp: the same text must give the very same bytes
+            archive.writestr(zipfile.ZipInfo('word/note.txt', (2026, 1, 1, 0, 0, 0)), text)
         return buffer.getvalue()
 
     def _doc(self, **vals):
@@ -45,80 +54,234 @@ class TestRevs(TransactionCase):
         attachment = doc.attachment_id.with_user(user) if user else doc.attachment_id
         attachment.write({'raw': self._content(text)})
 
-    def _set_keep(self, value):
-        self.env['ir.config_parameter'].set_param('jacon_office.versions_to_keep', value)
+    def _release(self, doc, user=None, reason=None):
+        """Submit the document and have a Manager release it (the editor is never really open here)."""
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(user or self.user).action_submit()
+        doc.with_user(self.manager).action_approve()
+        return doc
 
-    # -- Revs ---------------------------------------------------------
+    # -- the workflow --------------------------------------------------
 
-    def test_saving_new_content_keeps_the_old_content_as_a_rev(self):
+    def test_editing_a_draft_saves_in_place_without_any_rev(self):
         doc = self._doc()
-        first = doc.attachment_id.raw
-        self.assertEqual((doc.revision, doc.version_count), (1, 0))
-        self.assertEqual(doc.last_edit_user_id, self.env.user)
-
+        self.assertEqual((doc.state, doc.revision, doc.version_count), ('draft', 1, 0))
         self._save(doc, 'second', user=self.user)
-        self.assertEqual((doc.revision, doc.version_count), (2, 1))
-        rev = doc.version_ids
-        self.assertEqual(rev.number, 1)
-        self.assertEqual(rev.attachment_id.raw, first)
-        self.assertEqual(rev.user_id, self.env.user)  # who saved the content that was replaced
+        self._save(doc, 'third', user=self.user)
+        self.assertEqual((doc.revision, doc.version_count), (1, 0))
+        self.assertEqual(doc.attachment_id.raw, self._content('third'))
         self.assertEqual(doc.last_edit_user_id, self.user)
         self.assertEqual(doc.pdf_state, 'pending')
 
-    def test_saving_the_same_content_makes_no_rev(self):
+    def test_saving_the_same_content_changes_nothing(self):
         doc = self._doc()
+        before = doc.last_edit_date
         doc.attachment_id.write({'raw': doc.attachment_id.raw})
-        self.assertEqual((doc.revision, doc.version_count), (1, 0))
+        self.assertEqual(doc.last_edit_date, before)
 
-    def test_only_the_newest_revs_are_kept(self):
+    def test_submitting_locks_the_document_and_asks_the_managers(self):
         doc = self._doc()
-        for text in ('two', 'three', 'four', 'five', 'six'):
-            self._save(doc, text)
-        self.assertEqual(doc.revision, 6)
-        self.assertEqual(doc.version_ids.mapped('number'), [5, 4, 3])  # the default is 3
-        self._set_keep(1)
-        self._save(doc, 'seven')
-        self.assertEqual(doc.version_ids.mapped('number'), [6])
+        self._save(doc, 'content')
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(self.user).action_submit()
+        self.assertEqual(doc.state, 'review')
+        self.assertEqual(doc.submitted_by_id, self.user)
+        self.assertIn(self.manager, doc.activity_ids.user_id)
+        self.assertFalse(doc.with_user(self.user).can_edit)
+        self.assertTrue(doc.with_user(self.user).can_work)
+        self.assertTrue(doc.with_user(self.manager).can_approve)
+        self.assertFalse(doc.with_user(self.user).can_approve)
+        with self.assertRaises(AccessError):
+            doc.with_user(self.user).write({'name': 'Changed'})
+        with self.assertRaises(AccessError):  # ONLYOFFICE saving: the file is locked too
+            doc.attachment_id.with_user(self.user).write({'raw': self._content('late')})
+        # taking it back unlocks it
+        doc.with_user(self.user).action_recall()
+        self.assertEqual(doc.state, 'draft')
+        self.assertFalse(doc.activity_ids)
+        doc.with_user(self.user).write({'name': 'Changed'})
 
-    def test_zero_keeps_no_rev_at_all(self):
-        self._set_keep(0)
+    def test_a_document_still_open_in_the_editor_cannot_be_submitted(self):
         doc = self._doc()
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: True):
+            with self.assertRaises(UserError):
+                doc.with_user(self.user).action_submit()
+        self.assertEqual(doc.state, 'draft')
+
+    def test_approving_releases_the_document_and_keeps_its_file_as_a_rev(self):
+        doc = self._doc()
+        self._save(doc, 'content')
+        self._release(doc)
+        self.assertEqual((doc.state, doc.revision, doc.version_count), ('released', 1, 1))
+        self.assertEqual(doc.approved_by_id, self.manager)
+        rev = doc.version_ids
+        self.assertEqual((rev.number, rev.user_id, rev.note), (1, self.manager, 'First release'))
+        self.assertEqual(rev.attachment_id.raw, self._content('content'))
+        self.assertFalse(doc.activity_ids)
+        # locked for everybody but still readable and downloadable
+        self.assertFalse(doc.with_user(self.manager).can_edit)
+        with self.assertRaises(AccessError):
+            doc.with_user(self.manager).write({'name': 'Changed'})
+        with self.assertRaises(AccessError):
+            doc.attachment_id.with_user(self.manager).write({'raw': self._content('late')})
+        doc.with_user(self.user).action_download()
+        doc.with_user(self.user).message_post(body='A comment')  # commenting stays possible
+
+    def test_only_a_manager_approves_or_rejects(self):
+        doc = self._doc()
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(self.user).action_submit()
+        with self.assertRaises(AccessError):
+            doc.with_user(self.user).action_approve()
+        with self.assertRaises(AccessError):
+            doc.with_user(self.user).action_reject('no')
+        self.assertEqual(doc.state, 'review')
+
+    def test_rejecting_needs_a_reason_and_sends_it_back_to_draft(self):
+        doc = self._doc()
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(self.user).action_submit()
+        with self.assertRaises(UserError):
+            doc.with_user(self.manager).action_reject('  ')
+        doc.with_user(self.manager).action_reject('Wrong logo')
+        self.assertEqual((doc.state, doc.reject_reason), ('draft', 'Wrong logo'))
+        self.assertTrue(doc.with_user(self.user).can_edit)
+        # the next submission starts clean
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(self.user).action_submit()
+        self.assertFalse(doc.reject_reason)
+
+    def test_steps_only_work_from_the_right_state(self):
+        doc = self._doc()
+        with self.assertRaises(UserError):
+            doc.with_user(self.manager).action_approve()  # not submitted
+        with self.assertRaises(UserError):
+            doc.with_user(self.user).action_recall()
+        with self.assertRaises(UserError):
+            doc.with_user(self.user).action_new_revision('why')  # not released
+        self._release(doc)
+        with self.assertRaises(UserError):
+            doc.with_user(self.user).action_submit()  # already released
+
+    def test_a_new_rev_is_a_draft_that_starts_from_the_released_file(self):
+        doc = self._doc()
+        self._save(doc, 'one')
+        self._release(doc)
+        with self.assertRaises(UserError):
+            doc.with_user(self.user).action_new_revision(' ')
+        doc.with_user(self.user).action_new_revision('Customer asked for a change')
+        self.assertEqual((doc.state, doc.revision, doc.revision_reason), ('draft', 2, 'Customer asked for a change'))
+        self.assertEqual(doc.attachment_id.raw, self._content('one'))
+        self._save(doc, 'two', user=self.user)
+        self.assertEqual(doc.version_ids.attachment_id.raw, self._content('one'))  # Rev 1 untouched
+        self._release(doc)
+        self.assertEqual(doc.version_ids.sorted('number').mapped('number'), [1, 2])
+        self.assertEqual(doc.version_ids.filtered(lambda v: v.number == 2).note, 'Customer asked for a change')
+
+    def test_a_new_rev_can_start_from_an_older_released_rev(self):
+        doc = self._doc()
+        self._save(doc, 'one')
+        self._release(doc)
+        doc.with_user(self.user).action_new_revision('change')
         self._save(doc, 'two')
-        self.assertEqual((doc.revision, doc.version_count), (2, 0))
-        self.assertEqual(doc.attachment_id.raw, self._content('two'))
+        self._release(doc)
+        rev1 = doc.version_ids.filtered(lambda v: v.number == 1)
+        action = rev1.with_user(self.user).action_new_revision()
+        self.assertEqual(action['context']['default_version_id'], rev1.id)
+        wizard = self.env['jacon.office.document.reason.wizard'].with_user(self.user).create({
+            'document_id': doc.id, 'version_id': rev1.id, 'mode': 'new_rev', 'reason': 'Back to the first',
+        })
+        wizard.action_confirm()
+        self.assertEqual((doc.state, doc.revision), ('draft', 3))
+        self.assertEqual(doc.attachment_id.raw, self._content('one'))
 
-    def test_a_setting_that_is_not_a_number_means_the_default(self):
-        self._set_keep('lots')
-        self.assertEqual(self.Document._versions_to_keep(), 3)
-
-    def test_delete_old_revs_keeps_the_current_content(self):
+    def test_the_reason_dialog_rejects_or_opens_a_rev(self):
         doc = self._doc()
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(self.user).action_submit()
+        self.assertEqual(doc.with_user(self.manager).action_ask_reject()['context']['default_mode'], 'reject')
+        wizard = self.env['jacon.office.document.reason.wizard'].with_user(self.manager).create({
+            'document_id': doc.id, 'mode': 'reject', 'reason': 'Not ready',
+        })
+        wizard.action_confirm()
+        self.assertEqual((doc.state, doc.reject_reason), ('draft', 'Not ready'))
+
+    def test_the_managers_are_told_and_the_record_logs_what_happens(self):
+        doc = self._doc()
+        with patch.object(type(self.Document), '_editor_is_open', lambda rec: False):
+            doc.with_user(self.user).action_submit()
+        submitted = doc.message_ids[0]
+        self.assertIn('submitted Rev 1 for review', submitted.body)
+        self.assertIn(self.manager.partner_id, submitted.partner_ids)
+        self.assertIn('Document Acme-Specification', self.partner.message_ids[0].body)  # also on the record's chatter
+        doc.with_user(self.manager).action_approve()
+        self.assertIn(self.user.partner_id, doc.message_ids[0].partner_ids)  # the submitter hears of the release
+        doc.with_user(self.user).action_new_revision('Customer change')
+        opened = doc.message_ids[0]
+        self.assertIn('opened Rev 2', opened.body)
+        self.assertIn('Customer change', opened.body)
+        self.assertIn(self.manager.partner_id, opened.partner_ids)  # a released document is being changed
+        self.assertIn('opened Rev 2', self.partner.message_ids[0].body)
+
+    def test_the_details_and_history_open_the_documents_form(self):
+        doc = self._doc()
+        action = doc.with_user(self.user).action_open_form()
+        self.assertEqual((action['res_model'], action['res_id']), ('jacon.office.document', doc.id))
+
+    def test_the_workflow_fields_cannot_be_written_or_set_by_users(self):
+        doc = self._doc()
+        with self.assertRaises(UserError):
+            doc.with_user(self.user).write({'state': 'released'})
+        with self.assertRaises(UserError):
+            doc.with_user(self.user).write({'revision': 9})
+        sneaky = self.Document.with_user(self.user).create({
+            'name': 'Sneaky', 'kind': 'docx', 'res_model': 'res.partner', 'res_id': self.partner.id,
+            'state': 'released', 'revision': 5,
+        })
+        self.assertEqual((sneaky.state, sneaky.revision), ('draft', 1))
+
+    def test_archiving_works_in_any_state_but_nothing_else_does(self):
+        doc = self._doc()
+        self._release(doc)
+        as_user = doc.with_user(self.user)
+        as_user.action_archive()
+        self.assertFalse(doc.active)
+        as_user.action_unarchive()
+        self.assertTrue(doc.active)
+        # a forged context does not open the lock
+        with self.assertRaises(AccessError):
+            as_user.with_context(jacon_office_skip_state_lock=True).write({'name': 'Sneaky'})
+
+    def test_delete_old_revs_keeps_the_latest_one(self):
+        doc = self._doc()
+        self._save(doc, 'one')
+        self._release(doc)
+        doc.with_user(self.user).action_new_revision('change')
         self._save(doc, 'two')
-        self._save(doc, 'three')
-        attachments = doc.version_ids.attachment_id
+        self._release(doc)
+        old = doc.version_ids.filtered(lambda v: v.number == 1).attachment_id
         action = doc.action_delete_old_versions()
         self.assertEqual(action['tag'], 'display_notification')
-        self.assertFalse(doc.version_ids)
-        self.assertFalse(attachments.exists())
-        self.assertEqual(doc.attachment_id.raw, self._content('three'))
-        self.assertIn('deleted 2 previous Revs', doc.message_ids[0].body)
+        self.assertEqual(doc.version_ids.mapped('number'), [2])
+        self.assertFalse(old.exists())
+        self.assertEqual(doc.version_ids.attachment_id.raw, self._content('two'))
+        self.assertIn('deleted 1 older Revs', doc.message_ids[0].body)
         # nothing left to delete is not an error
         self.assertEqual(doc.action_delete_old_versions()['params']['type'], 'info')
 
-    def test_restoring_a_rev_makes_it_current_and_keeps_what_was_current(self):
+    def test_documents_from_before_the_workflow_are_drafts_with_their_old_revs(self):
         doc = self._doc()
-        first = doc.attachment_id.raw
-        self._save(doc, 'two')
-        rev1 = doc.version_ids
-        rev1.action_restore()
-        self.assertEqual(doc.attachment_id.raw, first)
-        self.assertEqual(doc.revision, 3)
+        doc.state = 'draft'
+        self.env['jacon.office.document.version'].create({
+            'document_id': doc.id, 'number': 1, 'file_content': self._content('old'),
+        })
+        doc.revision = 2
+        self._release(doc)  # released as Rev 2, next to the old Rev 1
         self.assertEqual(doc.version_ids.sorted('number').mapped('number'), [1, 2])
-        self.assertEqual(doc.version_ids.filtered(lambda v: v.number == 2).attachment_id.raw, self._content('two'))
 
     def test_deleting_a_document_deletes_its_revs_and_their_files(self):
         doc = self._doc()
-        self._save(doc, 'two')
+        self._release(doc)
         attachments = doc.version_ids.attachment_id | doc.attachment_id
         doc.unlink()
         self.assertFalse(attachments.exists())
@@ -133,7 +296,7 @@ class TestRevs(TransactionCase):
 
     def test_revs_are_only_for_those_who_can_see_the_document(self):
         doc = self._doc()
-        self._save(doc, 'two')
+        self._release(doc)
         rev = doc.version_ids
         Version = self.env['jacon.office.document.version'].with_user(self.user)
         self.assertEqual(Version.search([]), rev)
@@ -151,9 +314,9 @@ class TestRevs(TransactionCase):
         with self.assertRaises(AccessError):
             rev.attachment_id.with_user(self.user).read(['raw'])
 
-    def test_revs_of_a_locked_record_cannot_be_deleted_or_restored(self):
+    def test_revs_of_a_locked_record_cannot_be_deleted_or_built_on(self):
         doc = self._doc()
-        self._save(doc, 'two')
+        self._release(doc)
         rev = doc.version_ids.with_user(self.user)
         with patch.object(
             self.env.registry['res.partner'], '_office_is_locked', create=True, new=lambda rec: True,
@@ -161,9 +324,9 @@ class TestRevs(TransactionCase):
             with self.assertRaises(AccessError):
                 rev.action_delete()
             with self.assertRaises(AccessError):
-                rev.action_restore()
+                doc.with_user(self.user).action_new_revision('change')
             rev.action_download()  # still readable
-        rev.action_delete()
+        rev.with_user(self.manager).action_delete()
 
     # -- bulk -----------------------------------------------------------
 
@@ -177,7 +340,9 @@ class TestRevs(TransactionCase):
         self.assertFalse(docs.filtered('active'))
         docs.with_user(self.user).action_unarchive()
         self.assertEqual(len(docs.filtered('active')), 2)
-        docs.with_user(self.user).unlink()
+        with self.assertRaises(AccessError):
+            docs.with_user(self.user).unlink()  # deleting is for Managers
+        docs.with_user(self.manager).unlink()
         self.assertFalse(docs.exists())
 
     def test_a_locked_record_refuses_bulk_changes(self):
@@ -189,7 +354,7 @@ class TestRevs(TransactionCase):
             with self.assertRaises(AccessError):
                 doc.with_user(self.user).action_archive()
             with self.assertRaises(AccessError):
-                doc.with_user(self.user).unlink()
+                doc.with_user(self.manager).unlink()  # not even a Manager, while the record is locked
         self.assertFalse(doc.is_locked)
 
     # -- PDF ------------------------------------------------------------
@@ -276,15 +441,6 @@ class TestRevs(TransactionCase):
         self.assertEqual(doc.pdf_state, 'failed')
         self.assertIn('endConvert', doc.pdf_error)
 
-    def test_a_rev_cannot_be_restored_when_none_is_kept(self):
-        doc = self._doc()
-        self._save(doc, 'two')
-        rev = doc.version_ids
-        self._set_keep(0)
-        with self.assertRaises(UserError):
-            rev.action_restore()
-        self.assertEqual(doc.attachment_id.raw, self._content('two'))
-
     def test_a_reply_that_is_not_a_pdf_is_a_failure(self):
         doc = self._doc()
         post, get = self._convert_ok(pdf=b'<html>login</html>')
@@ -302,11 +458,6 @@ class TestRevs(TransactionCase):
             self.assertFalse(doc.pdf_attachment_id)
             doc.action_view_pdf()
             self.assertEqual(self._conversions(post_mock), 1)
-
-    def test_no_old_content_is_read_when_no_rev_is_kept(self):
-        self._set_keep(0)
-        doc = self._doc()
-        self.assertEqual(doc._content_before_write()[doc.id][1], None)
 
     def test_renaming_renames_the_pdf(self):
         doc = self._doc()

@@ -41,16 +41,26 @@
     }
 
     .o_jo_name_cell {
-        min-width: 14rem;
+        min-width: 11rem;
     }
 
     .o_jo_select {
-        min-width: 8rem;
+        min-width: 7rem;
     }
 
     // The Author box looks like the Category box: plain text until hovered or edited.
     .o_jo_author_cell {
-        min-width: 10rem;
+        min-width: 8rem;
+    }
+
+    // Many steps can sit in a row: keep the buttons close together.
+    .o_jo_actions .o-dropdown {
+        display: inline-block;
+    }
+
+    .o_jo_actions .btn {
+        padding-left: 0.3rem;
+        padding-right: 0.3rem;
     }
 
     .o_jo_author {

@@ -13,11 +13,13 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
 
     res_model = fields.Char(required=True)
     res_id = fields.Many2oneReference(model_field='res_model', required=True)
-    source = fields.Selection(
-        [('new', "New blank file"), ('upload', "Upload an existing file")],
-        default='new', required=True,
-    )
-    kind = fields.Selection(KINDS, default='docx')
+    # What the file starts from, in this order: an uploaded file, a template, else a blank file of `kind`.
+    kind = fields.Selection(KINDS, string="Type", default='pptx')
+    template_id = fields.Many2one('jacon.office.template', string="Template")
+    # The template proposed for the category, and whether the user has chosen one (or Blank) themselves:
+    # a choice of theirs is not replaced when the category changes.
+    auto_template_id = fields.Many2one('jacon.office.template')
+    template_chosen = fields.Boolean()
     # A temporary value in the database, not a second copy of the file in the filestore.
     upload = fields.Binary(string="File", attachment=False)
     upload_filename = fields.Char()
@@ -41,7 +43,15 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
         )
         res.setdefault('name', suggestion)
         res['auto_name'] = suggestion
+        # A category with a template starts from it.
+        template = self._template_of(self.env['jacon.office.category'].browse(known.get('category_id')))
+        if template and not {'default_template_id', 'default_kind'} & set(self.env.context):
+            res['template_id'] = res['auto_template_id'] = template.id
         return res
+
+    @api.model
+    def _template_of(self, category):
+        return self.env['jacon.office.template'].search([('category_id', '=', category.id)], limit=1) if category else None
 
     @api.model
     def _suggest_name(self, res_model, res_id, category, upload_filename=None):
@@ -65,17 +75,34 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
             candidate = '%s (%s)' % (name, number)
         return candidate
 
-    @api.onchange('upload_filename')
-    def _onchange_upload_filename(self):
-        extension = os.path.splitext(self.upload_filename or '')[1].lstrip('.').lower()
-        if extension in dict(KINDS):
-            self.kind = extension
+    @api.onchange('upload')
+    def _onchange_upload(self):
+        # A file chosen to upload is the start: no template, and its type is the file's own.
+        if self.upload:
+            self.template_id = False
+            self.template_chosen = True
+            self.kind = self.env['jacon.office.document']._kind_of_filename(self.upload_filename) or self.kind
 
-    @api.onchange('source', 'category_id', 'upload_filename')
+    @api.onchange('template_id')
+    def _onchange_template(self):
+        if self.template_id:
+            self.upload = False
+            self.upload_filename = False
+        if self.template_id != self.auto_template_id:
+            self.template_chosen = True
+
+    @api.onchange('category_id')
+    def _onchange_category_template(self):
+        """The category's template is proposed, unless the user chose what to start from (or uploaded a file)."""
+        if self.template_chosen or self.upload:
+            return
+        self.template_id = self.auto_template_id = self._template_of(self.category_id)
+
+    @api.onchange('upload', 'upload_filename', 'category_id')
     def _onchange_suggest_name(self):
         suggestion = self._suggest_name(
             self.res_model, self.res_id, self.category_id,
-            self.upload_filename if self.source == 'upload' else None,
+            self.upload_filename if self.upload else None,
         )
         if not self.name or self.name == self.auto_name:
             self.name = suggestion
@@ -85,13 +112,18 @@ class JaconOfficeDocumentCreateWizard(models.TransientModel):
         self.ensure_one()
         content = None
         kind = self.kind
-        if self.source == 'upload':
-            if not self.upload:
-                raise UserError(_("Choose the file to upload."))
-            kind = os.path.splitext(self.upload_filename or '')[1].lstrip('.').lower()
-            if kind not in dict(KINDS):
+        if self.upload:
+            kind = self.env['jacon.office.document']._kind_of_filename(self.upload_filename)
+            if not kind:
                 raise UserError(_("Only Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files can be uploaded."))
             content = base64.b64decode(self.upload)
+        elif self.template_id:
+            kind = self.template_id.kind
+            content = self.template_id.attachment_id.sudo().raw
+            if not content:
+                raise UserError(_("The template %s has lost its file. Choose another one.", self.template_id.name))
+        elif not kind:
+            raise UserError(_("Choose the type of file to create."))
         return self.env['jacon.office.document'].create({
             'name': self.name,
             'kind': kind,

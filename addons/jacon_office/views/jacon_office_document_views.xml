@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- A document's previous Revs. Opened in a dialog from the Documents tab (the clock icon). -->
+    <!-- A document's released Revs. Opened in a dialog from the Documents tab (the clock icon). -->
     <record id="view_jacon_office_document_version_list" model="ir.ui.view">
         <field name="name">jacon.office.document.version.list</field>
         <field name="model">jacon.office.document.version</field>
         <field name="arch" type="xml">
-            <list string="Previous Revs" create="0" edit="0">
+            <list string="Released Revs" create="0" edit="0">
                 <field name="number" string="Rev"/>
                 <field name="user_id"/>
                 <field name="date"/>
+                <field name="note"/>
                 <field name="file_size_text"/>
+                <field name="document_state" column_invisible="1"/>
                 <button name="action_download" type="object" icon="fa-download" title="Download this Rev"/>
-                <button name="action_restore" type="object" icon="fa-undo" title="Make this Rev the current content"
-                        confirm="Make this Rev the current content again? What the document holds now is kept as a Rev, so nothing is lost. Make sure nobody has the document open."/>
+                <button name="action_new_revision" type="object" icon="fa-plus-square-o"
+                        title="Open a new Rev that starts from this one"
+                        groups="jacon_office.group_jacon_office_editor"
+                        invisible="document_state != 'released'"/>
                 <button name="action_delete" type="object" icon="fa-trash" title="Delete this Rev"
+                        groups="jacon_office.group_jacon_office_manager"
                         confirm="Delete this Rev? This cannot be undone."/>
             </list>
         </field>
@@ -27,7 +32,8 @@
             <list string="Office Documents" create="0">
                 <header>
                     <button name="action_delete_old_versions" type="object" string="Delete Old Revs"
-                            confirm="Delete every previous Rev of the selected documents? Their current content is kept."/>
+                            groups="jacon_office.group_jacon_office_manager"
+                            confirm="Delete every released Rev but the latest of the selected documents?"/>
                 </header>
                 <field name="name"/>
                 <field name="kind" widget="badge"/>
@@ -36,14 +42,20 @@
                 <field name="author"/>
                 <field name="last_edit_date"/>
                 <field name="revision"/>
-                <field name="version_count" string="Previous Revs"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'review'"
+                       decoration-success="state == 'released'"/>
+                <field name="version_count" string="Released Revs"/>
                 <field name="file_size_text"/>
                 <field name="pdf_state" widget="badge" optional="hide"
                        decoration-success="pdf_state == 'ready'" decoration-warning="pdf_state == 'pending'"
                        decoration-danger="pdf_state == 'failed'"/>
                 <button name="action_view_pdf" type="object" icon="fa-eye" title="View as PDF"/>
-                <button name="action_open_editor" type="object" icon="fa-pencil" title="Edit in ONLYOFFICE"/>
-                <button name="action_view_versions" type="object" icon="fa-history" title="Previous Revs"/>
+                <field name="can_edit" column_invisible="1"/>
+                <button name="action_open_editor" type="object" icon="fa-pencil" title="Edit in ONLYOFFICE"
+                        invisible="not can_edit"/>
+                <button name="action_open_editor" type="object" icon="fa-external-link"
+                        title="Open in ONLYOFFICE (view only)" invisible="can_edit"/>
+                <button name="action_view_versions" type="object" icon="fa-history" title="Released Revs"/>
                 <button name="action_download" type="object" icon="fa-download" title="Download"/>
             </list>
         </field>
@@ -55,33 +67,48 @@
         <field name="arch" type="xml">
             <form string="Office Document" create="0">
                 <header>
-                    <button name="action_open_editor" type="object" string="Edit" class="btn-primary"
-                            invisible="not attachment_id or is_locked"/>
+                    <button name="action_submit" type="object" string="Submit for Review" class="btn-primary"
+                            invisible="state != 'draft' or not can_work"/>
+                    <button name="action_approve" type="object" string="Approve and Release" class="btn-primary"
+                            invisible="not can_approve"/>
+                    <button name="action_ask_reject" type="object" string="Reject" invisible="not can_approve"/>
+                    <button name="action_recall" type="object" string="Take Back" invisible="state != 'review' or not can_work"/>
+                    <button name="action_ask_new_revision" type="object" string="Open New Rev" class="btn-primary"
+                            invisible="state != 'released' or not can_work"/>
+                    <button name="action_open_editor" type="object" string="Edit"
+                            invisible="not attachment_id or not can_edit"/>
+                    <button name="action_open_editor" type="object" string="Open (View Only)"
+                            invisible="not attachment_id or can_edit"/>
                     <button name="action_view_pdf" type="object" string="View PDF" invisible="not attachment_id"/>
                     <button name="action_download" type="object" string="Download" invisible="not attachment_id"/>
                     <button name="action_delete_old_versions" type="object" string="Delete Old Revs"
+                            groups="jacon_office.group_jacon_office_manager"
                             invisible="not version_count"
-                            confirm="Delete every previous Rev of this document? Its current content is kept."/>
+                            confirm="Delete every released Rev of this document but the latest?"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,review,released"/>
                 </header>
                 <sheet>
                     <field name="active" invisible="1"/>
                     <field name="is_locked" invisible="1"/>
+                    <field name="can_edit" invisible="1"/>
+                    <field name="can_work" invisible="1"/>
+                    <field name="can_approve" invisible="1"/>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <widget name="web_ribbon" title="Locked" bg_color="text-bg-warning" invisible="not is_locked or not active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_versions" type="object" class="oe_stat_button" icon="fa-history"
                                 invisible="not version_count">
-                            <field name="version_count" widget="statinfo" string="Previous Revs"/>
+                            <field name="version_count" widget="statinfo" string="Released Revs"/>
                         </button>
                     </div>
                     <div class="oe_title">
-                        <h1><field name="name" placeholder="Document name"/></h1>
+                        <h1><field name="name" placeholder="Document name" readonly="not can_edit"/></h1>
                     </div>
                     <group>
                         <group>
                             <field name="kind" readonly="id"/>
-                            <field name="category_id" options="{'no_create': true}"/>
-                            <field name="author"/>
+                            <field name="category_id" options="{'no_create': true}" readonly="not can_edit"/>
+                            <field name="author" readonly="not can_edit"/>
                             <label for="res_name" string="Belongs to"/>
                             <div>
                                 <button name="action_open_record" type="object" class="btn btn-link p-0 text-start"
@@ -91,7 +118,13 @@
                             </div>
                         </group>
                         <group>
-                            <field name="revision" string="Current Rev"/>
+                            <field name="revision" string="Rev"/>
+                            <field name="revision_reason" invisible="not revision_reason"/>
+                            <field name="reject_reason" invisible="state != 'draft' or not reject_reason"
+                                   class="text-danger"/>
+                            <field name="submitted_by_id" invisible="not submitted_by_id"/>
+                            <field name="approved_by_id" invisible="not approved_by_id"/>
+                            <field name="approved_date" invisible="not approved_by_id"/>
                             <field name="last_edit_user_id"/>
                             <field name="last_edit_date"/>
                             <field name="file_size_text"/>
@@ -101,7 +134,7 @@
                             <field name="pdf_error" invisible="pdf_state != 'failed'"/>
                         </group>
                     </group>
-                    <field name="description" placeholder="Description..."/>
+                    <field name="description" placeholder="Description..." readonly="not can_edit"/>
                 </sheet>
                 <chatter/>
             </form>
@@ -121,11 +154,16 @@
                 <filter name="excel" string="Excel" domain="[('kind', '=', 'xlsx')]"/>
                 <filter name="powerpoint" string="PowerPoint" domain="[('kind', '=', 'pptx')]"/>
                 <separator/>
-                <filter name="has_old_revs" string="Has Previous Revs" domain="[('version_count', '>', 0)]"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="review" string="In Review" domain="[('state', '=', 'review')]"/>
+                <filter name="released" string="Released" domain="[('state', '=', 'released')]"/>
+                <separator/>
+                <filter name="has_old_revs" string="Has Released Revs" domain="[('version_count', '>', 0)]"/>
                 <filter name="pdf_failed" string="PDF Failed" domain="[('pdf_state', '=', 'failed')]"/>
                 <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
+                    <filter name="group_state" string="State" context="{'group_by': 'state'}"/>
                     <filter name="group_kind" string="Type" context="{'group_by': 'kind'}"/>
                     <filter name="group_category" string="Category" context="{'group_by': 'category_id'}"/>
                     <filter name="group_author" string="Author" context="{'group_by': 'author'}"/>

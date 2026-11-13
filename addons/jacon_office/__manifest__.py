@@ -1,6 +1,6 @@
 {
     'name': 'Office Documents',
-    'version': '19.0.1.4.0',
+    'version': '19.0.1.6.0',
     'category': 'Productivity',
     'summary': 'Word, Excel and PowerPoint documents kept on the Odoo server, edited in the browser with ONLYOFFICE and attachable to any record',
     'description': """
@@ -29,8 +29,9 @@ is Closed.
         'data/jacon_office_category_data.xml',
         'views/jacon_office_category_views.xml',
         'views/jacon_office_document_views.xml',
-        'views/res_config_settings_views.xml',
+        'views/jacon_office_template_views.xml',
         'wizard/jacon_office_document_create_wizard_views.xml',
+        'wizard/jacon_office_document_reason_wizard_views.xml',
         'views/jacon_office_menus.xml',
     ],
     'assets': {
@@ -40,6 +41,9 @@ is Closed.
             'jacon_office/static/src/documents_field/documents_field.js',
             'jacon_office/static/src/documents_field/documents_field.xml',
             'jacon_office/static/src/documents_field/documents_field.scss',
+            'jacon_office/static/src/template_picker/template_picker.js',
+            'jacon_office/static/src/template_picker/template_picker.xml',
+            'jacon_office/static/src/template_picker/template_picker.scss',
         ],
     },
     'installable': True,

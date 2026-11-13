@@ -13,6 +13,9 @@ class JaconOfficeMixin(models.AbstractModel):
 
     office_document_ids = fields.One2many('jacon.office.document', 'res_id', string="Documents")
     office_document_count = fields.Integer(string="Document Count", compute='_compute_office_document_count')
+    # Whether the user may add documents here and move them along: an Editor who may write this record,
+    # which is not locked. The Documents tab shows or hides its buttons by it.
+    office_can_add = fields.Boolean(compute='_compute_office_can_add')
 
     @api.depends('office_document_ids')
     def _compute_office_document_count(self):
@@ -22,6 +25,20 @@ class JaconOfficeMixin(models.AbstractModel):
         ))
         for record in self:
             record.office_document_count = counts.get(record._origin.id, 0)
+
+    @api.depends_context('uid')
+    def _compute_office_can_add(self):
+        is_editor = self.env.user.has_group('jacon_office.group_jacon_office_editor')
+        allowed = self._origin.filtered('id')._filtered_access('write') if is_editor else self.browse()
+        for record in self:
+            origin = record._origin
+            record.office_can_add = bool(origin.id) and origin in allowed and not origin._office_is_locked()
+
+    def _office_placeholders(self):
+        """More values for the `{{placeholders}}` of this record's documents: {'project.customer': 'Acme'}.
+        Names are lower case. Override it in the glue addon of a model."""
+        self.ensure_one()
+        return {}
 
     def _office_is_locked(self):
         """Whether this record's documents can no longer be added to or edited.

@@ -7,15 +7,24 @@ import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { deserializeDateTime, formatDateTime } from "@web/core/l10n/dates";
 import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
+import { user } from "@web/core/user";
 import { useService } from "@web/core/utils/hooks";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 const MODEL = "jacon.office.document";
+const FOCUS_RELOAD_DELAY = 3000; // ms
 const FIELDS = [
     "name", "kind", "category_id", "author", "last_edit_user_id", "last_edit_date", "revision",
-    "version_count", "file_size_text", "pdf_state", "is_locked", "active",
+    "version_count", "file_size_text", "pdf_state", "is_locked", "can_edit", "can_work", "can_approve", "active",
+    "state", "reject_reason",
 ];
 const KIND_LABELS = { docx: _t("Word"), xlsx: _t("Excel"), pptx: _t("PowerPoint") };
+// The colours the QC Checksheet uses for the same states.
+// Categories and users change rarely: fetched once for the whole session, not on every form that opens.
+let lookups = null;
+
+const STATE_BADGES = { draft: "text-bg-info", review: "text-bg-warning", released: "text-bg-success" };
+const STATE_LABELS = { draft: _t("Draft"), review: _t("In Review"), released: _t("Released") };
 
 /**
  * The Documents tab of a record that owns Office Documents (`jacon.office.mixin`).
@@ -46,6 +55,9 @@ export class OfficeDocumentsField extends Component {
             selected: [],
             // Changes whenever the rows must be drawn afresh, e.g. to put back a value the server refused.
             version: 0,
+            // What this user's level lets them do (the server decides in the end).
+            canEdit: false,
+            canManage: false,
         });
         this.root = useRef("root");
         this.loadSeq = 0;
@@ -54,15 +66,30 @@ export class OfficeDocumentsField extends Component {
         // typed in a row: the half-typed value would be wiped.
         this.onFocus = () => {
             const active = document.activeElement;
-            if (!(active && this.root.el?.contains(active) && active.matches("input, select"))) {
+            const typing = active && this.root.el?.contains(active) && active.matches("input, select");
+            // Not at every focus: switching tabs back and forth must not hammer the server.
+            if (!typing && Date.now() - this.loadedAt > FOCUS_RELOAD_DELAY) {
                 this.load();
             }
         };
+        this.loadedAt = 0;
         onWillStart(async () => {
-            const [categories, users] = await Promise.all([
-                this.orm.searchRead("jacon.office.category", [], ["name"], { order: "sequence, name" }),
-                this.orm.searchRead("res.users", [["share", "=", false]], ["name"], { order: "name", limit: 500 }),
+            if (!lookups) {
+                lookups = Promise.all([
+                    this.orm.searchRead("jacon.office.category", [], ["name"], { order: "sequence, name" }),
+                    this.orm.searchRead("res.users", [["share", "=", false]], ["name"], { order: "name", limit: 500 }),
+                ]).catch((error) => {
+                    lookups = null; // try again next time
+                    throw error;
+                });
+            }
+            const [[categories, users], canEdit, canManage] = await Promise.all([
+                lookups,
+                user.hasGroup("jacon_office.group_jacon_office_editor"),
+                user.hasGroup("jacon_office.group_jacon_office_manager"),
             ]);
+            this.state.canEdit = canEdit;
+            this.state.canManage = canManage;
             this.state.categories = categories;
             this.state.users = users;
             await this.load();
@@ -79,6 +106,11 @@ export class OfficeDocumentsField extends Component {
         return this.props.record.resId;
     }
 
+    /** Whether this user may add documents to the record (an Editor who may write it, not locked). */
+    get canAdd() {
+        return !!this.props.record.data.office_can_add;
+    }
+
     get rows() {
         const query = this.state.query.trim().toLowerCase();
         return query
@@ -91,12 +123,25 @@ export class OfficeDocumentsField extends Component {
         return this.state.selected.filter((id) => this.rows.some((doc) => doc.id === id));
     }
 
+    /** The rows this user may act on: the only ones that can be ticked. */
+    get workableRows() {
+        return this.rows.filter((doc) => doc.can_work);
+    }
+
     get allSelected() {
-        return this.rows.length > 0 && this.rows.every((doc) => this.state.selected.includes(doc.id));
+        return this.workableRows.length > 0 && this.workableRows.every((doc) => this.state.selected.includes(doc.id));
     }
 
     kindLabel(kind) {
         return KIND_LABELS[kind] || kind;
+    }
+
+    stateBadge(state) {
+        return STATE_BADGES[state] || "text-bg-secondary";
+    }
+
+    stateLabel(state) {
+        return STATE_LABELS[state] || state;
     }
 
     formatDate(value) {
@@ -124,6 +169,13 @@ export class OfficeDocumentsField extends Component {
             return; // a newer load was started meanwhile: its answer is the one to show
         }
         this.state.docs = docs;
+        this.loadedAt = Date.now();
+        // The author boxes of rows that are gone are not kept.
+        for (const id of [...this.authorSources.keys()]) {
+            if (!docs.some((doc) => doc.id === id)) {
+                this.authorSources.delete(id);
+            }
+        }
         this.state.selected = this.state.selected.filter((id) => docs.some((doc) => doc.id === id));
         this.state.loaded = true;
     }
@@ -141,7 +193,7 @@ export class OfficeDocumentsField extends Component {
     }
 
     toggleAll() {
-        this.state.selected = this.allSelected ? [] : this.rows.map((doc) => doc.id);
+        this.state.selected = this.allSelected ? [] : this.workableRows.map((doc) => doc.id);
     }
 
     clearSelection() {
@@ -198,7 +250,21 @@ export class OfficeDocumentsField extends Component {
 
     async versions(doc) {
         await this.openAction(doc, "action_view_versions");
-        await this.load(); // a Rev may have been restored or deleted
+        await this.load(); // a new Rev may have been opened or old ones deleted
+    }
+
+    /** A workflow step that needs no more input (submit, recall, approve). */
+    async step(doc, method) {
+        try {
+            await this.orm.call(MODEL, method, [[doc.id]]);
+        } finally {
+            await this.load();
+        }
+    }
+
+    /** A step that asks for a reason first (reject, new Rev): the server answers with a dialog. */
+    ask(doc, method) {
+        return this.openAction(doc, method);
     }
 
     download(doc) {
@@ -288,7 +354,7 @@ export class OfficeDocumentsField extends Component {
         this.dialog.add(ConfirmationDialog, {
             title: _t("Delete old Revs"),
             body: _t(
-                "Delete every previous Rev of the %s selected document(s)? Their current content is kept.",
+                "Delete every released Rev but the latest of the %s selected document(s)?",
                 count
             ),
             confirmLabel: _t("Delete old Revs"),
@@ -320,4 +386,6 @@ registry.category("fields").add("jacon_office_documents", {
     component: OfficeDocumentsField,
     displayName: _t("Office Documents"),
     supportedTypes: ["integer"],
+    // What the tab needs of the record it sits in, without every form having to list it.
+    fieldDependencies: [{ name: "office_can_add", type: "boolean" }],
 });

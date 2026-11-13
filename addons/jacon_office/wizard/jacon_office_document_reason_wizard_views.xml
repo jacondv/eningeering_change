@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_jacon_office_document_reason_wizard_form" model="ir.ui.view">
+        <field name="name">jacon.office.document.reason.wizard.form</field>
+        <field name="model">jacon.office.document.reason.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reason">
+                <field name="mode" invisible="1"/>
+                <field name="document_id" invisible="1"/>
+                <field name="version_id" invisible="1"/>
+                <p class="text-muted" invisible="mode != 'new_rev'">
+                    The document goes back to Draft as a new Rev. The Revs already released stay as they are.
+                </p>
+                <p class="text-muted" invisible="mode != 'reject'">
+                    The document goes back to Draft; the person who submitted it is told why.
+                </p>
+                <field name="reason" placeholder="Why?" nolabel="1"/>
+                <footer>
+                    <button string="Reject" name="action_confirm" type="object" class="btn-primary"
+                            invisible="mode != 'reject'" data-hotkey="q"/>
+                    <button string="Open New Rev" name="action_confirm" type="object" class="btn-primary"
+                            invisible="mode != 'new_rev'" data-hotkey="q"/>
+                    <button string="Cancel" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>
