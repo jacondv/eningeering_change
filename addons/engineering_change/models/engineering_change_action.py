@@ -1,5 +1,5 @@
 from odoo import _, api, fields, models
-from odoo.exceptions import AccessError
+from odoo.exceptions import AccessError, UserError
 
 DONE_STATES = ('1_done', '1_canceled')
 
@@ -154,30 +154,6 @@ class ProjectTask(models.Model):
             is_manager = self._is_ec_manager()
         return is_manager or self.change_id.implement_owner_id == self.env.user
 
-    def _get_or_create_ec_project(self, change):
-        """Find-or-create the project.project named after `change`'s Request
-        No, so its actions/tasks land under a real project instead of
-        defaulting to Private (no project_id).
-
-        If `change` already has its own `project_id` (set on Submit, see
-        `EngineeringChange._link_ec_project`), reuse it directly. Otherwise
-        (an action created while the request is still Draft, named "New")
-        fall back to finding/creating one by the request's current name -
-        `_link_ec_project` reconciles these onto the real project once the
-        request is actually submitted.
-
-        sudo(): a plain assignee allowed to create an EC task (see
-        `_check_ec_create_access`) may not otherwise have search/create
-        rights on project.project.
-        """
-        if change.project_id:
-            return change.project_id
-        Project = self.env['project.project'].sudo()
-        project = Project.search([('name', '=', change.name)], limit=1)
-        if not project:
-            project = Project.create({'name': change.name})
-        return project
-
     @api.model
     def _is_ec_engineer(self):
         """True if the current user holds the Request/Engineer role - see
@@ -239,8 +215,13 @@ class ProjectTask(models.Model):
                 vals['change_id'] = change_id
                 change = Change.browse(change_id)
                 self._check_ec_create_access(change, is_manager=is_manager)
+                # The request's own project exists from Submit on (when it gets its Request No).
+                if not change.project_id:
+                    raise UserError(_(
+                        "Submit the request first: its actions can be added once it has been submitted "
+                        "(it gets its Request No and its own project then)."))
                 if not vals.get('project_id') and not parent:
-                    vals['project_id'] = self._get_or_create_ec_project(change).id
+                    vals['project_id'] = change.project_id.id
         tasks = super().create(vals_list)
         ec_tasks = tasks.filtered('change_id')
         ec_tasks._post_creation_message()
