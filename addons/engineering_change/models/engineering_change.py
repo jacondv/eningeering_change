@@ -405,11 +405,11 @@ class EngineeringChange(models.Model):
     # ------------------------------------------------------------
     def _link_ec_project(self):
         """Find-or-create the project.project named after this request's
-        (now-assigned) Request No and set it as `project_id`, moving any
-        Actions/Tasks already created pre-Submit (when the request was still
-        named "New") onto it - called from action_submit(), once the real
-        Request No exists, so requests don't collide on a shared "New"
-        project while still in Draft.
+        (now-assigned) Request No and set it as `project_id` - called from
+        action_submit(), once the real Request No exists. Actions can't be
+        added before that (see EngineeringChangeAction.create); the move of
+        existing Actions below is for requests that already had some, from
+        before this rule, under a shared "New" project.
 
         Always creates a brand new project rather than reusing one found by
         name match: `project_id` is 1-1 with the request (enforced by

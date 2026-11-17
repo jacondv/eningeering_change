@@ -74,6 +74,12 @@ class TestEngineeringChange(TransactionCase):
             ])],
         })
 
+    def _create_submitted_request(self, **kwargs):
+        """A request that has been submitted: only then can actions be added to it."""
+        change = self._create_request(**kwargs)
+        change.with_user(self.user_engineer).action_submit()
+        return change
+
     def _create_request(self, request_type='minor', rpn=50, change_category='standard', **impact_answers):
         # Impact Analysis answers default to 'no' across the board - a plain
         # 'standard' category request (not in IMPACT_GATE_EXEMPT_CATEGORIES)
@@ -249,18 +255,26 @@ class TestEngineeringChange(TransactionCase):
     def test_submit_links_project_named_after_request_no(self):
         change = self._create_request(request_type='minor')
         self.assertFalse(change.project_id)
-
-        task = self.env['project.task'].with_user(self.user_manager).create({
-            'change_id': change.id,
-            'name': 'Do the thing',
-        })
-        self.assertEqual(task.project_id.name, 'New')
-
         change.with_user(self.user_engineer).action_submit()
         self.assertTrue(change.project_id)
         self.assertEqual(change.project_id.name, change.name)
-        # The task created pre-Submit under the stale "New" project is
-        # reconciled onto the real one.
+        self.assertTrue(change.project_id.is_ec_project)
+
+    def test_actions_cannot_be_added_before_the_request_is_submitted(self):
+        change = self._create_request(request_type='minor')
+        with self.assertRaises(UserError) as caught:
+            self.env['project.task'].with_user(self.user_manager).create({
+                'change_id': change.id, 'name': 'Too early',
+            })
+        self.assertIn('Submit the request first', str(caught.exception))
+        # the same through the form: a request saved together with its first action
+        with self.assertRaises(UserError):
+            self._create_request(request_type='minor', task_ids=[(0, 0, {'name': 'Too early'})])
+        self.assertFalse(self.env['project.project'].search([('name', '=', 'New')]))
+        change.with_user(self.user_engineer).action_submit()
+        task = self.env['project.task'].with_user(self.user_manager).create({
+            'change_id': change.id, 'name': 'In time',
+        })
         self.assertEqual(task.project_id, change.project_id)
 
     def test_dcr_flow_and_dcr_no_generation(self):
@@ -468,7 +482,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(set(change.affected_model_ids.ids), {model_a.id, model_b.id})
 
     def test_job_number_lists_ecs_impacting_it(self):
-        change = self._create_request(request_type='minor')
+        change = self._create_submitted_request(request_type='minor')
         job = self.env['project.project'].create({'name': 'Job 1'})
         other_job = self.env['project.project'].create({'name': 'Job 2'})
         self.env['project.task'].with_user(self.user_manager).create({
@@ -833,7 +847,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertFalse(task.exists())
 
     def test_sub_task_joins_its_parents_request(self):
-        change = self._create_request()
+        change = self._create_submitted_request()
         parent = self.env['project.task'].create({'name': 'Parent', 'change_id': change.id})
 
         child = self.env['project.task'].create({'name': 'Child', 'parent_id': parent.id})
@@ -844,7 +858,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(change.action_count, 2)
 
     def test_sub_task_created_from_the_parents_sub_tasks_action_joins_too(self):
-        change = self._create_request()
+        change = self._create_submitted_request()
         parent = self.env['project.task'].create({'name': 'Parent', 'change_id': change.id})
 
         child = self.env['project.task'].with_context(default_parent_id=parent.id).create({
@@ -854,7 +868,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(child.change_id, change)
 
     def test_sub_task_stays_in_its_parents_project(self):
-        change = self._create_request()
+        change = self._create_submitted_request()
         parent = self.env['project.task'].create({'name': 'Parent', 'change_id': change.id})
         job = self.env['project.project'].create({'name': 'Job'})
         parent.sudo().project_id = job
@@ -1128,7 +1142,7 @@ class TestEngineeringChange(TransactionCase):
         self.assertEqual(change2.state, 'waiting_head_office_approval')
 
     def test_report_action_section_numbering(self):
-        change = self._create_request(request_type='minor')
+        change = self._create_submitted_request(request_type='minor')
         report = self.env['ir.actions.report']._get_report_from_name(
             'engineering_change.report_engineering_change_document')
 
