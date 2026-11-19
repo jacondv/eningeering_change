@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_pnd_config_form" model="ir.ui.view">
+        <field name="name">pnd.config.form</field>
+        <field name="model">pnd.config</field>
+        <field name="arch" type="xml">
+            <form string="Part Documents Settings" create="0" delete="0">
+                <sheet>
+                    <group>
+                        <field name="sync_root_name"/>
+                        <field name="max_file_mb"/>
+                        <field name="show_all_documents_menu"/>
+                    </group>
+                    <group string="SharePoint link of a path (the Open button)">
+                        <field name="sharepoint_url"/>
+                        <field name="sharepoint_site"/>
+                        <field name="sharepoint_library"/>
+                    </group>
+                    <div class="text-muted">
+                        The synchronised folder's name is the one OneDrive gives the shared library on each PC
+                        (the folder just under the Windows user folder). Paths are kept from what follows it.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Opens the only record straight away. -->
+    <record id="action_pnd_config" model="ir.actions.server">
+        <field name="name">Settings</field>
+        <field name="model_id" ref="model_pnd_config"/>
+        <field name="state">code</field>
+        <field name="code">
+config = env['pnd.config']._get()
+action = {
+    'type': 'ir.actions.act_window', 'res_model': 'pnd.config', 'res_id': config.id,
+    'views': [(False, 'form')], 'target': 'current',
+}
+        </field>
+    </record>
+
+</odoo>

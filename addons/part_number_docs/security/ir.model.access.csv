@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_pnd_document_view,pnd.document.view,model_pnd_document,group_pnd_view,1,0,0,0
+access_pnd_document_edit,pnd.document.edit,model_pnd_document,group_pnd_edit,1,1,1,0
+access_pnd_document_manage,pnd.document.manage,model_pnd_document,group_pnd_manage,1,1,1,1
+access_pnd_document_type_view,pnd.document.type.view,model_pnd_document_type,group_pnd_view,1,0,0,0
+access_pnd_document_type_manage,pnd.document.type.manage,model_pnd_document_type,group_pnd_manage,1,1,1,1
+access_pnd_config_view,pnd.config.view,model_pnd_config,group_pnd_view,1,0,0,0
+access_pnd_config_manage,pnd.config.manage,model_pnd_config,group_pnd_manage,1,1,0,0
+access_pnd_merge_wizard_edit,pnd.document.merge.wizard.edit,model_pnd_document_merge_wizard,group_pnd_edit,1,1,1,1
+access_pnd_part_number_edit,pnd.part.number.edit,part_number_manager.model_part_number_manager_part_number,group_pnd_edit,1,0,0,0

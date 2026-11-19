@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_pnd_document_list" model="ir.ui.view">
+        <field name="name">pnd.document.list</field>
+        <field name="model">pnd.document</field>
+        <field name="arch" type="xml">
+            <list string="Part Documents">
+                <field name="name"/>
+                <field name="type_id"/>
+                <field name="kind" widget="badge"/>
+                <field name="vendor_id" optional="show"/>
+                <field name="part_number_ids" widget="many2many_tags" optional="show"/>
+                <field name="part_count" optional="hide"/>
+                <field name="file_size_text" optional="hide"/>
+                <field name="create_uid" optional="hide"/>
+                <field name="write_date" optional="show"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_pnd_document_form" model="ir.ui.view">
+        <field name="name">pnd.document.form</field>
+        <field name="model">pnd.document</field>
+        <field name="arch" type="xml">
+            <form string="Part Document">
+                <field name="active" invisible="1"/>
+                <field name="duplicate_id" invisible="1"/>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between" role="alert"
+                         invisible="not duplicate_id">
+                        <span><i class="fa fa-exclamation-triangle me-1"/><field name="duplicate_hint" class="d-inline"/></span>
+                        <button name="action_use_existing" type="object" class="btn btn-warning btn-sm"
+                                string="Use the existing one instead"
+                                help="Gives the part numbers chosen here to the existing document and drops this one."/>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Title, e.g. KLIXON C Series datasheet"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="type_id" options="{'no_create': true}"/>
+                            <field name="vendor_id"/>
+                        </group>
+                        <group>
+                            <field name="part_number_ids" widget="many2many_tags" options="{'no_create': true}"/>
+                        </group>
+                    </group>
+                    <group string="What it holds">
+                        <field name="kind" widget="radio" options="{'horizontal': true}" nolabel="1" colspan="2"/>
+                        <field name="file" filename="file_name" invisible="kind != 'file'"
+                               required="kind == 'file'" string="File (PDF or image)"/>
+                        <field name="file_name" invisible="1"/>
+                        <field name="link_url" invisible="kind != 'link'" required="kind == 'link'"
+                               placeholder="https://..."/>
+                        <field name="rel_path" invisible="kind != 'path'" required="kind == 'path'"
+                               placeholder="Paste the path copied from Explorer (Ctrl+Shift+C)"/>
+                        <field name="note" invisible="kind != 'note'" colspan="2"/>
+                    </group>
+                    <group invisible="kind != 'path'">
+                        <div class="text-muted" colspan="2">
+                            Paste the full path of the file (select it in Explorer, press Ctrl+Shift+C). Only what follows the
+                            synchronised folder's name is kept, so it is the same on every PC.
+                        </div>
+                    </group>
+                    <group>
+                        <field name="description" placeholder="Optional: what is in it, which version..."/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_pnd_document_search" model="ir.ui.view">
+        <field name="name">pnd.document.search</field>
+        <field name="model">pnd.document</field>
+        <field name="arch" type="xml">
+            <search string="Part Documents">
+                <field name="name" string="All"
+                       filter_domain="['|','|','|','|','|',
+                           ('name', 'ilike', self), ('description', 'ilike', self), ('file_name', 'ilike', self),
+                           ('part_number_ids.part_number', 'ilike', self), ('vendor_id', 'ilike', self),
+                           ('type_id', 'ilike', self)]"/>
+                <field name="part_number_ids" string="Part Number"/>
+                <field name="vendor_id"/>
+                <field name="type_id"/>
+                <filter string="Files" name="kind_file" domain="[('kind', '=', 'file')]"/>
+                <filter string="Links" name="kind_link" domain="[('kind', '=', 'link')]"/>
+                <filter string="Paths" name="kind_path" domain="[('kind', '=', 'path')]"/>
+                <filter string="Notes" name="kind_note" domain="[('kind', '=', 'note')]"/>
+                <separator/>
+                <filter string="No Part Number" name="no_part" domain="[('part_number_ids', '=', False)]"/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter string="Type" name="groupby_type" context="{'group_by': 'type_id'}"/>
+                    <filter string="Source" name="groupby_kind" context="{'group_by': 'kind'}"/>
+                    <filter string="Vendor" name="groupby_vendor" context="{'group_by': 'vendor_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_pnd_document_list" model="ir.actions.act_window">
+        <field name="name">All Documents</field>
+        <field name="res_model">pnd.document</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_pnd_document_search"/>
+    </record>
+
+    <!-- Merge duplicates: select documents in the list, then Action > Merge. -->
+    <record id="action_pnd_document_merge" model="ir.actions.server">
+        <field name="name">Merge Documents</field>
+        <field name="model_id" ref="model_pnd_document"/>
+        <field name="binding_model_id" ref="model_pnd_document"/>
+        <field name="binding_view_types">list</field>
+        <field name="group_ids" eval="[(4, ref('group_pnd_edit'))]"/>
+        <field name="state">code</field>
+        <field name="code">action = records.action_open_merge()</field>
+    </record>
+
+    <record id="action_pnd_search_page" model="ir.actions.client">
+        <field name="name">Part Documents</field>
+        <field name="tag">part_number_docs.search_page</field>
+    </record>
+
+</odoo>
