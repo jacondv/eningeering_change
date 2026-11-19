@@ -1,0 +1,209 @@
+.o_pnd_search {
+    display: flex;
+    gap: 14px;
+    padding: 12px 16px;
+    overflow: hidden;
+    background: var(--o-view-background-color, #fff);
+
+    // -- the left side: find, choose, act ------------------------------
+    .o_pnd_left {
+        flex: 0 0 58%;  // the share is set by the user's layout (inline)
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .o_pnd_toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 8px;
+
+        .o_pnd_new { white-space: nowrap; }
+        // The search box: the words typed, and the chips made of them ("Vendor  klixon  x").
+        .o_pnd_searchbox {
+            position: relative;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            flex: 1 1 260px;
+            min-width: 200px;
+            max-width: 520px;
+            width: auto;
+            height: auto;
+            min-height: 36px;
+            padding: 2px 8px;
+            cursor: text;
+            &.o_pnd_focused {
+                border-color: #4e79a7;
+                box-shadow: 0 0 0 0.15rem rgba(78, 121, 167, 0.2);
+            }
+            .o_pnd_search_icon { color: #8a929a; }
+            .o_pnd_query {
+                flex: 1 1 100px;
+                min-width: 100px;
+                border: 0;
+                outline: 0;
+                padding: 2px 0;
+                background: transparent;
+            }
+            .o_pnd_facet {
+                display: inline-flex;
+                align-items: center;
+                max-width: 100%;
+                border: 1px solid #c7d4e3;
+                border-radius: 4px;
+                background: #e8eef6;
+                font-size: 13px;
+                overflow: hidden;
+                .o_pnd_facet_label { padding: 0 6px; background: #4e79a7; color: #fff; }
+                .o_pnd_facet_value { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .o_pnd_facet_remove { padding: 0 6px; cursor: pointer; color: #5b6b7b; &:hover { color: #c0392b; } }
+            }
+            .o_pnd_suggest {
+                top: 100%;
+                left: 0;
+                right: 0;
+                margin-top: 2px;
+                z-index: 10;
+            }
+        }
+        .o_pnd_filter_btn {
+            white-space: nowrap;
+            &.active {
+                background: #e8eef6;
+                border-color: #4e79a7;
+                color: #2f5c8a;
+            }
+        }
+        .o_pnd_archived { white-space: nowrap; }
+    }
+
+    // The count, or the actions on the ticked rows (they sit just above the rows they act on).
+    .o_pnd_listbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        min-height: 34px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #f5f7fa;
+
+        .o_pnd_selected { font-weight: 600; margin-right: 4px; }
+    }
+
+    .o_pnd_scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        margin-top: 4px;
+    }
+
+    // -- the right side: the document ----------------------------------
+    .o_pnd_preview {
+        flex: 1 1 0;
+        min-width: 280px;
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+        padding: 12px 14px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+    }
+
+    // "Expand": the document takes the whole width.
+    &.o_pnd_expanded {
+        .o_pnd_left { display: none; }
+        .o_pnd_preview { flex: 1 1 100%; }
+        .o_pnd_frame { min-height: 78vh; }
+    }
+
+    // The bar between the list and the document.
+    .o_pnd_splitter {
+        flex: 0 0 6px;
+        margin: 0 -4px;
+        cursor: col-resize;
+        border-radius: 3px;
+        background: transparent;
+        z-index: 2;
+        &:hover { background: #c7d4e3; }
+    }
+    &.o_pnd_expanded .o_pnd_splitter { display: none; }
+
+    // While a bar or a column is dragged: nothing selects text, and a PDF frame does not take the mouse.
+    &.o_pnd_dragging {
+        user-select: none;
+        iframe { pointer-events: none; }
+        .o_pnd_splitter { background: #4e79a7; }
+    }
+
+    .o_pnd_table {
+        table-layout: fixed;
+        min-width: 100%;
+        thead th {
+            position: relative;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 10px;
+        }
+        tbody td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        // The edge of a header that is dragged to resize the column.
+        .o_pnd_resizer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 7px;
+            cursor: col-resize;
+            border-right: 2px solid transparent;
+            &:hover { border-right-color: #4e79a7; }
+        }
+        thead { position: sticky; top: 0; background: var(--o-view-background-color, #fff); z-index: 1; }
+        tbody tr { cursor: pointer; }
+        .o_pnd_check { width: 28px; }
+        .o_pnd_icon { width: 32px; text-align: center; }
+        .o_pnd_title { font-weight: 500; }
+        .o_pnd_part {
+            display: inline-block;
+            margin-right: 4px;
+            padding: 0 6px;
+            border-radius: 8px;
+            background: #eef1f4;
+            font-size: 12px;
+        }
+        .o_pnd_archived_row { opacity: 0.55; }
+    }
+
+    .o_pnd_empty {
+        margin: auto;
+        padding: 40px 0;
+        text-align: center;
+    }
+
+    .o_pnd_preview_head { display: flex; align-items: center; margin-bottom: 4px; }
+    .o_pnd_parts { margin: 6px 0; }
+    .o_pnd_more { margin-left: 4px; white-space: nowrap; }
+    .o_pnd_part_link {
+        display: inline-block;
+        margin: 0 6px 2px 0;
+        padding: 0 8px;
+        border-radius: 10px;
+        background: #e8eef6;
+        font-size: 12px;
+    }
+    .o_pnd_actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .o_pnd_content {
+        flex: 1 1 auto;
+        min-height: 300px;
+        margin-top: 4px;
+    }
+    .o_pnd_frame { width: 100%; height: 100%; min-height: 480px; border: 1px solid #dee2e6; }
+    .o_pnd_image { max-width: 100%; max-height: 560px; object-fit: contain; }
+    .o_pnd_note { padding: 8px 4px; }
+    .o_pnd_link, .o_pnd_path { padding: 8px 0; word-break: break-all; }
+}

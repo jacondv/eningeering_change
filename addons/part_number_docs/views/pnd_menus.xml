@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Under the Documents app (jacon_documents). -->
+    <menuitem id="menu_pnd_root" name="Part Documents" parent="jacon_documents.menu_jacon_documents_root"
+              sequence="30" groups="group_pnd_view"/>
+
+    <menuitem id="menu_pnd_search" name="Search" parent="menu_pnd_root" action="action_pnd_search_page"
+              sequence="10" groups="group_pnd_view"/>
+    <menuitem id="menu_pnd_list" name="All Documents" parent="menu_pnd_root" action="action_pnd_document_list"
+              sequence="20" groups="group_pnd_edit"/>
+    <menuitem id="menu_pnd_config" name="Configuration" parent="menu_pnd_root" sequence="90" groups="group_pnd_manage"/>
+    <menuitem id="menu_pnd_types" name="Document Types" parent="menu_pnd_config" action="action_pnd_document_type"
+              sequence="10" groups="group_pnd_manage"/>
+    <menuitem id="menu_pnd_settings" name="Settings" parent="menu_pnd_config" action="action_pnd_config"
+              sequence="20" groups="group_pnd_manage"/>
+
+</odoo>

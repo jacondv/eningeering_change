@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_pnd_document_merge_wizard_form" model="ir.ui.view">
+        <field name="name">pnd.document.merge.wizard.form</field>
+        <field name="model">pnd.document.merge.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Merge Documents">
+                <p class="text-muted">
+                    The part numbers of all the selected documents are given to the one you keep. The others are then
+                    removed, and this cannot be undone.
+                </p>
+                <group>
+                    <field name="document_ids" widget="many2many_tags" readonly="1"/>
+                    <field name="keep_id" options="{'no_create': true, 'no_open': true}"/>
+                </group>
+                <footer>
+                    <button string="Merge" name="action_merge" type="object" class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancel" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

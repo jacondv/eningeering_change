@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="part_number_docs.SearchPage">
+        <div class="o_pnd_search h-100" t-ref="root"
+             t-att-class="{ 'o_pnd_expanded': state.expanded, 'o_pnd_dragging': state.dragging }">
+
+            <!-- The left side: find, choose, act. -->
+            <div class="o_pnd_left" t-att-style="state.expanded ? '' : 'flex: 0 0 calc(' + layout.state.splitPct + '% - 7px)'">
+                <div class="o_pnd_toolbar">
+                    <button t-if="state.options.can_edit" class="btn btn-primary o_pnd_new" t-on-click="() => this.openForm()">
+                        <i class="fa fa-plus me-1"/>New
+                    </button>
+                    <div class="o_pnd_searchbox form-control" t-att-class="{ 'o_pnd_focused': state.focused }"
+                         t-on-click="focusSearch">
+                        <i class="fa fa-search o_pnd_search_icon"/>
+                        <span t-foreach="state.facets" t-as="facet" t-key="facet_index" class="o_pnd_facet">
+                            <span class="o_pnd_facet_label" t-esc="scopeLabel(facet.scope)"/>
+                            <span class="o_pnd_facet_value" t-esc="facet.value"/>
+                            <i class="fa fa-times o_pnd_facet_remove" t-on-click.stop="() => this.removeFacet(facet_index)"/>
+                        </span>
+                        <input type="text" class="o_pnd_query" autocomplete="off"
+                               t-att-placeholder="state.facets.length ? '' : 'Search... (every word must match)'"
+                               t-att-value="state.query" t-on-input="onQueryInput" t-on-keydown="onQueryKeydown"
+                               t-on-focus="onQueryFocus" t-on-blur="onQueryBlur"/>
+                        <div t-if="state.focused and state.query.trim()" class="o_pnd_suggest dropdown-menu show">
+                            <a href="#" t-foreach="scopes" t-as="scope" t-key="scope.key" class="dropdown-item"
+                               t-att-class="{ 'active': scope_index === state.suggestIndex }"
+                               t-on-mousedown.prevent="() => this.addFacet(scope.key)">
+                                Search <b t-esc="scope.label"/> for: <i t-esc="state.query.trim()"/>
+                            </a>
+                        </div>
+                    </div>
+                    <Dropdown>
+                        <button type="button" class="btn btn-outline-secondary o_pnd_filter_btn" t-att-class="{ 'active': state.typeIds.length }">
+                            <t t-esc="typeLabel"/><i class="fa fa-caret-down ms-1"/>
+                        </button>
+                        <t t-set-slot="content">
+                            <DropdownItem t-foreach="state.options.types" t-as="type" t-key="type.id" closingMode="'none'"
+                                          onSelected="() => this.toggleIn(state.typeIds, type.id)">
+                                <input type="checkbox" class="form-check-input me-2" tabindex="-1" style="pointer-events: none;"
+                                       t-att-checked="state.typeIds.includes(type.id)"/><t t-esc="type.name"/>
+                            </DropdownItem>
+                            <DropdownItem t-if="state.typeIds.length" closingMode="'none'" class="text-muted"
+                                          onSelected="() => this.clearFilter(state.typeIds)">
+                                <i class="fa fa-times me-2"/>Clear
+                            </DropdownItem>
+                        </t>
+                    </Dropdown>
+                    <Dropdown>
+                        <button type="button" class="btn btn-outline-secondary o_pnd_filter_btn" t-att-class="{ 'active': state.kinds.length }">
+                            <t t-esc="sourceLabel"/><i class="fa fa-caret-down ms-1"/>
+                        </button>
+                        <t t-set-slot="content">
+                            <DropdownItem t-foreach="state.options.kinds" t-as="kind" t-key="kind.key" closingMode="'none'"
+                                          onSelected="() => this.toggleIn(state.kinds, kind.key)">
+                                <input type="checkbox" class="form-check-input me-2" tabindex="-1" style="pointer-events: none;"
+                                       t-att-checked="state.kinds.includes(kind.key)"/><t t-esc="kind.label"/>
+                            </DropdownItem>
+                            <DropdownItem t-if="state.kinds.length" closingMode="'none'" class="text-muted"
+                                          onSelected="() => this.clearFilter(state.kinds)">
+                                <i class="fa fa-times me-2"/>Clear
+                            </DropdownItem>
+                        </t>
+                    </Dropdown>
+                    <label t-if="state.options.can_edit" class="o_pnd_archived form-check mb-0">
+                        <input type="checkbox" class="form-check-input" t-model="state.archived" t-on-change="onFilterChange"/>
+                        <span class="form-check-label">Archived</span>
+                    </label>
+                </div>
+
+                <!-- What is found; or, once rows are ticked, what can be done with them. -->
+                <div class="o_pnd_listbar">
+                    <t t-if="!state.checked.length">
+                        <span class="text-muted small o_pnd_count">
+                            <t t-if="state.loading">Searching...</t>
+                            <t t-else=""><t t-esc="state.total"/> document<t t-if="state.total !== 1">s</t> found</t>
+                        </span>
+                    </t>
+                    <t t-else="">
+                        <span class="o_pnd_selected"><t t-esc="state.checked.length"/> selected</span>
+                        <button t-if="state.checked.length > 1" class="btn btn-sm btn-secondary" t-on-click="mergeChecked">
+                            <i class="fa fa-compress me-1"/>Merge
+                        </button>
+                        <button t-if="canArchive" class="btn btn-sm btn-outline-secondary" t-on-click="archiveChecked">
+                            <i class="fa fa-archive me-1"/>Archive
+                        </button>
+                        <button t-if="canRestore" class="btn btn-sm btn-outline-secondary" t-on-click="restoreChecked">
+                            <i class="fa fa-undo me-1"/>Restore
+                        </button>
+                        <button t-if="state.options.can_manage" class="btn btn-sm btn-outline-danger" t-on-click="deleteChecked">
+                            <i class="fa fa-trash me-1"/>Delete
+                        </button>
+                        <button class="btn btn-sm btn-link" t-on-click="() => this.state.checked = []">Clear</button>
+                    </t>
+                    <Dropdown class="ms-auto">
+                        <button type="button" class="btn btn-sm btn-link text-muted" title="Columns">
+                            <i class="fa fa-sliders me-1"/>Columns
+                        </button>
+                        <t t-set-slot="content">
+                            <t t-foreach="columns" t-as="column" t-key="column.key">
+                                <DropdownItem t-if="!column.required" closingMode="'none'" onSelected="() => this.toggleColumn(column)">
+                                    <input type="checkbox" class="form-check-input me-2" tabindex="-1" style="pointer-events: none;"
+                                           t-att-checked="!layout.state.hidden.includes(column.key)"/><t t-esc="column.label"/>
+                                </DropdownItem>
+                            </t>
+                            <DropdownItem closingMode="'none'" class="text-muted" onSelected="() => this.resetLayout()">
+                                <i class="fa fa-undo me-2"/>Reset layout
+                            </DropdownItem>
+                        </t>
+                    </Dropdown>
+                </div>
+
+                <div class="o_pnd_scroll">
+                    <t t-if="!state.loading and !state.rows.length">
+                        <div class="o_pnd_empty text-muted">
+                            <i class="fa fa-search fa-3x mb-2"/>
+                            <p>No document found. Try fewer words, or "Search all".</p>
+                        </div>
+                    </t>
+                    <table t-if="state.rows.length" class="table table-sm table-hover o_pnd_table" t-att-style="'width: ' + tableWidth + 'px'">
+                        <colgroup>
+                            <col t-if="state.options.can_edit" style="width: 28px"/>
+                            <col style="width: 32px"/>
+                            <col t-foreach="visibleColumns" t-as="column" t-key="column.key" t-att-style="'width: ' + columnWidth(column) + 'px'"/>
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th t-if="state.options.can_edit" class="o_pnd_check">
+                                    <input type="checkbox" t-ref="selectAll" t-att-checked="allChecked" t-on-change="toggleAll"
+                                           title="Select all / none"/>
+                                </th>
+                                <th/>
+                                <th t-foreach="visibleColumns" t-as="column" t-key="column.key">
+                                    <span t-esc="column.label"/>
+                                    <span class="o_pnd_resizer" title="Drag to resize; double-click to reset"
+                                          t-on-pointerdown="(ev) => this.onColumnResize(ev, column)"
+                                          t-on-dblclick="() => this.resetColumnWidth(column)"/>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="state.rows" t-as="row" t-key="row.id"
+                                t-att-class="{ 'table-active': state.selectedId === row.id, 'o_pnd_archived_row': !row.active }"
+                                t-on-click="() => this.select(row)">
+                                <td t-if="state.options.can_edit" class="o_pnd_check">
+                                    <input type="checkbox" t-att-checked="state.checked.includes(row.id)"
+                                           t-on-click="(ev) => this.toggleChecked(row, ev)"/>
+                                </td>
+                                <td class="o_pnd_icon"><i t-attf-class="fa fa-lg {{ iconFor(row) }}"/></td>
+                                <t t-foreach="visibleColumns" t-as="column" t-key="column.key">
+                                    <td t-if="column.key === 'title'" class="o_pnd_title" t-att-title="row.name" t-esc="row.name"/>
+                                    <td t-elif="column.key === 'type'"><span class="badge text-bg-light border" t-esc="row.type"/></td>
+                                    <td t-elif="column.key === 'parts'">
+                                        <span t-foreach="row.parts" t-as="part" t-key="part" class="o_pnd_part" t-esc="part"/>
+                                        <span t-if="row.part_count > row.parts.length" class="text-muted">+<t t-esc="row.part_count - row.parts.length"/></span>
+                                    </td>
+                                    <td t-elif="column.key === 'vendor'" t-att-title="row.vendor" t-esc="row.vendor"/>
+                                    <td t-elif="column.key === 'source'">
+                                        <t t-esc="kindLabel(row)"/>
+                                        <span t-if="row.size" class="text-muted small"> · <t t-esc="row.size"/></span>
+                                    </td>
+                                    <td t-elif="column.key === 'updated'" class="text-muted small" t-esc="row.date"/>
+                                </t>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div t-if="hasMore" class="text-center my-2">
+                        <button class="btn btn-link" t-att-disabled="state.loading" t-on-click="() => this.search(true)">Show more</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drag to share the width between the list and the document; double-click to reset. -->
+            <div class="o_pnd_splitter" title="Drag to resize; double-click to reset"
+                 t-on-pointerdown="onSplitStart" t-on-dblclick="resetSplit"/>
+
+            <!-- The right side: the document. -->
+            <div class="o_pnd_preview">
+                <t t-if="!state.preview">
+                    <div class="o_pnd_empty text-muted">
+                        <i class="fa fa-hand-pointer-o fa-3x mb-2"/>
+                        <p>Click a document to see it here.</p>
+                    </div>
+                </t>
+                <t t-else="">
+                    <t t-set="p" t-value="state.preview"/>
+                    <div class="o_pnd_preview_head">
+                        <h4 class="mb-0" t-esc="p.name"/>
+                        <span t-if="!p.active" class="badge text-bg-danger ms-2">Archived</span>
+                    </div>
+                    <div class="o_pnd_meta text-muted small">
+                        <span class="badge text-bg-light border me-1" t-esc="p.type"/>
+                        <span t-if="p.vendor" class="me-2"><i class="fa fa-industry me-1"/><t t-esc="p.vendor"/></span>
+                        <span>Added by <t t-esc="p.author"/>, updated <t t-esc="p.date"/></span>
+                    </div>
+                    <p t-if="p.description" class="mt-2 mb-1" t-esc="p.description"/>
+                    <div class="o_pnd_parts" t-if="p.part_numbers.length">
+                        <span class="text-muted small me-1">Part numbers:</span>
+                        <a href="#" class="o_pnd_part_link" t-foreach="visibleParts" t-as="part" t-key="part.id"
+                           t-att-title="part.description" t-on-click.prevent="() => this.openPart(part)" t-esc="part.name"/>
+                        <a t-if="hiddenPartCount" href="#" class="o_pnd_more small" t-on-click.prevent="() => state.allParts = !state.allParts">
+                            <t t-if="state.allParts">Show less</t>
+                            <t t-else="">Show more (<t t-esc="hiddenPartCount"/>)</t>
+                        </a>
+                    </div>
+
+                    <div class="o_pnd_actions">
+                        <button class="btn btn-sm btn-outline-secondary" t-on-click="() => state.expanded = !state.expanded"
+                                t-att-title="state.expanded ? 'Back to the list' : 'Use the whole width'">
+                            <i t-attf-class="fa me-1 {{ state.expanded ? 'fa-compress' : 'fa-expand' }}"/><t t-esc="state.expanded ? 'Back to list' : 'Expand'"/>
+                        </button>
+                        <a t-if="p.kind === 'file'" class="btn btn-sm btn-primary" t-att-href="fileUrl(p)" target="_blank" rel="noopener">
+                            <i class="fa fa-external-link me-1"/>Open in new tab
+                        </a>
+                        <button t-if="p.kind === 'file'" class="btn btn-sm btn-outline-secondary" title="Download" t-on-click="() => this.download(p)">
+                            <i class="fa fa-download me-1"/>Download
+                        </button>
+                        <a t-if="p.kind === 'link'" class="btn btn-sm btn-primary" t-att-href="p.link_url" target="_blank" rel="noopener noreferrer">
+                            <i class="fa fa-external-link me-1"/>Open link
+                        </a>
+                        <a t-if="p.kind === 'path' and p.web_url" class="btn btn-sm btn-primary" t-att-href="p.web_url"
+                           target="_blank" rel="noopener noreferrer" title="Opens the file on SharePoint">
+                            <i class="fa fa-external-link me-1"/>Open
+                        </a>
+                        <button t-if="p.kind === 'path' and p.can_copy" class="btn btn-sm btn-outline-secondary"
+                                title="Copies the path of the file on your PC: paste it in a new tab" t-on-click="() => this.openPath(p)">
+                            <i class="fa fa-clipboard me-1"/>Copy local path
+                        </button>
+                        <button t-if="state.options.can_edit" class="btn btn-sm btn-outline-secondary" t-on-click="() => this.openForm(p.id)">
+                            <i class="fa fa-pencil me-1"/>Edit
+                        </button>
+                    </div>
+
+                    <div class="o_pnd_content">
+                        <iframe t-if="previewKind === 'pdf'" class="o_pnd_frame" t-att-src="fileUrl(p)"/>
+                        <img t-elif="previewKind === 'image'" class="o_pnd_image" t-att-src="fileUrl(p)" t-att-alt="p.name"/>
+                        <div t-elif="p.kind === 'note'" class="o_pnd_note" t-out="noteHtml"/>
+                        <div t-elif="p.kind === 'link'" class="o_pnd_link">
+                            <i class="fa fa-link me-1"/><span t-esc="p.link_url"/>
+                        </div>
+                        <div t-elif="p.kind === 'path'" class="o_pnd_path">
+                            <div><i class="fa fa-cloud me-1"/><span t-esc="p.rel_path"/></div>
+                            <div t-if="!p.can_open and !p.web_url" class="alert alert-info mt-3">
+                                <p class="mb-2">To open it, tell Odoo where OneDrive is on your PC (once):</p>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" placeholder="C:\Users\YourName"
+                                           t-model="state.folderDraft" t-on-keydown="onFolderKeydown"/>
+                                    <button class="btn btn-primary" t-on-click="saveFolder">Save</button>
+                                </div>
+                                <div class="small text-muted mt-1">Your Windows user folder. Then "Copy local path" copies the path of the file: paste it in a new browser tab.</div>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>

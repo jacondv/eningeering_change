@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <record id="module_category_part_number_docs" model="ir.module.category">
+            <field name="name">Part Documents</field>
+            <field name="sequence">32</field>
+        </record>
+
+        <!-- One dropdown on the user form: (nothing) / View / Edit / Manage. -->
+        <record id="privilege_pnd_access" model="res.groups.privilege">
+            <field name="name">Access</field>
+            <field name="category_id" ref="module_category_part_number_docs"/>
+        </record>
+
+        <record id="group_pnd_view" model="res.groups">
+            <field name="name">View</field>
+            <field name="privilege_id" ref="privilege_pnd_access"/>
+            <field name="comment">Can search and read the documents of part numbers. New users start here; choose the empty entry to take it away.</field>
+        </record>
+
+        <record id="group_pnd_edit" model="res.groups">
+            <field name="name">Edit</field>
+            <field name="privilege_id" ref="privilege_pnd_access"/>
+            <field name="implied_ids" eval="[(4, ref('group_pnd_view'))]"/>
+            <field name="comment">Can add and change documents, replace their file, link them to part numbers, archive them and merge duplicates.</field>
+        </record>
+
+        <record id="group_pnd_manage" model="res.groups">
+            <field name="name">Manage</field>
+            <field name="privilege_id" ref="privilege_pnd_access"/>
+            <field name="implied_ids" eval="[(4, ref('group_pnd_edit'))]"/>
+            <field name="comment">Can also delete documents for good and keep the document types and the settings.</field>
+        </record>
+
+        <!-- New users start with View (the default group of new employees implies it). -->
+        <record id="base.default_user_group" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('group_pnd_view'))]"/>
+        </record>
+
+    </data>
+</odoo>

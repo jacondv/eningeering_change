@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- The Documents tab of a part number: what is attached to it, and a way to attach (or create) more. -->
+    <record id="view_pnd_part_number_form" model="ir.ui.view">
+        <field name="name">part_number_docs.part_number.form</field>
+        <field name="model">part_number_manager.part_number</field>
+        <field name="inherit_id" ref="part_number_manager.view_pnm_part_number_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Documents" name="documents" groups="part_number_docs.group_pnd_view">
+                    <field name="pnd_can_edit" invisible="1"/>
+                    <field name="pnd_document_ids" readonly="not pnd_can_edit" context="{'default_part_number_ids': [(4, id)]}">
+                        <list>
+                            <button name="action_open" type="object" icon="fa-external-link" title="Open"/>
+                            <field name="name"/>
+                            <field name="type_id"/>
+                            <field name="kind" widget="badge"/>
+                            <field name="vendor_id" optional="show"/>
+                            <field name="file_size_text" optional="hide"/>
+                            <field name="write_date" optional="show"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
