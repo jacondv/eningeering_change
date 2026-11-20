@@ -3,11 +3,59 @@ import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { user } from "@web/core/user";
 import { useService } from "@web/core/utils/hooks";
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { DropdownItem } from "@web/core/dropdown/dropdown_item";
+import { useCellSelect } from "./em_cell_select";
 
 const JOB_LIMIT = 100;
 const MATCHING_JOBS_LIMIT = 2000;
 // Id 0 stands for "no Product Family" (see equipment.model.get_dashboard_data).
 const NO_FAMILY = 0;
+
+// The columns each table lets the user hide (the first column, the name, is always shown, and so is "Last No."
+// of the Groups). `when` is a condition that already decides if the column exists at all.
+const TABLE_COLUMNS = {
+    groups: [
+        { key: "families", label: _t("Families") },
+        { key: "models", label: _t("Models") },
+        { key: "jobs", label: _t("Jobs") },
+    ],
+    families: [
+        { key: "group", label: _t("Group"), when: (state) => state.groupId === null },
+        { key: "models", label: _t("Models") },
+        { key: "jobs", label: _t("Jobs") },
+    ],
+    models: [
+        { key: "family", label: _t("Product Family"), when: (state) => state.familyId === null },
+        { key: "parent", label: _t("Parent") },
+        { key: "jobs", label: _t("Jobs") },
+    ],
+    jobs: [
+        { key: "model", label: _t("Model") },
+        { key: "family", label: _t("Product Family") },
+        { key: "group", label: _t("Group") },
+        { key: "customer", label: _t("Customer") },
+        { key: "stage", label: _t("Stage") },
+    ],
+};
+// What the user chose to hide, per table, remembered in this browser.
+const HIDDEN_COLUMNS_KEY = "equipment_model.dashboard.hidden_columns";
+
+function loadHiddenColumns() {
+    const hidden = {};
+    try {
+        const saved = JSON.parse(localStorage.getItem(HIDDEN_COLUMNS_KEY)) || {};
+        for (const table of Object.keys(TABLE_COLUMNS)) {
+            if (Array.isArray(saved[table])) {
+                // only columns that exist: a removed column is not kept for ever
+                hidden[table] = saved[table].filter((key) => TABLE_COLUMNS[table].some((column) => column.key === key));
+            }
+        }
+    } catch {
+        // no storage, or a damaged value: every column is shown
+    }
+    return hidden;
+}
 
 const contains = (value, text) => (value || "").toLowerCase().includes(text.toLowerCase());
 
@@ -20,12 +68,23 @@ const contains = (value, text) => (value || "").toLowerCase().includes(text.toLo
 // is built from the facets by loadJobs.
 export class EquipmentModelDashboard extends Component {
     static template = "equipment_model.Dashboard";
+    static components = { Dropdown, DropdownItem };
     static props = ["*"];
 
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
         this.searchInput = useRef("searchInput");
+        // Drag over cells of the tables to select them like in Excel; Ctrl+C copies them. A selection is
+        // dropped when what the tables show changes.
+        this.cellSelection = useCellSelect(useRef("root"), () => [
+            this.state.data,
+            this.state.jobs,
+            this.state.groupId,
+            this.state.familyId,
+            this.state.modelId,
+            this.state.filters.map((filter) => filter.id).join(),
+        ]);
         this.state = useState({
             data: null,
             isManager: false,
@@ -41,6 +100,7 @@ export class EquipmentModelDashboard extends Component {
             jobs: [],
             jobCount: 0,
             loadingJobs: false,
+            hiddenColumns: loadHiddenColumns(),
         });
         this.jobsRequest = 0;
         this.nextFilterId = 1;
@@ -50,6 +110,55 @@ export class EquipmentModelDashboard extends Component {
                 user.hasGroup("equipment_model.group_equipment_model_manager"),
             ]);
         });
+    }
+
+    // Columns the user shows or hides
+
+    /** Whether a column is drawn: it exists right now (its `when`) and the user did not hide it. */
+    showColumn(table, key) {
+        const column = TABLE_COLUMNS[table].find((col) => col.key === key);
+        if (column?.when && !column.when(this.state)) {
+            return false;
+        }
+        return !this.state.hiddenColumns[table]?.includes(key);
+    }
+
+    /** The columns of a table the menu lists (those that exist right now). */
+    menuColumns(table) {
+        return TABLE_COLUMNS[table].filter((column) => !column.when || column.when(this.state));
+    }
+
+    /** How many columns a table draws (its name, the ones shown, and the Last No. of the Groups). */
+    columnSpan(table) {
+        const shown = TABLE_COLUMNS[table].filter((column) => this.showColumn(table, column.key)).length;
+        return 1 + shown + (table === "groups" ? 1 : 0);
+    }
+
+    hasHiddenColumns(table) {
+        return !!this.state.hiddenColumns[table]?.length;
+    }
+
+    toggleColumn(table, key) {
+        const hidden = this.state.hiddenColumns[table] || [];
+        this.state.hiddenColumns[table] = hidden.includes(key)
+            ? hidden.filter((name) => name !== key)
+            : [...hidden, key];
+        this.cellSelection.clear(); // the columns moved: a selected range means nothing now
+        this.saveHiddenColumns();
+    }
+
+    resetColumns(table) {
+        delete this.state.hiddenColumns[table];
+        this.cellSelection.clear();
+        this.saveHiddenColumns();
+    }
+
+    saveHiddenColumns() {
+        try {
+            localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify(this.state.hiddenColumns));
+        } catch {
+            // the choice is just not remembered
+        }
     }
 
     // Data
