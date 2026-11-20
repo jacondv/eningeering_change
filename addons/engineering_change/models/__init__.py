@@ -5,5 +5,6 @@ from . import engineering_change_reporting
 from . import engineering_change_image
 from . import engineering_change_document
 from . import engineering_change_checklist_line
+from . import engineering_change_action_check
 from . import engineering_change_action
 from . import project_project

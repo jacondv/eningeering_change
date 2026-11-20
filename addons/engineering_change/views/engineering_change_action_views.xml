@@ -26,6 +26,13 @@
                 <field name="can_edit_ec_task_description" invisible="1"/>
             </field>
 
+            <!-- Out of sight, outside the tabs: marks the Impact Checklist tab with its progress (see EcCheckTabField). -->
+            <xpath expr="//sheet" position="inside">
+                <div class="d-none">
+                    <field name="ec_check_progress" widget="ec_check_tab"/>
+                </div>
+            </xpath>
+
             <field name="task_properties" position="before">
                 <group string="Engineering Change" invisible="not change_id">
                     <field name="change_id" readonly="1"/>
@@ -58,6 +65,25 @@
                 <attribute name="readonly">change_id and not can_edit_ec_task_description</attribute>
                 <attribute name="class">o_ec_action_description</attribute>
             </xpath>
+
+            <!-- One line per Impacted Model / Job Number, answered one by one; the action can be Done
+                 only when none is left to do (see ProjectTask._check_ec_checks_resolved). -->
+            <xpath expr="//page[@name='description_page']" position="after">
+                <page string="Impact Checklist" name="ec_checks" invisible="not change_id or not ec_check_ids">
+                    <field name="ec_check_ids" nolabel="1" widget="ec_check_list">
+                        <list editable="bottom" create="0" delete="0" default_order="sequence, id"
+                              decoration-success="status == 'done'" decoration-muted="status == 'no_change'">
+                            <field name="can_edit" column_invisible="1"/>
+                            <field name="kind"/>
+                            <field name="item_name"/>
+                            <field name="status" readonly="not can_edit"/>
+                            <field name="done_by_id"/>
+                            <field name="done_date"/>
+                            <field name="note" readonly="not can_edit"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
         </field>
     </record>
 
@@ -77,6 +103,7 @@
                 <field name="date_deadline" optional="show"/>
                 <field name="allocated_hours" optional="show"/>
                 <field name="evidence_count" optional="hide"/>
+                <field name="ec_check_progress" optional="show"/>
                 <field name="state" widget="badge"
                        decoration-success="state == '1_done'"
                        decoration-info="state == '01_in_progress'"
