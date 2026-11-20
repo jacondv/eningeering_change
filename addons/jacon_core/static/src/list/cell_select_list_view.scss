@@ -1,0 +1,30 @@
+// Excel-like cell selection of lists that carry the class "o_jacon_cell_select" (see cell_select_list_view.js).
+
+// While a range is being dragged: no text is highlighted across the rows.
+.o_list_table.o_jacon_cell_selecting {
+    user-select: none;
+    cursor: cell;
+}
+
+.o_list_table td.o_data_cell.o_jacon_cell_selected {
+    background-color: rgba(78, 121, 167, 0.18) !important;
+
+    // The frame of the whole range, drawn on its outer cells only.
+    &.o_jacon_cs_top { box-shadow: inset 0 2px 0 #4e79a7; }
+    &.o_jacon_cs_bottom { box-shadow: inset 0 -2px 0 #4e79a7; }
+    &.o_jacon_cs_left { box-shadow: inset 2px 0 0 #4e79a7; }
+    &.o_jacon_cs_right { box-shadow: inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_bottom { box-shadow: inset 0 2px 0 #4e79a7, inset 0 -2px 0 #4e79a7; }
+    &.o_jacon_cs_left.o_jacon_cs_right { box-shadow: inset 2px 0 0 #4e79a7, inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_left { box-shadow: inset 0 2px 0 #4e79a7, inset 2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_right { box-shadow: inset 0 2px 0 #4e79a7, inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_bottom.o_jacon_cs_left { box-shadow: inset 0 -2px 0 #4e79a7, inset 2px 0 0 #4e79a7; }
+    &.o_jacon_cs_bottom.o_jacon_cs_right { box-shadow: inset 0 -2px 0 #4e79a7, inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_bottom.o_jacon_cs_left { box-shadow: inset 0 2px 0 #4e79a7, inset 0 -2px 0 #4e79a7, inset 2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_bottom.o_jacon_cs_right { box-shadow: inset 0 2px 0 #4e79a7, inset 0 -2px 0 #4e79a7, inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_left.o_jacon_cs_right { box-shadow: inset 0 2px 0 #4e79a7, inset 2px 0 0 #4e79a7, inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_bottom.o_jacon_cs_left.o_jacon_cs_right { box-shadow: inset 0 -2px 0 #4e79a7, inset 2px 0 0 #4e79a7, inset -2px 0 0 #4e79a7; }
+    &.o_jacon_cs_top.o_jacon_cs_bottom.o_jacon_cs_left.o_jacon_cs_right {
+        box-shadow: inset 0 2px 0 #4e79a7, inset 0 -2px 0 #4e79a7, inset 2px 0 0 #4e79a7, inset -2px 0 0 #4e79a7;
+    }
+}

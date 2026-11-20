@@ -170,6 +170,7 @@
                  static/src/list/left_align_number_list_view.js) -->
             <xpath expr="//list" position="attributes">
                 <attribute name="js_class">jacon_core_task_list</attribute>
+                <attribute name="class" add="o_jacon_cell_select o_jacon_column_order" separator=" "/>
             </xpath>
         </field>
     </record>

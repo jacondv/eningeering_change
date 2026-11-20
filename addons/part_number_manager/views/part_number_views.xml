@@ -5,7 +5,7 @@
         <field name="name">part_number_manager.part_number.list</field>
         <field name="model">part_number_manager.part_number</field>
         <field name="arch" type="xml">
-            <list js_class="pnm_part_number_list" decoration-muted="state == 'obsolete' or not active">
+            <list js_class="pnm_part_number_list" class="o_jacon_cell_select o_jacon_column_order" decoration-muted="state == 'obsolete' or not active">
                 <field name="part_number"/>
                 <field name="short_description" optional="show"/>
                 <field name="long_description" optional="show" class="o_pnm_long_description_cell"/>

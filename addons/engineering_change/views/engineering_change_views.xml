@@ -376,7 +376,7 @@
         <field name="name">engineering.change.list</field>
         <field name="model">engineering.change</field>
         <field name="arch" type="xml">
-            <list string="Engineering Changes" js_class="jacon_core_list" decoration-danger="has_overdue_action">
+            <list string="Engineering Changes" js_class="jacon_core_list" class="o_jacon_cell_select o_jacon_column_order" decoration-danger="has_overdue_action">
                 <field name="name"/>
                 <field name="title"/>
                 <field name="request_type" widget="badge"/>
