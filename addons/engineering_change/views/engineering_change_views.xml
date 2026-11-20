@@ -350,7 +350,6 @@
                                     <field name="is_overdue" column_invisible="1"/>
                                     <field name="hierarchy_sort_key" column_invisible="1"/>
                                     <field name="evidence_count" optional="show"/>
-                                    <field name="ec_check_progress" optional="show"/>
                                 </list>
                             </field>
                         </page>
