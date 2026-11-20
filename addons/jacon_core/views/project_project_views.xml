@@ -167,6 +167,7 @@
                  static/src/list/left_align_number_list_view.js) -->
             <xpath expr="//list" position="attributes">
                 <attribute name="js_class">jacon_core_project_list</attribute>
+                <attribute name="class" add="o_jacon_cell_select o_jacon_column_order" separator=" "/>
             </xpath>
             <!-- "Tasks" button: drop it from its original spot (after Stage)
                  and re-add it before Name, renamed from "View Tasks". -->

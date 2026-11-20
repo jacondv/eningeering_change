@@ -1,7 +1,10 @@
 import { patch } from "@web/core/utils/patch";
 import { browser } from "@web/core/browser/browser";
-import { onMounted, useEffect } from "@odoo/owl";
+import { onMounted, onWillUnmount, useEffect } from "@odoo/owl";
 import { ListRenderer } from "@web/views/list/list_renderer";
+
+// The narrowest a column can be dragged (px), header cell padding included.
+const MIN_COLUMN_WIDTH = 60;
 
 // Patches the core ListRenderer directly (rather than registering opt-in
 // per-model view variants) so every list view, in every module, remembers
@@ -26,9 +29,46 @@ patch(ListRenderer.prototype, {
             this.jaconEnableMissingColumnResize();
             this.jaconRestoreColumnWidths();
         });
-        onMounted(() => {
-            this.tableRef.el?.addEventListener("pointerup", () => this.jaconSaveColumnWidths());
-        });
+        const save = () => this.jaconSaveColumnWidths();
+        onMounted(() => this.tableRef.el?.addEventListener("pointerup", save));
+        onWillUnmount(() => this.tableRef.el?.removeEventListener("pointerup", save));
+        // Odoo lets a column be dragged down to 10px, which hides it completely: nobody can tell it is
+        // there. Right after Odoo starts a resize, keep an eye on it and hold the column at a minimum.
+        const startResize = this.columnWidths?.onStartResize;
+        if (startResize) {
+            this.columnWidths.onStartResize = (ev) => {
+                startResize(ev);
+                this.jaconGuardMinimumWidth(ev);
+            };
+        }
+    },
+
+    jaconGuardMinimumWidth(ev) {
+        const th = ev.target.closest("th");
+        const table = this.tableRef.el;
+        if (!th || !table) {
+            return;
+        }
+        // Registered after Odoo's own pointermove listener, so it runs after it on every move.
+        const guard = () => {
+            const width = th.getBoundingClientRect().width;
+            if (width < MIN_COLUMN_WIDTH) {
+                const missing = MIN_COLUMN_WIDTH - width;
+                th.style.width = `${MIN_COLUMN_WIDTH}px`;
+                table.style.width = `${Math.floor(table.getBoundingClientRect().width + missing)}px`;
+            }
+        };
+        const stop = () => {
+            window.removeEventListener("pointermove", guard);
+            window.removeEventListener("pointerup", stop);
+            window.removeEventListener("pointercancel", stop);
+            guard();
+            // The table's own pointerup listener has already saved by now, before the clamp: save again.
+            this.jaconSaveColumnWidths();
+        };
+        window.addEventListener("pointermove", guard);
+        window.addEventListener("pointerup", stop);
+        window.addEventListener("pointercancel", stop);
     },
 
     // Odoo's list header template only draws a drag handle when
@@ -118,7 +158,9 @@ patch(ListRenderer.prototype, {
         for (const th of table.querySelectorAll("thead th[data-name]")) {
             const width = widths[th.dataset.name];
             if (width) {
-                th.style.width = width;
+                // A width saved before the minimum existed may be tiny: lift it.
+                const pixels = parseFloat(width);
+                th.style.width = pixels < MIN_COLUMN_WIDTH ? `${MIN_COLUMN_WIDTH}px` : width;
             }
         }
     },

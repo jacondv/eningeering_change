@@ -140,7 +140,7 @@
         <field name="name">product.support.request.list</field>
         <field name="model">product.support.request</field>
         <field name="arch" type="xml">
-            <list js_class="jacon_core_list" delete="0" decoration-muted="state in ('closed', 'canceled')">
+            <list js_class="jacon_core_list" class="o_jacon_cell_select o_jacon_column_order" delete="0" decoration-muted="state in ('closed', 'canceled')">
                 <field name="name" optional="show"/>
                 <field name="title" optional="show"/>
                 <field name="job_id" optional="show"/>
