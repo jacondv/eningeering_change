@@ -1,0 +1,18 @@
+// The tab of the Impact Checklist on an action: its title, then (3/8) - done or no change, out of all the lines -
+// and in red while a line is still to do. The numbers are set by EcCheckTabField as data attributes of the tab.
+.o_form_view a.nav-link[name="ec_checks"] {
+    &[data-ec-progress]::after {
+        content: " (" attr(data-ec-progress) ")";
+    }
+
+    &[data-ec-todo="1"] {
+        color: #dc3545 !important;
+        font-weight: 600;
+    }
+}
+
+// The row above the lines: the progress, and the buttons that set the status of the picked lines. Its height
+// is the same with or without the buttons, so that the page does not jump when lines are picked.
+.o_ec_check_head {
+    min-height: 34px;
+}

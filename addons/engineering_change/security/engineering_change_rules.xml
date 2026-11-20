@@ -366,5 +366,42 @@
             <field name="perm_unlink">1</field>
         </record>
 
+        <!-- Impact Checklist of an action (engineering.change.action.check): everyone who can see the
+             action reads its lines; whoever may carry the action out - its assignees and the request's
+             Implement Owner, and Manager Approve below - sets their status. Lines are made and removed by
+             the action itself (no create / delete access). -->
+        <record id="ec_check_rule_view_all" model="ir.rule">
+            <field name="name">EC Action Check: everyone sees every line</field>
+            <field name="model_id" ref="model_engineering_change_action_check"/>
+            <field name="domain_force">[('task_id.change_id','!=',False)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">1</field>
+            <field name="perm_write">0</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
+        <record id="ec_check_rule_assignee_write" model="ir.rule">
+            <field name="name">EC Action Check: the action's assignees and Implement Owner set the status</field>
+            <field name="model_id" ref="model_engineering_change_action_check"/>
+            <field name="domain_force">['|',('task_id.user_ids','in',[user.id]),('task_id.change_id.implement_owner_id','=',user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_user'))]"/>
+            <field name="perm_read">0</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
+        <record id="ec_check_rule_manager_write" model="ir.rule">
+            <field name="name">EC Action Check: Manager Approve sets any status</field>
+            <field name="model_id" ref="model_engineering_change_action_check"/>
+            <field name="domain_force">[(1,'=',1)]</field>
+            <field name="groups" eval="[(4, ref('group_ec_manager'))]"/>
+            <field name="perm_read">1</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+
     </data>
 </odoo>

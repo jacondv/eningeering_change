@@ -1,3 +1,5 @@
+import contextlib
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
@@ -35,6 +37,13 @@ class ProjectTask(models.Model):
     can_edit_ec_task_details = fields.Boolean(compute='_compute_can_edit_ec_task_details')
     can_assign_ec_task = fields.Boolean(compute='_compute_can_edit_ec_task_details')
     can_edit_ec_task_description = fields.Boolean(compute='_compute_can_edit_ec_task_details')
+    ec_check_ids = fields.One2many(
+        'engineering.change.action.check', 'task_id', string='Impact Checklist',
+        help="One line per Impacted Model and Impacted Job Number: each is done on its own, and the action "
+             "can only be marked Done when none is left to do.")
+    ec_check_progress = fields.Char(
+        string='Checklist', compute='_compute_ec_check_progress',
+        help="Lines done or found to need no change, out of all the lines of the Impact Checklist.")
 
     # Fields an EC task's own assignee may touch without being Manager Approve
     # or Implement Owner. Kept as a class constant (same style as ENGINEER_FIELDS
@@ -44,6 +53,7 @@ class ProjectTask(models.Model):
         'state',
         'description',
         'evidence_ids',
+        'ec_check_ids',  # the Impact Checklist: their own lines' status (see its record rules)
         'affected_model_ids',
         'affected_project_ids',
         'task_type',
@@ -102,6 +112,19 @@ class ProjectTask(models.Model):
             rec.can_edit_ec_task_details = not rec.change_id or rec._is_ec_owner_or_manager(is_manager)
             rec.can_assign_ec_task = rec.can_edit_ec_task_details or is_engineer
             rec.can_edit_ec_task_description = rec.can_edit_ec_task_details or uid in rec.user_ids.ids
+
+    @api.depends('ec_check_ids.status')
+    def _compute_ec_check_progress(self):
+        # One grouped query for all the actions (the lines themselves are not loaded), as the system: the user may
+        # see the action through rights that do not reach the lines.
+        counts = {}
+        for task, status, count in self.env['engineering.change.action.check'].sudo()._read_group(
+                [('task_id', 'in', self.ids)], ['task_id', 'status'], ['__count']):
+            total, resolved = counts.get(task.id, (0, 0))
+            counts[task.id] = (total + count, resolved + (count if status != 'todo' else 0))
+        for rec in self:
+            total, resolved = counts.get(rec.id, (0, 0))
+            rec.ec_check_progress = '%s/%s' % (resolved, total) if total else ''
 
     @api.depends('date_deadline', 'state')
     def _compute_is_overdue(self):
@@ -199,6 +222,50 @@ class ProjectTask(models.Model):
             "assigning the task) an Engineer can edit task details."))
 
     # ------------------------------------------------------------
+    # Impact Checklist
+    # ------------------------------------------------------------
+    def _sync_ec_checks(self):
+        """Make the Impact Checklist of each action list its Impacted Models and Job Numbers: a line is added
+        (To do) for each one that has none, and the line of one that is no longer impacted is removed. The
+        other lines, with their answers, stay as they are.
+
+        (A caller leaves out the actions that were finished before the checklist existed and have no line.)
+
+        sudo(): the lines are not edited by users (they only answer them), and whoever may tag the models
+        of an action need not be allowed to create lines."""
+        Check = self.env['engineering.change.action.check'].sudo()
+        for task in self.filtered('change_id'):
+            checks = task.ec_check_ids.sudo()
+            models_wanted = task.affected_model_ids
+            projects_wanted = task.affected_project_ids
+            stale = checks.filtered(
+                lambda check: (check.model_id and check.model_id not in models_wanted)
+                or (check.project_id and check.project_id not in projects_wanted)
+            )
+            kept = checks - stale
+            stale._post_dropped_message()
+            stale.unlink()
+            Check.create(
+                [{'task_id': task.id, 'model_id': model.id} for model in models_wanted - kept.model_id]
+                + [{'task_id': task.id, 'project_id': project.id} for project in projects_wanted - kept.project_id]
+            )
+
+    def _check_ec_checks_resolved(self):
+        """An action is Done once every line of its Impact Checklist is Done or No change."""
+        self.ensure_one()
+        checks = self.ec_check_ids.sudo()
+        pending = checks.filtered(lambda check: check.status == 'todo')
+        if pending:
+            shown = pending[:10]
+            items = ', '.join(shown.mapped('item_name'))
+            if len(pending) > len(shown):
+                items += _(" and %s more", len(pending) - len(shown))
+            raise UserError(_(
+                "Action '%(task)s' cannot be marked Done: its Impact Checklist is not complete "
+                "(%(left)s of %(total)s items not done yet). Set each of these to Done or No change first: %(items)s.",
+                task=self.name, left=len(pending), total=len(checks), items=items))
+
+    # ------------------------------------------------------------
     # CRUD
     # ------------------------------------------------------------
     @api.model_create_multi
@@ -224,6 +291,9 @@ class ProjectTask(models.Model):
                     vals['project_id'] = change.project_id.id
         tasks = super().create(vals_list)
         ec_tasks = tasks.filtered('change_id')
+        ec_tasks._sync_ec_checks()
+        for task in ec_tasks.filtered(lambda t: t.state == '1_done'):
+            task._check_ec_checks_resolved()
         ec_tasks._post_creation_message()
         for task in ec_tasks.filtered('user_ids'):
             task._post_assignment_message(task.user_ids)
@@ -245,9 +315,22 @@ class ProjectTask(models.Model):
         if vals.get('state') == '1_done':
             tasks_being_completed = ec_tasks.filtered(lambda task: task.state != '1_done')
         old_user_ids = {task.id: task.user_ids for task in ec_tasks} if 'user_ids' in vals else {}
+        # An action finished before the checklist existed (no line) is left alone when its models change -
+        # unless the same write reopens it.
+        finished_without_lines = self.browse()
+        if vals.get('state', '1_done') in DONE_STATES:
+            finished_without_lines = ec_tasks.filtered(
+                lambda task: task.state in DONE_STATES and not task.ec_check_ids)
 
-        result = super().write(vals)
-
+        # A write that sets Done and adds models in one go is judged on the lines it ends with: the write, the
+        # sync and the check are one unit, undone together if the action cannot be Done yet.
+        with self.env.cr.savepoint() if tasks_being_completed else contextlib.nullcontext():
+            result = super().write(vals)
+            # Also when the write puts a task into a request: its models then need their lines.
+            if {'affected_model_ids', 'affected_project_ids', 'change_id'} & set(vals):
+                (self.filtered('change_id') - finished_without_lines)._sync_ec_checks()
+            for task in tasks_being_completed:
+                task._check_ec_checks_resolved()
         tasks_being_completed._post_completion_message()
         if 'user_ids' in vals:
             for task in ec_tasks:
