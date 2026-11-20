@@ -163,6 +163,16 @@ html .o_web_client > .o_action_manager > .o_action.o_em_dashboard {
             font-weight: 600;
             margin-bottom: 10px;
         }
+
+        // The title of a table, and its "Columns" menu at the far end.
+        .o_em_panel_head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+
+            .o_em_columns_menu { flex: 0 0 auto; }
+        }
     }
 
     .o_em_scroll {
@@ -203,6 +213,28 @@ html .o_web_client > .o_action_manager > .o_action.o_em_dashboard {
         tr.o_em_unassigned td {
             color: #8a4b00;
         }
+
+        // Cells selected by dragging (see em_cell_select.js): a tint, and a frame around the whole range
+        // drawn on its outer cells only (each edge sets its own part of the shadow).
+        tbody tr td.o_em_cell_selected {
+            --o-em-cs-top: 0 0 #0000;
+            --o-em-cs-bottom: 0 0 #0000;
+            --o-em-cs-left: 0 0 #0000;
+            --o-em-cs-right: 0 0 #0000;
+            background: rgba(78, 121, 167, 0.2);
+            box-shadow: var(--o-em-cs-top), var(--o-em-cs-bottom), var(--o-em-cs-left), var(--o-em-cs-right);
+
+            &.o_em_cs_top { --o-em-cs-top: inset 0 2px 0 #4e79a7; }
+            &.o_em_cs_bottom { --o-em-cs-bottom: inset 0 -2px 0 #4e79a7; }
+            &.o_em_cs_left { --o-em-cs-left: inset 2px 0 0 #4e79a7; }
+            &.o_em_cs_right { --o-em-cs-right: inset -2px 0 0 #4e79a7; }
+        }
+    }
+
+    // While a range is dragged: no text is highlighted across the rows.
+    &.o_em_selecting {
+        user-select: none;
+        cursor: cell;
     }
 
     .o_em_jobs_col {

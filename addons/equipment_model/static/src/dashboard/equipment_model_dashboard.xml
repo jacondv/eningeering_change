@@ -2,7 +2,7 @@
 <templates xml:space="preserve">
 
     <t t-name="equipment_model.Dashboard">
-        <div class="o_action o_em_dashboard">
+        <div class="o_action o_em_dashboard" t-ref="root">
             <div class="o_em_header">
                 <div>
                     <h2>Equipment Models</h2>
@@ -62,15 +62,15 @@
 
                 <div class="o_em_columns">
                     <div class="o_em_panel">
-                        <h4>By Group</h4>
+                        <div class="o_em_panel_head"><h4>By Group</h4><t t-call="equipment_model.ColumnsMenu"><t t-set="table" t-value="'groups'"/></t></div>
                         <div class="o_em_scroll">
                             <table class="table table-hover o_em_table">
                                 <thead>
                                     <tr>
                                         <th>Group</th>
-                                        <th class="text-end">Families</th>
-                                        <th class="text-end">Models</th>
-                                        <th class="text-end">Jobs</th>
+                                        <th t-if="showColumn('groups', 'families')" class="text-end">Families</th>
+                                        <th t-if="showColumn('groups', 'models')" class="text-end">Models</th>
+                                        <th t-if="showColumn('groups', 'jobs')" class="text-end">Jobs</th>
                                         <th class="text-end" title="The next suggested Job name gets the number after this one">Last No.</th>
                                     </tr>
                                 </thead>
@@ -79,9 +79,9 @@
                                         t-att-class="{ o_em_selected: group.id === state.groupId }"
                                         t-on-click="() => this.selectGroup(group.id)">
                                         <td class="fw-bold" t-esc="group.name"/>
-                                        <td class="text-end" t-esc="group.families"/>
-                                        <td class="text-end" t-esc="group.models"/>
-                                        <td class="o_em_jobs_col">
+                                        <td t-if="showColumn('groups', 'families')" class="text-end" t-esc="group.families"/>
+                                        <td t-if="showColumn('groups', 'models')" class="text-end" t-esc="group.models"/>
+                                        <td t-if="showColumn('groups', 'jobs')" class="o_em_jobs_col">
                                             <div class="o_em_bar"><div class="o_em_bar_fill" t-att-style="'width: ' + barWidth(group.jobs, data.groups)"/></div>
                                             <t t-esc="group.jobs"/>
                                         </td>
@@ -89,8 +89,8 @@
                                             <a href="#" title="Edit this Group" t-on-click.prevent.stop="() => this.openGroup(group)" t-esc="group.last_job_number"/>
                                         </td>
                                     </tr>
-                                    <tr t-if="!groups.length">
-                                        <td colspan="5" class="text-muted">No Group matches.</td>
+                                    <tr t-if="!groups.length" class="o_em_empty">
+                                        <td t-att-colspan="columnSpan('groups')" class="text-muted">No Group matches.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -98,15 +98,15 @@
                     </div>
 
                     <div class="o_em_panel">
-                        <h4>By Product Family</h4>
+                        <div class="o_em_panel_head"><h4>By Product Family</h4><t t-call="equipment_model.ColumnsMenu"><t t-set="table" t-value="'families'"/></t></div>
                         <div class="o_em_scroll">
                             <table class="table table-hover o_em_table">
                                 <thead>
                                     <tr>
                                         <th>Product Family</th>
-                                        <th t-if="state.groupId === null">Group</th>
-                                        <th class="text-end">Models</th>
-                                        <th class="text-end">Jobs</th>
+                                        <th t-if="showColumn('families', 'group')">Group</th>
+                                        <th t-if="showColumn('families', 'models')" class="text-end">Models</th>
+                                        <th t-if="showColumn('families', 'jobs')" class="text-end">Jobs</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -114,15 +114,15 @@
                                         t-att-class="{ o_em_selected: family.id === state.familyId, o_em_unassigned: !family.id }"
                                         t-on-click="() => this.selectFamily(family.id)">
                                         <td class="fw-bold" t-esc="family.name"/>
-                                        <td t-if="state.groupId === null" class="text-muted" t-esc="groupById[family.group_id]?.name || ''"/>
-                                        <td class="text-end" t-esc="family.models"/>
-                                        <td class="o_em_jobs_col">
+                                        <td t-if="showColumn('families', 'group')" class="text-muted" t-esc="groupById[family.group_id]?.name || ''"/>
+                                        <td t-if="showColumn('families', 'models')" class="text-end" t-esc="family.models"/>
+                                        <td t-if="showColumn('families', 'jobs')" class="o_em_jobs_col">
                                             <div class="o_em_bar"><div class="o_em_bar_fill" t-att-style="'width: ' + barWidth(family.jobs, data.families)"/></div>
                                             <t t-esc="family.jobs"/>
                                         </td>
                                     </tr>
-                                    <tr t-if="!families.length">
-                                        <td colspan="4" class="text-muted">No Product Family matches.</td>
+                                    <tr t-if="!families.length" class="o_em_empty">
+                                        <td t-att-colspan="columnSpan('families')" class="text-muted">No Product Family matches.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -130,15 +130,15 @@
                     </div>
 
                     <div class="o_em_panel">
-                        <h4>By Model</h4>
+                        <div class="o_em_panel_head"><h4>By Model</h4><t t-call="equipment_model.ColumnsMenu"><t t-set="table" t-value="'models'"/></t></div>
                         <div class="o_em_scroll">
                             <table class="table table-hover o_em_table">
                                 <thead>
                                     <tr>
                                         <th>Model</th>
-                                        <th t-if="state.familyId === null">Product Family</th>
-                                        <th>Parent</th>
-                                        <th class="text-end">Jobs</th>
+                                        <th t-if="showColumn('models', 'family')">Product Family</th>
+                                        <th t-if="showColumn('models', 'parent')">Parent</th>
+                                        <th t-if="showColumn('models', 'jobs')" class="text-end">Jobs</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -146,12 +146,12 @@
                                         t-att-class="{ o_em_selected: model.id === state.modelId }"
                                         t-on-click="() => this.selectModel(model.id)">
                                         <td class="fw-bold" t-esc="model.name"/>
-                                        <td t-if="state.familyId === null" class="text-muted" t-esc="modelContext(model).family"/>
-                                        <td class="text-muted" t-esc="model.parent"/>
-                                        <td class="text-end" t-esc="model.jobs"/>
+                                        <td t-if="showColumn('models', 'family')" class="text-muted" t-esc="modelContext(model).family"/>
+                                        <td t-if="showColumn('models', 'parent')" class="text-muted" t-esc="model.parent"/>
+                                        <td t-if="showColumn('models', 'jobs')" class="text-end" t-esc="model.jobs"/>
                                     </tr>
-                                    <tr t-if="!models.length">
-                                        <td colspan="4" class="text-muted">No Model matches.</td>
+                                    <tr t-if="!models.length" class="o_em_empty">
+                                        <td t-att-colspan="columnSpan('models')" class="text-muted">No Model matches.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -160,10 +160,13 @@
                 </div>
 
                 <div class="o_em_panel o_em_jobs_panel">
-                    <h4 class="d-flex align-items-center">
-                        Jobs
-                        <span t-if="hasCriteria" class="text-muted fw-normal ms-2">(<t t-esc="state.jobCount"/>)</span>
-                    </h4>
+                    <div class="o_em_panel_head">
+                        <h4 class="d-flex align-items-center">
+                            Jobs
+                            <span t-if="hasCriteria" class="text-muted fw-normal ms-2">(<t t-esc="state.jobCount"/>)</span>
+                        </h4>
+                        <t t-if="hasCriteria"><t t-call="equipment_model.ColumnsMenu"><t t-set="table" t-value="'jobs'"/></t></t>
+                    </div>
                     <p t-if="!hasCriteria" class="text-muted mb-0">Pick a Group, a Product Family or a Model, or search, to list Jobs.</p>
                     <p t-elif="!state.jobs.length and !state.loadingJobs" class="text-muted mb-0">No Job matches.</p>
                     <div t-else="" class="o_em_scroll o_em_jobs_scroll">
@@ -171,21 +174,21 @@
                             <thead>
                                 <tr>
                                     <th>Job</th>
-                                    <th>Model</th>
-                                    <th>Product Family</th>
-                                    <th>Group</th>
-                                    <th>Customer</th>
-                                    <th>Stage</th>
+                                    <th t-if="showColumn('jobs', 'model')">Model</th>
+                                    <th t-if="showColumn('jobs', 'family')">Product Family</th>
+                                    <th t-if="showColumn('jobs', 'group')">Group</th>
+                                    <th t-if="showColumn('jobs', 'customer')">Customer</th>
+                                    <th t-if="showColumn('jobs', 'stage')">Stage</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr t-foreach="state.jobs" t-as="job" t-key="job.id" t-on-click="() => this.openJob(job)">
                                     <td class="fw-bold" t-esc="job.name"/>
-                                    <td t-esc="job.model_id ? job.model_id[1] : ''"/>
-                                    <td t-esc="jobContext(job).family"/>
-                                    <td t-esc="jobContext(job).group"/>
-                                    <td class="text-muted" t-esc="job.partner_id ? job.partner_id[1] : ''"/>
-                                    <td t-esc="job.stage_id ? job.stage_id[1] : ''"/>
+                                    <td t-if="showColumn('jobs', 'model')" t-esc="job.model_id ? job.model_id[1] : ''"/>
+                                    <td t-if="showColumn('jobs', 'family')" t-esc="jobContext(job).family"/>
+                                    <td t-if="showColumn('jobs', 'group')" t-esc="jobContext(job).group"/>
+                                    <td t-if="showColumn('jobs', 'customer')" class="text-muted" t-esc="job.partner_id ? job.partner_id[1] : ''"/>
+                                    <td t-if="showColumn('jobs', 'stage')" t-esc="job.stage_id ? job.stage_id[1] : ''"/>
                                 </tr>
                             </tbody>
                         </table>
@@ -197,6 +200,26 @@
                 </div>
             </t>
         </div>
+    </t>
+
+    <!-- The "Columns" menu of a table: a check box per column that can be hidden (the choice is remembered). -->
+    <t t-name="equipment_model.ColumnsMenu">
+        <Dropdown class="o_em_columns_menu">
+            <button type="button" class="btn btn-sm btn-link text-muted p-0" title="Choose the columns shown">
+                <i class="fa fa-sliders me-1"/>Columns
+            </button>
+            <t t-set-slot="content">
+                <DropdownItem t-foreach="menuColumns(table)" t-as="column" t-key="column.key" closingMode="'none'"
+                              onSelected="() => this.toggleColumn(table, column.key)">
+                    <input type="checkbox" class="form-check-input me-2" tabindex="-1" style="pointer-events: none;"
+                           t-att-checked="showColumn(table, column.key)"/><t t-esc="column.label"/>
+                </DropdownItem>
+                <DropdownItem t-if="hasHiddenColumns(table)" closingMode="'none'" class="text-muted"
+                              onSelected="() => this.resetColumns(table)">
+                    <i class="fa fa-undo me-2"/>Show all
+                </DropdownItem>
+            </t>
+        </Dropdown>
     </t>
 
 </templates>
